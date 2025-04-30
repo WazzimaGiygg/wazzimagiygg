@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de JSON em Múltiplas Abas</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            padding: 100px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* Full height */
+        }
+        .container {
+            max-width: 100%;
+            margin: auto;
+            background: white;
+            padding: 150px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            flex: 1; /* Allow container to grow and shrink */
+        }
+        .tabs {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping of tabs */
+            margin-bottom: 10px;
+        }
+        .tab {
+            padding: 10px;
+            background: #ddd;
+            margin: 5px;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            flex: 1;
+            text-align: center;
+        }
+        .tab.active {
+            background: white;
+            border-bottom: 2px solid #4285F4;
+        }
+        .iframe-container {
+            position: relative;
+            width: 100%; /* Full width */
+            height: 100%; /* Make iframe container occupy all available space */
+        }
+        iframe {
+            width: 100%; /* Full width */
+            border: 1px solid #ccc;
+            margin-top: 0;
+            border-radius: 4px;
+            height: 100%; /* Make iframe fill all available vertical space */
+        }
+        input[type="file"], input[type="password"], button, input[type="text"] {
+            width: 100%;
+            margin: 20px 0;
+            padding: 12px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4285F4;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #357ae8;
+        }
+        @media (max-width: 480px) {
+            iframe {
+                height: 750px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="contentContainer">
+        <h1>Importar JSON e Visualizar em Abas</h1>
+
+        <!-- Campo para inserir o nome do arquivo JSON -->
+        <input type="text" id="fileName" placeholder="Digite o nome do arquivo JSON (ex: paginas)" value="">
+        <!-- Campo de senha -->
+        <input type="password" id="encryptionPassword" placeholder="Digite a senha" value="">
+        <button id="importButton">Importar JSON</button>
+
+        <div class="tabs" id="tabs"></div>
+        <div id="iframesContainer"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <script>
+        // Quando o botão for clicado, o JSON será carregado
+        document.getElementById('importButton').onclick = function() {
+            importJSON();
+        };
+
+        function importJSON() {
+            // Obter o nome do arquivo JSON
+            const fileName = document.getElementById('fileName').value;
+            if (!fileName) {
+                alert('Por favor, insira o nome do arquivo JSON.');
+                return;
+            }
+
+            // Criar o link completo para o arquivo JSON
+            const jsonLink = `./${fileName}.json`;
+
+            // Carregar o arquivo JSON
+            fetch(jsonLink)
+                .then(response => response.text())  // Carregar o conteúdo como texto
+                .then(encryptedData => {
+                    const password = document.getElementById('encryptionPassword').value;
+
+                    // Decriptografar o conteúdo
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(encryptedData, password);
+                        const jsonString = bytes.toString(CryptoJS.enc.Utf8);
+
+                        // Verificar se a decriptação gerou um JSON válido
+                        let parsedData;
+                        try {
+                            parsedData = JSON.parse(jsonString);
+                        } catch (parseError) {
+                            alert('Erro ao analisar o conteúdo JSON. O arquivo pode estar corrompido ou mal formatado.');
+                            return;
+                        }
+
+                        // Limpar abas e iframes anteriores
+                        document.getElementById('tabs').innerHTML = '';
+                        document.getElementById('iframesContainer').innerHTML = '';
+
+                        // Adicionar abas e iframes baseados nos dados JSON
+                        for (const key in parsedData) {
+                            if (parsedData.hasOwnProperty(key)) {
+                                addTab(parsedData[key], key);
+                            }
+                        }
+                    } catch (e) {
+                        alert('Erro ao decriptografar o arquivo. Verifique a senha ou o formato do arquivo.');
+                    }
+                })
+                .catch(error => {
+                    alert('Erro ao carregar o arquivo JSON. Verifique o nome do arquivo e tente novamente.');
+                    console.error(error);
+                });
+        }
+
+        function addTab(htmlContent, tabName) {
+            const tabButton = document.createElement('div');
+            tabButton.className = 'tab';
+            tabButton.innerText = tabName;
+            tabButton.onclick = () => setActiveTab(tabName);
+            document.getElementById('tabs').appendChild(tabButton);
+
+            const iframeContainer = document.createElement('div');
+            iframeContainer.className = 'iframe-container';
+
+            const iframe = document.createElement('iframe');
+            iframe.id = tabName;
+            iframe.srcdoc = htmlContent;
+            iframe.onload = () => adjustIframeHeight(iframe); // Ajustar altura depois do carregamento do conteúdo
+
+            iframeContainer.appendChild(iframe);
+            document.getElementById('iframesContainer').appendChild(iframeContainer);
+
+            // Define a primeira tab como ativa
+            if (document.querySelectorAll('.tab').length === 1) {
+                tabButton.classList.add('active');
+                iframe.style.display = 'block';
+            } else {
+                iframe.style.display = 'none';
+            }
+        }
+
+        function setActiveTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const iframes = document.querySelectorAll('iframe');
+
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            iframes.forEach(iframe => {
+                iframe.style.display = 'none';
+            });
+
+            document.getElementById(tabName).style.display = 'block';
+            const activeTab = Array.from(tabs).find(tab => tab.innerText === tabName);
+            if (activeTab) {
+                activeTab.classList.add('active');
+            }
+
+            // Ajustar a altura do iframe ativo
+            const activeIframe = document.getElementById(tabName);
+            if (activeIframe) {
+                adjustIframeHeight(activeIframe);
+            }
+        }
+
+        // Função para ajustar a altura do iframe dinamicamente
+        function adjustIframeHeight(iframe) {
+            const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+            const body = iframeDocument.body;
+
+            // Ajustar altura do iframe com base no conteúdo
+            iframe.style.height = `${window.innerHeight - iframe.getBoundingClientRect().top - 20}px`;  // Ajuste com a altura da janela
+        }
+    </script>
+</body>
+</html>
