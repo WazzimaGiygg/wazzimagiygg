@@ -23,7 +23,7 @@
     <!-- Cabeçalho -->
     <header class="mdl-layout__header">
       <div class="mdl-layout__header-row">
-        <span class="mdl-layout-title">Meu Site</span>
+        <span class="mdl-layout-title">WZZM WIKI ZONE ZERO MOD</span>
         <div class="mdl-layout-spacer"></div>
       </div>
     </header>
