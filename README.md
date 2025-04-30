@@ -44,8 +44,8 @@
       <nav class="mdl-navigation">
         <a class="mdl-navigation__link" href="#artigos.html" onclick="loadPage('artigos.html')">Artigos</a>
         <a class="mdl-navigation__link" href="#imagens.html" onclick="loadPage('imagens.html')">Imagens</a>
-        <a class="mdl-navigation__link" href="#autores" onclick="loadPage('autores.html')">Autores</a>
-        <a class="mdl-navigation__link" href="#contato" onclick="loadPage('contato.html')">Contato</a>
+        <a class="mdl-navigation__link" href="#" onclick="loadPage('autores.html')">Autores</a>
+        <a class="mdl-navigation__link" href="#" onclick="loadPage('contato.html')">Contato</a>
       </nav>
     </div>
 
