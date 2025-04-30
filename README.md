@@ -4,14 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WZZM - Wiki Zone Zero Mod</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
+
   <!-- Material Design Lite CSS -->
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
   <style>
     /* Estilo para o iframe */
     #contentFrame {
       width: 100%;
-      height: calc(100vh - 112px); /* altura da janela menos altura do header + footer */
+      height: calc(100vh - 112px); /* altura da janela menos header e footer */
       border: none;
     }
   </style>
@@ -30,12 +35,17 @@
 
     <!-- Menu lateral (Drawer) -->
     <div class="mdl-layout__drawer">
+      <!-- Logo acima do menu -->
+      <div style="text-align: center; padding: 16px;">
+        <img src="logo.png" alt="Logo WZZM" style="max-width: 100px;">
+      </div>
+
       <span class="mdl-layout-title">Menu</span>
       <nav class="mdl-navigation">
         <a class="mdl-navigation__link" href="#artigos.html" onclick="loadPage('artigos.html')">Artigos</a>
         <a class="mdl-navigation__link" href="#imagens.html" onclick="loadPage('imagens.html')">Imagens</a>
-        <a class="mdl-navigation__link" href="#" onclick="loadPage('autores.html')">Autores</a>
-        <a class="mdl-navigation__link" href="#" onclick="loadPage('contato.html')">Contato</a>
+        <a class="mdl-navigation__link" href="#autores" onclick="loadPage('autores.html')">Autores</a>
+        <a class="mdl-navigation__link" href="#contato" onclick="loadPage('contato.html')">Contato</a>
       </nav>
     </div>
 
@@ -45,7 +55,6 @@
         <iframe id="contentFrame" src="artigos.html"></iframe>
       </div>
     </main>
-
   </div>
 
   <!-- Rodapé -->
