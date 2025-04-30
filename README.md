@@ -33,7 +33,7 @@
       <span class="mdl-layout-title">Menu</span>
       <nav class="mdl-navigation">
         <a class="mdl-navigation__link" href="#artigos.html" onclick="loadPage('artigos.html')">Artigos</a>
-        <a class="mdl-navigation__link" href="#" onclick="loadPage('imagens.html')">Imagens</a>
+        <a class="mdl-navigation__link" href="#imagens.html" onclick="loadPage('imagens.html')">Imagens</a>
         <a class="mdl-navigation__link" href="#" onclick="loadPage('autores.html')">Autores</a>
         <a class="mdl-navigation__link" href="#" onclick="loadPage('contato.html')">Contato</a>
       </nav>
