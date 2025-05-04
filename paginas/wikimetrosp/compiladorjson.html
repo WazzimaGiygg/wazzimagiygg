@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compilador de Artigos JSON</title>
+    <style>
+        /* Estilos para o Compilador de Artigos JSON */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #222;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 2.5em;
+        }
+        h2 {
+            font-size: 2em;
+        }
+        #artigos-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .artigo-card {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .artigo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .artigo-titulo {
+            font-size: 1.8em;
+            color: #004080;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .artigo-subtitulo {
+            font-size: 1.2em;
+            color: #4c1130;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .artigo-texto {
+            text-align: justify;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        .artigo-fonte {
+            font-size: 0.9em;
+            color: #555;
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        .artigo-fonte a {
+            color: #0078d7;
+            text-decoration: none;
+        }
+        .artigo-fonte a:hover {
+            text-decoration: underline;
+        }
+        .video-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .video-container iframe {
+            width: 100%;
+            max-height: 400px;
+            border: none;
+            border-radius: 8px;
+        }
+        #mensagem-erro {
+            color: #dc3545;
+            text-align: center;
+            font-size: 1.2em;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+        }
+        @media (max-width: 768px) {
+            .artigo-card {
+                width: 95%;
+                margin: 10px auto;
+            }
+            .artigo-titulo {
+                font-size: 1.5em;
+            }
+            .artigo-subtitulo {
+                font-size: 1em;
+            }
+            .artigo-texto {
+                font-size: 1em;
+            }
+            .video-container iframe {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Compilador de Artigos</h1>
+        <div id="artigos-container">
+            </div>
+        <p id="mensagem-erro"></p>
+    </div>
+    <script>
+        const artigosContainer = document.getElementById('artigos-container');
+        const mensagemErro = document.getElementById('mensagem-erro');
+
+        async function carregarArtigos() {
+            try {
+                const arquivosArtigos = await buscarArtigosDoDiretorio();
+                if (!arquivosArtigos || arquivosArtigos.length === 0) {
+                    mensagemErro.textContent = "Não foram encontrados arquivos de artigo JSON no diretório.";
+                    mensagemErro.style.display = "block";
+                    return;
+                }
+
+                const artigos = await Promise.all(
+                    arquivosArtigos.map(arquivo => buscarArtigo(`./noticias/${arquivo}`))
+                );
+
+                artigos.forEach(artigo => {
+                    const artigoDiv = document.createElement('div');
+                    artigoDiv.classList.add('artigo-card');
+
+                    const tituloElement = document.createElement('h2');
+                    tituloElement.classList.add('artigo-titulo');
+                    tituloElement.textContent = artigo.titulo;
+
+                    const subtituloElement = document.createElement('h3');
+                    subtituloElement.classList.add('artigo-subtitulo');
+                    subtituloElement.textContent = artigo.subtitulo;
+
+                    const textoElement = document.createElement('p');
+                    textoElement.classList.add('artigo-texto');
+                    textoElement.textContent = artigo.texto;
+
+                    const fonteElement = document.createElement('p');
+                    fonteElement.classList.add('artigo-fonte');
+                    fonteElement.innerHTML = `Publicado em: <time datetime="${artigo.dataPublicacao}">${new Date(artigo.dataPublicacao).toLocaleDateString()}</time><br>
+                                            Fonte: <a href="${artigo.linkFonte}" target="_blank" rel="noopener noreferrer">${artigo.fonte}</a>`;
+
+                    const videoDiv = document.createElement('div');
+                    videoDiv.classList.add('video-container');
+                    if (artigo.videoUrl) {
+                        const iframe = document.createElement('iframe');
+                        iframe.src = artigo.videoUrl;
+                        iframe.title = "Vídeo do Artigo";
+                        iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+                        iframe.allowFullscreen = true;
+                        iframe.referrerPolicy = "strict-origin-when-cross-origin";
+                        videoDiv.appendChild(iframe);
+                    }
+
+                    artigoDiv.appendChild(tituloElement);
+                    artigoDiv.appendChild(subtituloElement);
+                    artigoDiv.appendChild(textoElement);
+                    artigoDiv.appendChild(fonteElement);
+                    if (artigo.videoUrl) {
+                        artigoDiv.appendChild(videoDiv);
+                    }
+                    artigosContainer.appendChild(artigoDiv);
+                });
+            } catch (erro) {
+                console.error("Erro ao carregar artigos:", erro);
+                mensagemErro.textContent = "Houve um erro ao carregar os artigos. Por favor, tente novamente mais tarde.";
+                mensagemErro.style.display = "block";
+            }
+        }
+
+        async function buscarArtigosDoDiretorio() {
+            // Simula a leitura de arquivos JSON do diretório /noticias/
+            // Em um ambiente real, você precisaria de um servidor para listar os arquivos.
+            // Para este exemplo, vamos definir um array fixo de nomes de arquivos.
+            const arquivosArtigos = [
+                "noticia1.json",
+                // "noticia2.json",  // Remova ou comente outros arquivos para testar com um arquivo
+                // "noticia3.json",
+                // "noticia4.json",
+                // "noticia5.json",
+                // "noticia6.json",
+                // "noticia7.json",
+                // "noticia8.json",
+                // "noticia9.json",
+                // "noticia10.json"
+            ];
+            return arquivosArtigos;
+        }
+
+        async function buscarArtigo(caminhoArquivo) {
+            const resposta = await fetch(caminhoArquivo);
+            if (!resposta.ok) {
+                throw new Error(`Erro ao buscar artigo: ${resposta.status} ${resposta.statusText}`);
+            }
+            return resposta.json();
+        }
+
+        carregarArtigos();
+    </script>
+</body>
+</html>
