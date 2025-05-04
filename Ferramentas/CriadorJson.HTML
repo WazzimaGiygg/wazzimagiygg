@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Notícias JSON</title>
+    <style>
+        /* Estilos para o Editor de Notícias JSON */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        #noticias-container {
+            margin-bottom: 20px;
+        }
+
+        .noticia-card {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .noticia-card h2 {
+            font-size: 18pt;
+            margin-bottom: 10px;
+            color: #004080;
+        }
+
+        .noticia-card p {
+            margin-bottom: 10px;
+            font-size: 12pt;
+            color: #222;
+        }
+
+        .noticia-card iframe {
+            width: 100%;
+            height: 315px;
+            border: none;
+            margin-bottom: 15px;
+        }
+
+        .noticia-card .acoes {
+            text-align: right;
+        }
+
+        .noticia-card button {
+            padding: 8px 12px;
+            margin-left: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease-in-out;
+            font-size: 10pt;
+        }
+
+        .noticia-card button.editar {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        .noticia-card button.editar:hover {
+            background-color: #0056b3;
+        }
+
+        .noticia-card button.excluir {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        .noticia-card button.excluir:hover {
+            background-color: #c82333;
+        }
+
+
+        #formulario-noticia {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        #formulario-noticia h2 {
+            text-align: left;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 20pt;
+        }
+
+        #formulario-noticia label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 10pt;
+            font-weight: bold;
+        }
+
+        #formulario-noticia input[type="text"],
+        #formulario-noticia textarea {
+            width: 100%;
+            padding: 8px 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 10pt;
+        }
+
+        #formulario-noticia textarea {
+            resize: vertical;
+            height: 100px;
+        }
+
+        #formulario-noticia button {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #28a745;
+            color: #fff;
+            transition: background-color 0.3s ease-in-out;
+            font-size: 10pt;
+        }
+
+        #formulario-noticia button:hover {
+            background-color: #218838;
+        }
+
+        #mensagem-erro {
+            color: #dc3545;
+            margin-bottom: 15px;
+            font-size: 10pt;
+            display: none;
+        }
+
+         @media (max-width: 768px) {
+            .noticia-card h2 {
+                font-size: 16pt;
+            }
+            .noticia-card p{
+                font-size: 11pt;
+            }
+            #formulario-noticia h2{
+                font-size: 18pt;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Editor de Notícias</h1>
+
+        <div id="noticias-container">
+            <h2>Notícias</h2>
+            <p id="mensagem-lista-vazia">Não há notícias cadastradas.</p>
+        </div>
+
+        <div id="formulario-noticia">
+            <h2>Adicionar/Editar Notícia</h2>
+            <form id="form-noticia">
+                <input type="hidden" id="id" >
+                <label for="titulo">Título:</label>
+                <input type="text" id="titulo" required>
+
+                <label for="subtitulo">Subtítulo:</label>
+                <input type="text" id="subtitulo" required>
+
+                <label for="texto">Texto:</label>
+                <textarea id="texto" required></textarea>
+
+                <label for="dataPublicacao">Data de Publicação:</label>
+                <input type="text" id="dataPublicacao" required placeholder="AAAA-MM-DD">
+
+                <label for="fonte">Fonte:</label>
+                <input type="text" id="fonte" required>
+
+                <label for="linkFonte">Link da Fonte:</label>
+                <input type="text" id="linkFonte" required>
+
+                <label for="videoUrl">URL do Vídeo (YouTube):</label>
+                <input type="text" id="videoUrl">
+
+                <div id="mensagem-erro"></div>
+                <button type="submit">Salvar Notícia</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const noticiasContainer = document.getElementById('noticias-container');
+        const formNoticia = document.getElementById('form-noticia');
+        const mensagemErro = document.getElementById('mensagem-erro');
+        const mensagemListaVazia = document.getElementById('mensagem-lista-vazia');
+
+        formNoticia.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('id').value;
+            const titulo = document.getElementById('titulo').value;
+            const subtitulo = document.getElementById('subtitulo').value;
+            const texto = document.getElementById('texto').value;
+            const dataPublicacao = document.getElementById('dataPublicacao').value;
+            const fonte = document.getElementById('fonte').value;
+            const linkFonte = document.getElementById('linkFonte').value;
+            const videoUrl = document.getElementById('videoUrl').value;
+
+            if (!titulo || !subtitulo || !texto || !dataPublicacao || !fonte || !linkFonte) {
+                mensagemErro.textContent = "Todos os campos são obrigatórios.";
+                mensagemErro.style.display = "block";
+                return;
+            }
+             const dataRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dataRegex.test(dataPublicacao)) {
+                mensagemErro.textContent = "Formato de data inválido. Use AAAA-MM-DD.";
+                mensagemErro.style.display = "block";
+                return;
+            }
+
+            mensagemErro.style.display = "none";
+
+            let noticia = {
+                titulo,
+                subtitulo,
+                texto,
+                dataPublicacao,
+                fonte,
+                linkFonte,
+                videoUrl
+            };
+
+            if (id) {
+                // Se o ID existe, atualiza a notícia existente
+                atualizarNoticia(id, noticia);
+            } else {
+                // Se o ID não existe, adiciona uma nova notícia
+                adicionarNoticia(noticia);
+            }
+
+            formNoticia.reset();
+            document.getElementById('id').value = "";
+            formNoticia.querySelector('button[type="submit"]').textContent = "Salvar Notícia";
+            carregarNoticias();
+        });
+
+       function adicionarNoticia(noticia) {
+            let noticias = JSON.parse(localStorage.getItem('noticias')) || [];
+            noticias.push(noticia);
+            localStorage.setItem('noticias', JSON.stringify(noticias));
+        }
+
+        function atualizarNoticia(id, novaNoticia) {
+            let noticias = JSON.parse(localStorage.getItem('noticias')) || [];
+            const index = noticias.findIndex(n => n.id === id);
+            if (index !== -1) {
+                noticias[index] = { ...novaNoticia, id: id };
+                localStorage.setItem('noticias', JSON.stringify(noticias));
+            }
+        }
+
+        function excluirNoticia(id) {
+            let noticias = JSON.parse(localStorage.getItem('noticias')) || [];
+            const index = noticias.findIndex(n => n.id === id);
+            if (index !== -1) {
+                noticias.splice(index, 1);
+                localStorage.setItem('noticias', JSON.stringify(noticias));
+            }
+            carregarNoticias();
+        }
+
+        function editarNoticia(id) {
+            let noticias = JSON.parse(localStorage.getItem('noticias')) || [];
+            const noticia = noticias.find(n => n.id === id);
+            if (noticia) {
+                document.getElementById('id').value = id;
+                document.getElementById('titulo').value = noticia.titulo;
+                document.getElementById('subtitulo').value = noticia.subtitulo;
+                document.getElementById('texto').value = noticia.texto;
+                document.getElementById('dataPublicacao').value = noticia.dataPublicacao;
+                document.getElementById('fonte').value = noticia.fonte;
+                document.getElementById('linkFonte').value = noticia.linkFonte;
+                document.getElementById('videoUrl').value = noticia.videoUrl;
+
+                formNoticia.querySelector('button[type="submit"]').textContent = "Atualizar Notícia";
+                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function carregarNoticias() {
+            let noticias = JSON.parse(localStorage.getItem('noticias')) || [];
+             if (noticias.length === 0) {
+                mensagemListaVazia.style.display = "block";
+                noticiasContainer.innerHTML = '<h2>Notícias</h2><p id="mensagem-lista-vazia">Não há notícias cadastradas.</p>';
+                return;
+            }
+            mensagemListaVazia.style.display = "none";
+            noticiasContainer.innerHTML = '<h2>Notícias</h2>';
+            noticias.forEach(noticia => {
+                const noticiaDiv = document.createElement('div');
+                noticiaDiv.classList.add('noticia-card');
+                noticia.id = noticia.id || crypto.randomUUID();
+
+                noticiaDiv.innerHTML = `
+                    <h2>${noticia.subtitulo}</h2>
+                    <p>${noticia.texto}</p>
+                    <p>Publicado em: <time datetime="${noticia.dataPublicacao}">${new Date(noticia.dataPublicacao).toLocaleDateString()}</time><br>
+                    Fonte: <a href="${noticia.linkFonte}" target="_blank" rel="noopener noreferrer">${noticia.fonte}</a></p>
+                    ${noticia.videoUrl ? `<div class="video-container"><iframe width="560" height="315" src="${noticia.videoUrl}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>` : ''}
+                    <div class="acoes">
+                        <button class="editar" data-id="${noticia.id}">Editar</button>
+                        <button class="excluir" data-id="${noticia.id}">Excluir</button>
+                    </div>
+                `;
+                noticiasContainer.appendChild(noticiaDiv);
+
+                const botaoEditar = noticiaDiv.querySelector('.editar');
+                botaoEditar.addEventListener('click', () => editarNoticia(botaoEditar.dataset.id));
+
+                const botaoExcluir = noticiaDiv.querySelector('.excluir');
+                botaoExcluir.addEventListener('click', () => excluirNoticia(botaoExcluir.dataset.id));
+            });
+        }
+
+
+
+        carregarNoticias();
+    </script>
+</body>
+</html>
