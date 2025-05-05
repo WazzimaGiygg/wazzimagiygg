@@ -27,6 +27,17 @@
             color: #6d28d9; /* Roxo mais escuro no hover */
             text-decoration: underline;
         }
+        .cluster-container {
+            margin-bottom: 2rem;
+        }
+        .cluster-titulo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen py-8">
@@ -36,9 +47,7 @@
             <p id="carregando" class="text-center text-gray-600">Carregando datas dos artigos...</p>
             <p id="erro" class="text-center text-red-500" style="display:none;"></p>
             <div id="lista-artigos-container" style="display: none;">
-                <ul class="lista-artigos" id="artigos-lista">
-                    </ul>
-            </div>
+                </div>
         </div>
     </div>
     <script>
@@ -47,11 +56,10 @@
             const carregandoElement = document.getElementById('carregando');
             const erroElement = document.getElementById('erro');
             const listaArtigosContainer = document.getElementById('lista-artigos-container');
-            const artigosLista = document.getElementById('artigos-lista');
 
             try {
                 // URL do arquivo JSON
-                const urlDoJson = 'http://www.wzzm.org/jsonartigospadrao.json';  // Alterado para o URL externo
+                const urlDoJson = 'http://www.wzzm.org/jsonartigospadrao.json';
 
                 // Faz a requisição para obter o JSON
                 const response = await fetch(urlDoJson);
@@ -72,55 +80,49 @@
                 // Limpa o indicador de carregamento e mostra a lista
                 carregandoElement.style.display = 'none';
                 listaArtigosContainer.style.display = 'block';
-                artigosLista.innerHTML = ''; // Limpa o conteúdo anterior
+                artigosContainer.innerHTML = ''; // Limpa o conteúdo anterior
 
                 // Se não houver artigos, exibe uma mensagem
                 if (artigosJson.length === 0) {
-                    artigosLista.innerHTML = '<p class="text-center text-gray-700">Nenhum artigo encontrado.</p>';
+                    artigosContainer.innerHTML = '<p class="text-center text-gray-700">Nenhum artigo encontrado.</p>';
                     return;
                 }
 
-                // Organiza os artigos por ano e mês
-                const artigosPorData = {};
+                // Organiza os artigos por cluster
+                const artigosPorCluster = {};
                 artigosJson.forEach(artigo => {
-                    const data = new Date(artigo.data);
-                    const ano = data.getFullYear();
-                    const mes = data.getMonth(); // 0-indexed
-                    if (!artigosPorData[ano]) {
-                        artigosPorData[ano] = {};
+                    if (!artigosPorCluster[artigo.cluster]) {
+                        artigosPorCluster[artigo.cluster] = [];
                     }
-                    if (!artigosPorData[ano][mes]) {
-                        artigosPorData[ano][mes] = [];
-                    }
-                    artigosPorData[ano][mes].push(artigo);
+                    artigosPorCluster[artigo.cluster].push(artigo);
                 });
 
-                // Cria os elementos HTML para exibir as datas dos artigos
-                for (const ano in artigosPorData) {
-                    const anoTitulo = document.createElement('h2');
-                    anoTitulo.textContent = ano;
-                    anoTitulo.classList.add('text-2xl', 'font-semibold', 'text-gray-700', 'mt-6', 'mb-2');
-                    artigosLista.parentElement.appendChild(anoTitulo); // Adiciona antes da lista
+                // Adiciona os artigos à página, agrupados por cluster
+                for (const cluster in artigosPorCluster) {
+                    const clusterContainer = document.createElement('div');
+                    clusterContainer.className = 'cluster-container';
 
-                    for (const mes in artigosPorData[ano]) {
-                        const nomeMes = obterNomeMes(parseInt(mes)); // Converte para número antes de obter o nome
-                        const mesTitulo = document.createElement('h3');
-                        mesTitulo.textContent = nomeMes;
-                        mesTitulo.classList.add('text-xl', 'font-semibold', 'text-gray-600', 'mt-4', 'mb-1');
-                        artigosLista.parentElement.appendChild(mesTitulo); // Adiciona antes da lista
+                    const clusterTitulo = document.createElement('h2');
+                    clusterTitulo.className = 'cluster-titulo';
+                    clusterTitulo.textContent = cluster;
 
-                        artigosPorData[ano][mes].forEach(artigo => {
-                            const listItem = document.createElement('li');
-                            listItem.classList.add('mb-2');
-                            const link = document.createElement('a');
-                            // Mantendo o link original do JSON
-                            link.href = artigo.link;
-                            link.textContent = `${artigo.titulo} (${formatarData(artigo.data)})`;
-                            listItem.appendChild(link);
-                            artigosLista.appendChild(listItem);
-                        });
-                    }
+                    const listaArtigos = document.createElement('ul');
+                    listaArtigos.className = 'lista-artigos';
+
+                    artigosPorCluster[cluster].forEach(artigo => {
+                        const listItem = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.href = artigo.link;
+                        link.textContent = `${artigo.titulo} (${formatarData(artigo.data)})`;
+                        listItem.appendChild(link);
+                        listaArtigos.appendChild(listItem);
+                    });
+
+                    clusterContainer.appendChild(clusterTitulo);
+                    clusterContainer.appendChild(listaArtigos);
+                    artigosContainer.appendChild(clusterContainer);
                 }
+
             } catch (error) {
                 // Exibe a mensagem de erro
                 carregandoElement.style.display = 'none';
