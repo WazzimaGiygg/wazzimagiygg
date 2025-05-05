@@ -3,20 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conteúdo JSON</title>
+    <title>Buscar e Exibir JSONs</title>
     <style>
         .json-container {
             border: 1px solid #ccc;
             padding: 10px;
             margin-bottom: 10px;
             background-color: #f9f9f9;
-            overflow-x: auto; /* Adiciona barra de rolagem horizontal se o conteúdo for muito largo */
+            overflow-x: auto;
         }
-
         pre {
-            white-space: pre-wrap; /* Quebra as linhas longas */
-            word-break: break-all; /* Quebra palavras longas para evitar estouro */
-            font-family: monospace; /* Fonte monoespaçada para melhor legibilidade */
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: monospace;
+        }
+        .erro {
+            color: red;
+        }
+        .carregando {
+            color: blue;
         }
     </style>
 </head>
@@ -24,45 +29,54 @@
     <main class="main-content">
         <section id="json-content" class="json-container">
             <h1>Conteúdo dos arquivos JSON</h1>
-            <p class="carregando">Carregando...</p>
+            <p class="carregando">Carregando lista de arquivos...</p>
         </section>
     </main>
-
     <script>
-        async function exibirTodosJson() {
+        async function buscarEExibirJsons() {
             const jsonContainer = document.getElementById('json-content');
-            jsonContainer.innerHTML = '<h1 class="json-titulo">Conteúdo dos arquivos JSON</h1><p class="carregando">Carregando...</p>';
+            jsonContainer.innerHTML = '<h1 class="json-titulo">Conteúdo dos arquivos JSON</h1><p class="carregando">Carregando lista de arquivos...</p>';
 
-            // **LISTE AQUI MANUALMENTE OS NOMES DE TODOS OS ARQUIVOS JSON QUE VOCÊ QUER EXIBIR**
-            const arquivosJson = [
-
-                // ADICIONE AQUI TODOS OS OUTROS NOMES DE ARQUIVOS JSON
-            ];
-
-            for (const arquivo of arquivosJson) {
-                try {
-                    const response = await fetch(`https://wzzm.org/noticias/${arquivo}`);
-                    if (!response.ok) {
-                        console.error(`Erro ao buscar ${arquivo}: ${response.status} ${response.statusText}`);
-                        jsonContainer.innerHTML += `<p class="erro">Erro ao carregar ${arquivo}. Verifique o console. Update da mensagem teste</p>`;
-                        continue;
-                    }
-                    const jsonData = await response.json();
-                    const pre = document.createElement('pre');
-                    pre.textContent = JSON.stringify(jsonData, null, 2); // Formata o JSON com 2 espaços
-                    jsonContainer.appendChild(pre);
-                } catch (error) {
-                    console.error(`Erro ao processar ${arquivo}:`, error);
-                    jsonContainer.innerHTML += `<p class="erro">Erro ao processar ${arquivo}. Verifique o console. Update da mensagem teste</p>`;
+            try {
+                // 1. Buscar a lista de arquivos JSON do servidor
+                const responseLista = await fetch('listar_jsons.php'); // Chamando o script PHP
+                if (!responseLista.ok) {
+                    throw new Error(`Erro ao buscar lista de arquivos: ${responseLista.status}`);
                 }
-            }
+                const listaDeArquivos = await responseLista.json();
 
-            if (jsonContainer.children.length === 1) { // Apenas o título e o "Carregando..."
-                jsonContainer.innerHTML = '<h1 class="json-titulo">Conteúdo dos arquivos JSON</h1><p class="erro">Nenhum arquivo JSON foi carregado.</p>';
+                if (!Array.isArray(listaDeArquivos) || listaDeArquivos.length === 0) {
+                    jsonContainer.innerHTML = '<p class="erro">Nenhum arquivo JSON encontrado no servidor.</p>';
+                    return;
+                }
+
+                jsonContainer.innerHTML = '<h1 class="json-titulo">Conteúdo dos arquivos JSON</h1>'; // Limpa a mensagem de carregando
+
+                // 2. Iterar sobre a lista e buscar o conteúdo de cada arquivo
+                for (const nomeDoArquivo of listaDeArquivos) {
+                    try {
+                        const responseJson = await fetch(nomeDoArquivo);
+                        if (!responseJson.ok) {
+                            console.error(`Erro ao buscar ${nomeDoArquivo}: ${responseJson.status} ${responseJson.statusText}`);
+                            jsonContainer.innerHTML += `<p class="erro">Erro ao carregar ${nomeDoArquivo}. Verifique o console.</p>`;
+                            continue; // Vai para o próximo arquivo
+                        }
+                        const jsonData = await responseJson.json();
+                        const pre = document.createElement('pre');
+                        pre.textContent = JSON.stringify(jsonData, null, 2);
+                        jsonContainer.appendChild(pre);
+                    } catch (erroJson) {
+                        console.error(`Erro ao processar ${nomeDoArquivo}:`, erroJson);
+                        jsonContainer.innerHTML += `<p class="erro">Erro ao processar ${nomeDoArquivo}. Verifique o console.</p>`;
+                    }
+                }
+            } catch (erroGeral) {
+                console.error('Erro geral:', erroGeral);
+                jsonContainer.innerHTML = `<p class="erro">Ocorreu um erro ao buscar os arquivos JSON: ${erroGeral.message}</p>`;
             }
         }
 
-        window.onload = exibirTodosJson;
+        window.onload = buscarEExibirJsons;
     </script>
 </body>
 </html>
