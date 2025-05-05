@@ -1,1 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datas dos Artigos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .lista-artigos {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .lista-artigos li {
+            margin-bottom: 0.5rem;
+        }
+        .lista-artigos li a {
+            color: #4f46e5; /* Cor roxa do Tailwind */
+            text-decoration: none;
+            transition: color 0.2s ease-in-out;
+        }
+        .lista-artigos li a:hover {
+            color: #6d28d9; /* Roxo mais escuro no hover */
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="max-w-4xl mx-auto px-4">
+        <h1 class="text-3xl font-semibold text-gray-800 text-center mb-6">Datas de Artigos</h1>
+        <div id="artigos-container" class="bg-white shadow-md rounded-lg p-6">
+            <p id="carregando" class="text-center text-gray-600">Carregando datas dos artigos...</p>
+            <p id="erro" class="text-center text-red-500" style="display:none;"></p>
+            <div id="lista-artigos-container" style="display: none;">
+                <ul class="lista-artigos" id="artigos-lista">
+                    </ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function buscarDatasArtigos() {
+            const artigosContainer = document.getElementById('artigos-container');
+            const carregandoElement = document.getElementById('carregando');
+            const erroElement = document.getElementById('erro');
+            const listaArtigosContainer = document.getElementById('lista-artigos-container');
+            const artigosLista = document.getElementById('artigos-lista');
 
+            try {
+                // URL do arquivo JSON
+                const urlDoJson = 'http://www.wzzm.org/jsonartigospadrao.json';  // Alterado para o URL externo
+
+                // Faz a requisição para obter o JSON
+                const response = await fetch(urlDoJson);
+
+                // Verifica se a requisição foi bem-sucedida
+                if (!response.ok) {
+                    throw new Error(`Erro ao buscar artigos: ${response.status} ${response.statusText}`);
+                }
+
+                // Converte a resposta para JSON
+                const artigosJson = await response.json();
+
+                // Verifica se o JSON é um array
+                if (!Array.isArray(artigosJson)) {
+                    throw new Error('Formato de artigos inválido: o JSON deve ser um array.');
+                }
+
+                // Limpa o indicador de carregamento e mostra a lista
+                carregandoElement.style.display = 'none';
+                listaArtigosContainer.style.display = 'block';
+                artigosLista.innerHTML = ''; // Limpa o conteúdo anterior
+
+                // Se não houver artigos, exibe uma mensagem
+                if (artigosJson.length === 0) {
+                    artigosLista.innerHTML = '<p class="text-center text-gray-700">Nenhum artigo encontrado.</p>';
+                    return;
+                }
+
+                // Organiza os artigos por ano e mês
+                const artigosPorData = {};
+                artigosJson.forEach(artigo => {
+                    const data = new Date(artigo.data);
+                    const ano = data.getFullYear();
+                    const mes = data.getMonth(); // 0-indexed
+                    if (!artigosPorData[ano]) {
+                        artigosPorData[ano] = {};
+                    }
+                    if (!artigosPorData[ano][mes]) {
+                        artigosPorData[ano][mes] = [];
+                    }
+                    artigosPorData[ano][mes].push(artigo);
+                });
+
+                // Cria os elementos HTML para exibir as datas dos artigos
+                for (const ano in artigosPorData) {
+                    const anoTitulo = document.createElement('h2');
+                    anoTitulo.textContent = ano;
+                    anoTitulo.classList.add('text-2xl', 'font-semibold', 'text-gray-700', 'mt-6', 'mb-2');
+                    artigosLista.parentElement.appendChild(anoTitulo); // Adiciona antes da lista
+
+                    for (const mes in artigosPorData[ano]) {
+                        const nomeMes = obterNomeMes(parseInt(mes)); // Converte para número antes de obter o nome
+                        const mesTitulo = document.createElement('h3');
+                        mesTitulo.textContent = nomeMes;
+                        mesTitulo.classList.add('text-xl', 'font-semibold', 'text-gray-600', 'mt-4', 'mb-1');
+                        artigosLista.parentElement.appendChild(mesTitulo); // Adiciona antes da lista
+
+                        artigosPorData[ano][mes].forEach(artigo => {
+                            const listItem = document.createElement('li');
+                            listItem.classList.add('mb-2');
+                            const link = document.createElement('a');
+                            // Mantendo o link original do JSON
+                            link.href = artigo.link;
+                            link.textContent = `${artigo.titulo} (${formatarData(artigo.data)})`;
+                            listItem.appendChild(link);
+                            artigosLista.appendChild(listItem);
+                        });
+                    }
+                }
+            } catch (error) {
+                // Exibe a mensagem de erro
+                carregandoElement.style.display = 'none';
+                erroElement.textContent = `Erro: ${error.message}`;
+                erroElement.style.display = 'block';
+                console.error(error); // Log do erro no console para debugging
+            }
+        }
+
+        // Função para obter o nome do mês
+        function obterNomeMes(mes) {
+            const nomesMeses = [
+                'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+            ];
+            return nomesMeses[mes];
+        }
+
+        // Função para formatar a data
+        function formatarData(dataString) {
+            const data = new Date(dataString);
+            const dia = data.getDate().toString().padStart(2, '0');
+            const mes = (data.getMonth() + 1).toString().padStart(2, '0'); // +1 porque os meses são 0-indexados
+            const ano = data.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        // Chama a função para buscar as datas dos artigos quando a página carregar
+        window.onload = buscarDatasArtigos;
+    </script>
+</body>
+</html>
