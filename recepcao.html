@@ -3,80 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscar e Exibir JSONs</title>
+    <title>Últimas Notícias</title>
     <style>
-        .json-container {
-            border: 1px solid #ccc;
-            padding: 10px;
+        /* Estilos CSS para a página de notícias */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 1em 0;
+            text-align: center;
+        }
+        main {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .noticia-item {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .noticia-item h2 {
+            margin-top: 0;
             margin-bottom: 10px;
-            background-color: #f9f9f9;
-            overflow-x: auto;
+            color: #555;
         }
-        pre {
-            white-space: pre-wrap;
-            word-break: break-all;
-            font-family: monospace;
+        .noticia-item p {
+            margin-bottom: 10px;
+            color: #666;
         }
-        .erro {
+        .noticia-item a {
+            display: inline-block;
+            background-color: #0078d7;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .noticia-item a:hover {
+            background-color: #0056b3;
+        }
+        #carregando {
+            text-align: center;
+            font-size: 18px;
+            color: #888;
+        }
+        #erro {
+            text-align: center;
+            font-size: 18px;
             color: red;
-        }
-        .carregando {
-            color: blue;
         }
     </style>
 </head>
 <body>
-    <main class="main-content">
-        <section id="json-content" class="json-container">
-            <h1>Conteúdo dos arquivos JSON</h1>
-            <p class="carregando">Carregando lista de arquivos...</p>
-        </section>
+    <header>
+        <h1>Últimas Notícias</h1>
+    </header>
+    <main id="noticias-container">
+        <p id="carregando">Carregando notícias...</p>
+        <p id="erro" style="display:none;"></p>
     </main>
     <script>
-        async function buscarEExibirJsons() {
-            const jsonContainer = document.getElementById('json-content');
-            jsonContainer.innerHTML = '<h1 class="json-titulo">Conteúdo dos arquivos JSON</h1><p class="carregando">Carregando lista de arquivos...</p>';
+        // Função para buscar as notícias do arquivo JSON
+        async function buscarNoticias() {
+            const noticiasContainer = document.getElementById('noticias-container');
+            const carregandoElement = document.getElementById('carregando');
+            const erroElement = document.getElementById('erro');
 
             try {
-                // 1. Buscar a lista de arquivos JSON do servidor
-                const responseLista = await fetch('./noticias/listar_jsons.php'); // Chamando o script PHP
-                if (!responseLista.ok) {
-                    throw new Error(`Erro ao buscar lista de arquivos: ${responseLista.status}`);
-                }
-                const listaDeArquivos = await responseLista.json();
+                // URL do arquivo JSON (substitua pelo caminho correto)
+                const urlDoJson = 'noticias.json';
 
-                if (!Array.isArray(listaDeArquivos) || listaDeArquivos.length === 0) {
-                    jsonContainer.innerHTML = '<p class="erro">Nenhum arquivo JSON encontrado no servidor.</p>';
+                // Faz a requisição para obter o JSON
+                const response = await fetch(urlDoJson);
+
+                // Verifica se a requisição foi bem-sucedida
+                if (!response.ok) {
+                    throw new Error(`Erro ao buscar notícias: ${response.status} ${response.statusText}`);
+                }
+
+                // Converte a resposta para JSON
+                const noticiasJson = await response.json();
+
+                // Verifica se o JSON contém um array de notícias
+                if (!Array.isArray(noticiasJson)) {
+                    throw new Error('Formato de notícias inválido: o JSON deve ser um array.');
+                }
+
+                // Limpa o indicador de carregamento
+                carregandoElement.style.display = 'none';
+                noticiasContainer.innerHTML = ''; // Limpa o conteúdo anterior
+
+                // Se não houver notícias, exibe uma mensagem
+                if (noticiasJson.length === 0) {
+                    noticiasContainer.innerHTML = '<p>Nenhuma notícia encontrada.</p>';
                     return;
                 }
 
-                jsonContainer.innerHTML = '<h1 class="json-titulo">Conteúdo dos arquivos JSON</h1>'; // Limpa a mensagem de carregando
+                // Itera sobre as notícias e cria os elementos HTML
+                noticiasJson.forEach(noticia => {
+                    const noticiaItem = document.createElement('div');
+                    noticiaItem.classList.add('noticia-item');
 
-                // 2. Iterar sobre a lista e buscar o conteúdo de cada arquivo
-                for (const nomeDoArquivo of listaDeArquivos) {
-                    try {
-                        const responseJson = await fetch(nomeDoArquivo);
-                        if (!responseJson.ok) {
-                            console.error(`Erro ao buscar ${nomeDoArquivo}: ${responseJson.status} ${responseJson.statusText}`);
-                            jsonContainer.innerHTML += `<p class="erro">Erro ao carregar ${nomeDoArquivo}. Verifique o console.</p>`;
-                            continue; // Vai para o próximo arquivo
-                        }
-                        const jsonData = await responseJson.json();
-                        const pre = document.createElement('pre');
-                        pre.textContent = JSON.stringify(jsonData, null, 2);
-                        jsonContainer.appendChild(pre);
-                    } catch (erroJson) {
-                        console.error(`Erro ao processar ${nomeDoArquivo}:`, erroJson);
-                        jsonContainer.innerHTML += `<p class="erro">Erro ao processar ${nomeDoArquivo}. Verifique o console.</p>`;
-                    }
-                }
-            } catch (erroGeral) {
-                console.error('Erro geral:', erroGeral);
-                jsonContainer.innerHTML = `<p class="erro">Ocorreu um erro ao buscar os arquivos JSON: ${erroGeral.message}</p>`;
+                    const tituloElement = document.createElement('h2');
+                    tituloElement.textContent = noticia.titulo;
+
+                    const resumoElement = document.createElement('p');
+                    resumoElement.textContent = noticia.resumo;
+
+                    const linkElement = document.createElement('a');
+                    linkElement.href = noticia.link;
+                    linkElement.textContent = 'Leia mais';
+
+                    noticiaItem.appendChild(tituloElement);
+                    noticiaItem.appendChild(resumoElement);
+                    noticiaItem.appendChild(linkElement);
+                    noticiasContainer.appendChild(noticiaItem);
+                });
+            } catch (error) {
+                // Exibe a mensagem de erro
+                carregandoElement.style.display = 'none';
+                erroElement.textContent = `Erro: ${error.message}`;
+                erroElement.style.display = 'block';
+                console.error(error); // Log do erro no console para debugging
             }
         }
 
-        window.onload = buscarEExibirJsons;
+        // Chama a função para buscar as notícias quando a página carregar
+        window.onload = buscarNoticias;
     </script>
 </body>
 </html>
