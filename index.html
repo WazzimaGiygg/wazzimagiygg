@@ -7,12 +7,27 @@
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <link rel="icon" href="favicom.png" type="image/x-icon">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <style>
         /* Estilo para o iframe */
         #contentFrame {
             width: 100%;
             height: calc(100vh - 112px); /* altura da janela menos altura do header + footer */
             border: none;
+        }
+        /* Estilos adicionais para a barra de login */
+        .mdl-layout__header-row .mdl-navigation {
+            display: flex;
+            align-items: center;
+        }
+        .mdl-layout__header-row .mdl-navigation .mdl-button {
+            margin-left: 16px;
+        }
+        #user-info {
+            margin-left: 16px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -23,6 +38,15 @@
             <div class="mdl-layout__header-row">
                 <span class="mdl-layout-title">WZZM</span>
                 <div class="mdl-layout-spacer"></div>
+                <nav class="mdl-navigation">
+                    <span id="user-info"></span>
+                    <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" id="login-button" style="display: none;">
+                        Login
+                    </button>
+                    <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" id="logout-button" style="display: none;">
+                        Logout
+                    </button>
+                </nav>
             </div>
         </header>
 
@@ -38,7 +62,6 @@
                 <a class="mdl-navigation__link" href="#./" onclick="loadPage('servicoswzzm.html')">Outros serviços da Wiki Zone Zero Mod</a>
                 <a href="http://www.wzzm.org/POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf">Políticas da WZZM</a><p>&nbsp;</p>
                 [UPDATE]
-                
             </nav>
         </div>
 
@@ -46,7 +69,7 @@
             <div class="page-content">
                 <div class="separator" style="clear: both; text-align: center;">
                     <a href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqrJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4Da0sMXBHJ6BFlZaG4MCEiimtNbLDv4Q6Z_MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s2833/Wiki_Zone_Zero_Mod_Banner.webp" style="display: block; padding: 1em 0;">
-                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqrJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4Da0sMXBHJ6BFlZaG4MCEiimtNbLDv4Q6Z_MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
+                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqrJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4DaOswxBHJ6BFlZaG4MCEiimtNbLDv4Q6Z_MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
                     </a>
                 </div>
                 <iframe id="contentFrame" src="recepcao.html"></iframe>
@@ -69,6 +92,83 @@
         function loadPage(page) {
             document.getElementById('contentFrame').src = page;
         }
+
+        // --- Configuração do Firebase ---
+        // VOCÊ PRECISA SUBSTITUIR ESTES VALORES PELAS SUAS PRÓPRIAS CHAVES DO FIREBASE!
+        // Vá ao seu projeto Firebase -> Configurações do Projeto -> Seus aplicativos -> Adicionar aplicativo da web
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_AUTH_DOMAIN",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_STORAGE_BUCKET",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID",
+            measurementId: "SEU_MEASUREMENT_ID"
+        };
+
+        // Inicialize o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore(); // Se for usar o Firestore para algo além de autenticação
+
+        // Elementos da UI
+        const loginButton = document.getElementById('login-button');
+        const logoutButton = document.getElementById('logout-button');
+        const userInfo = document.getElementById('user-info');
+
+        // Listener de estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Usuário logado
+                userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
+                loginButton.style.display = 'none';
+                logoutButton.style.display = 'inline-block';
+            } else {
+                // Usuário deslogado
+                userInfo.textContent = '';
+                loginButton.style.display = 'inline-block';
+                logoutButton.style.display = 'none';
+            }
+        });
+
+        // Evento de clique para o botão de Login
+        loginButton.addEventListener('click', () => {
+            // Você pode usar um popup ou redirecionamento para o login
+            // Exemplo com popup do Google
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    // O usuário logou com sucesso.
+                    // Você pode acessar result.user para obter informações do usuário.
+                    console.log("Usuário logado:", result.user);
+                })
+                .catch((error) => {
+                    // Erro de login
+                    console.error("Erro de login:", error);
+                    alert(`Erro ao fazer login: ${error.message}`);
+                });
+        });
+
+        // Evento de clique para o botão de Logout
+        logoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                // Logout bem-sucedido
+                console.log("Usuário deslogado.");
+            }).catch((error) => {
+                // Erro ao fazer logout
+                console.error("Erro ao fazer logout:", error);
+                alert(`Erro ao fazer logout: ${error.message}`);
+            });
+        });
+
+        // --- Configuração para Login Único (SSO) entre subdomínios ---
+        // Para que o login seja compartilhado entre subdomínios (e.g., wiki.wzzm.org, blog.wzzm.org),
+        // é crucial configurar o authDomain no Firebase e também o domínio do cookie no seu host.
+        // O Firebase Authentication por padrão já tenta lidar com isso se o authDomain estiver correto.
+        // Certifique-se de que SEU_AUTH_DOMAIN em firebaseConfig esteja configurado para 'wzzm.org'.
+        // Exemplo: authDomain: "wzzm.org",
+        // E também que todos os seus subdomínios apontem para os mesmos arquivos de site ou configurem
+        // a autenticação de forma consistente.
     </script>
 </body>
 </html>
