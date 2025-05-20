@@ -3,106 +3,785 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WZZM WIKI ZONE ZERO MOD</title>
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <title>Painel de Administração - WZZM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tailwindcss/browser@latest"></script>
+
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
     <style>
-        /* Estilo para o iframe */
-        #contentFrame {
-            width: 100%;
-            height: calc(100vh - 112px); /* altura da janela menos altura do header + footer */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #f3f4f6;
+        }
+        .admin-header {
+            background-color: #333;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .admin-header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .admin-header nav {
+            display: flex;
+            align-items: center;
+        }
+        .admin-header nav span {
+            margin-right: 16px;
+            font-weight: bold;
+        }
+        .admin-header button {
+            background-color: #f44336; /* Vermelho para logout */
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
             border: none;
         }
-        /* Estilos para o link de administração */
-        .mdl-layout__header-row .mdl-navigation .admin-link {
-            margin-left: 16px;
-            color: #fff; /* Cor do texto no header */
+        .admin-header button:hover {
+            background-color: #da190b;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            display: flex; /* Usar flexbox para layout de 2 colunas */
+            gap: 2rem; /* Espaçamento entre as colunas */
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+        }
+        .sidebar h3 {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sidebar ul li {
+            margin-bottom: 0.5rem;
+        }
+        .sidebar ul li a {
+            display: block;
+            padding: 0.75rem 1rem;
+            border-radius: 0.25rem;
+            color: #555;
             text-decoration: none;
-            font-weight: bold;
-            padding: 8px 12px;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 4px;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.2s ease;
         }
-        .mdl-layout__header-row .mdl-navigation .admin-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+        .sidebar ul li a:hover,
+        .sidebar ul li a.active {
+            background-color: #e0e7ff; /* Cor mais clara para item ativo/hover */
+            color: #2563eb;
+            font-weight: 500;
         }
+        .dashboard-content {
+            flex-grow: 1;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 0.5rem;
+            padding: 2rem;
+        }
+        .dashboard-content h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+        .hidden-section {
+            display: none;
+        }
+        .card {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px dashed #e5e7eb;
+        }
+        .list-item:last-child {
+            border-bottom: none;
+        }
+        .list-item button {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.25rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .list-item button:hover {
+            background-color: #dc2626; /* red-600 */
+        }
+        .list-item button.green {
+            background-color: #22c55e; /* green-500 */
+        }
+        .list-item button.green:hover {
+            background-color: #16a34a; /* green-600 */
+        }
+        .add-friend-form {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .add-friend-form input {
+            flex-grow: 1;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+        }
+        .add-friend-form button {
+            background-color: #2563eb;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            border: none;
+            cursor: pointer;
+        }
+        .add-friend-form button:hover {
+            background-color: #1d4ed8;
+        }
+        /* Admin-specific styles */
+        #admin-panel {
+            background-color: #fee2e2; /* bg-red-100 */
+            border: 1px solid #fca5a5; /* border-red-300 */
+            color: #b91c1c; /* text-red-700 */
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin-top: 2rem;
+        }
+        #admin-panel h3 {
+            color: #b91c1c;
+        }
+
     </style>
 </head>
 <body>
-    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header">
+    <header class="admin-header">
+        <h1>Painel de Administração WZZM</h1>
+        <nav>
+            <span id="user-info"></span>
+            <button id="logout-button" style="display: none;">
+                Sair
+            </button>
+        </nav>
+    </header>
 
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">WZZM</span>
-                <div class="mdl-layout-spacer"></div>
-                <nav class="mdl-navigation">
-                    <a href="login.html" class="admin-link">Área de Administração</a>
-                    </nav>
-            </div>
-        </header>
-
-        <div class="mdl-layout__drawer">
-            <span class="mdl-layout-title">Menu</span>
-            <nav class="mdl-navigation">
-                <a class="mdl-navigation__link" href="#./" onclick="loadPage('recepcao.html')">Página Inicio</a>
-                <a class="mdl-navigation__link" href="#./" onclick="loadPage('artigos.html')">Artigos</a>
-                <a class="mdl-navigation__link" href="#./" onclick="loadPage('artigosdesaudementalgerados.html')">Artigos Automáticos de Ensaio</a>
-                <a class="mdl-navigation__link" href="#./" onclick="loadPage('imagens.html')">Imagens</a>
-                <a class="mdl-navigation__link" href="#./" onclick="loadPage('contato.html')">Contato</a>
-                <a class="mdl-navigation__link" href="#./" onclick="loadPage('ferramentasuteis.html')">Ferramentas Úteis</a>
-                <a class="mdl-navigation__link" href="#./" onclick="loadPage('servicoswzzm.html')">Outros serviços da Wiki Zone Zero Mod</a>
-                <a href="http://www.wzzm.org/POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf">Políticas da WZZM</a><p>&nbsp;</p>
-                [UPDATE]
-            </nav>
-        </div>
-
-        <main class="mdl-layout__content">
-            <div class="page-content">
-                <div class="separator" style="clear: both; text-align: center;">
-                    <a href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4Da0sMXBH6BFlZaG4MCEiimtNbLDv4Q6Z_MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s2833/Wiki_Zone_Zero_Mod_Banner.webp" style="display: block; padding: 1em 0;">
-                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4DaOswxBH6BFlZaG4MCEiimtNbLDv4Q6Z_MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
-                    </a>
-                </div>
-                <iframe id="contentFrame" src="recepcao.html"></iframe>
-            </div>
-        </main>
-
-    </div>
-
-    <footer class="mdl-mini-footer">
-        <div class="mdl-mini-footer__left-section">
-            <div class="mdl-logo">WZZM © 2025</div>
-            <ul class="mdl-mini-footer__link-list">
-                <li><a href="#">Privacidade</a></li>
-                <li><a href="#">Termos</a></li>
+    <main class="main-content">
+        <aside class="sidebar">
+            <h3>Navegação</h3>
+            <ul>
+                <li><a href="#" id="nav-dashboard" class="active">Visão Geral</a></li>
+                <li><a href="#" id="nav-my-articles">Meus Artigos</a></li>
+                <li><a href="#" id="nav-blocked-articles">Artigos Bloqueados (p/ mim)</a></li>
+                <li><a href="#" id="nav-friends">Amigos</a></li>
+                <li id="nav-admin-section" class="hidden-section"><a href="#" id="nav-super-admin">Administração Avançada</a></li>
             </ul>
-        </div>
-    </footer>
+        </aside>
+
+        <section class="dashboard-content">
+            <div id="dashboard-view">
+                <h2>Visão Geral do Painel</h2>
+                <p>Bem-vindo(a) à sua área de administração. Use o menu lateral para navegar.</p>
+                </div>
+
+            <div id="my-articles-view" class="hidden-section">
+                <h2>Meus Artigos Criados</h2>
+                <div id="articles-created-list">
+                    <p>Carregando seus artigos...</p>
+                </div>
+                <div class="card mt-4">
+                    <h3>Criar Novo Artigo</h3>
+                    <input type="text" id="new-article-title" placeholder="Título do Artigo" class="w-full p-2 border rounded mb-2">
+                    <textarea id="new-article-content" placeholder="Conteúdo do Artigo" class="w-full p-2 border rounded min-h-[100px]"></textarea>
+                    <button id="create-article-button" class="bg-blue-600 text-white p-2 rounded mt-2 hover:bg-blue-700">Criar Artigo</button>
+                </div>
+            </div>
+
+            <div id="blocked-articles-view" class="hidden-section">
+                <h2>Artigos Bloqueados por Mim</h2>
+                <div id="articles-blocked-list">
+                    <p>Carregando artigos bloqueados...</p>
+                </div>
+            </div>
+
+            <div id="friends-view" class="hidden-section">
+                <h2>Gerenciar Amigos</h2>
+                <div class="card">
+                    <h3>Meus Amigos</h3>
+                    <div id="friends-list">
+                        <p>Carregando lista de amigos...</p>
+                    </div>
+                    <div class="add-friend-form">
+                        <input type="text" id="add-friend-email" placeholder="E-mail do amigo" />
+                        <button id="add-friend-button">Adicionar Amigo</button>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <h3>Usuários Bloqueados por Mim</h3>
+                    <div id="blocked-users-list">
+                        <p>Carregando usuários bloqueados...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="super-admin-view" class="hidden-section">
+                <h2>Administração Avançada</h2>
+                <div id="admin-panel">
+                    <h3>Funcionalidades de Administrador</h3>
+                    <p>Bem-vindo, Super Administrador!</p>
+                    <ul>
+                        <li><button id="ban-user-button" class="bg-red-500 text-white p-2 rounded mr-2">Banir Usuário</button> (p/ e-mail/UID)</li>
+                        <li><button id="block-article-global-button" class="bg-red-500 text-white p-2 rounded mr-2">Bloquear Artigo Globalmente</button> (p/ ID)</li>
+                        <li><button id="access-github-button" class="bg-blue-500 text-white p-2 rounded mr-2">Acessar Edição GitHub</button> (requer backend seguro)</li>
+                    </ul>
+                    <p class="text-sm mt-4">Esta seção é visível apenas para administradores autorizados.</p>
+                </div>
+            </div>
+
+        </section>
+    </main>
 
     <script>
-        function loadPage(page) {
-            document.getElementById('contentFrame').src = page;
-        }
-
-        // --- Configuração do Firebase Analytics (se quiser manter, opcional) ---
-        // Apenas Analytics e App, sem Auth, Firestore, etc.
+        // --- Configuração do Firebase ---
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com", // Ainda necessário para Analytics
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
             projectId: "wzzm-ce3fc",
             storageBucket: "wzzm-ce3fc.firebasestorage.app",
             messagingSenderId: "249427877153",
             appId: "1:249427877153:web:0e4297294794a5aadeb260",
             measurementId: "G-PLKNZNFCQ8"
         };
-        const app = firebase.initializeApp(firebaseConfig);
-        const analytics = firebase.analytics();
 
-        // Removida toda a lógica de autenticação do Firebase (onAuthStateChanged, loginButton, logoutButton, etc.)
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+        const analytics = firebase.analytics(); // Opcional, pode ser removido se não for usar
+
+        // Elementos da UI
+        const logoutButton = document.getElementById('logout-button');
+        const userInfo = document.getElementById('user-info');
+
+        // Seções do dashboard
+        const dashboardView = document.getElementById('dashboard-view');
+        const myArticlesView = document.getElementById('my-articles-view');
+        const blockedArticlesView = document.getElementById('blocked-articles-view');
+        const friendsView = document.getElementById('friends-view');
+        const superAdminView = document.getElementById('super-admin-view');
+
+        // Botões de navegação
+        const navDashboard = document.getElementById('nav-dashboard');
+        const navMyArticles = document.getElementById('nav-my-articles');
+        const navBlockedArticles = document.getElementById('nav-blocked-articles');
+        const navFriends = document.getElementById('nav-friends');
+        const navAdminSection = document.getElementById('nav-admin-section');
+        const navSuperAdmin = document.getElementById('nav-super-admin');
+
+        // Artigos e Amigos (listas e formulários)
+        const articlesCreatedList = document.getElementById('articles-created-list');
+        const newArticleTitleInput = document.getElementById('new-article-title');
+        const newArticleContentInput = document.getElementById('new-article-content');
+        const createArticleButton = document.getElementById('create-article-button');
+        const articlesBlockedList = document.getElementById('articles-blocked-list');
+        const friendsList = document.getElementById('friends-list');
+        const blockedUsersList = document.getElementById('blocked-users-list');
+        const addFriendEmailInput = document.getElementById('add-friend-email');
+        const addFriendButton = document.getElementById('add-friend-button');
+
+        // IDs dos Super Administradores (UIDs, não e-mails)
+        // Esta constante SUPER_ADMIN_EMAILS não será mais usada para a verificação de admin
+        // já que agora lemos do Firestore. Pode ser removida ou deixada como um lembrete.
+        const SUPER_ADMIN_EMAILS = [
+            'pedrohenriquecardonaperes@gmail.com',
+            'wazzimagiygg@gmail.com'
+        ];
+        let currentUserIsSuperAdmin = false; // Flag para controlar o acesso admin
+
+        // --- Funções de UI ---
+
+        function showSection(sectionId) {
+            const sections = [dashboardView, myArticlesView, blockedArticlesView, friendsView, superAdminView];
+            sections.forEach(section => {
+                section.classList.add('hidden-section');
+            });
+            document.getElementById(sectionId).classList.remove('hidden-section');
+
+            const navLinks = [navDashboard, navMyArticles, navBlockedArticles, navFriends, navSuperAdmin];
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+            });
+            document.getElementById(`nav-${sectionId.replace('-view', '')}`).classList.add('active');
+
+            // Carregar dados específicos da seção
+            if (sectionId === 'my-articles-view') {
+                loadUserArticles();
+            } else if (sectionId === 'blocked-articles-view') {
+                loadBlockedArticlesByMe();
+            } else if (sectionId === 'friends-view') {
+                loadFriendsAndBlockedUsers();
+            }
+        }
+
+        // --- Funções do Firebase/Firestore ---
+
+        // Listener de estado de autenticação
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                const userProfileRef = firestore.collection('users').doc(user.uid);
+                try {
+                    const doc = await userProfileRef.get();
+
+                    if (doc.exists && doc.data() && doc.data().cpf) {
+                        const userData = doc.data();
+                        userInfo.textContent = `Olá, ${userData.nome || user.displayName || user.email}!`;
+                        logoutButton.style.display = 'inline-block';
+
+                        // --- NOVO CÓDIGO CRÍTICO AQUI ---
+                        // Carregar a lista de super administradores do Firestore
+                        const superAdminsDoc = await firestore.collection('admins').doc('superAdmins').get();
+                        let superAdminUids = [];
+                        if (superAdminsDoc.exists && superAdminsDoc.data().uids) {
+                            superAdminUids = superAdminsDoc.data().uids;
+                        }
+
+                        // Verifica se o UID do usuário logado está na lista de UIDs dos super administradores
+                        currentUserIsSuperAdmin = superAdminUids.includes(user.uid); // <--- ESTA LINHA É CRÍTICA!
+
+                        if (currentUserIsSuperAdmin) {
+                            navAdminSection.classList.remove('hidden-section');
+                        }
+                        // --- FIM DO NOVO CÓDIGO CRÍTICO ---
+
+                        // Mostra a seção de dashboard padrão
+                        showSection('dashboard-view');
+
+                    } else {
+                        // Perfil incompleto, redirecionar para a página de cadastro
+                        window.location.href = 'cadastro-perfil.html';
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar perfil no Firestore:", error);
+                    // Em caso de erro de permissão ou outro, redireciona para login ou mostra erro
+                    alert("Erro ao carregar seu perfil. Por favor, tente novamente ou entre em contato com o suporte.");
+                    auth.signOut(); // Desloga o usuário para evitar loop
+                    window.location.href = 'login.html';
+                }
+            } else {
+                // Usuário deslogado, redirecionar para a página de login
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Evento de clique para o botão de Logout
+        logoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                console.log("Usuário deslogado.");
+                window.location.href = 'login.html';
+            }).catch((error) => {
+                console.error("Erro ao fazer logout:", error);
+                alert(`Erro ao fazer logout: ${error.message}`);
+            });
+        });
+
+        // --- Navegação ---
+        navDashboard.addEventListener('click', () => showSection('dashboard-view'));
+        navMyArticles.addEventListener('click', () => showSection('my-articles-view'));
+        navBlockedArticles.addEventListener('click', () => showSection('blocked-articles-view'));
+        navFriends.addEventListener('click', () => showSection('friends-view'));
+        navSuperAdmin.addEventListener('click', () => {
+            if (currentUserIsSuperAdmin) {
+                showSection('super-admin-view');
+            } else {
+                alert('Você não tem permissão para acessar esta área.');
+            }
+        });
+
+        // --- Funcionalidades de Artigos ---
+
+        async function loadUserArticles() {
+            articlesCreatedList.innerHTML = '<p>Carregando seus artigos...</p>';
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const articlesSnapshot = await firestore.collection('articles')
+                    .where('authorUid', '==', user.uid)
+                    .orderBy('createdAt', 'desc')
+                    .get();
+
+                articlesCreatedList.innerHTML = ''; // Limpa a mensagem de carregamento
+                if (articlesSnapshot.empty) {
+                    articlesCreatedList.innerHTML = '<p>Você ainda não criou nenhum artigo.</p>';
+                } else {
+                    articlesSnapshot.forEach(doc => {
+                        const article = doc.data();
+                        const articleId = doc.id;
+                        const div = document.createElement('div');
+                        div.className = 'list-item';
+                        div.innerHTML = `
+                            <span>${article.title}</span>
+                            <div>
+                                <button class="bg-blue-500 text-white p-2 rounded mr-2 hover:bg-blue-600 edit-article-btn" data-id="${articleId}">Editar</button>
+                                <button class="bg-red-500 text-white p-2 rounded hover:bg-red-600 delete-article-btn" data-id="${articleId}">Excluir</button>
+                            </div>
+                        `;
+                        articlesCreatedList.appendChild(div);
+                    });
+                    // Adicionar listeners para os botões de editar e excluir
+                    articlesCreatedList.querySelectorAll('.delete-article-btn').forEach(button => {
+                        button.addEventListener('click', (e) => deleteArticle(e.target.dataset.id));
+                    });
+                    articlesCreatedList.querySelectorAll('.edit-article-btn').forEach(button => {
+                        button.addEventListener('click', (e) => editArticle(e.target.dataset.id)); // Implementar edição depois
+                    });
+                }
+            } catch (error) {
+                console.error("Erro ao carregar artigos do usuário:", error);
+                articlesCreatedList.innerHTML = '<p class="text-red-500">Erro ao carregar artigos.</p>';
+            }
+        }
+
+        createArticleButton.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('Você precisa estar logado para criar artigos.');
+                return;
+            }
+
+            const title = newArticleTitleInput.value.trim();
+            const content = newArticleContentInput.value.trim();
+
+            if (!title || !content) {
+                alert('Título e conteúdo do artigo não podem estar vazios.');
+                return;
+            }
+
+            try {
+                await firestore.collection('articles').add({
+                    title: title,
+                    content: content,
+                    authorUid: user.uid,
+                    authorEmail: user.email, // Adicionar e-mail para fácil referência
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'published', // Artigo recém-criado é publicado por padrão
+                    blockedByUsers: [] // Inicialmente não bloqueado por ninguém
+                });
+                alert('Artigo criado com sucesso!');
+                newArticleTitleInput.value = '';
+                newArticleContentInput.value = '';
+                loadUserArticles(); // Recarrega a lista
+            } catch (error) {
+                console.error("Erro ao criar artigo:", error);
+                alert(`Erro ao criar artigo: ${error.message}`);
+            }
+        });
+
+        async function deleteArticle(articleId) {
+            if (!confirm('Tem certeza que deseja excluir este artigo?')) return;
+            const user = auth.currentUser;
+            if (!user) {
+                alert('Você precisa estar logado.');
+                return;
+            }
+            try {
+                const articleRef = firestore.collection('articles').doc(articleId);
+                const doc = await articleRef.get();
+
+                if (doc.exists && doc.data().authorUid === user.uid) {
+                    await articleRef.delete();
+                    alert('Artigo excluído com sucesso!');
+                    loadUserArticles();
+                } else {
+                    alert('Você não tem permissão para excluir este artigo.');
+                }
+            } catch (error) {
+                console.error("Erro ao excluir artigo:", error);
+                alert(`Erro ao excluir artigo: ${error.message}`);
+            }
+        }
+
+        // Função para edição de artigo (apenas um placeholder por enquanto)
+        function editArticle(articleId) {
+            alert(`Funcionalidade de edição para o artigo ID: ${articleId} será implementada.`);
+            // Aqui você carregaria o artigo para um formulário de edição
+        }
+
+
+        async function loadBlockedArticlesByMe() {
+            articlesBlockedList.innerHTML = '<p>Carregando artigos bloqueados por você...</p>';
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                // Opção 1: Buscar no perfil do usuário (se blockedArticlesByMe for um array de IDs)
+                const userDoc = await firestore.collection('users').doc(user.uid).get();
+                const blockedArticleIds = userDoc.data().articlesBlockedByMe || [];
+
+                if (blockedArticleIds.length === 0) {
+                    articlesBlockedList.innerHTML = '<p>Você não bloqueou nenhum artigo.</p>';
+                    return;
+                }
+
+                // Carrega os detalhes dos artigos bloqueados (em lote para evitar muitas leituras)
+                const articlesToFetch = [];
+                for (const id of blockedArticleIds) {
+                    articlesToFetch.push(firestore.collection('articles').doc(id).get());
+                }
+                const articleDocs = await Promise.all(articlesToFetch);
+
+                articlesBlockedList.innerHTML = '';
+                articleDocs.forEach(doc => {
+                    if (doc.exists) {
+                        const article = doc.data();
+                        const articleId = doc.id;
+                        const div = document.createElement('div');
+                        div.className = 'list-item';
+                        div.innerHTML = `
+                            <span>${article.title} (por: ${article.authorEmail || 'desconhecido'})</span>
+                            <button class="bg-green-500 text-white p-2 rounded hover:bg-green-600 unblock-article-btn" data-id="${articleId}">Desbloquear</button>
+                        `;
+                        articlesBlockedList.appendChild(div);
+                    }
+                });
+
+                articlesBlockedList.querySelectorAll('.unblock-article-btn').forEach(button => {
+                    button.addEventListener('click', (e) => unblockArticleForMe(e.target.dataset.id));
+                });
+
+            } catch (error) {
+                console.error("Erro ao carregar artigos bloqueados pelo usuário:", error);
+                articlesBlockedList.innerHTML = '<p class="text-red-500">Erro ao carregar artigos bloqueados.</p>';
+            }
+        }
+
+        async function unblockArticleForMe(articleId) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const userRef = firestore.collection('users').doc(user.uid);
+                await userRef.update({
+                    articlesBlockedByMe: firebase.firestore.FieldValue.arrayRemove(articleId)
+                });
+                alert('Artigo desbloqueado com sucesso!');
+                loadBlockedArticlesByMe();
+            } catch (error) {
+                console.error("Erro ao desbloquear artigo:", error);
+                alert(`Erro ao desbloquear artigo: ${error.message}`);
+            }
+        }
+
+        // --- Funcionalidades de Amigos ---
+
+        async function loadFriendsAndBlockedUsers() {
+            friendsList.innerHTML = '<p>Carregando amigos...</p>';
+            blockedUsersList.innerHTML = '<p>Carregando usuários bloqueados...</p>';
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const userDoc = await firestore.collection('users').doc(user.uid).get();
+                const userData = userDoc.data();
+                const friendUids = userData.friends || [];
+                const blockedUids = userData.blockedUsers || [];
+
+                friendsList.innerHTML = '';
+                if (friendUids.length === 0) {
+                    friendsList.innerHTML = '<p>Você ainda não tem amigos.</p>';
+                } else {
+                    // Carregar dados dos amigos (apenas email para exibir)
+                    const friendPromises = friendUids.map(uid => firestore.collection('users').doc(uid).get());
+                    const friendDocs = await Promise.all(friendPromises);
+                    friendDocs.forEach(doc => {
+                        if (doc.exists) {
+                            const friendData = doc.data();
+                            const div = document.createElement('div');
+                            div.className = 'list-item';
+                            div.innerHTML = `
+                                <span>${friendData.nome || friendData.email}</span>
+                                <div>
+                                    <button class="bg-red-500 text-white p-2 rounded hover:bg-red-600 remove-friend-btn" data-uid="${doc.id}">Remover</button>
+                                    <button class="bg-yellow-500 text-white p-2 rounded hover:bg-yellow-600 block-friend-btn" data-uid="${doc.id}">Bloquear</button>
+                                </div>
+                            `;
+                            friendsList.appendChild(div);
+                        }
+                    });
+                    friendsList.querySelectorAll('.remove-friend-btn').forEach(btn => btn.addEventListener('click', (e) => removeFriend(e.target.dataset.uid)));
+                    friendsList.querySelectorAll('.block-friend-btn').forEach(btn => btn.addEventListener('click', (e) => blockUser(e.target.dataset.uid)));
+                }
+
+
+                blockedUsersList.innerHTML = '';
+                if (blockedUids.length === 0) {
+                    blockedUsersList.innerHTML = '<p>Você não bloqueou nenhum usuário.</p>';
+                } else {
+                    // Carregar dados dos usuários bloqueados
+                    const blockedPromises = blockedUids.map(uid => firestore.collection('users').doc(uid).get());
+                    const blockedDocs = await Promise.all(blockedPromises);
+                    blockedDocs.forEach(doc => {
+                        if (doc.exists) {
+                            const blockedData = doc.data();
+                            const div = document.createElement('div');
+                            div.className = 'list-item';
+                            div.innerHTML = `
+                                <span>${blockedData.nome || blockedData.email}</span>
+                                <button class="bg-green-500 text-white p-2 rounded hover:bg-green-600 unblock-user-btn" data-uid="${doc.id}">Desbloquear</button>
+                            `;
+                            blockedUsersList.appendChild(div);
+                        }
+                    });
+                    blockedUsersList.querySelectorAll('.unblock-user-btn').forEach(btn => btn.addEventListener('click', (e) => unblockUser(e.target.dataset.uid)));
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar amigos e usuários bloqueados:", error);
+                friendsList.innerHTML = '<p class="text-red-500">Erro ao carregar lista de amigos.</p>';
+                blockedUsersList.innerHTML = '<p class="text-red-500">Erro ao carregar lista de usuários bloqueados.</p>';
+            }
+        }
+
+        addFriendButton.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const friendEmail = addFriendEmailInput.value.trim();
+            if (!friendEmail) {
+                alert('Por favor, insira o e-mail do amigo.');
+                return;
+            }
+
+            try {
+                // Encontrar o UID do amigo pelo e-mail
+                const friendQuerySnapshot = await firestore.collection('users').where('email', '==', friendEmail).limit(1).get();
+                if (friendQuerySnapshot.empty) {
+                    alert('Usuário com este e-mail não encontrado.');
+                    return;
+                }
+                const friendUid = friendQuerySnapshot.docs[0].id; // O ID do documento é o UID
+
+                if (friendUid === user.uid) {
+                    alert('Você não pode adicionar a si mesmo como amigo.');
+                    return;
+                }
+
+                const userRef = firestore.collection('users').doc(user.uid);
+                await userRef.update({
+                    friends: firebase.firestore.FieldValue.arrayUnion(friendUid)
+                });
+
+                alert('Amigo adicionado com sucesso!');
+                addFriendEmailInput.value = '';
+                loadFriendsAndBlockedUsers(); // Recarregar listas
+            } catch (error) {
+                console.error("Erro ao adicionar amigo:", error);
+                alert(`Erro ao adicionar amigo: ${error.message}`);
+            }
+        });
+
+        async function removeFriend(friendUid) {
+            if (!confirm('Tem certeza que deseja remover este amigo?')) return;
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const userRef = firestore.collection('users').doc(user.uid);
+                await userRef.update({
+                    friends: firebase.firestore.FieldValue.arrayRemove(friendUid)
+                });
+                alert('Amigo removido com sucesso!');
+                loadFriendsAndBlockedUsers();
+            } catch (error) {
+                console.error("Erro ao remover amigo:", error);
+                alert(`Erro ao remover amigo: ${error.message}`);
+            }
+        }
+
+        async function blockUser(userToBlockUid) {
+            if (!confirm('Tem certeza que deseja bloquear este usuário?')) return;
+            const user = auth.currentUser;
+            if (!user) return;
+
+            if (userToBlockUid === user.uid) {
+                alert('Você não pode bloquear a si mesmo.');
+                return;
+            }
+
+            try {
+                const userRef = firestore.collection('users').doc(user.uid);
+                // Remover dos amigos (se for amigo) e adicionar aos bloqueados
+                await userRef.update({
+                    friends: firebase.firestore.FieldValue.arrayRemove(userToBlockUid),
+                    blockedUsers: firebase.firestore.FieldValue.arrayUnion(userToBlockUid)
+                });
+                alert('Usuário bloqueado com sucesso!');
+                loadFriendsAndBlockedUsers();
+            } catch (error) {
+                console.error("Erro ao bloquear usuário:", error);
+                alert(`Erro ao bloquear usuário: ${error.message}`);
+            }
+        }
+
+        async function unblockUser(userToUnblockUid) {
+            if (!confirm('Tem certeza que deseja desbloquear este usuário?')) return;
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const userRef = firestore.collection('users').doc(user.uid);
+                await userRef.update({
+                    blockedUsers: firebase.firestore.FieldValue.arrayRemove(userToUnblockUid)
+                });
+                alert('Usuário desbloqueado com sucesso!');
+                loadFriendsAndBlockedUsers();
+            } catch (error) {
+                console.error("Erro ao desbloquear usuário:", error);
+                alert(`Erro ao desbloquear usuário: ${error.message}`);
+            }
+        }
+        // Admin functions (placeholders)
+        document.getElementById('ban-user-button').addEventListener('click', () => {
+            alert('Funcionalidade de Banir Usuário (Admin) será implementada.');
+        });
+        document.getElementById('block-article-global-button').addEventListener('click', () => {
+            alert('Funcionalidade de Bloquear Artigo Globalmente (Admin) será implementada.');
+        });
+        document.getElementById('access-github-button').addEventListener('click', () => {
+            alert('Acesso à Edição GitHub (Admin) será implementado e requer um backend seguro.');
+        });
     </script>
 </body>
 </html>
