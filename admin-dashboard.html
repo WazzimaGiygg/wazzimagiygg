@@ -797,6 +797,77 @@ const firestore = firebase.firestore(); // Se precisar acessar Firestore na pág
         document.getElementById('access-github-button').addEventListener('click', () => {
             alert('Acesso à Edição GitHub (Admin) será implementado e requer um backend seguro.');
         });
+
+        // Obtenha o botão de login
+const googleLoginButton = document.getElementById('google-login-button');
+
+// Adicione um listener para o clique no botão
+googleLoginButton.addEventListener('click', async () => {
+    // Crie um provedor de autenticação Google
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    try {
+        // Inicie o fluxo de login com redirect
+        await auth.signInWithRedirect(provider);
+        // O usuário será redirecionado para a página de login do Google,
+        // depois voltará para esta página (ou a URL de redirecionamento configurada)
+        // O resultado do login será tratado no listener onAuthStateChanged (próximo passo)
+
+    } catch (error) {
+        // Trate erros aqui. Por exemplo:
+        console.error("Erro no login com Google:", error);
+        alert(`Erro ao tentar logar com Google: ${error.message}`);
+        // Você pode exibir mensagens de erro mais específicas com base no error.code
+        // Ex: if (error.code === 'auth/account-exists-with-different-credential') {...}
+    }
+});
+
+// --- Lidar com o resultado do Redirect ao retornar para a página ---
+// Quando o Google redirecionar o usuário de volta, o Firebase processará o resultado automaticamente.
+// Você usa o mesmo listener onAuthStateChanged que já tem no seu painel
+// para detectar que o usuário logou.
+
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        // Usuário logado!
+        console.log("Usuário logado:", user);
+
+        // Aqui você pode verificar se é a primeira vez que ele loga (para criar perfil)
+        // ou se ele já tem um perfil (como você faz no código do painel)
+
+        // Exemplo de como pegar o resultado do Redirect (útil se precisar de tokens ou dados adicionais)
+        try {
+             const result = await auth.getRedirectResult();
+             if (result && result.credential) {
+                 // Isso significa que o usuário acabou de retornar do redirect
+                 console.log("Login com Redirect concluído:", result);
+                 // Aqui você pode redirecionar para o painel de administração
+                 window.location.href = 'admin.html'; // Altere para o nome da sua página do painel
+             } else {
+                 // Isso pode acontecer se o usuário já estava logado antes de chegar na página de login
+                 console.log("Usuário já logado, redirecionando...");
+                 window.location.href = 'admin.html'; // Redirecione para o painel
+             }
+
+        } catch (error) {
+            console.error("Erro ao obter resultado do Redirect:", error);
+            alert(`Erro ao processar login: ${error.message}`);
+            // Opcional: Forçar logout em caso de erro crítico
+            auth.signOut();
+        }
+
+
+    } else {
+        // Usuário deslogado.
+        console.log("Nenhum usuário logado.");
+        // Certifique-se de que os elementos de login estejam visíveis nesta página
+        // e que o botão de logout no header (se existir) esteja oculto.
+    }
+});
+
+// Lembre-se de adaptar o nome da página do painel ('admin.html' no exemplo)
+// para o nome real do seu arquivo (parece ser o próprio arquivo que você me mostrou).
+
     </script>
 </body>
 </html>
