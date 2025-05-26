@@ -104,13 +104,12 @@
         </div>
     </footer>
 
-    <script>
+        <script>
         function loadPage(page) {
             document.getElementById('contentFrame').src = page;
         }
 
         // --- Configuração do Firebase ---
-        // Seus dados de configuração do Firebase, copiados do Console
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -131,44 +130,107 @@
         const loginButton = document.getElementById('login-button');
         const logoutButton = document.getElementById('logout-button');
         const userInfo = document.getElementById('user-info');
+        const adminPanelButton = document.querySelector('.mdl-button--admin'); // Seleciona o botão do Painel Admin
+
+        // Esconde o botão do Painel Admin por padrão (será mostrado no onAuthStateChanged se logado/admin)
+        adminPanelButton.style.display = 'none';
+
 
         // Listener de estado de autenticação
-        auth.onAuthStateChanged(user => {
+        auth.onAuthStateChanged(async (user) => { // Usar async aqui para usar await dentro
             if (user) {
+                // Usuário logado
                 userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
                 loginButton.style.display = 'none';
                 logoutButton.style.display = 'inline-block';
+
+                // **Verificar se o usuário é admin ou tem perfil completo**
+                const userProfileRef = firestore.collection('users').doc(user.uid);
+                try {
+                    const doc = await userProfileRef.get();
+
+                    if (doc.exists && doc.data() && doc.data().cpf) {
+                         // Perfil completo encontrado, mostra o botão do Painel Admin
+                         adminPanelButton.style.display = 'inline-block';
+                    } else {
+                        // Perfil incompleto, talvez redirecionar para cadastro
+                        // Ou apenas não mostrar o botão de admin e adicionar uma mensagem
+                        console.log("Usuário logado, mas perfil incompleto. Redirecionando para cadastro.");
+                        // Opcional: redirecionar automaticamente para a página de cadastro
+                        // window.location.href = 'cadastro-perfil.html';
+                        // Ou apenas manter o botão de admin oculto e mostrar uma mensagem na UI
+                        userInfo.textContent += ' (Perfil incompleto. Vá para o Painel Admin para completar.)';
+                        adminPanelButton.style.display = 'inline-block'; // Você pode decidir se mostra ou não neste caso
+                    }
+
+                    // **Lidar com o resultado do Redirect (se a página foi carregada após um redirect de login)**
+                     try {
+                        const result = await auth.getRedirectResult();
+                        if (result && result.credential) {
+                            // Login com Redirect concluído. O usuário acabou de voltar.
+                            console.log("Login com Redirect concluído:", result.user);
+                            // Não precisa fazer mais nada aqui, o onAuthStateChanged já atualizou a UI.
+                            // Se você quisesse redirecionar *apenas* após um login BEM SUCEDIDO por redirect
+                            // para uma página específica, poderia adicionar window.location.href = 'alguma-pagina.html';
+                            // Mas como esta é a página principal, geralmente fica aqui mesmo.
+                        }
+                     } catch (error) {
+                         // Tratar erros que acontecem APENAS durante o retorno do redirect
+                         console.error("Erro ao obter resultado do Redirect:", error);
+                         alert(`Erro ao processar login: ${error.message}`);
+                         // Opcional: forçar logout em caso de erro crítico pós-redirect
+                         // auth.signOut();
+                     }
+
+
+                } catch (error) {
+                     console.error("Erro ao verificar perfil no Firestore durante onAuthStateChanged:", error);
+                     // Em caso de erro de permissão ao ler 'users' ou outro erro,
+                     // trate como se o perfil não pudesse ser verificado.
+                     adminPanelButton.style.display = 'none'; // Esconde o botão admin
+                     userInfo.textContent += ' (Erro ao verificar perfil.)';
+                     // Opcional: Deslogar o usuário se o erro for grave
+                     // auth.signOut();
+                }
+
+
             } else {
-                userInfo.textContent = '';
-                loginButton.style.display = 'inline-block';
-                logoutButton.style.display = 'none';
+                // Usuário deslogado
+                userInfo.textContent = ''; // Limpa as informações do usuário
+                loginButton.style.display = 'inline-block'; // Mostra o botão de login
+                logoutButton.style.display = 'none'; // Esconde o botão de logout
+                adminPanelButton.style.display = 'none'; // Esconde o botão do Painel Admin
             }
         });
 
-        // Evento de clique para o botão de Login
-        loginButton.addEventListener('click', () => {
+        // Evento de clique para o botão de Login (AGORA USA REDIRECIONAMENTO)
+        loginButton.addEventListener('click', async () => { // Tornar async para usar await no futuro, se necessário
             const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider)
-                .then((result) => {
-                    console.log("Usuário logado:", result.user);
-                    // Opcional: Redirecionar para o admin-dashboard se for administrador
-                    // Você pode adicionar uma verificação aqui, como no admin-dashboard.html
-                })
-                .catch((error) => {
-                    console.error("Erro de login:", error);
-                    alert(`Erro ao fazer login: ${error.message}`);
-                });
+
+            try {
+                // Inicie o fluxo de login com redirect
+                await auth.signInWithRedirect(provider);
+                // Após esta linha, o navegador irá redirecionar para o Google.
+                // O código AQUI não será executado imediatamente após o redirecionamento começar.
+
+            } catch (error) {
+                // Trate erros que acontecem ANTES do redirecionamento (ex: configuração inválida)
+                console.error("Erro ao iniciar login com Google (Redirect):", error);
+                alert(`Erro ao iniciar login com Google: ${error.message}`);
+            }
         });
 
         // Evento de clique para o botão de Logout
         logoutButton.addEventListener('click', () => {
             auth.signOut().then(() => {
                 console.log("Usuário deslogado.");
+                // O onAuthStateChanged vai cuidar de atualizar a UI após o logout
             }).catch((error) => {
                 console.error("Erro ao fazer logout:", error);
                 alert(`Erro ao fazer logout: ${error.message}`);
             });
         });
     </script>
+
 </body>
 </html>
