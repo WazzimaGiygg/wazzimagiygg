@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro/Envio de Persona</title>
+    <title>Página do Usuário - Perfil e Artigos</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
     <style>
@@ -41,7 +41,7 @@
             padding: 12px 0;
             font-size: 1.1em;
         }
-        #message, #profileMessage {
+        #authMessage, #profileMessage, #articleMessage { /* Consolidando as mensagens */
             margin-top: 20px;
             text-align: center;
             font-weight: bold;
@@ -52,11 +52,10 @@
         .error {
             color: #F44336;
         }
-        #profileFormContainer {
-            display: none; /* Initially hidden, shown if profile needs update */
-            margin-top: 20px;
+        #profileFormContainer, #articleFormContainer, #loadingMessage {
+            display: none; /* Initially hidden */
         }
-        /* Fix for Material Design Lite date input label */
+        /* Style for date input label in MDL */
         .mdl-textfield--floating-label.is-dirty .mdl-textfield__label,
         .mdl-textfield--floating-label.has-placeholder .mdl-textfield__label {
             top: 4px; /* Adjust as needed */
@@ -65,9 +64,25 @@
     </style>
 </head>
 <body>
+    <div id="loadingMessage" class="container" style="text-align: center;">
+        <p>Carregando...</p>
+        <div class="mdl-spinner mdl-js-spinner is-active mdl-spinner--single-color"></div>
+    </div>
+
+    <div id="authMessage" class="container">
+        <h2>Acesso Necessário</h2>
+        <p>Para continuar, você precisa estar logado.</p>
+        <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="window.location.href='login.html'">
+            Ir para Login/Cadastro
+        </button>
+        <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" id="googleSignInButton">
+            <i class="material-icons">A</i> Login com Google
+        </button>
+    </div>
+
     <div id="profileFormContainer" class="container">
         <h2>Seu Perfil de Usuário</h2>
-        <p>Parece que seu perfil não está completo. Por favor, preencha os dados abaixo.</p>
+        <p>Por favor, complete seus dados de perfil para continuar.</p>
         <form id="userProfileForm">
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="text" id="profileName" required>
@@ -91,21 +106,18 @@
     <div class="container" id="articleFormContainer">
         <h2>Enviar Novo Artigo de Persona</h2>
         <form id="articleForm">
-            <div id="profileFields">
-                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                    <input class="mdl-textfield__input" type="text" id="userName">
-                    <label class="mdl-textfield__label" for="userName">Seu Nome Completo (Será usado no artigo)</label>
-                </div>
-                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                    <input class="mdl-textfield__input" type="text" id="userFantasyName">
-                    <label class="mdl-textfield__label" for="userFantasyName">Nome de Personagem/Fantasia (Opcional no artigo)</label>
-                </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="userNameForArticle" readonly>
+                <label class="mdl-textfield__label" for="userNameForArticle">Seu Nome Completo (do seu perfil)</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="userFantasyNameForArticle">
+                <label class="mdl-textfield__label" for="userFantasyNameForArticle">Nome de Personagem/Fantasia (Opcional no artigo)</label>
             </div>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="text" id="articleTitle" required>
                 <label class="mdl-textfield__label" for="articleTitle">Título da Persona</label>
             </div>
-
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <textarea class="mdl-textfield__input" type="text" rows="5" id="articleHistory" required></textarea>
                 <label class="mdl-textfield__label" for="articleHistory">História da Persona</label>
@@ -121,8 +133,11 @@
             <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
                 Enviar Artigo
             </button>
-            <p id="message"></p>
+            <p id="articleMessage"></p>
         </form>
+        <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="margin-top: 20px;" onclick="firebase.auth().signOut()">
+            Sair
+        </button>
     </div>
 
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
@@ -132,7 +147,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
 
     <script>
-        // --- Firebase Configuration (MUST BE THE SAME AS YOUR INDEX.HTML) ---
+        // --- Firebase Configuration ---
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -143,7 +158,6 @@
             measurementId: "G-PLKNZNFCQ8"
         };
 
-        // Initialize Firebase if not already initialized
         let app;
         if (firebase.apps.length === 0) {
             app = firebase.initializeApp(firebaseConfig);
@@ -154,89 +168,132 @@
         const firestore = firebase.firestore();
         const analytics = firebase.analytics();
 
-        // UI Elements for Article Form
-        const articleForm = document.getElementById('articleForm');
-        const userNameInput = document.getElementById('userName');
-        const userFantasyNameInput = document.getElementById('userFantasyName');
-        const articleTitleInput = document.getElementById('articleTitle');
-        const articleHistoryInput = document.getElementById('articleHistory');
-        const secondaryLinkInput = document.getElementById('secondaryLink');
-        const photoLinkInput = document.getElementById('photoLink');
-        const messageDisplay = document.getElementById('message');
-        const profileFieldsDiv = document.getElementById('profileFields');
+        // UI Elements
+        const loadingMessage = document.getElementById('loadingMessage');
+        const authMessage = document.getElementById('authMessage');
+        const profileFormContainer = document.getElementById('profileFormContainer');
         const articleFormContainer = document.getElementById('articleFormContainer');
 
-        // UI Elements for User Profile Form
-        const profileFormContainer = document.getElementById('profileFormContainer');
+        // User Profile Form Elements
         const userProfileForm = document.getElementById('userProfileForm');
         const profileNameInput = document.getElementById('profileName');
         const profileTelephoneInput = document.getElementById('profileTelephone');
         const profileBirthdayInput = document.getElementById('profileBirthday');
         const profileMessage = document.getElementById('profileMessage');
 
-        let currentUser = null; // To store the authenticated user object
+        // Article Form Elements
+        const articleForm = document.getElementById('articleForm');
+        const userNameForArticleInput = document.getElementById('userNameForArticle'); // Renamed for clarity
+        const userFantasyNameForArticleInput = document.getElementById('userFantasyNameForArticle'); // Renamed for clarity
+        const articleTitleInput = document.getElementById('articleTitle');
+        const articleHistoryInput = document.getElementById('articleHistory');
+        const secondaryLinkInput = document.getElementById('secondaryLink');
+        const photoLinkInput = document.getElementById('photoLink');
+        const articleMessage = document.getElementById('articleMessage'); // Renamed for clarity
 
-        // --- LÓGICA DE CADASTRO/ATUALIZAÇÃO DE USUÁRIO ---
+        const googleSignInButton = document.getElementById('googleSignInButton');
+
+        let currentUser = null; // Stores the authenticated user object
+        let currentProfileData = null; // Stores the Firestore user profile data
+
+        // --- Google Sign-In Provider (if not already handled by a login page) ---
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
+        googleSignInButton.addEventListener('click', async () => {
+            try {
+                await auth.signInWithPopup(googleProvider);
+                // Auth state change listener will handle the rest
+            } catch (error) {
+                console.error("Erro no login com Google:", error);
+                authMessage.textContent = `Erro no login com Google: ${error.message}`;
+                authMessage.className = 'error';
+            }
+        });
+
+
+        // --- Authentication State Observer ---
         auth.onAuthStateChanged(async (user) => {
+            loadingMessage.style.display = 'block'; // Show loading spinner
+            authMessage.style.display = 'none';
+            profileFormContainer.style.display = 'none';
+            articleFormContainer.style.display = 'none';
+            
             if (user) {
                 currentUser = user;
                 try {
                     const userProfileRef = firestore.collection('users').doc(user.uid);
                     const doc = await userProfileRef.get();
 
-                    // Verifica se o documento existe E se o campo 'name' está preenchido
                     if (doc.exists && doc.data().name) {
-                        // Perfil completo: Esconde o formulário de perfil e mostra o de artigo
+                        // User has a complete profile in Firestore
+                        currentProfileData = doc.data(); // Store profile data
+                        
                         profileFormContainer.style.display = 'none';
                         articleFormContainer.style.display = 'block';
+                        authMessage.style.display = 'none';
 
-                        // Preenche os campos de nome do formulário de artigo com o nome do perfil
-                        userNameInput.value = doc.data().name || '';
-                        userFantasyNameInput.value = doc.data().userFantasyName || ''; // Se tiver campo de fantasia no perfil
-                        profileFieldsDiv.style.display = 'none'; // Esconde os campos de nome do formulário de artigo
-                        userNameInput.removeAttribute('required'); // Remove o required
+                        // Prefill article form's author name from user's profile
+                        userNameForArticleInput.value = currentProfileData.name;
+                        // Preenche fantasia se existir no perfil
+                        if(currentProfileData.userFantasyName) {
+                            userFantasyNameForArticleInput.value = currentProfileData.userFantasyName;
+                        }
+                        
+                        // Ensure MDL updates for filled inputs
+                        if (componentHandler) {
+                            componentHandler.upgradeElement(userNameForArticleInput.parentElement);
+                            componentHandler.upgradeElement(userFantasyNameForArticleInput.parentElement);
+                        }
+
                     } else {
-                        // Perfil incompleto ou novo: Mostra o formulário de perfil e esconde o de artigo
+                        // User exists in Auth but has an incomplete/non-existent profile in Firestore
                         profileFormContainer.style.display = 'block';
                         articleFormContainer.style.display = 'none';
+                        authMessage.style.display = 'none';
 
-                        // Preenche os campos do formulário de perfil com dados existentes se houver
+                        // Pre-fill profile form fields if any data exists (e.g., from Google Auth)
                         if (doc.exists) {
                             const data = doc.data();
-                            profileNameInput.value = data.name || '';
+                            profileNameInput.value = data.name || user.displayName || ''; // Prefer Firestore, then Google DisplayName
                             profileTelephoneInput.value = data.Telephone || '';
                             profileBirthdayInput.value = data.birthday || '';
+                        } else {
+                            // If new user, pre-fill with Google Auth data if available
+                            profileNameInput.value = user.displayName || '';
+                            // user.email for email field if you add one to profile form
                         }
-                        // Garante que o nome seja obrigatório para um perfil novo ou incompleto
                         profileNameInput.setAttribute('required', 'required');
-                    }
-                    // Atualiza os componentes MDL para garantir que os campos flutuantes funcionem corretamente
-                    if (componentHandler) {
-                        componentHandler.upgradeDom();
+
+                        // Ensure MDL updates for filled inputs
+                        if (componentHandler) {
+                            componentHandler.upgradeElement(profileNameInput.parentElement);
+                            componentHandler.upgradeElement(profileTelephoneInput.parentElement);
+                            componentHandler.upgradeElement(profileBirthdayInput.parentElement);
+                        }
                     }
                 } catch (error) {
-                    console.error("Erro ao verificar perfil do usuário:", error);
+                    console.error("Erro ao verificar perfil do usuário no Firestore:", error);
                     profileMessage.textContent = "Erro ao carregar seu perfil. Tente recarregar a página.";
                     profileMessage.className = 'error';
                     profileFormContainer.style.display = 'block'; // Show profile form in case of error
-                    articleFormContainer.style.display = 'none'; // Hide article form
-                    profileNameInput.setAttribute('required', 'required'); // Ensure name is required
+                    articleFormContainer.style.display = 'none';
+                    authMessage.style.display = 'none';
+                    profileNameInput.setAttribute('required', 'required');
                     if (componentHandler) {
                         componentHandler.upgradeDom();
                     }
+                } finally {
+                    loadingMessage.style.display = 'none'; // Hide loading spinner
                 }
             } else {
-                // Usuário não logado: esconde ambos os formulários e exibe mensagem
+                // User is not logged in
+                loadingMessage.style.display = 'none'; // Hide loading spinner
+                authMessage.style.display = 'block'; // Show login message
                 profileFormContainer.style.display = 'none';
                 articleFormContainer.style.display = 'none';
-                messageDisplay.textContent = "Você precisa estar logado para acessar esta página.";
-                messageDisplay.className = 'error';
-                // Opcional: Redirecionar para a página de login
-                // window.location.href = 'login.html';
             }
         });
 
-        // Handler para o formulário de perfil de usuário
+        // --- User Profile Form Submission ---
         userProfileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -250,31 +307,35 @@
                 name: profileNameInput.value,
                 Telephone: profileTelephoneInput.value || null,
                 birthday: profileBirthdayInput.value || null,
-                active: true, // Padrão
-                admin: false, // Padrão
-                banned: false, // Padrão
-                registration: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp de registro
-                subscribeddata: null // Padrão
+                // These fields are typically managed by the system, not user input on this form
+                active: true,
+                admin: false,
+                banned: false,
+                registration: firebase.firestore.FieldValue.serverTimestamp(), // Set or update timestamp
+                subscribeddata: null // Example, can be set by other logic
             };
 
             try {
-                await firestore.collection('users').doc(currentUser.uid).set(userData, { merge: true });
+                // Determine if this is a new registration or an update
+                const userProfileDocRef = firestore.collection('users').doc(currentUser.uid);
+                const docSnap = await userProfileDocRef.get();
+
+                if (!docSnap.exists) {
+                    // New user profile: also store original provider (e.g., 'google.com' or 'password')
+                    userData.providerId = currentUser.providerData[0] ? currentUser.providerData[0].providerId : 'unknown';
+                    // The 'registration' timestamp will be set automatically as it's a serverTimestamp()
+                }
+
+                await userProfileDocRef.set(userData, { merge: true });
                 profileMessage.textContent = "Perfil salvo com sucesso!";
                 profileMessage.className = 'success';
 
-                // Uma vez que o perfil é salvo, esconde o formulário de perfil e mostra o de artigo
-                profileFormContainer.style.display = 'none';
-                articleFormContainer.style.display = 'block';
-
-                // Preenche o campo de nome do formulário de artigo com o nome salvo no perfil
-                userNameInput.value = userData.name;
-                profileFieldsDiv.style.display = 'none'; // Esconde os campos de nome do formulário de artigo
-                userNameInput.removeAttribute('required'); // Remove o required
-                
-                // Atualiza os componentes MDL após as mudanças no DOM
-                if (componentHandler) {
-                     componentHandler.upgradeDom();
-                }
+                // After saving profile, re-run auth state check to re-evaluate UI
+                // This will effectively hide profile form and show article form
+                // Also update currentProfileData
+                currentProfileData = userData;
+                await auth.currentUser.reload(); // Reload user data to ensure up-to-date provider info if needed
+                auth.onAuthStateChanged(currentUser); // Trigger the listener again manually
 
             } catch (error) {
                 console.error("Erro ao salvar perfil:", error);
@@ -286,53 +347,40 @@
             }
         });
 
-
-        // --- LÓGICA DE ENVIO DE ARTIGO (EXISTENTE) ---
+        // --- Article Form Submission ---
         articleForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (!currentUser) {
-                messageDisplay.textContent = "Erro: Usuário não logado. Por favor, faça login.";
-                messageDisplay.className = 'error';
+            if (!currentUser || !currentProfileData || !currentProfileData.name) {
+                articleMessage.textContent = "Erro: Usuário não logado ou perfil incompleto. Por favor, complete seu perfil.";
+                articleMessage.className = 'error';
                 return;
-            }
-
-            let authorName = currentUser.displayName;
-            // Se o perfil do usuário foi preenchido ou está visível no formulário de artigo
-            if (profileNameInput.value) {
-                authorName = profileNameInput.value;
-            } else if (userNameInput.value && profileFieldsDiv.style.display !== 'none') {
-                authorName = userNameInput.value;
-            } else if (currentUser.displayName) {
-                authorName = currentUser.displayName;
-            } else {
-                authorName = 'Anônimo';
             }
 
             const articleData = {
                 authorId: currentUser.uid,
-                authorName: authorName,
-                authorFantasyName: userFantasyNameInput.value || null,
+                authorName: currentProfileData.name, // Use name from stored profile
+                authorFantasyName: userFantasyNameForArticleInput.value || null,
                 title: articleTitleInput.value,
                 history: articleHistoryInput.value,
                 secondaryLink: secondaryLinkInput.value || null,
                 photoLink: photoLinkInput.value || null,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                status: 'pending'
+                status: 'pending' // For moderation, if desired
             };
 
             try {
                 await firestore.collection('minhapersona').add(articleData);
-                messageDisplay.textContent = "Artigo enviado com sucesso!";
-                messageDisplay.className = 'success';
+                articleMessage.textContent = "Artigo enviado com sucesso!";
+                articleMessage.className = 'success';
                 articleForm.reset();
                 if (componentHandler) {
-                     componentHandler.upgradeDom();
+                    componentHandler.upgradeDom();
                 }
             } catch (error) {
                 console.error("Erro ao enviar artigo:", error);
-                messageDisplay.textContent = `Erro ao enviar artigo: ${error.message}`;
-                messageDisplay.className = 'error';
+                articleMessage.textContent = `Erro ao enviar artigo: ${error.message}`;
+                articleMessage.className = 'error';
                 if (componentHandler) {
                     componentHandler.upgradeDom();
                 }
