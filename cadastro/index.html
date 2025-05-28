@@ -12,7 +12,7 @@
             padding: 20px;
             background-color: #f0f0f0;
             display: flex;
-            flex-direction: column; /* Allow forms to stack */
+            flex-direction: column;
             justify-content: flex-start;
             align-items: center;
             min-height: 100vh;
@@ -24,7 +24,7 @@
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px; /* Space between containers if multiple */
+            margin-bottom: 30px;
         }
         h2 {
             color: #3F51B5;
@@ -41,7 +41,7 @@
             padding: 12px 0;
             font-size: 1.1em;
         }
-        #message, #profileMessage { /* Added #profileMessage */
+        #message, #profileMessage {
             margin-top: 20px;
             text-align: center;
             font-weight: bold;
@@ -55,6 +55,12 @@
         #profileFormContainer {
             display: none; /* Initially hidden, shown if profile needs update */
             margin-top: 20px;
+        }
+        /* Fix for Material Design Lite date input label */
+        .mdl-textfield--floating-label.is-dirty .mdl-textfield__label,
+        .mdl-textfield--floating-label.has-placeholder .mdl-textfield__label {
+            top: 4px; /* Adjust as needed */
+            font-size: 12px;
         }
     </style>
 </head>
@@ -85,7 +91,8 @@
     <div class="container" id="articleFormContainer">
         <h2>Enviar Novo Artigo de Persona</h2>
         <form id="articleForm">
-            <div id="profileFields"> <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <div id="profileFields">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="text" id="userName">
                     <label class="mdl-textfield__label" for="userName">Seu Nome Completo (Será usado no artigo)</label>
                 </div>
@@ -156,7 +163,7 @@
         const secondaryLinkInput = document.getElementById('secondaryLink');
         const photoLinkInput = document.getElementById('photoLink');
         const messageDisplay = document.getElementById('message');
-        const profileFieldsDiv = document.getElementById('profileFields'); // This now controls article form's name fields
+        const profileFieldsDiv = document.getElementById('profileFields');
         const articleFormContainer = document.getElementById('articleFormContainer');
 
         // UI Elements for User Profile Form
@@ -177,19 +184,21 @@
                     const userProfileRef = firestore.collection('users').doc(user.uid);
                     const doc = await userProfileRef.get();
 
-                    if (doc.exists && doc.data().name) { // Usamos 'name' como o campo chave para verificar o perfil
-                        // Perfil completo: Esconde o formulário de perfil e preenche os campos do artigo se houver
+                    // Verifica se o documento existe E se o campo 'name' está preenchido
+                    if (doc.exists && doc.data().name) {
+                        // Perfil completo: Esconde o formulário de perfil e mostra o de artigo
                         profileFormContainer.style.display = 'none';
-                        articleFormContainer.style.display = 'block'; // Show article form
-                        // Preenche os campos do artigo com dados do perfil (se aplicável)
+                        articleFormContainer.style.display = 'block';
+
+                        // Preenche os campos de nome do formulário de artigo com o nome do perfil
                         userNameInput.value = doc.data().name || '';
-                        // userFantasyNameInput.value = doc.data().userFantasyName || ''; // Se você tiver um campo de fantasia no perfil
+                        userFantasyNameInput.value = doc.data().userFantasyName || ''; // Se tiver campo de fantasia no perfil
                         profileFieldsDiv.style.display = 'none'; // Esconde os campos de nome do formulário de artigo
-                        userNameInput.removeAttribute('required'); // Remove o required do nome no formulário de artigo
+                        userNameInput.removeAttribute('required'); // Remove o required
                     } else {
-                        // Perfil incompleto ou novo: Mostra o formulário de perfil e esconde o de artigo inicialmente
+                        // Perfil incompleto ou novo: Mostra o formulário de perfil e esconde o de artigo
                         profileFormContainer.style.display = 'block';
-                        articleFormContainer.style.display = 'none'; // Hide article form until profile is complete
+                        articleFormContainer.style.display = 'none';
 
                         // Preenche os campos do formulário de perfil com dados existentes se houver
                         if (doc.exists) {
@@ -198,7 +207,12 @@
                             profileTelephoneInput.value = data.Telephone || '';
                             profileBirthdayInput.value = data.birthday || '';
                         }
-                        profileNameInput.setAttribute('required', 'required'); // Garante que o nome é obrigatório
+                        // Garante que o nome seja obrigatório para um perfil novo ou incompleto
+                        profileNameInput.setAttribute('required', 'required');
+                    }
+                    // Atualiza os componentes MDL para garantir que os campos flutuantes funcionem corretamente
+                    if (componentHandler) {
+                        componentHandler.upgradeDom();
                     }
                 } catch (error) {
                     console.error("Erro ao verificar perfil do usuário:", error);
@@ -207,6 +221,9 @@
                     profileFormContainer.style.display = 'block'; // Show profile form in case of error
                     articleFormContainer.style.display = 'none'; // Hide article form
                     profileNameInput.setAttribute('required', 'required'); // Ensure name is required
+                    if (componentHandler) {
+                        componentHandler.upgradeDom();
+                    }
                 }
             } else {
                 // Usuário não logado: esconde ambos os formulários e exibe mensagem
@@ -214,6 +231,8 @@
                 articleFormContainer.style.display = 'none';
                 messageDisplay.textContent = "Você precisa estar logado para acessar esta página.";
                 messageDisplay.className = 'error';
+                // Opcional: Redirecionar para a página de login
+                // window.location.href = 'login.html';
             }
         });
 
@@ -231,17 +250,14 @@
                 name: profileNameInput.value,
                 Telephone: profileTelephoneInput.value || null,
                 birthday: profileBirthdayInput.value || null,
-                // Campos padrões que você viu na imagem do Firestore
-                active: true, // Define como true por padrão para novos usuários
-                admin: false, // Define como false por padrão
-                banned: false, // Define como false por padrão
-                // password: Não salvar a senha diretamente aqui, é gerenciada pelo Firebase Auth
-                registration: firebase.firestore.FieldValue.serverTimestamp(), // Data de registro
-                subscribeddata: null // Exemplo, pode ser preenchido por outra lógica
+                active: true, // Padrão
+                admin: false, // Padrão
+                banned: false, // Padrão
+                registration: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp de registro
+                subscribeddata: null // Padrão
             };
 
             try {
-                // Usa set com merge: true para criar o documento se não existir ou atualizar campos existentes
                 await firestore.collection('users').doc(currentUser.uid).set(userData, { merge: true });
                 profileMessage.textContent = "Perfil salvo com sucesso!";
                 profileMessage.className = 'success';
@@ -254,17 +270,26 @@
                 userNameInput.value = userData.name;
                 profileFieldsDiv.style.display = 'none'; // Esconde os campos de nome do formulário de artigo
                 userNameInput.removeAttribute('required'); // Remove o required
+                
+                // Atualiza os componentes MDL após as mudanças no DOM
+                if (componentHandler) {
+                     componentHandler.upgradeDom();
+                }
+
             } catch (error) {
                 console.error("Erro ao salvar perfil:", error);
                 profileMessage.textContent = `Erro ao salvar perfil: ${error.message}`;
                 profileMessage.className = 'error';
+                if (componentHandler) {
+                    componentHandler.upgradeDom();
+                }
             }
         });
 
 
         // --- LÓGICA DE ENVIO DE ARTIGO (EXISTENTE) ---
         articleForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
 
             if (!currentUser) {
                 messageDisplay.textContent = "Erro: Usuário não logado. Por favor, faça login.";
@@ -272,40 +297,35 @@
                 return;
             }
 
-            // Antes de enviar o artigo, garantimos que o perfil principal do usuário (name) esteja atualizado
-            // Se o perfil completo já foi verificado, os campos de nome no formulário de artigo podem estar vazios ou não.
-            // Pega o nome do usuário do currentUser ou do campo de perfil se estiver visível.
             let authorName = currentUser.displayName;
-            if (profileNameInput.value) { // Se o campo do perfil de usuário foi preenchido/atualizado
+            // Se o perfil do usuário foi preenchido ou está visível no formulário de artigo
+            if (profileNameInput.value) {
                 authorName = profileNameInput.value;
             } else if (userNameInput.value && profileFieldsDiv.style.display !== 'none') {
-                // Se os campos de perfil do artigo estão visíveis e preenchidos
                 authorName = userNameInput.value;
             } else if (currentUser.displayName) {
                 authorName = currentUser.displayName;
             } else {
-                authorName = 'Anônimo'; // Fallback
+                authorName = 'Anônimo';
             }
 
             const articleData = {
-                authorId: currentUser.uid, // UID do usuário logado
+                authorId: currentUser.uid,
                 authorName: authorName,
-                authorFantasyName: userFantasyNameInput.value || null, // Pega do campo de fantasia do artigo
+                authorFantasyName: userFantasyNameInput.value || null,
                 title: articleTitleInput.value,
                 history: articleHistoryInput.value,
                 secondaryLink: secondaryLinkInput.value || null,
                 photoLink: photoLinkInput.value || null,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Timestamp de criação
-                status: 'pending' // Um campo de status pode ser útil para moderação
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                status: 'pending'
             };
 
             try {
-                // Salvar o artigo na coleção "minhapersona"
                 await firestore.collection('minhapersona').add(articleData);
                 messageDisplay.textContent = "Artigo enviado com sucesso!";
                 messageDisplay.className = 'success';
-                articleForm.reset(); // Limpar o formulário
-                // Se você tiver um MDL textfield flutuante, reatualize-o
+                articleForm.reset();
                 if (componentHandler) {
                      componentHandler.upgradeDom();
                 }
@@ -313,6 +333,9 @@
                 console.error("Erro ao enviar artigo:", error);
                 messageDisplay.textContent = `Erro ao enviar artigo: ${error.message}`;
                 messageDisplay.className = 'error';
+                if (componentHandler) {
+                    componentHandler.upgradeDom();
+                }
             }
         });
 
