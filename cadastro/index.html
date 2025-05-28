@@ -50,15 +50,21 @@
             color: #4CAF50;
         }
         .error {
-            color: #F44336;
+            color: #F44366; /* Um vermelho um pouco mais vibrante */
         }
         #profileFormContainer, #personaFormContainer, #loadingMessage {
-            display: none;
+            display: none; /* Esconde tudo por padrão, mostramos com JS */
         }
         .mdl-textfield--floating-label.is-dirty .mdl-textfield__label,
         .mdl-textfield--floating-label.has-placeholder .mdl-textfield__label {
             top: 4px;
             font-size: 12px;
+        }
+        /* Estilo para campo readonly */
+        .mdl-textfield__input[readonly] {
+            border-bottom: 1px dashed #ccc; /* Para indicar que não é editável */
+            color: #555;
+            background-color: #f9f9f9;
         }
     </style>
 </head>
@@ -71,12 +77,15 @@
     <div id="authMessage" class="container">
         <h2>Acesso Necessário</h2>
         <p>Para continuar, você precisa estar logado.</p>
+        <!-- Certifique-se que 'login.html' existe ou ajuste conforme necessário -->
         <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="window.location.href='login.html'">
             Ir para Login/Cadastro
         </button>
+        <!-- Ajustado o ícone do Google Sign-In -->
         <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" id="googleSignInButton">
-            <i class="material-icons">A</i> Login com Google
+            <i class="material-icons">account_circle</i> Login com Google
         </button>
+         <p id="authStatusMessage"></p> <!-- Para exibir mensagens de erro do login -->
     </div>
 
     <div id="profileFormContainer" class="container">
@@ -91,9 +100,10 @@
                 <input class="mdl-textfield__input" type="text" id="profileSobrenome">
                 <label class="mdl-textfield__label" for="profileSobrenome">Seu Sobrenome</label>
             </div>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <input class="mdl-textfield__input" type="email" id="profileEmail" required>
-                <label class="mdl-textfield__label" for="profileEmail">Email</label>
+             <!-- Email display only - handled by Auth -->
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-disabled">
+                <input class="mdl-textfield__input" type="email" id="profileEmailDisplay" readonly>
+                <label class="mdl-textfield__label" for="profileEmailDisplay">Email (Gerenciado pelo Login)</label>
             </div>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="tel" id="profileTelephone">
@@ -108,304 +118,4 @@
                 <label class="mdl-textfield__label" for="profileCpf">CPF (Somente números)</label>
                 <span class="mdl-textfield__error">Apenas números para o CPF!</span>
             </div>
-            <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
-                Salvar Perfil
-            </button>
-            <p id="profileMessage"></p>
-        </form>
-    </div>
-
-    <div class="container" id="personaFormContainer">
-        <h2>Cadastrar Nova Persona</h2>
-        <form id="personaForm">
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <input class="mdl-textfield__input" type="text" id="personaAuthorName" readonly>
-                <label class="mdl-textfield__label" for="personaAuthorName">Seu Nome Completo (do seu perfil)</label>
-            </div>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <input class="mdl-textfield__input" type="text" id="personaSpecificFantasyName">
-                <label class="mdl-textfield__label" for="personaSpecificFantasyName">Nome Específico da Persona/Fantasia</label>
-            </div>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <input class="mdl-textfield__input" type="text" id="personaTitle" required>
-                <label class="mdl-textfield__label" for="personaTitle">Título da Persona</label>
-            </div>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <textarea class="mdl-textfield__input" type="text" rows="5" id="personaHistory" required></textarea>
-                <label class="mdl-textfield__label" for="personaHistory">História da Persona</label>
-            </div>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <input class="mdl-textfield__input" type="url" id="personaSecondaryLink">
-                <label class="mdl-textfield__label" for="personaSecondaryLink">Link Secundário (Opcional)</label>
-            </div>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <input class="mdl-textfield__input" type="url" id="personaPhotoLink">
-                <label class="mdl-textfield__label" for="personaPhotoLink">Link da Foto (URL da imagem)</label>
-            </div>
-            <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
-                Cadastrar Persona
-            </button>
-            <p id="personaMessage"></p>
-        </form>
-        <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="margin-top: 20px;" onclick="firebase.auth().signOut()">
-            Sair
-        </button>
-    </div>
-
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
-
-    <script>
-        // --- Firebase Configuration ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
-
-        let app;
-        if (firebase.apps.length === 0) {
-            app = firebase.initializeApp(firebaseConfig);
-        } else {
-            app = firebase.app();
-        }
-        const auth = firebase.auth();
-        const firestore = firebase.firestore();
-        const analytics = firebase.analytics();
-
-        // UI Elements
-        const loadingMessage = document.getElementById('loadingMessage');
-        const authMessage = document.getElementById('authMessage');
-        const profileFormContainer = document.getElementById('profileFormContainer');
-        const personaFormContainer = document.getElementById('personaFormContainer');
-
-        // User Profile Form Elements
-        const userProfileForm = document.getElementById('userProfileForm');
-        const profileNameInput = document.getElementById('profileName');
-        const profileSobrenomeInput = document.getElementById('profileSobrenome');
-        const profileEmailInput = document.getElementById('profileEmail');
-        const profileTelephoneInput = document.getElementById('profileTelephone'); // Telefone
-        const profileBirthdayInput = document.getElementById('profileBirthday'); // Aniversário
-        const profileCpfInput = document.getElementById('profileCpf');
-        // profileFantasyNameInput REMOVIDO daqui conforme solicitado
-        const profileMessage = document.getElementById('profileMessage');
-
-        // Persona Form Elements
-        const personaForm = document.getElementById('personaForm');
-        const personaAuthorNameInput = document.getElementById('personaAuthorName');
-        const personaSpecificFantasyNameInput = document.getElementById('personaSpecificFantasyName');
-        const personaTitleInput = document.getElementById('personaTitle');
-        const personaHistoryInput = document.getElementById('personaHistory');
-        const personaSecondaryLinkInput = document.getElementById('personaSecondaryLink');
-        const personaPhotoLinkInput = document.getElementById('personaPhotoLink');
-        const personaMessage = document.getElementById('personaMessage');
-
-        const googleSignInButton = document.getElementById('googleSignInButton');
-
-        let currentUser = null;
-        let currentProfileData = null;
-
-        // --- Google Sign-In Provider (if not already handled by a login page) ---
-        const googleProvider = new firebase.auth.GoogleAuthProvider();
-        googleSignInButton.addEventListener('click', async () => {
-            try {
-                await auth.signInWithPopup(googleProvider);
-            } catch (error) {
-                console.error("Erro no login com Google:", error);
-                authMessage.textContent = `Erro no login com Google: ${error.message}`;
-                authMessage.className = 'error';
-            }
-        });
-
-        // --- Authentication State Observer ---
-        auth.onAuthStateChanged(async (user) => {
-            loadingMessage.style.display = 'block';
-            authMessage.style.display = 'none';
-            profileFormContainer.style.display = 'none';
-            personaFormContainer.style.display = 'none';
-
-            if (user) {
-                currentUser = user;
-                try {
-                    const userProfileRef = firestore.collection('users').doc(user.uid);
-                    const doc = await userProfileRef.get();
-
-                    // Check if 'name' and 'email' (essential for a complete profile) exist
-                    if (doc.exists && doc.data().name && doc.data().email) {
-                        currentProfileData = doc.data();
-                        
-                        profileFormContainer.style.display = 'none';
-                        personaFormContainer.style.display = 'block';
-                        authMessage.style.display = 'none';
-
-                        // Prefill persona form's author name from user's profile
-                        personaAuthorNameInput.value = currentProfileData.name + (currentProfileData.sobrenome ? ' ' + currentProfileData.sobrenome : '');
-                        
-                        if (componentHandler) {
-                            componentHandler.upgradeElement(personaAuthorNameInput.parentElement);
-                            componentHandler.upgradeElement(personaSpecificFantasyNameInput.parentElement);
-                        }
-
-                    } else {
-                        // Incomplete or new profile: show profile form
-                        profileFormContainer.style.display = 'block';
-                        personaFormContainer.style.display = 'none';
-                        authMessage.style.display = 'none';
-
-                        if (doc.exists) { // Profile exists but is incomplete
-                            const data = doc.data();
-                            profileNameInput.value = data.name || user.displayName || '';
-                            profileSobrenomeInput.value = data.sobrenome || '';
-                            profileEmailInput.value = data.email || user.email || '';
-                            profileTelephoneInput.value = data.Telephone || '';
-                            profileBirthdayInput.value = data.birthday || '';
-                            profileCpfInput.value = data.cpf || '';
-                            // profileFantasyNameInput.value REMOVIDO daqui
-                        } else { // Brand new user, pre-fill with auth data
-                            profileNameInput.value = user.displayName || '';
-                            profileEmailInput.value = user.email || '';
-                        }
-                        profileNameInput.setAttribute('required', 'required');
-                        profileEmailInput.setAttribute('required', 'required');
-
-                        if (componentHandler) {
-                            componentHandler.upgradeElement(profileNameInput.parentElement);
-                            componentHandler.upgradeElement(profileSobrenomeInput.parentElement);
-                            componentHandler.upgradeElement(profileEmailInput.parentElement);
-                            componentHandler.upgradeElement(profileTelephoneInput.parentElement);
-                            componentHandler.upgradeElement(profileBirthdayInput.parentElement);
-                            componentHandler.upgradeElement(profileCpfInput.parentElement);
-                            // upgradeElement de profileFantasyNameInput REMOVIDO
-                        }
-                    }
-                } catch (error) {
-                    console.error("Erro ao verificar perfil do usuário no Firestore:", error);
-                    profileMessage.textContent = "Erro ao carregar seu perfil. Tente recarregar a página.";
-                    profileMessage.className = 'error';
-                    profileFormContainer.style.display = 'block';
-                    personaFormContainer.style.display = 'none';
-                    authMessage.style.display = 'none';
-                    profileNameInput.setAttribute('required', 'required');
-                    profileEmailInput.setAttribute('required', 'required');
-                    if (componentHandler) {
-                        componentHandler.upgradeDom();
-                    }
-                } finally {
-                    loadingMessage.style.display = 'none';
-                }
-            } else {
-                loadingMessage.style.display = 'none';
-                authMessage.style.display = 'block';
-                profileFormContainer.style.display = 'none';
-                personaFormContainer.style.display = 'none';
-            }
-        });
-
-        // --- User Profile Form Submission ---
-        userProfileForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            if (!currentUser) {
-                profileMessage.textContent = "Erro: Usuário não logado. Por favor, faça login.";
-                profileMessage.className = 'error';
-                return;
-            }
-
-            const userData = {
-                name: profileNameInput.value,
-                sobrenome: profileSobrenomeInput.value || null,
-                email: profileEmailInput.value,
-                Telephone: profileTelephoneInput.value || null, // Telefone
-                birthday: profileBirthdayInput.value || null, // Aniversário
-                cpf: profileCpfInput.value || null,
-                // userFantasyName REMOVIDO daqui
-                active: true, // Gerenciado pelo sistema
-                admin: false, // Gerenciado pelo sistema
-                banned: false, // Gerenciado pelo sistema
-                registration: firebase.firestore.FieldValue.serverTimestamp(), // Gerado pelo sistema (registrado)
-                subscribeddata: null, // Gerenciado pelo sistema
-                // createdAt NÃO é definido aqui, será definido apenas na primeira criação
-            };
-            
-            try {
-                const userProfileDocRef = firestore.collection('users').doc(currentUser.uid);
-                const docSnap = await userProfileDocRef.get();
-
-                if (!docSnap.exists) {
-                    userData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); // Data de criação
-                    userData.providerId = currentUser.providerData[0] ? currentUser.providerData[0].providerId : 'unknown';
-                }
-
-                await userProfileDocRef.set(userData, { merge: true });
-                profileMessage.textContent = "Perfil salvo com sucesso!";
-                profileMessage.className = 'success';
-
-                currentProfileData = userData;
-                await auth.currentUser.reload();
-                auth.onAuthStateChanged(currentUser); 
-
-            } catch (error) {
-                console.error("Erro ao salvar perfil:", error);
-                profileMessage.textContent = `Erro ao salvar perfil: ${error.message}`;
-                profileMessage.className = 'error';
-                if (componentHandler) {
-                    componentHandler.upgradeDom();
-                }
-            }
-        });
-
-        // --- Persona Form Submission ---
-        personaForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            if (!currentUser || !currentProfileData || !currentProfileData.name || !currentProfileData.email) {
-                personaMessage.textContent = "Erro: Usuário não logado ou perfil incompleto (nome e email são necessários). Por favor, complete seu perfil.";
-                personaMessage.className = 'error';
-                return;
-            }
-
-            const personaData = {
-                authorId: currentUser.uid,
-                authorName: currentProfileData.name + (currentProfileData.sobrenome ? ' ' + currentProfileData.sobrenome : ''),
-                fantasyName: personaSpecificFantasyNameInput.value || null, 
-                title: personaTitleInput.value,
-                history: personaHistoryInput.value,
-                secondaryLink: personaSecondaryLinkInput.value || null,
-                photoLink: personaPhotoLinkInput.value || null,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                status: 'pending'
-            };
-
-            try {
-                await firestore.collection('users').add(personaData);
-                personaMessage.textContent = "Persona cadastrada com sucesso!";
-                personaMessage.className = 'success';
-                personaForm.reset();
-                if (componentHandler) {
-                    componentHandler.upgradeDom();
-                }
-            } catch (error) {
-                console.error("Erro ao cadastrar o usuário:", error);
-                personaMessage.textContent = `Erro ao cadastrar persona: ${error.message}`;
-                personaMessage.className = 'error';
-                if (componentHandler) {
-                    componentHandler.upgradeDom();
-                }
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (componentHandler) {
-                componentHandler.upgradeDom();
-            }
-        });
-    </script>
-</body>
-</html>
+            <button type="submit" class="mdl-button
