@@ -41,7 +41,7 @@
             padding: 12px 0;
             font-size: 1.1em;
         }
-        #authMessage, #profileMessage, #articleMessage { /* Consolidando as mensagens */
+        #authMessage, #profileMessage, #articleMessage {
             margin-top: 20px;
             text-align: center;
             font-weight: bold;
@@ -53,12 +53,11 @@
             color: #F44336;
         }
         #profileFormContainer, #articleFormContainer, #loadingMessage {
-            display: none; /* Initially hidden */
+            display: none;
         }
-        /* Style for date input label in MDL */
         .mdl-textfield--floating-label.is-dirty .mdl-textfield__label,
         .mdl-textfield--floating-label.has-placeholder .mdl-textfield__label {
-            top: 4px; /* Adjust as needed */
+            top: 4px;
             font-size: 12px;
         }
     </style>
@@ -86,16 +85,30 @@
         <form id="userProfileForm">
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="text" id="profileName" required>
-                <label class="mdl-textfield__label" for="profileName">Seu Nome Completo</label>
+                <label class="mdl-textfield__label" for="profileName">Seu Nome</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="profileSobrenome">
+                <label class="mdl-textfield__label" for="profileSobrenome">Seu Sobrenome</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="email" id="profileEmail" required>
+                <label class="mdl-textfield__label" for="profileEmail">Email</label>
             </div>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="tel" id="profileTelephone">
-                <label class="mdl-textfield__label" for="profileTelephone">Telefone (Opcional)</label>
+                <label class="mdl-textfield__label" for="profileTelephone">Telefone (DDD + Número)</label>
             </div>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="date" id="profileBirthday">
-                <label class="mdl-textfield__label" for="profileBirthday">Data de Nascimento (Opcional)</label>
+                <label class="mdl-textfield__label" for="profileBirthday">Data de Nascimento</label>
             </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" pattern="-?[0-9]*(\.[0-9]+)?" id="profileCpf">
+                <label class="mdl-textfield__label" for="profileCpf">CPF (Somente números)</label>
+                <span class="mdl-textfield__error">Apenas números para o CPF!</span>
+            </div>
+
             <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
                 Salvar Perfil
             </button>
@@ -177,31 +190,33 @@
         // User Profile Form Elements
         const userProfileForm = document.getElementById('userProfileForm');
         const profileNameInput = document.getElementById('profileName');
+        const profileSobrenomeInput = document.getElementById('profileSobrenome'); // Novo campo
+        const profileEmailInput = document.getElementById('profileEmail');       // Novo campo
         const profileTelephoneInput = document.getElementById('profileTelephone');
         const profileBirthdayInput = document.getElementById('profileBirthday');
+        const profileCpfInput = document.getElementById('profileCpf');           // Novo campo
         const profileMessage = document.getElementById('profileMessage');
 
         // Article Form Elements
         const articleForm = document.getElementById('articleForm');
-        const userNameForArticleInput = document.getElementById('userNameForArticle'); // Renamed for clarity
-        const userFantasyNameForArticleInput = document.getElementById('userFantasyNameForArticle'); // Renamed for clarity
+        const userNameForArticleInput = document.getElementById('userNameForArticle');
+        const userFantasyNameForArticleInput = document.getElementById('userFantasyNameForArticle');
         const articleTitleInput = document.getElementById('articleTitle');
         const articleHistoryInput = document.getElementById('articleHistory');
         const secondaryLinkInput = document.getElementById('secondaryLink');
         const photoLinkInput = document.getElementById('photoLink');
-        const articleMessage = document.getElementById('articleMessage'); // Renamed for clarity
+        const articleMessage = document.getElementById('articleMessage');
 
         const googleSignInButton = document.getElementById('googleSignInButton');
 
-        let currentUser = null; // Stores the authenticated user object
-        let currentProfileData = null; // Stores the Firestore user profile data
+        let currentUser = null;
+        let currentProfileData = null;
 
         // --- Google Sign-In Provider (if not already handled by a login page) ---
         const googleProvider = new firebase.auth.GoogleAuthProvider();
         googleSignInButton.addEventListener('click', async () => {
             try {
                 await auth.signInWithPopup(googleProvider);
-                // Auth state change listener will handle the rest
             } catch (error) {
                 console.error("Erro no login com Google:", error);
                 authMessage.textContent = `Erro no login com Google: ${error.message}`;
@@ -209,10 +224,9 @@
             }
         });
 
-
         // --- Authentication State Observer ---
         auth.onAuthStateChanged(async (user) => {
-            loadingMessage.style.display = 'block'; // Show loading spinner
+            loadingMessage.style.display = 'block';
             authMessage.style.display = 'none';
             profileFormContainer.style.display = 'none';
             articleFormContainer.style.display = 'none';
@@ -223,71 +237,70 @@
                     const userProfileRef = firestore.collection('users').doc(user.uid);
                     const doc = await userProfileRef.get();
 
-                    if (doc.exists && doc.data().name) {
-                        // User has a complete profile in Firestore
-                        currentProfileData = doc.data(); // Store profile data
+                    // Check if 'name' and 'email' (essential for a complete profile based on your structure) exist
+                    if (doc.exists && doc.data().name && doc.data().email) {
+                        currentProfileData = doc.data();
                         
                         profileFormContainer.style.display = 'none';
                         articleFormContainer.style.display = 'block';
                         authMessage.style.display = 'none';
 
-                        // Prefill article form's author name from user's profile
-                        userNameForArticleInput.value = currentProfileData.name;
-                        // Preenche fantasia se existir no perfil
-                        if(currentProfileData.userFantasyName) {
-                            userFantasyNameForArticleInput.value = currentProfileData.userFantasyName;
-                        }
+                        userNameForArticleInput.value = currentProfileData.name + (currentProfileData.sobrenome ? ' ' + currentProfileData.sobrenome : '');
+                        userFantasyNameForArticleInput.value = currentProfileData.userFantasyName || '';
                         
-                        // Ensure MDL updates for filled inputs
                         if (componentHandler) {
                             componentHandler.upgradeElement(userNameForArticleInput.parentElement);
                             componentHandler.upgradeElement(userFantasyNameForArticleInput.parentElement);
                         }
 
                     } else {
-                        // User exists in Auth but has an incomplete/non-existent profile in Firestore
+                        // Incomplete or new profile: show profile form
                         profileFormContainer.style.display = 'block';
                         articleFormContainer.style.display = 'none';
                         authMessage.style.display = 'none';
 
-                        // Pre-fill profile form fields if any data exists (e.g., from Google Auth)
-                        if (doc.exists) {
+                        if (doc.exists) { // Profile exists but is incomplete
                             const data = doc.data();
-                            profileNameInput.value = data.name || user.displayName || ''; // Prefer Firestore, then Google DisplayName
+                            profileNameInput.value = data.name || user.displayName || '';
+                            profileSobrenomeInput.value = data.sobrenome || '';
+                            profileEmailInput.value = data.email || user.email || '';
                             profileTelephoneInput.value = data.Telephone || '';
                             profileBirthdayInput.value = data.birthday || '';
-                        } else {
-                            // If new user, pre-fill with Google Auth data if available
+                            profileCpfInput.value = data.cpf || '';
+                        } else { // Brand new user, pre-fill with auth data
                             profileNameInput.value = user.displayName || '';
-                            // user.email for email field if you add one to profile form
+                            profileEmailInput.value = user.email || '';
                         }
                         profileNameInput.setAttribute('required', 'required');
+                        profileEmailInput.setAttribute('required', 'required');
 
-                        // Ensure MDL updates for filled inputs
                         if (componentHandler) {
                             componentHandler.upgradeElement(profileNameInput.parentElement);
+                            componentHandler.upgradeElement(profileSobrenomeInput.parentElement);
+                            componentHandler.upgradeElement(profileEmailInput.parentElement);
                             componentHandler.upgradeElement(profileTelephoneInput.parentElement);
                             componentHandler.upgradeElement(profileBirthdayInput.parentElement);
+                            componentHandler.upgradeElement(profileCpfInput.parentElement);
                         }
                     }
                 } catch (error) {
                     console.error("Erro ao verificar perfil do usuário no Firestore:", error);
                     profileMessage.textContent = "Erro ao carregar seu perfil. Tente recarregar a página.";
                     profileMessage.className = 'error';
-                    profileFormContainer.style.display = 'block'; // Show profile form in case of error
+                    profileFormContainer.style.display = 'block';
                     articleFormContainer.style.display = 'none';
                     authMessage.style.display = 'none';
                     profileNameInput.setAttribute('required', 'required');
+                    profileEmailInput.setAttribute('required', 'required');
                     if (componentHandler) {
                         componentHandler.upgradeDom();
                     }
                 } finally {
-                    loadingMessage.style.display = 'none'; // Hide loading spinner
+                    loadingMessage.style.display = 'none';
                 }
             } else {
-                // User is not logged in
-                loadingMessage.style.display = 'none'; // Hide loading spinner
-                authMessage.style.display = 'block'; // Show login message
+                loadingMessage.style.display = 'none';
+                authMessage.style.display = 'block';
                 profileFormContainer.style.display = 'none';
                 articleFormContainer.style.display = 'none';
             }
@@ -305,37 +318,41 @@
 
             const userData = {
                 name: profileNameInput.value,
+                sobrenome: profileSobrenomeInput.value || null,
+                email: profileEmailInput.value, // Email from form
                 Telephone: profileTelephoneInput.value || null,
                 birthday: profileBirthdayInput.value || null,
-                // These fields are typically managed by the system, not user input on this form
+                cpf: profileCpfInput.value || null,
                 active: true,
                 admin: false,
                 banned: false,
-                registration: firebase.firestore.FieldValue.serverTimestamp(), // Set or update timestamp
-                subscribeddata: null // Example, can be set by other logic
+                // Using createdAt for the first creation timestamp, registration for later updates if needed
+                // For simplicity, we'll use 'registration' as the primary creation timestamp in this version
+                registration: firebase.firestore.FieldValue.serverTimestamp(),
+                subscribeddata: null
             };
 
+            // Handling the redundant 'nome' and 'telefone' from your Firestore image
+            // We'll prioritize the new fields ('name' and 'Telephone') and avoid creating the old ones if not present
+            // If they exist in the Firestore doc already, they will be kept by merge:true, but won't be explicitly updated here
+            
             try {
-                // Determine if this is a new registration or an update
                 const userProfileDocRef = firestore.collection('users').doc(currentUser.uid);
                 const docSnap = await userProfileDocRef.get();
 
                 if (!docSnap.exists) {
-                    // New user profile: also store original provider (e.g., 'google.com' or 'password')
+                    userData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); // Only set on first creation
                     userData.providerId = currentUser.providerData[0] ? currentUser.providerData[0].providerId : 'unknown';
-                    // The 'registration' timestamp will be set automatically as it's a serverTimestamp()
                 }
 
                 await userProfileDocRef.set(userData, { merge: true });
                 profileMessage.textContent = "Perfil salvo com sucesso!";
                 profileMessage.className = 'success';
 
-                // After saving profile, re-run auth state check to re-evaluate UI
-                // This will effectively hide profile form and show article form
-                // Also update currentProfileData
-                currentProfileData = userData;
-                await auth.currentUser.reload(); // Reload user data to ensure up-to-date provider info if needed
-                auth.onAuthStateChanged(currentUser); // Trigger the listener again manually
+                currentProfileData = userData; // Update local state
+                // Reload user and trigger auth state change to update UI
+                await auth.currentUser.reload();
+                auth.onAuthStateChanged(currentUser); 
 
             } catch (error) {
                 console.error("Erro ao salvar perfil:", error);
@@ -351,22 +368,22 @@
         articleForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (!currentUser || !currentProfileData || !currentProfileData.name) {
-                articleMessage.textContent = "Erro: Usuário não logado ou perfil incompleto. Por favor, complete seu perfil.";
+            if (!currentUser || !currentProfileData || !currentProfileData.name || !currentProfileData.email) {
+                articleMessage.textContent = "Erro: Usuário não logado ou perfil incompleto (nome e email são necessários). Por favor, complete seu perfil.";
                 articleMessage.className = 'error';
                 return;
             }
 
             const articleData = {
                 authorId: currentUser.uid,
-                authorName: currentProfileData.name, // Use name from stored profile
+                authorName: currentProfileData.name + (currentProfileData.sobrenome ? ' ' + currentProfileData.sobrenome : ''), // Concatenate name and sobrenome
                 authorFantasyName: userFantasyNameForArticleInput.value || null,
                 title: articleTitleInput.value,
                 history: articleHistoryInput.value,
                 secondaryLink: secondaryLinkInput.value || null,
                 photoLink: photoLinkInput.value || null,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                status: 'pending' // For moderation, if desired
+                status: 'pending'
             };
 
             try {
@@ -387,7 +404,6 @@
             }
         });
 
-        // Initialize MDL components after the DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             if (componentHandler) {
                 componentHandler.upgradeDom();
