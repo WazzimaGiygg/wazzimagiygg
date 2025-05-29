@@ -5,7 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Página do Usuário - Perfil e Personas</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <!-- Usando a versão 1.3.0 do MDL -->
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <!--
+        Aviso: Usar o CDN do Tailwind em produção não é recomendado.
+        Para otimização em produção, instale o Tailwind via npm/yarn
+        e use um processo de build (PostCSS/CLI) para gerar um CSS otimizado.
+        Saiba mais: https://tailwindcss.com/docs/installation
+        Removido link do CDN do Tailwind para focar apenas no MDL presente na estrutura
+    -->
+
+    <!-- Seus estilos CSS -->
     <style>
         body {
             font-family: 'Roboto', sans-serif;
@@ -41,7 +51,7 @@
             padding: 12px 0;
             font-size: 1.1em;
         }
-        #authMessage, #profileMessage, #personaMessage {
+        #authStatusMessage, #profileMessage, #personaMessage {
             margin-top: 20px;
             text-align: center;
             font-weight: bold;
@@ -50,44 +60,61 @@
             color: #4CAF50;
         }
         .error {
-            color: #F44366; /* Um vermelho um pouco mais vibrante */
+            color: #F44366;
         }
-        #profileFormContainer, #personaFormContainer, #loadingMessage {
-            display: none; /* Esconde tudo por padrão, mostramos com JS */
+        /* Esconde todos os contêineres por padrão, o JS mostrará o correto */
+        #profileFormContainer, #personaFormContainer, #loadingMessage, #authMessage {
+            display: none;
         }
         .mdl-textfield--floating-label.is-dirty .mdl-textfield__label,
         .mdl-textfield--floating-label.has-placeholder .mdl-textfield__label {
             top: 4px;
             font-size: 12px;
         }
-        /* Estilo para campo readonly */
+         /* Estilo para campo readonly */
         .mdl-textfield__input[readonly] {
             border-bottom: 1px dashed #ccc; /* Para indicar que não é editável */
             color: #555;
             background-color: #f9f9f9;
         }
+         /* Estilo para o spinner */
+         .mdl-spinner {
+            display: block;
+            margin: 20px auto;
+         }
     </style>
+     <!--
+        O navegador busca automaticamente um favicon.ico na raiz do site.
+        O erro 404 para /favicon.ico significa que o arquivo não está lá.
+        Para corrigir, coloque um arquivo favicon.ico válido na pasta raiz do seu hosting.
+     -->
 </head>
 <body>
+    <!-- Contêiner de Carregamento -->
     <div id="loadingMessage" class="container" style="text-align: center;">
         <p>Carregando...</p>
         <div class="mdl-spinner mdl-js-spinner is-active mdl-spinner--single-color"></div>
     </div>
 
+    <!-- Contêiner de Autenticação Necessária -->
     <div id="authMessage" class="container">
         <h2>Acesso Necessário</h2>
         <p>Para continuar, você precisa estar logado.</p>
-        <!-- Certifique-se que 'login.html' existe ou ajuste conforme necessário -->
+        <!--
+            Erro 404 para login.html significa que o arquivo não foi encontrado no caminho especificado.
+            Verifique a localização do seu arquivo login.html no seu hosting.
+        -->
         <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="window.location.href='login.html'">
             Ir para Login/Cadastro
         </button>
-        <!-- Ajustado o ícone do Google Sign-In -->
+        <!-- Adicionado ID para o botão de Google Sign-In e ajustado o ícone -->
         <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" id="googleSignInButton">
             <i class="material-icons">account_circle</i> Login com Google
         </button>
          <p id="authStatusMessage"></p> <!-- Para exibir mensagens de erro do login -->
     </div>
 
+    <!-- Contêiner do Formulário de Perfil -->
     <div id="profileFormContainer" class="container">
         <h2>Seu Perfil de Usuário</h2>
         <p>Por favor, complete seus dados de perfil para continuar.</p>
@@ -100,7 +127,8 @@
                 <input class="mdl-textfield__input" type="text" id="profileSobrenome">
                 <label class="mdl-textfield__label" for="profileSobrenome">Seu Sobrenome</label>
             </div>
-             <!-- Email display only - handled by Auth -->
+             <!-- Campo de Email apenas para display - gerenciado pelo Auth -->
+             <!-- Removida a exigência de "required" pois vem do Auth -->
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-disabled">
                 <input class="mdl-textfield__input" type="email" id="profileEmailDisplay" readonly>
                 <label class="mdl-textfield__label" for="profileEmailDisplay">Email (Gerenciado pelo Login)</label>
@@ -118,4 +146,65 @@
                 <label class="mdl-textfield__label" for="profileCpf">CPF (Somente números)</label>
                 <span class="mdl-textfield__error">Apenas números para o CPF!</span>
             </div>
-            <button type="submit" class="mdl-button
+            <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                Salvar Perfil
+            </button>
+            <p id="profileMessage"></p> <!-- Mensagem de status para o perfil -->
+        </form>
+    </div>
+
+    <!-- Contêiner do Formulário de Persona -->
+    <div class="container" id="personaFormContainer">
+        <h2>Cadastrar Nova Persona</h2>
+        <form id="personaForm">
+            <!-- Nome do autor preenchido automaticamente do perfil -->
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label is-disabled">
+                <input class="mdl-textfield__input" type="text" id="personaAuthorName" readonly>
+                <label class="mdl-textfield__label" for="personaAuthorName">Seu Nome Completo (do seu perfil)</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="personaSpecificFantasyName">
+                <label class="mdl-textfield__label" for="personaSpecificFantasyName">Nome Específico da Persona/Fantasia</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="personaTitle" required>
+                <label class="mdl-textfield__label" for="personaTitle">Título da Persona</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <textarea class="mdl-textfield__input" type="text" rows="5" id="personaHistory" required></textarea>
+                <label class="mdl-textfield__label" for="personaHistory">História da Persona</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="url" id="personaSecondaryLink">
+                <label class="mdl-textfield__label" for="personaSecondaryLink">Link Secundário (Opcional)</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="url" id="personaPhotoLink">
+                <label class="mdl-textfield__label" for="personaPhotoLink">Link da Foto (URL da imagem)</label>
+            </div>
+            <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                Cadastrar Persona
+            </button>
+            <p id="personaMessage"></p> <!-- Mensagem de status para a persona -->
+        </form>
+        <!-- Botão de Sair -->
+        <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="margin-top: 20px;" id="signOutButton">
+            Sair
+        </button>
+    </div>
+
+    <!-- Script do MDL -->
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <!-- ************ Scripts do Firebase SDK (Atualizados para v10.x compat) ************ -->
+    <!-- É recomendado migrar para a versão modular (sem -compat) para produção -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- Manter Analytics, mas lembrar que pode ser bloqueado por prevenção de rastreamento -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+
+    <script>
+        // ************ Sua Configuração do Firebase ************
+        // Você precisa inicializar o Firebase com as configurações do seu projeto WZZM.
+        // Esta configuração está correta com base nas informações fornecidas.
+        const firebaseConfig
