@@ -1,79 +1,131 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Notícias Recentes - G1</title>
+    <title>Lista de Artigos</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <style>
-body {
-    font-family: 'Arial', sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: #f0f2f5; /* Um cinza claro, similar ao fundo de sites de notícias */
-    color: #333;
-    line-height: 1.6;
-}
+        body { font-family: sans-serif; margin: 20px; line-height: 1.6; color: #333; }
+        h1 { color: #0056b3; }
 
-h1 {
-    color: #cc0000; /* Vermelho vibrante, cor principal do G1 */
-    text-align: center;
-    margin-bottom: 30px;
-    font-size: 2.5em;
-    font-weight: bold;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-}
-
-#noticias {
-    list-style: none; /* Remove os marcadores padrão da lista */
-    padding: 0;
-    max-width: 800px;
-    margin: 0 auto; /* Centraliza a lista na página */
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    padding: 20px 30px;
-}
-
-#noticias li {
-    border-bottom: 1px solid #eee; /* Linha divisória suave entre as notícias */
-    padding: 15px 0;
-}
-
-#noticias li:last-child {
-    border-bottom: none; /* Remove a linha divisória da última notícia */
-}
-
-#noticias li a {
-    text-decoration: none; /* Remove o sublinhado dos links */
-    color: #333; /* Cor do texto do link */
-    font-size: 1.1em;
-    font-weight: 600; /* Deixa o título da notícia mais encorpado */
-    transition: color 0.3s ease; /* Efeito de transição suave na cor */
-}
-
-#noticias li a:hover {
-    color: #cc0000; /* Muda para o vermelho do G1 ao passar o mouse */
-}
-
-/* Estilo para simular um layout mais próximo de um portal de notícias */
-@media (max-width: 768px) {
-    h1 {
-        font-size: 2em;
-    }
-
-    #noticias {
-        padding: 15px 20px;
-    }
-
-    #noticias li {
-        padding: 10px 0;
-    }
-
-    #noticias li a {
-        font-size: 1em;
-    }
-}
+        /* Estilo para a listagem de artigos */
+        .article-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .article-item h2 { /* Mudado para h2 para os títulos dos artigos */
+            margin-top: 0;
+            color: #007bff;
+        }
+        .article-item p {
+            margin-bottom: 5px;
+        }
+        .article-item small {
+            color: #666;
+        }
+        /* Estilo para mensagens de status (opcional) */
+        #articles-status { margin-top: 15px; padding: 12px; border-radius: 4px; font-size: 0.9rem; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
     </style>
 </head>
 <body>
-    </body>
+
+    <h1>Artigos Publicados</h1>
+
+    <div id="articles-list-section">
+        <div id="articles-container">
+            <p>Carregando artigos...</p>
+        </div>
+        <div id="articles-status"></div> </div>
+
+    <script>
+        // Sua configuração do Firebase. Use as informações do seu projeto.
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // <--- Não esqueça de substituir este!
+            appId: "1:249427877153:web:0e4297294794a5aadeb260"
+        };
+
+        // Inicialize o Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Obtenha a instância do Firestore
+        const db = firebase.firestore();
+
+        // Referências aos elementos de listagem de artigo
+        const articlesContainerDiv = document.getElementById('articles-container');
+        const articlesStatusDiv = document.getElementById('articles-status');
+
+        // Função para exibir mensagens de status na listagem de artigos
+        function showArticlesStatus(message, type) {
+            if (articlesStatusDiv) {
+                articlesStatusDiv.textContent = message;
+                articlesStatusDiv.className = 'status ' + type;
+            }
+        }
+
+        // Função para carregar e exibir os artigos
+        function loadArticles() {
+            if (!articlesContainerDiv) {
+                console.error("Erro: Elemento 'articles-container' não encontrado no HTML.");
+                return;
+            }
+
+            articlesContainerDiv.innerHTML = '<p>Carregando artigos...</p>';
+            showArticlesStatus('', '');
+
+            db.collection('articles')
+              .orderBy('createdAt', 'desc') // Ordena do mais recente para o mais antigo (requer campo 'createdAt')
+              .onSnapshot(
+                    (querySnapshot) => {
+                        articlesContainerDiv.innerHTML = ''; // Limpa o conteúdo existente
+
+                        if (querySnapshot.empty) {
+                            articlesContainerDiv.innerHTML = '<p>Nenhum artigo encontrado.</p>';
+                            showArticlesStatus('Nenhum artigo para exibir.', 'warning');
+                            return;
+                        }
+
+                        querySnapshot.forEach((doc) => {
+                            const article = doc.data();
+                            // Não precisamos do articleId para esta página de visualização simples
+
+                            const articleElement = document.createElement('div');
+                            articleElement.classList.add('article-item'); // Adiciona a classe CSS
+
+                            articleElement.innerHTML = `
+                                <h2>${article.title}</h2>
+                                <p><strong>Acesso:</strong> ${article.acesso}</p>
+                                <p>${article.content}</p> <p><small>Criado por: ${article.userId || 'Desconhecido'}</small></p>
+                                <p><small>Em: ${article.createdAt ? new Date(article.createdAt.seconds * 1000).toLocaleString() : 'N/A'}</small></p>
+                            `;
+                            articlesContainerDiv.appendChild(articleElement);
+                        });
+                        showArticlesStatus('Artigos carregados com sucesso!', 'success');
+                    },
+                    (error) => {
+                        console.error("Erro ao carregar artigos:", error);
+                        if (error.code === 'permission-denied') {
+                            showArticlesStatus('Erro: Permissão negada para ler artigos. Verifique as regras de segurança do Firestore.', 'error');
+                        } else {
+                            showArticlesStatus(`Erro ao carregar artigos: ${error.message}`, 'error');
+                        }
+                    }
+                );
+        }
+
+        // Chame a função para carregar os artigos assim que a página for carregada
+        document.addEventListener('DOMContentLoaded', loadArticles);
+
+    </script>
+
+</body>
 </html>
