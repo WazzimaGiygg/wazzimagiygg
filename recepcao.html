@@ -1,131 +1,397 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-    <title>Lista de Artigos</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscar Artigos - WZZM Admin</title> <!-- Título atualizado -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
     <style>
-        body { font-family: sans-serif; margin: 20px; line-height: 1.6; color: #333; }
-        h1 { color: #0056b3; }
-
-        /* Estilo para a listagem de artigos */
-        .article-item {
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin-bottom: 15px;
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5; /* Cor primária do MDL */
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        #articles-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .article-card {
+            background: #fff;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .article-card:hover {
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,.2), 0 6px 2px -4px rgba(0,0,0,.2), 0 2px 10px 0 rgba(0,0,0,.12);
+        }
+        .article-card .mdl-card__title {
+            color: #fff;
+            background-color: #3f51b5; /* Cor primária do MDL */
+            min-height: 80px; /* Garante espaço para o título */
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .article-card .mdl-card__title-text {
+            color: #fff;
+            font-size: 1.5em;
+            line-height: 1.2;
+            word-break: break-word; /* Quebra palavras longas */
+        }
+        .article-card .mdl-card__supporting-text {
+            padding: 16px;
+            font-size: 0.9em;
+            line-height: 1.5;
+            flex-grow: 1; /* Permite que o texto de suporte ocupe espaço restante */
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .article-card .mdl-card__actions {
+            border-top: 1px solid rgba(0,0,0,.1);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: flex-end; /* Alinha os botões à direita */
+            align-items: center;
+        }
+        .article-card .mdl-card__actions .mdl-button {
+            margin-left: 8px; /* Espaço entre os botões */
+        }
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: #777;
+            font-size: 1.1em;
+            width: 100%;
+        }
+        .error-message {
+            text-align: center;
+            padding: 30px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
             border-radius: 5px;
-            background-color: #f9f9f9;
+            margin-top: 20px;
+            width: 100%;
         }
-        .article-item h2 { /* Mudado para h2 para os títulos dos artigos */
-            margin-top: 0;
-            color: #007bff;
+        /* Removido o container do botão adicionar, pois o botão será removido */
+        /* .add-article-button-container {
+            text-align: right;
+            margin-bottom: 20px;
+        } */
+
+        /* Estilo para o campo de busca */
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px; /* Espaço entre o campo e o botão */
         }
-        .article-item p {
-            margin-bottom: 5px;
-        }
-        .article-item small {
-            color: #666;
-        }
-        /* Estilo para mensagens de status (opcional) */
-        #articles-status { margin-top: 15px; padding: 12px; border-radius: 4px; font-size: 0.9rem; }
-        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+         .search-container .mdl-textfield {
+            flex-grow: 1; /* Permite que o campo de texto ocupe o espaço restante */
+         }
+         .search-container .mdl-button {
+            flex-shrink: 0; /* Impede que o botão diminua */
+         }
+
     </style>
 </head>
 <body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
-    <h1>Artigos Publicados</h1>
+    <div class="container">
+        <h1>Buscar Artigos</h1> <!-- Título principal atualizado -->
 
-    <div id="articles-list-section">
-        <div id="articles-container">
-            <p>Carregando artigos...</p>
+        <!-- Campo de Busca -->
+        <div class="search-container">
+             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="search-summary">
+                <label class="mdl-textfield__label" for="search-summary">Buscar por Resumo...</label>
+             </div>
+             <button id="search-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                 <i class="material-icons">search</i> Buscar
+             </button>
+             <!-- Botão para limpar a busca (Opcional, mas útil) -->
+             <button id="clear-search-button" class="mdl-button mdl-js-button mdl-button--raised">
+                 Limpar
+             </button>
         </div>
-        <div id="articles-status"></div> </div>
+
+        <!-- Removido o botão Adicionar Novo Artigo -->
+        <!-- <div class="add-article-button-container">
+            <a href="#" id="add-article-btn"
+               class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                <i class="material-icons">add</i> Adicionar Novo Artigo
+            </a>
+        </div> -->
+
+        <div id="articles-list" class="mdl-grid">
+            <p class="empty-state" id="loading-message">Carregando artigos...</p>
+        </div>
+
+        <div id="error-display" class="error-message" style="display: none;">
+        </div>
+    </div>
 
     <script>
-        // Sua configuração do Firebase. Use as informações do seu projeto.
+       // --- Configuração do Firebase com suas chaves e dados originais ---
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
             projectId: "wzzm-ce3fc",
             storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // <--- Não esqueça de substituir este!
-            appId: "1:249427877153:web:0e4297294794a5aadeb260"
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
         };
 
-        // Inicialize o Firebase
-        firebase.initializeApp(firebaseConfig);
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
 
-        // Obtenha a instância do Firestore
-        const db = firebase.firestore();
+        const articlesListDiv = document.getElementById('articles-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        // Removido o botão addArticleBtn
+        // const addArticleBtn = document.getElementById('add-article-btn');
 
-        // Referências aos elementos de listagem de artigo
-        const articlesContainerDiv = document.getElementById('articles-container');
-        const articlesStatusDiv = document.getElementById('articles-status');
+        // Referências para os novos elementos de busca
+        const searchSummaryInput = document.getElementById('search-summary');
+        const searchButton = document.getElementById('search-button');
+        const clearSearchButton = document.getElementById('clear-search-button');
 
-        // Função para exibir mensagens de status na listagem de artigos
-        function showArticlesStatus(message, type) {
-            if (articlesStatusDiv) {
-                articlesStatusDiv.textContent = message;
-                articlesStatusDiv.className = 'status ' + type;
+
+        function displayError(message) {
+            if (errorDisplay) {
+                errorDisplay.textContent = `Erro: ${message}`;
+                errorDisplay.style.display = 'block';
+            } else {
+                console.error("Elemento 'error-display' não encontrado no DOM.");
+            }
+            if (loadingMessage) {
+                loadingMessage.style.display = 'none';
             }
         }
 
-        // Função para carregar e exibir os artigos
-        function loadArticles() {
-            if (!articlesContainerDiv) {
-                console.error("Erro: Elemento 'articles-container' não encontrado no HTML.");
+        // Função modificada para aceitar um termo de busca
+        async function loadArticles(searchTerm = '') { // Adicionado parâmetro opcional
+            if (!articlesListDiv) {
+                console.error("Elemento 'articles-list' não encontrado. Não é possível carregar artigos.");
+                displayError("Erro interno: Contêiner de artigos não encontrado.");
                 return;
             }
 
-            articlesContainerDiv.innerHTML = '<p>Carregando artigos...</p>';
-            showArticlesStatus('', '');
+            articlesListDiv.innerHTML = '';
+            if (loadingMessage) {
+                loadingMessage.style.display = 'block';
+            }
+            errorDisplay.style.display = 'none';
 
-            db.collection('articles')
-              .orderBy('createdAt', 'desc') // Ordena do mais recente para o mais antigo (requer campo 'createdAt')
-              .onSnapshot(
-                    (querySnapshot) => {
-                        articlesContainerDiv.innerHTML = ''; // Limpa o conteúdo existente
+            try {
+                let articlesRef = firestore.collection('articlesdoc');
 
-                        if (querySnapshot.empty) {
-                            articlesContainerDiv.innerHTML = '<p>Nenhum artigo encontrado.</p>';
-                            showArticlesStatus('Nenhum artigo para exibir.', 'warning');
-                            return;
-                        }
+                // *** MODIFICAÇÃO AQUI: Adicionar filtro se um termo de busca for fornecido ***
+                // Nota: Consultas textuais parciais no Firestore (como "contém") são complexas.
+                // Esta abordagem busca documentos cujo campo 'summary' COMEÇA com o termo de busca.
+                // Para buscas mais avançadas, você precisaria de uma solução de busca de texto completo (ex: Algolia, ElasticSearch, ou buscar todos e filtrar no cliente).
+                if (searchTerm.trim()) {
+                    // Esta é uma consulta de "startsWith" no Firestore
+                    articlesRef = articlesRef
+                        .where('summary', '>=', searchTerm)
+                        .where('summary', '<=', searchTerm + '\uf8ff'); // Técnica para "termina com" em range queries
+                        // Se você precisar ordenar por algo DIFERENTE de 'summary' ao usar essa query,
+                        // precisará de um índice composto no Firestore.
+                }
 
-                        querySnapshot.forEach((doc) => {
-                            const article = doc.data();
-                            // Não precisamos do articleId para esta página de visualização simples
+                 // Mantém a ordenação por timestamp para a exibição padrão
+                articlesRef = articlesRef.orderBy('timestamp', 'desc');
 
-                            const articleElement = document.createElement('div');
-                            articleElement.classList.add('article-item'); // Adiciona a classe CSS
 
-                            articleElement.innerHTML = `
-                                <h2>${article.title}</h2>
-                                <p><strong>Acesso:</strong> ${article.acesso}</p>
-                                <p>${article.content}</p> <p><small>Criado por: ${article.userId || 'Desconhecido'}</small></p>
-                                <p><small>Em: ${article.createdAt ? new Date(article.createdAt.seconds * 1000).toLocaleString() : 'N/A'}</small></p>
-                            `;
-                            articlesContainerDiv.appendChild(articleElement);
-                        });
-                        showArticlesStatus('Artigos carregados com sucesso!', 'success');
-                    },
-                    (error) => {
-                        console.error("Erro ao carregar artigos:", error);
-                        if (error.code === 'permission-denied') {
-                            showArticlesStatus('Erro: Permissão negada para ler artigos. Verifique as regras de segurança do Firestore.', 'error');
-                        } else {
-                            showArticlesStatus(`Erro ao carregar artigos: ${error.message}`, 'error');
-                        }
+                const snapshot = await articlesRef.get();
+
+                if (loadingMessage) {
+                    loadingMessage.style.display = 'none';
+                }
+
+                if (snapshot.empty) {
+                     // Atualiza a mensagem dependendo se houve busca ou não
+                    const emptyMessage = searchTerm.trim() ?
+                        `Nenhum artigo encontrado com o termo "${searchTerm}" no resumo.` :
+                        'Nenhum artigo (articlesdoc) publicado ainda.';
+                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+                    console.log(`Nenhum artigo encontrado na coleção 'articlesdoc'${searchTerm.trim() ? ` para o termo "${searchTerm}"` : ''}.`);
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const articleData = doc.data();
+                    const articleId = doc.id;
+
+                    if (articleData && typeof articleData === 'object') {
+                         // *** MODIFICAÇÃO AQUI: Opcional - Filtrar no cliente para buscas mais complexas ***
+                         // Se a query do Firestore acima não for suficiente (ex: precisa buscar em qualquer parte da string),
+                         // você buscaria todos os documentos e filtraria AQUI:
+                         // if (searchTerm.trim() && !articleData.summary.toLowerCase().includes(searchTerm.toLowerCase())) {
+                         //     return; // Pula este artigo se ele não contiver o termo de busca
+                         // }
+                         // Note que filtrar no cliente só é viável para um número limitado de artigos.
+
+                        const card = document.createElement('div');
+                        card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
+                        card.innerHTML = `
+                            <div class="mdl-card__title">
+                                <h2 class="mdl-card__title-text">${articleData.title || 'Título Indisponível'}</h2>
+                            </div>
+                            <div class="mdl-card__supporting-text">
+                                <p>${articleData.summary || 'Nenhum resumo disponível.'}</p>
+                            </div>
+                            <div class="mdl-card__actions mdl-card--border">
+                                <a href="#" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect edit-article-button" data-article-id="${articleId}">
+                                    Editar
+                                </a>
+                                <button class="mdl-button mdl-button--accent mdl-js-button mdl-js-ripple-effect delete-article-button"
+                                        data-article-id="${articleId}">
+                                    Excluir
+                                </button>
+                            </div>
+                        `;
+                        articlesListDiv.appendChild(card);
+                    } else {
+                        console.warn(`Documento com ID ${articleId} na coleção 'articlesdoc' possui dados inválidos, nulos ou indefinidos. Ignorando este artigo.`);
                     }
-                );
+                });
+
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(articlesListDiv);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar artigos da coleção 'articlesdoc':", error);
+                displayError(`Não foi possível carregar os artigos (articlesdoc). ${error.message}. Verifique as regras de segurança e a conexão.`);
+            }
         }
 
-        // Chame a função para carregar os artigos assim que a página for carregada
-        document.addEventListener('DOMContentLoaded', loadArticles);
+        // A função deleteArticle não precisa de modificação no nome da coleção, pois já estava correta para 'articlesdoc'
+        async function deleteArticle(articleId) {
+            if (!confirm('Tem certeza que deseja excluir este artigo? Esta ação é irreversível.')) {
+                return;
+            }
 
+            try {
+                // Já está usando 'articlesdoc' da modificação anterior
+                await firestore.collection('articlesdoc').doc(articleId).delete();
+                alert('Artigo excluído com sucesso!');
+                console.log(`Artigo com ID ${articleId} excluído da coleção 'articlesdoc'.`);
+                // Após deletar, recarregue a lista com o termo de busca atual, se houver
+                loadArticles(searchSummaryInput.value.trim());
+            } catch (error) {
+                console.error("Erro ao excluir artigo da coleção 'articlesdoc':", error);
+                displayError(`Não foi possível excluir o artigo (articlesdoc). ${error.message}`);
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Carrega todos os artigos inicialmente (sem termo de busca)
+            loadArticles();
+
+            if (articlesListDiv) {
+                articlesListDiv.addEventListener('click', (event) => {
+                    const target = event.target;
+
+                    // Lógica para o botão Excluir
+                    if (target.classList.contains('delete-article-button') && target.dataset.articleId) {
+                        const articleId = target.dataset.articleId;
+                        deleteArticle(articleId);
+                    }
+                    // Lógica para o botão Editar
+                    if (target.classList.contains('edit-article-button') && target.dataset.articleId) {
+                        event.preventDefault();
+
+                        const articleId = target.dataset.articleId;
+                        const urlToLoad = `./admintools/editordeartigos.html?id=${articleId}`;
+
+                        if (window.parent !== window && window.parent.postMessage) {
+                            window.parent.postMessage({
+                                type: 'navigateIframe',
+                                url: urlToLoad
+                            }, window.location.origin);
+                        } else {
+                            window.location.href = urlToLoad;
+                        }
+                    }
+                });
+            } else {
+                console.error("Elemento 'articles-list' não encontrado para adicionar listeners.");
+            }
+
+            // Removido o listener para o botão "Adicionar Novo Artigo"
+
+            // *** NOVOS LISTENERS para a busca ***
+            if (searchButton) {
+                searchButton.addEventListener('click', () => {
+                    const searchTerm = searchSummaryInput.value.trim();
+                    loadArticles(searchTerm); // Chama loadArticles com o termo de busca
+                });
+            }
+
+            if (searchSummaryInput) {
+                // Permite buscar ao pressionar Enter no campo de texto
+                searchSummaryInput.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault(); // Evita o envio de formulário padrão
+                        const searchTerm = searchSummaryInput.value.trim();
+                        loadArticles(searchTerm); // Chama loadArticles com o termo de busca
+                    }
+                });
+            }
+
+             if (clearSearchButton) {
+                 clearSearchButton.addEventListener('click', () => {
+                     searchSummaryInput.value = ''; // Limpa o campo de busca
+                     loadArticles(); // Recarrega todos os artigos
+                 });
+             }
+
+
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+                 // Atualiza o MDL para o campo de busca
+                 const searchMdlTextfield = searchSummaryInput.parentElement;
+                 if (searchMdlTextfield && searchMdlTextfield.MaterialTextfield) {
+                      searchMdlTextfield.MaterialTextfield.checkDirty();
+                      searchMdlTextfield.MaterialTextfield.checkValidity();
+                 }
+            }
+        });
     </script>
-
 </body>
 </html>
