@@ -1,481 +1,192 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscar Artigos - WZZM Admin</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
-    <style>
-        body {
-            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 20px auto;
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
-        }
-        h1 {
-            color: #3f51b5; /* Cor primária do MDL */
-            margin-bottom: 25px;
-            text-align: center;
-        }
-        #articles-list {
-            /* *** MODIFICAÇÃO AQUI: Remover layout de grid para exibir linha por linha *** */
-            display: block; /* Mudar de grid para bloco */
-            margin-top: 30px;
-        }
-        .article-card {
-            background: #fff;
-            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
-            border-radius: 8px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            width: 100%; /* Ocupa a largura total */
-            margin-bottom: 20px; /* Espaço entre os artigos na lista */
-            min-height: auto; /* Remover min-height fixo se não for mais necessário */
-        }
-        .article-card:hover {
-            box-shadow: 0 4px 8px 0 rgba(0,0,0,.2), 0 6px 2px -4px rgba(0,0,0,.2), 0 2px 10px 0 rgba(0,0,0,.12);
-        }
-        .article-card .mdl-card__title {
-            color: #fff;
-            background-color: #3f51b5; /* Cor primária do MDL */
-            min-height: 80px;
-            display: flex;
-            align-items: center;
-            padding: 16px;
-            box-sizing: border-box;
-        }
-        .article-card .mdl-card__title-text {
-            color: #fff;
-            font-size: 1.5em;
-            line-height: 1.2;
-            word-break: break-word;
-        }
-
-        .article-card .mdl-card__supporting-text {
-            padding: 16px;
-            font-size: 0.9em;
-            line-height: 1.5;
-            flex-grow: 1;
-            white-space: normal;
-            /* *** MODIFICAÇÃO AQUI: Remover truncamento para exibir o resumo completo *** */
-            display: block; /* Certifica que o display é normal */
-            overflow: visible; /* Garante que todo o conteúdo seja visível */
-            text-overflow: clip; /* Remove as reticências */
-            -webkit-line-clamp: unset; /* Remove a limitação de linhas */
-            -webkit-box-orient: unset; /* Remove a orientação da caixa */
-        }
-
-        .article-card .mdl-card__actions {
-            border-top: 1px solid rgba(0,0,0,.1);
-            padding: 8px 16px;
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-        }
-        .article-card .mdl-card__actions .mdl-button {
-            margin-left: 8px;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 50px;
-            color: #777;
-            font-size: 1.1em;
-            width: 100%;
-        }
-        .error-message {
-            text-align: center;
-            padding: 30px;
-            color: #d32f2f;
-            background-color: #ffebee;
-            border: 1px solid #d32f2f;
-            border-radius: 5px;
-            margin-top: 20px;
-            width: 100%;
-        }
-        .search-container {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .search-container .mdl-textfield {
-            flex-grow: 1;
-        }
-        .search-container .mdl-button {
-            flex-shrink: 0;
-        }
-
-        /* --- Estilos para o Modal (Janela Pop-up) --- */
-        .modal {
-            display: none; /* Escondido por padrão */
-            position: fixed; /* Posição fixa na tela */
-            z-index: 1000; /* Acima de outros elementos */
-            left: 0;
-            top: 0;
-            width: 100%; /* Largura total */
-            height: 100%; /* Altura total */
-            overflow: auto; /* Permite scroll se o conteúdo for muito grande */
-            background-color: rgba(0,0,0,0.4); /* Fundo semi-transparente */
-            display: flex; /* Para centralizar o conteúdo */
-            justify-content: center; /* Centraliza horizontalmente */
-            align-items: center; /* Centraliza verticalmente */
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #888;
-            border-radius: 8px;
-            width: 80%; /* Largura do modal */
-            max-width: 800px; /* Largura máxima */
-            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
-            position: relative; /* Para posicionar o botão de fechar */
-            max-height: 90vh; /* Altura máxima para caber na tela */
-            overflow-y: auto; /* Adiciona scroll se o conteúdo for muito grande */
-        }
-
-        .close-button {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            position: absolute;
-            top: 10px;
-            right: 20px;
-        }
-
-        .close-button:hover,
-        .close-button:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .modal-title {
-            color: #3f51b5;
-            margin-bottom: 15px;
-        }
-
-        .modal-summary {
-            font-style: italic;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-
-        .modal-content-full {
-            white-space: pre-wrap; /* Preserva quebras de linha e espaços do conteúdo */
-            line-height: 1.6;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscar Artigos - WZZM Admin</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <style>
+    body {
+      font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 2px rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px rgba(0,0,0,.12);
+    }
+    h1 {
+      color: #3f51b5;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    #articles-list {
+      display: block;
+      margin-top: 30px;
+    }
+    .article-card {
+      background: #fff;
+      box-shadow: 0 2px 2px rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px rgba(0,0,0,.12);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      width: 100%;
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .article-card:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,.2), 0 6px 2px -4px rgba(0,0,0,.2), 0 2px 10px rgba(0,0,0,.12);
+    }
+    .mdl-card__title {
+      background-color: #3f51b5;
+      color: #fff;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      min-height: 80px;
+    }
+    .mdl-card__title-text {
+      font-size: 1.5em;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .mdl-card__supporting-text {
+      padding: 16px;
+      font-size: 0.9em;
+      line-height: 1.5;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .mdl-card__actions {
+      border-top: 1px solid rgba(0,0,0,.1);
+      padding: 8px 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 50px;
+      color: #777;
+      font-size: 1.1em;
+    }
+    .error-message {
+      text-align: center;
+      padding: 30px;
+      color: #d32f2f;
+      background-color: #ffebee;
+      border: 1px solid #d32f2f;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+    .search-container {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .search-container .mdl-textfield {
+      flex-grow: 1;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background-color: #fefefe;
+      padding: 20px;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 6px 20px rgba(0,0,0,0.19);
+    }
+    .close-button {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 28px;
+      cursor: pointer;
+      color: #aaa;
+    }
+    .close-button:hover {
+      color: black;
+    }
+    .modal-title {
+      color: #3f51b5;
+      margin-bottom: 15px;
+    }
+    .modal-summary {
+      font-style: italic;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .modal-content-full {
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+  </style>
 </head>
 <body>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
-    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+  <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
-    <div class="container">
-        <h1>Buscar Artigos</h1>
+  <div class="container">
+    <h1>Buscar Artigos</h1>
 
-        <div class="search-container">
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                <input class="mdl-textfield__input" type="text" id="search-summary">
-                <label class="mdl-textfield__label" for="search-summary">Buscar por Resumo...</label>
-            </div>
-            <button id="search-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
-                <i class="material-icons">search</i> Buscar
-            </button>
-            <button id="clear-search-button" class="mdl-button mdl-js-button mdl-button--raised">
-                Limpar
-            </button>
-        </div>
-
-        <div id="articles-list">
-            <p class="empty-state" id="loading-message">Carregando artigos...</p>
-        </div>
-
-        <div id="error-display" class="error-message" style="display: none;">
-        </div>
+    <div class="search-container">
+      <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+        <input class="mdl-textfield__input" type="text" id="search-summary">
+        <label class="mdl-textfield__label" for="search-summary">Buscar por Resumo...</label>
+      </div>
+      <button id="search-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+        <i class="material-icons">search</i> Buscar
+      </button>
+      <button id="clear-search-button" class="mdl-button mdl-js-button mdl-button--raised">Limpar</button>
     </div>
 
-    <div id="articleModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2 id="modalTitle" class="modal-title"></h2>
-            <p id="modalSummary" class="modal-summary"></p>
-            <div id="modalContentFull" class="modal-content-full"></div>
-        </div>
+    <div id="articles-list">
+      <p class="empty-state" id="loading-message">Carregando artigos...</p>
     </div>
 
-    <script>
-        // --- Configuração do Firebase com suas chaves e dados originais ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
+    <div id="error-display" class="error-message" style="display: none;"></div>
+  </div>
 
-        let app;
-        try {
-            app = firebase.app();
-        } catch (e) {
-            app = firebase.initializeApp(firebaseConfig);
-        }
-        const firestore = firebase.firestore();
+  <div id="articleModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <h2 id="modalTitle" class="modal-title"></h2>
+      <p id="modalSummary" class="modal-summary"></p>
+      <div id="modalContentFull" class="modal-content-full"></div>
+    </div>
+  </div>
 
-        const articlesListDiv = document.getElementById('articles-list');
-        const loadingMessage = document.getElementById('loading-message');
-        const errorDisplay = document.getElementById('error-display');
-
-        const searchSummaryInput = document.getElementById('search-summary');
-        const searchButton = document.getElementById('search-button');
-        const clearSearchButton = document.getElementById('clear-search-button');
-
-        // Referências para os elementos do modal
-        const articleModal = document.getElementById('articleModal');
-        const closeButton = document.getElementsByClassName('close-button')[0];
-        const modalTitle = document.getElementById('modalTitle');
-        const modalSummary = document.getElementById('modalSummary');
-        const modalContentFull = document.getElementById('modalContentFull');
-
-        function displayError(message) {
-            if (errorDisplay) {
-                errorDisplay.textContent = `Erro: ${message}`;
-                errorDisplay.style.display = 'block';
-            } else {
-                console.error("Elemento 'error-display' não encontrado no DOM.");
-            }
-            if (loadingMessage) {
-                loadingMessage.style.display = 'none';
-            }
-        }
-
-        // Função para abrir o modal com o conteúdo do artigo
-        async function openArticleModal(articleId) {
-            try {
-                const doc = await firestore.collection('articlesdoc').doc(articleId).get();
-                if (doc.exists) {
-                    const articleData = doc.data();
-                    modalTitle.textContent = articleData.title || 'Título Indisponível';
-                    modalSummary.textContent = articleData.summary || 'Nenhum resumo disponível.';
-                    modalContentFull.textContent = articleData.content || 'Nenhum conteúdo disponível.'; // Assumindo 'content' como o campo do texto completo
-                    articleModal.style.display = 'flex'; // Exibe o modal
-                } else {
-                    alert('Artigo não encontrado.');
-                }
-            } catch (error) {
-                console.error('Erro ao buscar o artigo para o modal:', error);
-                displayError(`Não foi possível carregar o conteúdo do artigo. ${error.message}`);
-            }
-        }
-
-        // Função para fechar o modal
-        function closeArticleModal() {
-            articleModal.style.display = 'none';
-        }
-
-        // Função modificada para aceitar um termo de busca
-        async function loadArticles(searchTerm = '') {
-            if (!articlesListDiv) {
-                console.error("Elemento 'articles-list' não encontrado. Não é possível carregar artigos.");
-                displayError("Erro interno: Contêiner de artigos não encontrado.");
-                return;
-            }
-
-            articlesListDiv.innerHTML = '';
-            if (loadingMessage) {
-                loadingMessage.style.display = 'block';
-            }
-            errorDisplay.style.display = 'none';
-
-            try {
-                let articlesRef = firestore.collection('articlesdoc');
-
-                const trimmedSearchTerm = searchTerm.trim();
-
-                if (trimmedSearchTerm) {
-                    articlesRef = articlesRef
-                        .where('summary', '>=', trimmedSearchTerm)
-                        .where('summary', '<=', trimmedSearchTerm + '\uf8ff')
-                        .orderBy('summary');
-                } else {
-                    articlesRef = articlesRef.orderBy('timestamp', 'desc');
-                }
-
-                const snapshot = await articlesRef.get();
-
-                if (loadingMessage) {
-                    loadingMessage.style.display = 'none';
-                }
-
-                if (snapshot.empty) {
-                    const emptyMessage = trimmedSearchTerm ?
-                        `Nenhum artigo encontrado com o termo "${trimmedSearchTerm}" no resumo.` :
-                        'Nenhum artigo (articlesdoc) publicado ainda.';
-                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
-                    console.log(`Nenhum artigo encontrado na coleção 'articlesdoc'${trimmedSearchTerm ? ` para o termo "${trimmedSearchTerm}"` : ''}.`);
-                    return;
-                }
-
-                snapshot.forEach(doc => {
-                    const articleData = doc.data();
-                    const articleId = doc.id;
-
-                    if (articleData && typeof articleData === 'object') {
-                        const card = document.createElement('div');
-                        // *** MODIFICAÇÃO AQUI: Remover classes mdl-cell, já que não estamos mais usando grid ***
-                        card.className = 'article-card';
-                        card.innerHTML = `
-                            <div class="mdl-card__title">
-                                <h2 class="mdl-card__title-text">${articleData.title || 'Título Indisponível'}</h2>
-                            </div>
-                            <div class="mdl-card__supporting-text">
-                                <p>${articleData.summary || 'Nenhum resumo disponível.'}</p>
-                            </div>
-                            <div class="mdl-card__actions mdl-card--border">
-                                <a href="#" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${articleId}">
-                                    Ver Conteúdo Completo
-                                </a>
-                                <a href="#" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect edit-article-button" data-article-id="${articleId}">
-                                    Editar
-                                </a>
-                                <button class="mdl-button mdl-button--accent mdl-js-button mdl-js-ripple-effect delete-article-button"
-                                        data-article-id="${articleId}">
-                                    Excluir
-                                </button>
-                            </div>
-                        `;
-                        articlesListDiv.appendChild(card);
-                    } else {
-                        console.warn(`Documento com ID ${articleId} na coleção 'articlesdoc' possui dados inválidos, nulos ou indefinidos. Ignorando este artigo.`);
-                    }
-                });
-
-                if (window.componentHandler) {
-                    window.componentHandler.upgradeElements(articlesListDiv);
-                }
-
-            } catch (error) {
-                console.error("Erro ao carregar artigos da coleção 'articlesdoc':", error);
-                displayError(`Não foi possível carregar os artigos (articlesdoc). Erro: ${error.message}. Verifique as regras de segurança e a conexão.`);
-            }
-        }
-
-        async function deleteArticle(articleId) {
-            if (!confirm('Tem certeza que deseja excluir este artigo? Esta ação é irreversível.')) {
-                return;
-            }
-
-            try {
-                await firestore.collection('articlesdoc').doc(articleId).delete();
-                alert('Artigo excluído com sucesso!');
-                console.log(`Artigo com ID ${articleId} excluído da coleção 'articlesdoc'.`);
-                loadArticles(searchSummaryInput.value.trim());
-            } catch (error) {
-                console.error("Erro ao excluir artigo da coleção 'articlesdoc':", error);
-                displayError(`Não foi possível excluir o artigo (articlesdoc). ${error.message}`);
-            }
-        }
-
-        // --- Event Listeners ---
-        document.addEventListener('DOMContentLoaded', () => {
-            loadArticles();
-
-            if (articlesListDiv) {
-                articlesListDiv.addEventListener('click', (event) => {
-                    const target = event.target;
-
-                    if (target.classList.contains('delete-article-button') && target.dataset.articleId) {
-                        const articleId = target.dataset.articleId;
-                        deleteArticle(articleId);
-                    }
-                    if (target.classList.contains('edit-article-button') && target.dataset.articleId) {
-                        event.preventDefault();
-                        const articleId = target.dataset.articleId;
-                        const urlToLoad = `./admintools/editordeartigos.html?id=${articleId}`;
-
-                        if (window.parent !== window && window.parent.postMessage) {
-                            window.parent.postMessage({
-                                type: 'navigateIframe',
-                                url: urlToLoad
-                            }, window.location.origin);
-                        } else {
-                            window.location.href = urlToLoad;
-                        }
-                    }
-                    if (target.classList.contains('view-article-button') && target.dataset.articleId) {
-                        event.preventDefault();
-                        const articleId = target.dataset.articleId;
-                        openArticleModal(articleId);
-                    }
-                });
-            } else {
-                console.error("Elemento 'articles-list' não encontrado para adicionar listeners.");
-            }
-
-            if (searchButton) {
-                searchButton.addEventListener('click', () => {
-                    const searchTerm = searchSummaryInput.value.trim();
-                    loadArticles(searchTerm);
-                });
-            }
-
-            if (searchSummaryInput) {
-                searchSummaryInput.addEventListener('keypress', (event) => {
-                    if (event.key === 'Enter') {
-                        event.preventDefault();
-                        const searchTerm = searchSummaryInput.value.trim();
-                        loadArticles(searchTerm);
-                    }
-                });
-            }
-
-            if (clearSearchButton) {
-                clearSearchButton.addEventListener('click', () => {
-                    searchSummaryInput.value = '';
-                    loadArticles();
-                });
-            }
-
-            if (closeButton) {
-                closeButton.addEventListener('click', closeArticleModal);
-            }
-
-            if (articleModal) {
-                articleModal.addEventListener('click', (event) => {
-                    if (event.target === articleModal) {
-                        closeArticleModal();
-                    }
-                });
-            }
-
-            if (window.componentHandler) {
-                window.componentHandler.upgradeDom();
-                const searchMdlTextfield = searchSummaryInput.parentElement;
-                if (searchMdlTextfield && searchMdlTextfield.MaterialTextfield) {
-                    searchMdlTextfield.MaterialTextfield.checkDirty();
-                    searchMdlTextfield.MaterialTextfield.checkValidity();
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+      authDomain: "wzzm-ce3fc.firebaseapp.com",
+      projectId: "wzzm-ce3fc",
+      s
