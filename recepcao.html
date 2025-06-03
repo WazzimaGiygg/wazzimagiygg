@@ -59,14 +59,19 @@
             line-height: 1.2;
             word-break: break-word; /* Quebra palavras longas */
         }
+
+        /* *** OTIMIZAÇÃO DE ESPAÇO AQUI *** */
         .article-card .mdl-card__supporting-text {
             padding: 16px;
             font-size: 0.9em;
             line-height: 1.5;
             flex-grow: 1; /* Permite que o texto de suporte ocupe espaço restante */
-            overflow: hidden;
-            text-overflow: ellipsis;
+            /* Removido overflow e text-overflow para mostrar todo o conteúdo */
+            /* overflow: hidden; */
+            /* text-overflow: ellipsis; */
+            white-space: normal; /* Garante que o texto quebre linhas normalmente */
         }
+
         .article-card .mdl-card__actions {
             border-top: 1px solid rgba(0,0,0,.1);
             padding: 8px 16px;
@@ -218,21 +223,27 @@
             try {
                 let articlesRef = firestore.collection('articlesdoc');
 
-                // *** MODIFICAÇÃO AQUI: Adicionar filtro se um termo de busca for fornecido ***
-                // Nota: Consultas textuais parciais no Firestore (como "contém") são complexas.
-                // Esta abordagem busca documentos cujo campo 'summary' COMEÇA com o termo de busca.
-                // Para buscas mais avançadas, você precisaria de uma solução de busca de texto completo (ex: Algolia, ElasticSearch, ou buscar todos e filtrar no cliente).
-                if (searchTerm.trim()) {
-                    // Esta é uma consulta de "startsWith" no Firestore
-                    articlesRef = articlesRef
-                        .where('summary', '>=', searchTerm)
-                        .where('summary', '<=', searchTerm + '\uf8ff'); // Técnica para "termina com" em range queries
-                        // Se você precisar ordenar por algo DIFERENTE de 'summary' ao usar essa query,
-                        // precisará de um índice composto no Firestore.
-                }
+                // *** MODIFICAÇÃO AQUI: Adicionar filtro e ajustar ordenação se um termo de busca for fornecido ***
+                const trimmedSearchTerm = searchTerm.trim();
 
-                 // Mantém a ordenação por timestamp para a exibição padrão
-                articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                if (trimmedSearchTerm) {
+                    // Para buscas com desigualdade no Firestore, a primeira ordenação deve ser no campo filtrado.
+                    // Vamos ordenar por 'summary' e, opcionalmente, depois por 'timestamp'.
+                    // Nota: Se você precisar apenas da ordenação por timestamp, mesmo com busca,
+                    // a abordagem mais adequada (para um número razoável de artigos) é buscar todos e filtrar no cliente.
+                    articlesRef = articlesRef
+                        .where('summary', '>=', trimmedSearchTerm)
+                        .where('summary', '<=', trimmedSearchTerm + '\uf8ff')
+                        .orderBy('summary'); // Ordena primeiro por 'summary' para satisfazer a regra do Firestore
+
+                     // Se você quiser ordenar por timestamp DEPOIS de ordenar por summary, adicione:
+                     // articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                     // Lembre-se: Isso provavelmente exigirá um índice composto (summary ASC, timestamp DESC).
+
+                } else {
+                     // Se não houver termo de busca, ordene apenas por timestamp (comportamento padrão)
+                    articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                }
 
 
                 const snapshot = await articlesRef.get();
@@ -243,11 +254,11 @@
 
                 if (snapshot.empty) {
                      // Atualiza a mensagem dependendo se houve busca ou não
-                    const emptyMessage = searchTerm.trim() ?
-                        `Nenhum artigo encontrado com o termo "${searchTerm}" no resumo.` :
+                    const emptyMessage = trimmedSearchTerm ?
+                        `Nenhum artigo encontrado com o termo "${trimmedSearchTerm}" no resumo.` :
                         'Nenhum artigo (articlesdoc) publicado ainda.';
                     articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
-                    console.log(`Nenhum artigo encontrado na coleção 'articlesdoc'${searchTerm.trim() ? ` para o termo "${searchTerm}"` : ''}.`);
+                    console.log(`Nenhum artigo encontrado na coleção 'articlesdoc'${trimmedSearchTerm ? ` para o termo "${trimmedSearchTerm}"` : ''}.`);
                     return;
                 }
 
@@ -256,14 +267,6 @@
                     const articleId = doc.id;
 
                     if (articleData && typeof articleData === 'object') {
-                         // *** MODIFICAÇÃO AQUI: Opcional - Filtrar no cliente para buscas mais complexas ***
-                         // Se a query do Firestore acima não for suficiente (ex: precisa buscar em qualquer parte da string),
-                         // você buscaria todos os documentos e filtraria AQUI:
-                         // if (searchTerm.trim() && !articleData.summary.toLowerCase().includes(searchTerm.toLowerCase())) {
-                         //     return; // Pula este artigo se ele não contiver o termo de busca
-                         // }
-                         // Note que filtrar no cliente só é viável para um número limitado de artigos.
-
                         const card = document.createElement('div');
                         card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
                         card.innerHTML = `
@@ -295,7 +298,8 @@
 
             } catch (error) {
                 console.error("Erro ao carregar artigos da coleção 'articlesdoc':", error);
-                displayError(`Não foi possível carregar os artigos (articlesdoc). ${error.message}. Verifique as regras de segurança e a conexão.`);
+                // *** MODIFICAÇÃO NA MENSAGEM DE ERRO: Incluir o erro original para ajudar na depuração de índices ***
+                displayError(`Não foi possível carregar os artigos (articlesdoc). Erro: ${error.message}. Verifique as regras de segurança e a conexão.`);
             }
         }
 
