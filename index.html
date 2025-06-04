@@ -3,104 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wiki Zone Zero Mod</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <title>Editor de Documentos com Abas</title>
     <style>
-        .page-content {
-            padding: 20px;
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            margin: 20px;
         }
-        #contentFrame {
-            width: 100%;
-            height: calc(100vh - 200px);
+        #tab-container {
+            background-color: #ddd;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            padding: 10px;
+            border-radius: 5px 5px 0 0;
+            overflow-x: auto; /* Allow horizontal scrolling for many tabs */
+        }
+        .tab {
+            padding: 8px 15px;
+            margin-right: 5px;
+            border: 1px solid #ccc;
+            border-bottom: none;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            display: flex;
+            align-items: center;
+            white-space: nowrap; /* Prevent tab names from wrapping */
+        }
+        .tab.active {
+            background-color: #fff;
+            font-weight: bold;
+        }
+        .tab input[type="text"] {
             border: none;
+            background: none;
+            font-size: inherit;
+            padding: 0;
+            margin-left: 5px;
+            width: 100px;
         }
-
-        /* Estilos adicionais para os links do menu lateral quando desabilitados */
-        .mdl-navigation__link.disabled {
-            cursor: not-allowed;
-            opacity: 0.6;
-            color: #777 !important; /* Adicionado !important para sobrepor estilos do MDL */
-            pointer-events: none; /* Impede cliques */
+        .tab .close-tab {
+            margin-left: 10px;
+            cursor: pointer;
+            color: #888;
+            font-weight: bold;
+        }
+        .tab .close-tab:hover {
+            color: #333;
+        }
+        #content-container {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 0 5px 5px 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .document-editor {
+            width: 100%;
+            min-height: 300px;
+            font-size: 16px;
+            line-height: 1.7;
+            border: none;
+            outline: none;
+            display: none; /* Initially hide all editors */
+        }
+        .document-editor.active {
+            display: block;
+        }
+        #toolbar {
+            background-color: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        #toolbar > * {
+            margin-bottom: 5px;
+        }
+        #toolbar button, #toolbar select, #add-tab-btn, #save-firebase-btn, #load-firebase-btn {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #toolbar select {
+            padding: 7px;
+        }
+        #toolbar button:hover, #add-tab-btn:hover, #save-firebase-btn:hover, #load-firebase-btn:hover {
+            background-color: #d0d0d0;
+        }
+        #link-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            border-radius: 5px;
+        }
+        #link-modal label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        #link-modal input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        #link-modal button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+        #link-modal button.confirm {
+            background-color: #5cb85c;
+            color: white;
+        }
+        #link-modal button.cancel {
+            background-color: #f44336;
+            color: white;
         }
     </style>
 </head>
 <body>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <h1>Editor de Documentos com Abas</h1>
 
-    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">Wiki Zone Zero Mod</span>
-                <div class="mdl-layout-spacer"></div>
-                <div id="user-info" class="mdl-typography--body-1-force-preferred-font-color-contrast" style="margin-right: 16px;"></div>
-            </div>
-        </header>
+    <div id="toolbar">
+        <button onclick="formatText('bold')"><i class="fas fa-bold"></i> Negrito</button>
+        <button onclick="formatText('italic')"><i class="fas fa-italic"></i> Itálico</button>
+        <button onclick="formatText('underline')"><i class="fas fa-underline"></i> Sublinhado</button>
+        <button onclick="formatText('strikeThrough')"><i class="fas fa-strikethrough"></i> Tachado</button>
 
-        <div class="mdl-layout__drawer">
-            <span class="mdl-layout-title">Menu</span>
-            <nav class="mdl-navigation" id="main-navigation">
-                <a class="mdl-navigation__link" href="#" data-page-src="recepcao.html" data-requires-auth="false">Página Inicio</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="artigos.html">Artigos</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="artigosdesaudementalgerados.html">Artigos Automáticos de Ensaio</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="imagens.html">Imagens</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="contato.html">Contato</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="./buscaavancada/index.html">Busca Avançada</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="ferramentasuteis.html">Ferramentas Úteis</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/">Página do Usuário</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/denunciar/">Rastrear usuário / Denunciar</a> 
-                <a class="mdl-navigation__link" href="#" data-page-src="servicoswzzm.html">Outros serviços da Wiki Zone Zero Mod</a> 
+        <select onchange="formatText('fontName', this.value)">
+            <option value="">Fonte</option>
+            <option value="Arial">Arial</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Courier New">Courier New</option>
+        </select>
 
-                <a class="mdl-navigation__link" href="http://www.wzzm.org/POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf" target="_blank">Políticas da WZZM</a>
-                
-            </nav>
-        </div>
+        <select onchange="formatText('fontSize', this.value)">
+            <option value="">Tamanho</option>
+            <option value="1">Muito Pequeno</option>
+            <option value="2">Pequeno</option>
+            <option value="3">Normal</option>
+            <option value="4">Médio</option>
+            <option value="5">Grande</option>
+            <option value="6">Muito Grande</option>
+            <option value="7">Enorme</option>
+        </select>
 
-        <main class="mdl-layout__content">
-            <div class="page-content">
-                <div class="separator" style="clear: both; text-align: center;">
-                    <a href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4Da0sMXBHJ6BFlZaG4MCEiimtNbLDv4Q6Z_MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s2833/Wiki_Zone_Zero_Mod_Banner.webp" style="display: block; padding: 1em 0;">
-                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4DaOswxBHJ6BFlZaG4MCEiimtNbLDv4Q6Z_MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
-                    </a>
-                </div>
-                <iframe id="contentFrame" src="recepcao.html"></iframe>
-                <div id="access-denied-message" style="text-align: center; padding: 50px; font-size: 20px; color: #666; display: none;">
-                    Você precisa estar logado para acessar esta página.
-                </div>
-            </div>
-        </main>
+        <select onchange="formatText('heading', this.value)">
+            <option value="">Cabeçalho</option>
+            <option value="h1">Cabeçalho 1</option>
+            <option value="h2">Cabeçalho 2</option>
+            <option value="h3">Cabeçalho 3</option>
+            <option value="p">Parágrafo</option>
+        </select>
 
-        <footer class="mdl-mini-footer">
-            <div class="mdl-mini-footer__left-section">
-                <div class="mdl-logo">WZZM © 2025</div>
-                <ul class="mdl-mini-footer__link-list">
-                    <li><a href="./Privacidade/">Privacidade</a></li>
-                    <li><a href="./Termos/">Termos</a></li>
-                </ul>
-            </div>
-            <div class="mdl-mini-footer__right-section">
-                <button id="login-google" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="display: none;">
-                    <i class="material-icons">account_circle</i> Login com Google
-                </button>
-                <button id="login-github" class="mdl-button mdl-js-button mdl-button--raised" style="display: none;">
-                    <i class="material-icons">code</i> Login com GitHub
-                </button>
-                <button id="logout-button" class="mdl-button mdl-js-button mdl-button--accent" style="display: none;">
-                    <i class="material-icons">exit_to_app</i> Sair
-                </button>
-                <button id="admin-panel-button" class="mdl-button mdl-js-button mdl-button--primary" style="display: none;">
-                    <i class="material-icons">admin_panel_settings</i> Admin
-                </button>
-            </div>
-        </footer>
+        <button onclick="formatList('insertOrderedList')"><i class="fas fa-list-ol"></i> Lista Ordenada</button>
+        <button onclick="formatList('insertUnorderedList')"><i class="fas fa-list-ul"></i> Lista Não Ordenada</button>
+
+        <button onclick="alignText('justifyLeft')"><i class="fas fa-align-left"></i> Esquerda</button>
+        <button onclick="alignText('justifyCenter')"><i class="fas fa-align-center"></i> Centralizar</button>
+        <button onclick="alignText('justifyRight')"><i class="fas fa-align-right"></i> Direita</button>
+        <button onclick="alignText('justifyFull')"><i class="fas fa-align-justify"></i> Justificar</button>
+
+        <button onclick="indentText()"><i class="fas fa-indent"></i> Indentar</button>
+        <button onclick="outdentText()"><i class="fas fa-outdent"></i> Remover Indentação</button>
+
+        <button onclick="showLinkDialog()"><i class="fas fa-link"></i> Inserir Link</button>
+
+        <button id="add-tab-btn" onclick="addTab()">Adicionar Aba</button>
+        <button id="load-firebase-btn" onclick="loadAllDocumentsFromFirebase()">Carregar Documentos</button>
+        <button id="save-firebase-btn" onclick="saveAllDocumentsToFirebase()">Salvar no Firebase</button>
     </div>
 
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <div id="tab-container">
+    </div>
+
+    <div id="content-container">
+    </div>
+
+    <div id="link-modal">
+        <label for="link-url">URL:</label>
+        <input type="text" id="link-url">
+        <button class="confirm" onclick="insertLink()">Inserir</button>
+        <button class="cancel" onclick="hideLinkDialog()">Cancelar</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
     <script>
-        // --- Configuração do Firebase ---
+        // Your Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -111,205 +224,334 @@
             measurementId: "G-PLKNZNFCQ8"
         };
 
-        // Inicialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
         const auth = firebase.auth();
-        const firestore = firebase.firestore();
-        const analytics = firebase.analytics();
 
-        // Elementos da UI
-        const loginGoogleButton = document.getElementById('login-google');
-        const loginGitHubButton = document.getElementById('login-github');
-        const logoutButton = document.getElementById('logout-button');
-        const userInfo = document.getElementById('user-info');
-        const adminPanelButton = document.getElementById('admin-panel-button'); 
-        const contentFrame = document.getElementById('contentFrame');
-        const accessDeniedMessage = document.getElementById('access-denied-message');
-        const navLinks = document.querySelectorAll('.mdl-navigation__link'); 
+        let currentUserUid = null;
 
-        // Função para carregar a página no iframe
-        function loadPage(page, requiresAuth = true) {
-            if (!requiresAuth || auth.currentUser) {
-                contentFrame.src = page;
-                contentFrame.style.display = 'block';
-                accessDeniedMessage.style.display = 'none';
+        // Sign in anonymously to get a UID
+        auth.signInAnonymously()
+            .then((userCredential) => {
+                currentUserUid = userCredential.user.uid;
+                console.log("Usuário autenticado anonimamente com UID:", currentUserUid);
+                // Optionally load documents after authentication
+                loadAllDocumentsFromFirebase();
+            })
+            .catch((error) => {
+                console.error("Erro na autenticação anônima:", error);
+                alert("Erro ao autenticar. Não será possível salvar/carregar documentos.");
+            });
+
+        let tabCounter = 1;
+        let activeTabId = null;
+        // Map to store tabId to document ID from Firestore (if loaded)
+        const tabToDocIdMap = new Map();
+
+        function addTab(name = `Documento ${tabCounter}`, content = "", docId = null) {
+            const tabId = `tab-${tabCounter}`;
+            const editorId = `editor-${tabCounter}`;
+
+            const tabContainer = document.getElementById('tab-container');
+            const contentContainer = document.getElementById('content-container');
+
+            // Criar a aba
+            const tabDiv = document.createElement('div');
+            tabDiv.classList.add('tab');
+            tabDiv.setAttribute('data-tab-id', tabId);
+            tabDiv.innerHTML = `
+                <input type="text" value="${name}" onchange="renameTab(this, '${tabId}')">
+                <span class="close-tab" onclick="deleteTab('${tabId}', event)">&times;</span>
+            `;
+            tabDiv.addEventListener('click', (event) => {
+                // Only switch tab if the click is not on the close button
+                if (!event.target.classList.contains('close-tab')) {
+                    switchTab(tabId);
+                }
+            });
+            tabContainer.appendChild(tabDiv);
+
+            // Criar o editor de conteúdo
+            const editorDiv = document.createElement('div');
+            editorDiv.id = editorId;
+            editorDiv.classList.add('document-editor');
+            editorDiv.setAttribute('contenteditable', 'true');
+            editorDiv.innerHTML = content;
+            contentContainer.appendChild(editorDiv);
+
+            // Store the Firestore document ID if provided
+            if (docId) {
+                tabToDocIdMap.set(tabId, docId);
             } else {
-                contentFrame.src = "about:blank";
-                contentFrame.style.display = 'none';
-                accessDeniedMessage.style.display = 'block';
-                alert("Você precisa estar logado para acessar esta página.");
+                // If it's a new tab, clear any old docId association
+                tabToDocIdMap.delete(tabId);
             }
+
+            // Ativar a nova aba se for a primeira ou se for a única ativa
+            if (!activeTabId || tabContainer.children.length === 1) {
+                switchTab(tabId);
+            }
+            tabCounter++;
         }
 
-        // Adiciona event listeners aos links de navegação
-        navLinks.forEach(link => {
-            if (!link.dataset.pageSrc) {
+        function switchTab(tabId) {
+            // Desativar a aba e o editor ativos
+            const activeTab = document.querySelector('.tab.active');
+            const activeEditor = document.querySelector('.document-editor.active');
+
+            if (activeTab) {
+                activeTab.classList.remove('active');
+            }
+            if (activeEditor) {
+                activeEditor.classList.remove('active');
+            }
+
+            // Ativar a nova aba e o editor correspondente
+            const newActiveTab = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+            const newActiveEditor = document.getElementById(tabId.replace('tab', 'editor'));
+
+            if (newActiveTab) {
+                newActiveTab.classList.add('active');
+            }
+            if (newActiveEditor) {
+                newActiveEditor.classList.add('active');
+            }
+
+            activeTabId = tabId;
+        }
+
+        function renameTab(inputElement, tabId) {
+            // The name is already updated in the input, no direct action needed here for display
+            // Saving to Firebase will pick up the updated name
+        }
+
+        function deleteTab(tabId, event) {
+            event.stopPropagation(); // Prevent switching to the tab when clicking the close button
+
+            if (!confirm('Tem certeza que deseja excluir esta aba e o documento associado?')) {
                 return;
             }
 
-            link.addEventListener('click', function(event) {
-                event.preventDefault();
+            const tabElement = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+            const editorElement = document.getElementById(tabId.replace('tab', 'editor'));
 
-                const pageSrc = this.dataset.pageSrc;
-                const requiresAuth = pageSrc !== 'recepcao.html'; 
-                
-                if (this.classList.contains('disabled') && requiresAuth) {
-                    return; 
+            if (tabElement && editorElement) {
+                // Remove from DOM
+                tabElement.remove();
+                editorElement.remove();
+
+                // Delete from Firestore if it was a loaded document
+                const docId = tabToDocIdMap.get(tabId);
+                if (docId && currentUserUid) {
+                    db.collection('docoffice').doc(currentUserUid).collection('documents').doc(docId).delete()
+                        .then(() => {
+                            console.log("Documento excluído do Firebase:", docId);
+                            tabToDocIdMap.delete(tabId); // Remove from map
+                        })
+                        .catch((error) => {
+                            console.error("Erro ao excluir documento do Firebase:", error);
+                            alert("Erro ao excluir documento do Firebase.");
+                        });
                 }
 
-                loadPage(pageSrc, requiresAuth);
-                if (document.querySelector('.mdl-layout__drawer.is-visible')) {
-                    document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
-                    document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
+                // If the deleted tab was the active one, switch to another or add a new one
+                if (activeTabId === tabId) {
+                    const remainingTabs = document.querySelectorAll('#tab-container .tab');
+                    if (remainingTabs.length > 0) {
+                        switchTab(remainingTabs[0].getAttribute('data-tab-id'));
+                    } else {
+                        activeTabId = null;
+                        addTab(); // Add a new empty tab if all are deleted
+                    }
                 }
-            });
-        });
+            }
+        }
 
-        // Função para habilitar/desabilitar links do menu lateral
-        function setNavLinksEnabled(enabled) {
-            navLinks.forEach(link => {
-                if (link.dataset.pageSrc === 'recepcao.html' || !link.dataset.pageSrc) { 
-                    link.classList.remove('disabled');
+        function formatText(command, value = null) {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand(command, false, value);
+                }
+            }
+        }
+
+        function formatList(command) {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand(command, false, null);
+                }
+            }
+        }
+
+        function alignText(command) {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand(command, false, null); // Use the direct command for alignment
+                }
+            }
+        }
+
+        function indentText() {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand('indent', false, null);
+                }
+            }
+        }
+
+        function outdentText() {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand('outdent', false, null);
+                }
+            }
+        }
+
+        // Modal de Inserir Link
+        const linkModal = document.getElementById('link-modal');
+        const linkUrlInput = document.getElementById('link-url');
+
+        function showLinkDialog() {
+            linkModal.style.display = 'block';
+            linkUrlInput.value = '';
+            linkUrlInput.focus();
+        }
+
+        function hideLinkDialog() {
+            linkModal.style.display = 'none';
+        }
+
+        function insertLink() {
+            const url = linkUrlInput.value;
+            if (url) {
+                formatText('createLink', url);
+            }
+            hideLinkDialog();
+        }
+
+        async function saveAllDocumentsToFirebase() {
+            if (!currentUserUid) {
+                alert("Você precisa estar autenticado para salvar documentos.");
+                return;
+            }
+
+            const tabElements = document.querySelectorAll('#tab-container .tab');
+            if (tabElements.length === 0) {
+                alert("Não há documentos para salvar.");
+                return;
+            }
+
+            const batch = db.batch();
+            const userDocumentsRef = db.collection('docoffice').doc(currentUserUid).collection('documents');
+
+            for (const tabElement of tabElements) {
+                const tabId = tabElement.getAttribute('data-tab-id');
+                const nameInput = tabElement.querySelector('input[type="text"]');
+                const contentEditor = document.getElementById(tabId.replace('tab', 'editor'));
+
+                if (nameInput && contentEditor) {
+                    const docName = nameInput.value;
+                    const docContent = contentEditor.innerHTML;
+                    const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+
+                    let docRef;
+                    const existingDocId = tabToDocIdMap.get(tabId);
+
+                    if (existingDocId) {
+                        // Update existing document
+                        docRef = userDocumentsRef.doc(existingDocId);
+                        batch.update(docRef, {
+                            name: docName,
+                            content: docContent,
+                            updatedAt: timestamp
+                        });
+                    } else {
+                        // Create new document
+                        docRef = userDocumentsRef.doc(); // Firestore generates a new ID
+                        batch.set(docRef, {
+                            name: docName,
+                            content: docContent,
+                            createdAt: timestamp,
+                            updatedAt: timestamp
+                        });
+                        tabToDocIdMap.set(tabId, docRef.id); // Store the new Firestore ID
+                    }
+                }
+            }
+
+            try {
+                await batch.commit();
+                alert("Todos os documentos salvos no Firebase com sucesso!");
+            } catch (error) {
+                console.error("Erro ao salvar documentos no Firebase:", error);
+                alert("Erro ao salvar documentos no Firebase.");
+            }
+        }
+
+        async function loadAllDocumentsFromFirebase() {
+            if (!currentUserUid) {
+                alert("Você precisa estar autenticado para carregar documentos.");
+                return;
+            }
+
+            try {
+                // Clear existing tabs and editors
+                document.getElementById('tab-container').innerHTML = '';
+                document.getElementById('content-container').innerHTML = '';
+                tabCounter = 1;
+                activeTabId = null;
+                tabToDocIdMap.clear();
+
+                const userDocumentsRef = db.collection('docoffice').doc(currentUserUid).collection('documents');
+                const querySnapshot = await userDocumentsRef.orderBy('updatedAt', 'desc').get();
+
+                if (querySnapshot.empty) {
+                    alert("Nenhum documento encontrado no Firebase para este usuário. Adicione um novo documento.");
+                    addTab(); // Add an empty tab if no documents are found
                     return;
                 }
 
-                if (enabled) {
-                    link.classList.remove('disabled');
-                } else {
-                    link.classList.add('disabled');
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    addTab(data.name, data.content, doc.id); // Pass doc.id to associate with the tab
+                });
+
+                // Ensure at least one tab is active if documents were loaded
+                if (document.querySelectorAll('#tab-container .tab').length > 0 && !activeTabId) {
+                    switchTab(document.querySelectorAll('#tab-container .tab')[0].getAttribute('data-tab-id'));
                 }
-            });
-        }
+                alert("Documentos carregados do Firebase com sucesso!");
 
-        // --- Nova função para criar/atualizar o perfil do usuário no Firestore ---
-        async function createUserProfileDocument(user) {
-            if (!user) return;
-
-            const userRef = firestore.collection('users').doc(user.uid);
-            const docSnapshot = await userRef.get();
-
-            if (!docSnapshot.exists) {
-                // Se o documento não existe, cria um novo
-                const { displayName, email, photoURL } = user;
-                const createdAt = firebase.firestore.FieldValue.serverTimestamp(); // Pega o timestamp do servidor
-
-                try {
-                    await userRef.set({
-                        uid: user.uid,
-                        name: displayName,
-                        email: email,
-                        profilePictureUrl: photoURL,
-                        createdAt: createdAt,
-                        lastLoginAt: createdAt, // Define o primeiro login também
-                        // Adicione outros campos padrão para novos usuários aqui
-                        // Ex: role: 'user', completedProfile: false
-                    });
-                    console.log("Novo perfil de usuário criado no Firestore!");
-                } catch (error) {
-                    console.error("Erro ao criar perfil de usuário no Firestore:", error);
-                }
-            } else {
-                // Se o documento já existe, você pode atualizá-lo (por exemplo, a data do último login)
-                try {
-                    await userRef.update({
-                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    console.log("Perfil de usuário atualizado no Firestore (lastLoginAt).");
-                } catch (error) {
-                    console.error("Erro ao atualizar perfil de usuário no Firestore:", error);
-                }
+            } catch (error) {
+                console.error("Erro ao carregar documentos do Firebase:", error);
+                alert("Erro ao carregar documentos do Firebase.");
             }
         }
 
-        // Listener de estado de autenticação (Firebase)
-        auth.onAuthStateChanged(async (user) => {
+        // Initial tab creation if no documents are loaded from Firebase on startup
+        auth.onAuthStateChanged(user => {
             if (user) {
-                // Usuário logado
-                userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
-                loginGoogleButton.style.display = 'none';
-                loginGitHubButton.style.display = 'none';
-                logoutButton.style.display = 'inline-block';
-                
-                // --- CHAME A FUNÇÃO AQUI PARA SALVAR/ATUALIZAR NO FIRESTORE ---
-                await createUserProfileDocument(user);
-
-                setNavLinksEnabled(true);
-
-                const currentPage = contentFrame.src.split('/').pop(); 
-                if (currentPage === 'recepcao.html' || currentPage === 'about:blank' || !currentPage) {
-                    loadPage('recepcao.html');
-                } else {
-                    loadPage(currentPage);
-                }
-                
-                try {
-                    const userProfileRef = firestore.collection('users').doc(user.uid);
-                    const doc = await userProfileRef.get();
-                    if (doc.exists && doc.data() && doc.data().isAdmin === true) { 
-                        adminPanelButton.style.display = 'inline-block';
-                    } else {
-                        adminPanelButton.style.display = 'none';
-                    }
-                } catch (error) {
-                    console.error("Erro ao verificar perfil de usuário:", error);
-                    adminPanelButton.style.display = 'none';
-                }
-
+                // User is signed in. `currentUserUid` is already set.
+                // Documents will be loaded by `loadAllDocumentsFromFirebase` after sign-in.
             } else {
-                // Usuário não logado
-                userInfo.textContent = '';
-                loginGoogleButton.style.display = 'inline-block';
-                loginGitHubButton.style.display = 'inline-block';
-                logoutButton.style.display = 'none';
-                adminPanelButton.style.display = 'none'; 
-
-                setNavLinksEnabled(false);
-                loadPage('recepcao.html', false);
+                // No user is signed in, so add a default tab.
+                if (document.querySelectorAll('#tab-container .tab').length === 0) {
+                    addTab();
+                }
             }
-        });
-
-        // Login Google
-        loginGoogleButton.addEventListener('click', async () => {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            try {
-                await auth.signInWithPopup(provider); 
-                // O onAuthStateChanged será acionado automaticamente após o login bem-sucedido
-                // e chamará createUserProfileDocument.
-            } catch (error) {
-                console.error("Erro ao fazer login com Google:", error);
-                alert(`Erro ao fazer login com Google: ${error.message}`);
-            }
-        });
-
-        // Login GitHub
-        loginGitHubButton.addEventListener('click', async () => {
-            const provider = new firebase.auth.GithubAuthProvider();
-            try {
-                await auth.signInWithPopup(provider); 
-                // O onAuthStateChanged também será acionado aqui.
-            } catch (error) {
-                console.error("Erro ao fazer login com GitHub:", error);
-                alert(`Erro ao fazer login com GitHub: ${error.message}`);
-            }
-        });
-
-        // Logout
-        logoutButton.addEventListener('click', () => {
-            auth.signOut().then(() => {
-                console.log("Usuário deslogado.");
-            }).catch((error) => {
-                console.error("Erro ao fazer logout:", error);
-                alert(`Erro ao fazer logout: ${error.message}`);
-            });
-        });
-
-        // Inicialização do estado ao carregar a página
-        document.addEventListener('DOMContentLoaded', () => {
-            if (componentHandler) {
-                componentHandler.upgradeDom();
-            }
-            loadPage('recepcao.html', false); 
         });
     </script>
+    <script src="https://kit.fontawesome.com/your_fontawesome_kit.js" crossorigin="anonymous"></script>
 </body>
 </html>
