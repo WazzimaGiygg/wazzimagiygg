@@ -65,6 +65,17 @@
             border-bottom: 1px dashed #eee;
             padding: 8px 0;
             margin: 0;
+            display: flex; /* Para alinhar o ícone e o texto */
+            align-items: center;
+            justify-content: space-between; /* Para empurrar o botão para a direita */
+        }
+        .data-list p.unread {
+            font-weight: bold;
+            background-color: #e8eaf6; /* Um leve destaque para mensagens não lidas */
+        }
+        .data-list p span.message-text {
+            flex-grow: 1; /* Permite que o texto ocupe o espaço disponível */
+            cursor: pointer; /* Indica que é clicável */
         }
         .data-list p:last-child {
             border-bottom: none;
@@ -90,6 +101,19 @@
             margin-top: 20px;
             display: none;
         }
+        /* Estilos para o diálogo de denúncia/mensagem */
+        .mdl-dialog {
+            width: 80%;
+            max-width: 600px;
+            padding: 20px;
+        }
+        .mdl-dialog__content .mdl-textfield {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .mdl-dialog__content .mdl-textfield textarea {
+            min-height: 80px;
+        }
     </style>
 </head>
 <body>
@@ -97,7 +121,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
-    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script> <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
     <div class="container">
         <h1>Minha Página de Usuário</h1>
@@ -129,6 +153,12 @@
                 <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-personas">
                     <i class="material-icons">face</i> Minhas Personas Cadastradas (<span id="personas-count">0</span>)
                 </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" id="btn-report">
+                    <i class="material-icons">flag</i> Denunciar Conteúdo
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-my-messages">
+                    <i class="material-icons">email</i> Minhas Mensagens (<span id="unread-messages-count">0</span> não lidas)
+                </button>
                 <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-manage-teacher" style="display: none;">
                     <i class="material-icons">school</i> Gerenciar Meu Perfil de Professor
                 </button>
@@ -140,6 +170,48 @@
             </div>
         </div>
     </div>
+
+    <dialog class="mdl-dialog" id="report-dialog">
+        <h4 class="mdl-dialog__title">Denunciar Conteúdo</h4>
+        <div class="mdl-dialog__content">
+            <p>Por favor, descreva o motivo da denúncia e especifique o tipo de conteúdo.</p>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="report-content-id" disabled>
+                <label class="mdl-textfield__label" for="report-content-id">ID do Conteúdo Denunciado</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <select class="mdl-textfield__input" id="report-content-type">
+                    <option value="article">Artigo</option>
+                    <option value="material">Material</option>
+                    <option value="persona">Persona</option>
+                    <option value="other">Outro</option>
+                </select>
+                <label class="mdl-textfield__label" for="report-content-type">Tipo de Conteúdo</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <textarea class="mdl-textfield__input" type="text" rows="3" id="report-description" required></textarea>
+                <label class="mdl-textfield__label" for="report-description">Descrição da Denúncia (obrigatório)</label>
+            </div>
+        </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button" id="submit-report-btn">Enviar</button>
+            <button type="button" class="mdl-button close-dialog">Cancelar</button>
+        </div>
+    </dialog>
+
+    <dialog class="mdl-dialog" id="message-dialog">
+        <h4 class="mdl-dialog__title" id="message-dialog-subject"></h4>
+        <div class="mdl-dialog__content">
+            <p><strong>Remetente:</strong> <span id="message-dialog-sender"></span></p>
+            <p><strong>Data:</strong> <span id="message-dialog-date"></span></p>
+            <hr>
+            <p id="message-dialog-body"></p>
+        </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button close-dialog">Fechar</button>
+        </div>
+    </dialog>
+
 
     <script>
         // --- Configuração do Firebase com suas chaves e dados originais ---
@@ -161,6 +233,7 @@
         }
         const firestore = firebase.firestore();
         const auth = firebase.auth();
+        const firebaseFunctions = firebase.functions(); // Inicializa o módulo Functions
 
         let currentUser = null; // Usuário logado
         let currentUserProfile = null; // Dados do perfil do usuário na coleção 'users'
@@ -184,13 +257,31 @@
         const btnMaterials = document.getElementById('btn-materials');
         const btnPersonas = document.getElementById('btn-personas');
         const btnManageTeacher = document.getElementById('btn-manage-teacher');
+        const btnReport = document.getElementById('btn-report'); // Botão de denúncia
+        const btnMyMessages = document.getElementById('btn-my-messages'); // Botão de mensagens
 
         const articlesCountSpan = document.getElementById('articles-count');
         const materialsCountSpan = document.getElementById('materials-count');
         const personasCountSpan = document.getElementById('personas-count');
+        const unreadMessagesCountSpan = document.getElementById('unread-messages-count'); // Contador de mensagens não lidas
 
         const sectionTitle = document.getElementById('section-title');
         const dataDisplayList = document.getElementById('data-display-list');
+
+        // Elementos para o diálogo de denúncia
+        const reportDialog = document.getElementById('report-dialog');
+        const submitReportBtn = document.getElementById('submit-report-btn');
+        const reportContentIdInput = document.getElementById('report-content-id');
+        const reportContentTypeSelect = document.getElementById('report-content-type');
+        const reportDescriptionTextarea = document.getElementById('report-description');
+
+        // Elementos para o diálogo de mensagens
+        const messageDialog = document.getElementById('message-dialog');
+        const messageDialogSubject = document.getElementById('message-dialog-subject');
+        const messageDialogSender = document.getElementById('message-dialog-sender');
+        const messageDialogDate = document.getElementById('message-dialog-date');
+        const messageDialogBody = document.getElementById('message-dialog-body');
+
 
         function displayError(message) {
             errorDisplay.textContent = `Erro: ${message}`;
@@ -232,8 +323,8 @@
             // Tenta carregar dados do professor
             try {
                 const teacherDocSnapshot = await firestore.collection('userteatcher')
-                                                        .where('googleUid', '==', uid)
-                                                        .get();
+                                                            .where('googleUid', '==', uid)
+                                                            .get();
                 if (!teacherDocSnapshot.empty) {
                     currentUserTeacherProfile = teacherDocSnapshot.docs[0].data();
                     userIsTeacherSpan.textContent = 'Sim';
@@ -276,19 +367,49 @@
                 const personasQuery = await firestore.collection('minhapersona').where('authorUid', '==', currentUser.uid).get();
                 personasCountSpan.textContent = personasQuery.size;
 
+                // Contar mensagens não lidas
+                const unreadMessagesQuery = await firestore.collection('userEmails')
+                                                            .where('recipientId', '==', currentUser.uid)
+                                                            .where('read', '==', false)
+                                                            .get();
+                unreadMessagesCountSpan.textContent = unreadMessagesQuery.size;
+
+
             } catch (error) {
                 console.error("Erro ao atualizar contagens:", error);
                 // Não exibe erro na tela principal, apenas no console, para não poluir
             }
         }
 
+        // Função para abrir o diálogo de denúncia com o ID do conteúdo pré-preenchido
+        function openReportDialog(contentId, contentType) {
+            reportContentIdInput.value = contentId || ''; // Usar string vazia para limpar
+            reportContentTypeSelect.value = contentType || 'other';
+            reportDescriptionTextarea.value = ''; // Limpa a descrição anterior
+            reportDialog.showModal();
+            // Atualiza o MDL Textfield para exibir o valor preenchido
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElement(reportContentIdInput.parentElement);
+                window.componentHandler.upgradeElement(reportContentTypeSelect.parentElement);
+                window.componentHandler.upgradeElement(reportDescriptionTextarea.parentElement);
+            }
+        }
+
         async function displayUserContent(collectionName, titleField = 'title') {
             dataDisplayList.innerHTML = `<p class="loading-message">Carregando ${collectionName}...</p>`;
-            sectionTitle.textContent = `Meus ${collectionName === 'articlesdoc' ? 'Artigos' : collectionName === 'materials' ? 'Materiais' : 'Personas'}`;
+            sectionTitle.textContent = `Meus ${collectionName === 'articlesdoc' ? 'Artigos' : collectionName === 'materials' ? 'Materiais' : collectionName === 'minhapersona' ? 'Personas' : 'Mensagens'}`;
 
             try {
                 let querySnapshot;
-                if (collectionName === 'articlesdoc') {
+                let isMessageList = false;
+
+                if (collectionName === 'userEmails') {
+                    querySnapshot = await firestore.collection('userEmails')
+                                                    .where('recipientId', '==', currentUser.uid)
+                                                    .orderBy('timestamp', 'desc')
+                                                    .get();
+                    isMessageList = true;
+                } else if (collectionName === 'articlesdoc') {
                     querySnapshot = await firestore.collection(collectionName).where('userId', '==', currentUser.uid).get();
                 } else if (collectionName === 'materials') {
                     querySnapshot = await firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).get();
@@ -302,21 +423,107 @@
                 dataDisplayList.innerHTML = ''; // Limpa a mensagem de carregamento
 
                 if (querySnapshot.empty) {
-                    dataDisplayList.innerHTML = `<p class="empty-state">Nenhum ${collectionName.replace('doc', '').slice(0, -1)} cadastrado por você ainda.</p>`;
+                    dataDisplayList.innerHTML = `<p class="empty-state">Nenhum ${collectionName === 'userEmails' ? 'mensagem' : collectionName.replace('doc', '').slice(0, -1)} cadastrado por você ainda.</p>`;
                     return;
                 }
 
                 querySnapshot.forEach(doc => {
                     const data = doc.data();
-                    const itemTitle = data[titleField] || `(Sem ${titleField})`;
+                    const itemId = doc.id;
                     const itemElement = document.createElement('p');
-                    itemElement.textContent = itemTitle;
+
+                    if (isMessageList) {
+                        const isRead = data.read || false;
+                        const subject = data.subject || 'Sem Assunto';
+                        const messageDate = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
+                        const sender = data.sender || 'Sistema'; // Quem enviou a mensagem
+
+                        itemElement.classList.add('message-item');
+                        if (!isRead) {
+                            itemElement.classList.add('unread');
+                        }
+                        itemElement.dataset.messageId = itemId;
+
+                        itemElement.innerHTML = `
+                            <span class="message-text">
+                                ${isRead ? '<i class="material-icons" style="font-size: 1.2em; vertical-align: middle; margin-right: 5px;">drafts</i>' : '<i class="material-icons" style="font-size: 1.2em; vertical-align: middle; margin-right: 5px; color: #ff9800;">mark_email_unread</i>'}
+                                <strong>${subject}</strong> - <small>${messageDate}</small>
+                            </span>
+                            <button class="mdl-button mdl-js-button mdl-button--icon message-read-btn" title="${isRead ? 'Marcar como não lida' : 'Marcar como lida'}">
+                                <i class="material-icons">${isRead ? 'visibility_off' : 'visibility'}</i>
+                            </button>
+                        `;
+
+                        // Adiciona listener para abrir a mensagem
+                        itemElement.querySelector('.message-text').addEventListener('click', () => {
+                            displayMessageInDialog(data, itemId, isRead);
+                        });
+                        // Adiciona listener para marcar como lida/não lida
+                        itemElement.querySelector('.message-read-btn').addEventListener('click', async (event) => {
+                            event.stopPropagation(); // Evita que o clique no botão abra o diálogo
+                            await toggleMessageReadStatus(itemId, isRead);
+                        });
+
+                    } else {
+                        const itemTitle = data[titleField] || `(Sem ${titleField})`;
+                        const itemType = collectionName === 'articlesdoc' ? 'article' : collectionName === 'materials' ? 'material' : 'persona';
+
+                        itemElement.innerHTML = `
+                            <span>${itemTitle} (ID: ${itemId})</span>
+                            <button class="mdl-button mdl-js-button mdl-button--icon report-item-btn"
+                                    data-item-id="${itemId}"
+                                    data-item-type="${itemType}"
+                                    title="Denunciar este item">
+                                <i class="material-icons">flag</i>
+                            </button>
+                        `;
+                        // Adiciona event listener para os botões de denúncia de cada item
+                        itemElement.querySelector('.report-item-btn').addEventListener('click', (event) => {
+                            const itemId = event.currentTarget.dataset.itemId;
+                            const itemType = event.currentTarget.dataset.itemType;
+                            openReportDialog(itemId, itemType);
+                        });
+                    }
                     dataDisplayList.appendChild(itemElement);
                 });
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(dataDisplayList); // Re-upgrades os novos botões MDL
+                }
+
 
             } catch (error) {
                 dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar ${collectionName}: ${error.message}</p>`;
                 console.error(`Erro ao carregar ${collectionName}:`, error);
+            }
+        }
+
+        // Função para exibir a mensagem completa no diálogo
+        function displayMessageInDialog(messageData, messageId, isReadStatus) {
+            messageDialogSubject.textContent = messageData.subject || 'Sem Assunto';
+            messageDialogSender.textContent = messageData.sender || 'Sistema';
+            messageDialogDate.textContent = messageData.timestamp ? new Date(messageData.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
+            messageDialogBody.textContent = messageData.message || 'Sem conteúdo.';
+            messageDialog.showModal();
+
+            // Marca a mensagem como lida se ainda não estiver
+            if (!isReadStatus) {
+                toggleMessageReadStatus(messageId, false); // Chama para marcar como lida
+            }
+        }
+
+        // Função para alternar o status de leitura da mensagem
+        async function toggleMessageReadStatus(messageId, currentStatus) {
+            try {
+                await firestore.collection('userEmails').doc(messageId).update({
+                    read: !currentStatus
+                });
+                console.log(`Mensagem ${messageId} marcada como ${!currentStatus ? 'lida' : 'não lida'}.`);
+                // Re-carrega a lista de mensagens para atualizar o estado visual e o contador
+                displayUserContent('userEmails', 'subject');
+                updateCounts(); // Atualiza o contador de não lidas
+            } catch (error) {
+                console.error("Erro ao atualizar status da mensagem:", error);
+                alert("Erro ao atualizar status da mensagem. Tente novamente.");
             }
         }
 
@@ -348,6 +555,62 @@
             btnArticles.addEventListener('click', () => displayUserContent('articlesdoc', 'title'));
             btnMaterials.addEventListener('click', () => displayUserContent('materials', 'title'));
             btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name')); // Assumindo que 'name' é o campo de título para personas
+            btnMyMessages.addEventListener('click', () => displayUserContent('userEmails', 'subject')); // Novo listener para mensagens
+
+            // Event listeners para fechar os diálogos
+            document.querySelectorAll('.close-dialog').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const dialog = event.target.closest('.mdl-dialog');
+                    if (dialog) {
+                        dialog.close();
+                    }
+                });
+            });
+
+
+            // Event listener para o botão "Denunciar Conteúdo"
+            btnReport.addEventListener('click', () => {
+                if (!currentUser) {
+                    alert("Você precisa estar logado para fazer uma denúncia.");
+                    return;
+                }
+                // Abre o diálogo de denúncia vazio para preenchimento manual
+                openReportDialog(null, null);
+            });
+
+            // Event listener para o botão de envio dentro do diálogo de denúncia
+            submitReportBtn.addEventListener('click', async () => {
+                if (!currentUser) {
+                    alert("Você precisa estar logado para fazer uma denúncia.");
+                    return;
+                }
+
+                const contentId = reportContentIdInput.value.trim();
+                const contentType = reportContentTypeSelect.value;
+                const description = reportDescriptionTextarea.value.trim();
+
+                if (!description) {
+                    alert("Por favor, forneça uma descrição para a denúncia.");
+                    return;
+                }
+
+                try {
+                    await firestore.collection('denuncias').add({
+                        reporterUid: currentUser.uid,
+                        reporterEmail: currentUser.email,
+                        contentType: contentType,
+                        contentId: contentId || 'N/A', // Se o ID estiver vazio, usa N/A
+                        description: description,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: 'pendente'
+                    });
+                    alert("Denúncia enviada com sucesso! Agradecemos sua colaboração.");
+                    reportDialog.close();
+                } catch (error) {
+                    console.error("Erro ao enviar denúncia:", error);
+                    alert("Erro ao enviar denúncia. Tente novamente mais tarde.");
+                }
+            });
 
             btnManageTeacher.addEventListener('click', () => {
                 // Redireciona para a página de edição de professor com o UID do usuário logado
