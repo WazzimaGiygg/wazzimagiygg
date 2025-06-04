@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Página - WZZM</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        h2 {
+            color: #3f51b5;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .profile-info p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        .profile-info strong {
+            color: #555;
+            margin-right: 5px;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        .action-buttons .mdl-button {
+            min-width: 200px;
+            text-align: center;
+        }
+        .data-list {
+            margin-top: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px; /* Limita a altura para rolagem */
+            overflow-y: auto;
+            background-color: #fcfcfc;
+        }
+        .data-list p {
+            border-bottom: 1px dashed #eee;
+            padding: 8px 0;
+            margin: 0;
+        }
+        .data-list p:last-child {
+            border-bottom: none;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-style: italic;
+        }
+        .loading-message {
+            text-align: center;
+            padding: 20px;
+            color: #3f51b5;
+        }
+        .error-message {
+            text-align: center;
+            padding: 15px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+    <div class="container">
+        <h1>Minha Página de Usuário</h1>
+
+        <div id="loading-message" class="loading-message">Carregando dados do usuário...</div>
+        <div id="error-display" class="error-message" style="display: none;"></div>
+
+        <div id="user-info-section" style="display: none;">
+            <h2>Informações do Perfil</h2>
+            <div class="profile-info">
+                <p><strong>UID:</strong> <span id="user-uid"></span></p>
+                <p><strong>Email:</strong> <span id="user-email"></span></p>
+                <p><strong>Nome:</strong> <span id="user-name"></span></p>
+                <p><strong>Sobrenome:</strong> <span id="user-last-name"></span></p>
+                <p><strong>É Administrador:</strong> <span id="user-is-admin"></span></p>
+                <p><strong>É Professor:</strong> <span id="user-is-teacher"></span></p>
+                <p><strong>CPF:</strong> <span id="user-cpf"></span></p>
+                <p><strong>RG:</strong> <span id="user-rg"></span></p>
+            </div>
+
+            <h2>Ações Rápidas</h2>
+            <div class="action-buttons">
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-articles">
+                    <i class="material-icons">article</i> Artigos Cadastrados (<span id="articles-count">0</span>)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-materials">
+                    <i class="material-icons">folder_open</i> Matérias Cadastradas (<span id="materials-count">0</span>)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-personas">
+                    <i class="material-icons">face</i> Minhas Personas Cadastradas (<span id="personas-count">0</span>)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-manage-teacher" style="display: none;">
+                    <i class="material-icons">school</i> Gerenciar Meu Perfil de Professor
+                </button>
+            </div>
+
+            <h2 id="section-title"></h2>
+            <div id="data-display-list" class="data-list">
+                <p class="empty-state">Selecione uma opção acima para ver os dados.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase com suas chaves e dados originais ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth();
+
+        let currentUser = null; // Usuário logado
+        let currentUserProfile = null; // Dados do perfil do usuário na coleção 'users'
+        let currentUserTeacherProfile = null; // Dados do perfil do professor na coleção 'userteatcher'
+
+        // Elementos HTML
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        const userInfoSection = document.getElementById('user-info-section');
+
+        const userUidSpan = document.getElementById('user-uid');
+        const userEmailSpan = document.getElementById('user-email');
+        const userNameSpan = document.getElementById('user-name');
+        const userLastNameSpan = document.getElementById('user-last-name');
+        const userIsAdminSpan = document.getElementById('user-is-admin');
+        const userIsTeacherSpan = document.getElementById('user-is-teacher');
+        const userCpfSpan = document.getElementById('user-cpf');
+        const userRgSpan = document.getElementById('user-rg');
+
+        const btnArticles = document.getElementById('btn-articles');
+        const btnMaterials = document.getElementById('btn-materials');
+        const btnPersonas = document.getElementById('btn-personas');
+        const btnManageTeacher = document.getElementById('btn-manage-teacher');
+
+        const articlesCountSpan = document.getElementById('articles-count');
+        const materialsCountSpan = document.getElementById('materials-count');
+        const personasCountSpan = document.getElementById('personas-count');
+
+        const sectionTitle = document.getElementById('section-title');
+        const dataDisplayList = document.getElementById('data-display-list');
+
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+            loadingMessage.style.display = 'none';
+            userInfoSection.style.display = 'none';
+        }
+
+        async function loadUserProfile(uid) {
+            try {
+                const userDoc = await firestore.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    currentUserProfile = userDoc.data();
+                    userUidSpan.textContent = uid;
+                    userEmailSpan.textContent = currentUser.email;
+                    userNameSpan.textContent = currentUserProfile.firstName || 'Não definido';
+                    userLastNameSpan.textContent = currentUserProfile.lastName || 'Não definido';
+                    userIsAdminSpan.textContent = currentUserProfile.isAdmin ? 'Sim' : 'Não';
+                } else {
+                    // Se o documento 'users' não existir, cria um perfil básico
+                    await firestore.collection('users').doc(uid).set({
+                        email: currentUser.email,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        isAdmin: false // Define como false por padrão
+                    });
+                    currentUserProfile = { email: currentUser.email, isAdmin: false };
+                    userUidSpan.textContent = uid;
+                    userEmailSpan.textContent = currentUser.email;
+                    userNameSpan.textContent = 'Não definido';
+                    userLastNameSpan.textContent = 'Não definido';
+                    userIsAdminSpan.textContent = 'Não';
+                }
+            } catch (error) {
+                console.error("Erro ao carregar/criar perfil de usuário:", error);
+                displayError("Erro ao carregar perfil: " + error.message);
+                return;
+            }
+
+            // Tenta carregar dados do professor
+            try {
+                const teacherDocSnapshot = await firestore.collection('userteatcher')
+                                                        .where('googleUid', '==', uid)
+                                                        .get();
+                if (!teacherDocSnapshot.empty) {
+                    currentUserTeacherProfile = teacherDocSnapshot.docs[0].data();
+                    userIsTeacherSpan.textContent = 'Sim';
+                    userCpfSpan.textContent = currentUserTeacherProfile.cpf || 'Não definido';
+                    userRgSpan.textContent = currentUserTeacherProfile.rg || 'Não definido';
+                    btnManageTeacher.style.display = 'inline-block'; // Mostra botão de gerenciar professor
+                } else {
+                    userIsTeacherSpan.textContent = 'Não';
+                    userCpfSpan.textContent = 'Não aplicável';
+                    userRgSpan.textContent = 'Não aplicável';
+                }
+            } catch (error) {
+                console.error("Erro ao carregar perfil de professor:", error);
+                userIsTeacherSpan.textContent = 'Erro';
+                userCpfSpan.textContent = 'Erro';
+                userRgSpan.textContent = 'Erro';
+            }
+
+            loadingMessage.style.display = 'none';
+            userInfoSection.style.display = 'block';
+
+            // Atualiza contagens e botões MDL
+            await updateCounts();
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElements(userInfoSection);
+                window.componentHandler.upgradeElements(document.getElementById('action-buttons'));
+            }
+        }
+
+        async function updateCounts() {
+            if (!currentUser) return;
+
+            try {
+                const articlesQuery = await firestore.collection('articlesdoc').where('userId', '==', currentUser.uid).get();
+                articlesCountSpan.textContent = articlesQuery.size;
+
+                const materialsQuery = await firestore.collection('materials').where('authorUid', '==', currentUser.uid).get();
+                materialsCountSpan.textContent = materialsQuery.size;
+
+                const personasQuery = await firestore.collection('minhapersona').where('authorUid', '==', currentUser.uid).get();
+                personasCountSpan.textContent = personasQuery.size;
+
+            } catch (error) {
+                console.error("Erro ao atualizar contagens:", error);
+                // Não exibe erro na tela principal, apenas no console, para não poluir
+            }
+        }
+
+        async function displayUserContent(collectionName, titleField = 'title') {
+            dataDisplayList.innerHTML = `<p class="loading-message">Carregando ${collectionName}...</p>`;
+            sectionTitle.textContent = `Meus ${collectionName === 'articlesdoc' ? 'Artigos' : collectionName === 'materials' ? 'Materiais' : 'Personas'}`;
+
+            try {
+                let querySnapshot;
+                if (collectionName === 'articlesdoc') {
+                    querySnapshot = await firestore.collection(collectionName).where('userId', '==', currentUser.uid).get();
+                } else if (collectionName === 'materials') {
+                    querySnapshot = await firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).get();
+                } else if (collectionName === 'minhapersona') {
+                    querySnapshot = await firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).get();
+                } else {
+                    dataDisplayList.innerHTML = `<p class="empty-state">Coleção desconhecida.</p>`;
+                    return;
+                }
+
+                dataDisplayList.innerHTML = ''; // Limpa a mensagem de carregamento
+
+                if (querySnapshot.empty) {
+                    dataDisplayList.innerHTML = `<p class="empty-state">Nenhum ${collectionName.replace('doc', '').slice(0, -1)} cadastrado por você ainda.</p>`;
+                    return;
+                }
+
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const itemTitle = data[titleField] || `(Sem ${titleField})`;
+                    const itemElement = document.createElement('p');
+                    itemElement.textContent = itemTitle;
+                    dataDisplayList.appendChild(itemElement);
+                });
+
+            } catch (error) {
+                dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar ${collectionName}: ${error.message}</p>`;
+                console.error(`Erro ao carregar ${collectionName}:`, error);
+            }
+        }
+
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializa componentes MDL
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+            }
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    loadUserProfile(user.uid);
+                } else {
+                    currentUser = null;
+                    displayError("Você precisa estar logado para acessar esta página.");
+                    alert("Você precisa estar logado para acessar esta página.");
+                    // Redireciona para a página de login ou exibe uma mensagem
+                    if (window.parent !== window && window.parent.postMessage) {
+                        window.parent.postMessage({ type: 'navigateIframe', url: './login.html' }, window.location.origin);
+                    } else {
+                        window.location.href = './login.html';
+                    }
+                }
+            });
+
+            btnArticles.addEventListener('click', () => displayUserContent('articlesdoc', 'title'));
+            btnMaterials.addEventListener('click', () => displayUserContent('materials', 'title'));
+            btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name')); // Assumindo que 'name' é o campo de título para personas
+
+            btnManageTeacher.addEventListener('click', () => {
+                // Redireciona para a página de edição de professor com o UID do usuário logado
+                const urlToLoad = `./admintools/cadastro-professor.html?id=${currentUser.uid}`;
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'navigateIframe', url: urlToLoad }, window.location.origin);
+                } else {
+                    window.location.href = urlToLoad;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
