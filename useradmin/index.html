@@ -121,10 +121,11 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script> <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script> 
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
     <div class="container">
-        <h1>Minha Página de Usuário</h1>
+        <h1>Minha Página de Usuário - Beta 0.69696969</h1>
 
         <div id="loading-message" class="loading-message">Carregando dados do usuário...</div>
         <div id="error-display" class="error-message" style="display: none;"></div>
@@ -158,6 +159,9 @@
                 </button>
                 <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-my-messages">
                     <i class="material-icons">email</i> Minhas Mensagens (<span id="unread-messages-count">0</span> não lidas)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--primary" id="btn-send-message">
+                    <i class="material-icons">send</i> Enviar Nova Mensagem
                 </button>
                 <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-manage-teacher" style="display: none;">
                     <i class="material-icons">school</i> Gerenciar Meu Perfil de Professor
@@ -199,7 +203,7 @@
         </div>
     </dialog>
     
-<dialog class="mdl-dialog" id="send-message-dialog">
+    <dialog class="mdl-dialog" id="send-message-dialog">
         <h4 class="mdl-dialog__title">Enviar Nova Mensagem</h4>
         <div class="mdl-dialog__content">
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
@@ -224,6 +228,18 @@
         </div>
     </dialog>
 
+    <dialog class="mdl-dialog" id="message-detail-dialog">
+        <h4 class="mdl-dialog__title" id="message-dialog-subject"></h4>
+        <div class="mdl-dialog__content">
+            <p><strong>De:</strong> <span id="message-dialog-sender"></span></p>
+            <p><strong>Data:</strong> <span id="message-dialog-date"></span></p>
+            <hr>
+            <p id="message-dialog-body"></p>
+        </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button close-dialog">Fechar</button>
+        </div>
+    </dialog>
     
     <script>
         // --- Configuração do Firebase com suas chaves e dados originais ---
@@ -287,14 +303,14 @@
         const reportContentTypeSelect = document.getElementById('report-content-type');
         const reportDescriptionTextarea = document.getElementById('report-description');
 
-        // Elementos para o diálogo de mensagens
-        const messageDialog = document.getElementById('message-dialog');
+        // Elementos para o diálogo de mensagens (detalhes)
+        const messageDetailDialog = document.getElementById('message-detail-dialog'); // Renomeado para evitar conflito
         const messageDialogSubject = document.getElementById('message-dialog-subject');
         const messageDialogSender = document.getElementById('message-dialog-sender');
         const messageDialogDate = document.getElementById('message-dialog-date');
         const messageDialogBody = document.getElementById('message-dialog-body');
 
-         // Elementos HTML (Adições)
+        // Elementos HTML (Adições para Envio de Mensagem)
         const btnSendMessage = document.getElementById('btn-send-message');
         const sendMessageDialog = document.getElementById('send-message-dialog');
         const recipientUidInput = document.getElementById('recipient-uid-input');
@@ -302,127 +318,15 @@
         const messageBodyInput = document.getElementById('message-body-input');
         const sendMessageBtn = document.getElementById('send-message-btn');
 
-         function openSendMessageDialog() {
-            recipientUidInput.value = '';
-            messageSubjectInput.value = '';
-            messageBodyInput.value = '';
-            // Força a atualização do MDL Textfield para resetar o estado
-            if (window.componentHandler) {
-                window.componentHandler.upgradeElement(recipientUidInput.parentElement);
-                recipientUidInput.parentElement.MaterialTextfield.checkDirty();
-                recipientUidInput.parentElement.MaterialTextfield.checkValidity();
-
-                window.componentHandler.upgradeElement(messageSubjectInput.parentElement);
-                messageSubjectInput.parentElement.MaterialTextfield.checkDirty();
-                messageSubjectInput.parentElement.MaterialTextfield.checkValidity();
-
-                window.componentHandler.upgradeElement(messageBodyInput.parentElement);
-                messageBodyInput.parentElement.MaterialTextfield.checkDirty();
-                messageBodyInput.parentElement.MaterialTextfield.checkValidity();
-            }
-            sendMessageDialog.showModal();
-        }
-
-        // Nova função para enviar a mensagem
-        async function sendNewMessage() {
-            if (!currentUser) {
-                alert("Você precisa estar logado para enviar mensagens.");
-                return;
-            }
-
-            const recipientUid = recipientUidInput.value.trim();
-            const subject = messageSubjectInput.value.trim();
-            const message = messageBodyInput.value.trim();
-
-            // Validação simples
-            if (!recipientUid) {
-                recipientUidInput.parentElement.classList.add('is-invalid');
-                alert("O UID do destinatário é obrigatório.");
-                return;
-            } else {
-                 recipientUidInput.parentElement.classList.remove('is-invalid');
-            }
-            if (!subject) {
-                messageSubjectInput.parentElement.classList.add('is-invalid');
-                alert("O assunto da mensagem é obrigatório.");
-                return;
-            } else {
-                messageSubjectInput.parentElement.classList.remove('is-invalid');
-            }
-            if (!message || message.length > 256) {
-                messageBodyInput.parentElement.classList.add('is-invalid');
-                alert("A mensagem é obrigatória e deve ter no máximo 256 caracteres.");
-                return;
-            } else {
-                messageBodyInput.parentElement.classList.remove('is-invalid');
-            }
-
-            // Opcional: Verificar se o UID do destinatário existe na coleção 'users'
-            // Isso pode ser uma boa prática para evitar enviar mensagens para UIDs inexistentes.
-            // No entanto, para evitar uma chamada extra ao banco de dados e porque as regras
-            // de segurança já impedem a leitura por destinatários inexistentes,
-            // podemos omitir essa verificação aqui se for apenas uma mensagem interna.
-            // Para um sistema mais robusto, você poderia implementar isso.
-            try {
-                const recipientUserDoc = await firestore.collection('users').doc(recipientUid).get();
-                if (!recipientUserDoc.exists) {
-                    alert("O UID do destinatário não corresponde a um usuário válido.");
-                    return;
-                }
-            } catch (error) {
-                console.error("Erro ao verificar UID do destinatário:", error);
-                alert("Erro ao verificar o destinatário. Tente novamente.");
-                return;
-            }
-
-
-            try {
-                await firestore.collection('userEmails').add({
-                    recipientId: recipientUid,
-                    senderId: currentUser.uid,
-                    senderEmail: currentUser.email, // Opcional, para referência
-                    subject: subject,
-                    message: message,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    read: false // Nova mensagem é sempre não lida
-                });
-
-                alert("Mensagem enviada com sucesso!");
-                sendMessageDialog.close(); // Fecha o diálogo
-                // Você pode querer recarregar a lista de mensagens do usuário se ele estiver visualizando-as
-                // displayUserContent('userEmails', 'subject');
-            } catch (error) {
-                console.error("Erro ao enviar mensagem:", error);
-                alert("Erro ao enviar mensagem. Verifique o UID do destinatário e tente novamente.");
-            }
-        }
-
-        // --- Event Listeners (Adições) ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // ... (seus listeners existentes) ...
-
-            // Listener para o novo botão 'Enviar Nova Mensagem'
-            btnSendMessage.addEventListener('click', () => {
-                if (!currentUser) {
-                    alert("Você precisa estar logado para enviar mensagens.");
-                    return;
-                }
-                openSendMessageDialog();
-            });
-
-            // Listener para o botão 'Enviar' dentro do diálogo de envio de mensagem
-            sendMessageBtn.addEventListener('click', sendNewMessage);
-
-            // ... (resto dos seus listeners) ...
-        });
-        
-            function displayError(message) {
+        // Função para exibir erros na interface
+        function displayError(message) {
             errorDisplay.textContent = `Erro: ${message}`;
             errorDisplay.style.display = 'block';
             loadingMessage.style.display = 'none';
             userInfoSection.style.display = 'none';
         }
 
+        // Função para carregar o perfil do usuário
         async function loadUserProfile(uid) {
             try {
                 const userDoc = await firestore.collection('users').doc(uid).get();
@@ -456,8 +360,8 @@
             // Tenta carregar dados do professor
             try {
                 const teacherDocSnapshot = await firestore.collection('userteatcher')
-                                                            .where('googleUid', '==', uid)
-                                                            .get();
+                    .where('googleUid', '==', uid)
+                    .get();
                 if (!teacherDocSnapshot.empty) {
                     currentUserTeacherProfile = teacherDocSnapshot.docs[0].data();
                     userIsTeacherSpan.textContent = 'Sim';
@@ -483,10 +387,15 @@
             await updateCounts();
             if (window.componentHandler) {
                 window.componentHandler.upgradeElements(userInfoSection);
-                window.componentHandler.upgradeElements(document.getElementById('action-buttons'));
+                // Note: action-buttons is a class, not an ID. Upgrade its children.
+                const actionButtonsDiv = document.querySelector('.action-buttons');
+                if (actionButtonsDiv) {
+                    window.componentHandler.upgradeElements(actionButtonsDiv.querySelectorAll('.mdl-button'));
+                }
             }
         }
 
+        // Função para atualizar as contagens de artigos, materiais, personas e mensagens
         async function updateCounts() {
             if (!currentUser) return;
 
@@ -502,11 +411,10 @@
 
                 // Contar mensagens não lidas
                 const unreadMessagesQuery = await firestore.collection('userEmails')
-                                                            .where('recipientId', '==', currentUser.uid)
-                                                            .where('read', '==', false)
-                                                            .get();
+                    .where('recipientId', '==', currentUser.uid)
+                    .where('read', '==', false)
+                    .get();
                 unreadMessagesCountSpan.textContent = unreadMessagesQuery.size;
-
 
             } catch (error) {
                 console.error("Erro ao atualizar contagens:", error);
@@ -528,8 +436,207 @@
             }
         }
 
+        // Função para enviar a denúncia
+        async function submitReport() {
+            if (!currentUser) {
+                alert("Você precisa estar logado para enviar denúncias.");
+                return;
+            }
+
+            const contentId = reportContentIdInput.value.trim();
+            const contentType = reportContentTypeSelect.value;
+            const description = reportDescriptionTextarea.value.trim();
+
+            if (!description) {
+                alert("A descrição da denúncia é obrigatória.");
+                reportDescriptionTextarea.parentElement.classList.add('is-invalid');
+                return;
+            } else {
+                 reportDescriptionTextarea.parentElement.classList.remove('is-invalid');
+            }
+            if (!contentId && contentType !== 'other') {
+                 alert("O ID do conteúdo é obrigatório para este tipo de denúncia.");
+                 reportContentIdInput.parentElement.classList.add('is-invalid');
+                 return;
+            } else {
+                 reportContentIdInput.parentElement.classList.remove('is-invalid');
+            }
+
+
+            try {
+                await firestore.collection('reports').add({
+                    reportedBy: currentUser.uid,
+                    contentId: contentId,
+                    contentType: contentType,
+                    description: description,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'pending' // Novo campo para o status da denúncia
+                });
+                alert("Denúncia enviada com sucesso! Agradecemos sua colaboração.");
+                reportDialog.close();
+            } catch (error) {
+                console.error("Erro ao enviar denúncia:", error);
+                alert("Ocorreu um erro ao enviar a denúncia. Tente novamente.");
+            }
+        }
+
+
+        // Nova função para abrir o diálogo de envio de mensagem
+        function openSendMessageDialog() {
+            recipientUidInput.value = '';
+            messageSubjectInput.value = '';
+            messageBodyInput.value = '';
+            // Força a atualização do MDL Textfield para resetar o estado
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElement(recipientUidInput.parentElement);
+                recipientUidInput.parentElement.MaterialTextfield.checkDirty();
+                recipientUidInput.parentElement.MaterialTextfield.checkValidity();
+
+                window.componentHandler.upgradeElement(messageSubjectInput.parentElement);
+                messageSubjectInput.parentElement.MaterialTextfield.checkDirty();
+                messageSubjectInput.parentElement.MaterialTextfield.checkValidity();
+
+                window.componentHandler.upgradeElement(messageBodyInput.parentElement);
+                messageBodyInput.parentElement.MaterialTextfield.checkDirty();
+                messageBodyInput.parentElement.MaterialTextfield.checkValidity();
+            }
+            sendMessageDialog.showModal();
+        }
+
+        // Nova função para enviar a mensagem
+        async function sendNewMessage() {
+            if (!currentUser) {
+                alert("Você precisa estar logado para enviar mensagens.");
+                return;
+            }
+
+            const recipientUid = recipientUidInput.value.trim();
+            const subject = messageSubjectInput.value.trim();
+            const message = messageBodyInput.value.trim();
+
+            // Validação simples
+            let isValid = true;
+            if (!recipientUid) {
+                recipientUidInput.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                recipientUidInput.parentElement.classList.remove('is-invalid');
+            }
+            if (!subject) {
+                messageSubjectInput.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                messageSubjectInput.parentElement.classList.remove('is-invalid');
+            }
+            if (!message || message.length > 256) {
+                messageBodyInput.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                messageBodyInput.parentElement.classList.remove('is-invalid');
+            }
+
+            if (!isValid) {
+                alert("Por favor, preencha todos os campos obrigatórios corretamente.");
+                return;
+            }
+
+            // Opcional: Verificar se o UID do destinatário existe na coleção 'users'
+            try {
+                const recipientUserDoc = await firestore.collection('users').doc(recipientUid).get();
+                if (!recipientUserDoc.exists) {
+                    alert("O UID do destinatário não corresponde a um usuário válido.");
+                    return;
+                }
+            } catch (error) {
+                console.error("Erro ao verificar UID do destinatário:", error);
+                alert("Erro ao verificar o destinatário. Tente novamente.");
+                return;
+            }
+
+            try {
+                await firestore.collection('userEmails').add({
+                    recipientId: recipientUid,
+                    senderId: currentUser.uid,
+                    senderEmail: currentUser.email, // Opcional, para referência
+                    subject: subject,
+                    message: message,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false // Nova mensagem é sempre não lida
+                });
+
+                alert("Mensagem enviada com sucesso!");
+                sendMessageDialog.close(); // Fecha o diálogo
+                // Recarrega a lista de mensagens do usuário se ele estiver visualizando-as
+                if (sectionTitle.textContent.includes('Mensagens')) { // Verifica se está na seção de mensagens
+                    displayUserContent('userEmails', 'subject');
+                }
+            } catch (error) {
+                console.error("Erro ao enviar mensagem:", error);
+                alert("Erro ao enviar mensagem. Verifique o UID do destinatário e tente novamente.");
+            }
+        }
+
+        // Função para exibir o conteúdo da mensagem em um diálogo e marcar como lida
+        async function displayMessageInDialog(messageData, messageId, isRead) {
+            messageDialogSubject.textContent = messageData.subject || 'Sem Assunto';
+            messageDialogSender.textContent = messageData.senderEmail || messageData.senderId || 'Desconhecido';
+            messageDialogDate.textContent = messageData.timestamp ? new Date(messageData.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
+            messageDialogBody.textContent = messageData.message || 'Mensagem vazia.';
+
+            messageDetailDialog.showModal();
+
+            // Se a mensagem não foi lida, marca como lida no Firestore
+            if (!isRead) {
+                try {
+                    await firestore.collection('userEmails').doc(messageId).update({ read: true });
+                    // Atualiza o contador de mensagens não lidas e a lista
+                    await updateCounts();
+                    // Opcional: Atualiza o status da mensagem na lista sem recarregar tudo
+                    const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.classList.remove('unread');
+                        const icon = messageElement.querySelector('.material-icons');
+                        if (icon) icon.textContent = 'drafts'; // Ícone de mensagem lida
+                        const readBtn = messageElement.querySelector('.message-read-btn');
+                        if (readBtn) {
+                            readBtn.title = 'Marcar como não lida';
+                            readBtn.querySelector('.material-icons').textContent = 'visibility_off';
+                        }
+                    }
+                } catch (error) {
+                    console.error("Erro ao marcar mensagem como lida:", error);
+                }
+            }
+        }
+
+        // Função para alternar o status de lida/não lida de uma mensagem
+        async function toggleMessageReadStatus(messageId, currentReadStatus) {
+            try {
+                await firestore.collection('userEmails').doc(messageId).update({ read: !currentReadStatus });
+                await updateCounts();
+                // Opcional: Atualiza o status da mensagem na lista sem recarregar tudo
+                const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
+                if (messageElement) {
+                    messageElement.classList.toggle('unread', currentReadStatus); // Se estava lida, remove unread. Se não, adiciona.
+                    const icon = messageElement.querySelector('.message-text .material-icons');
+                    const readBtnIcon = messageElement.querySelector('.message-read-btn .material-icons');
+                    if (icon) {
+                        icon.textContent = currentReadStatus ? 'mark_email_unread' : 'drafts';
+                        icon.style.color = currentReadStatus ? '#ff9800' : '';
+                    }
+                    if (readBtnIcon) {
+                        readBtnIcon.textContent = currentReadStatus ? 'visibility' : 'visibility_off';
+                        messageElement.querySelector('.message-read-btn').title = currentReadStatus ? 'Marcar como lida' : 'Marcar como não lida';
+                    }
+                }
+            } catch (error) {
+                console.error("Erro ao alternar status da mensagem:", error);
+            }
+        }
+
+
         async function displayUserContent(collectionName, titleField = 'title') {
-            dataDisplayList.innerHTML = `<p class="loading-message">Carregando ${collectionName}...</p>`;
+            dataDisplayList.innerHTML = `<p class="loading-message">Carregando ${collectionName === 'userEmails' ? 'mensagens' : collectionName}...</p>`;
             sectionTitle.textContent = `Meus ${collectionName === 'articlesdoc' ? 'Artigos' : collectionName === 'materials' ? 'Materiais' : collectionName === 'minhapersona' ? 'Personas' : 'Mensagens'}`;
 
             try {
@@ -538,9 +645,9 @@
 
                 if (collectionName === 'userEmails') {
                     querySnapshot = await firestore.collection('userEmails')
-                                                    .where('recipientId', '==', currentUser.uid)
-                                                    .orderBy('timestamp', 'desc')
-                                                    .get();
+                        .where('recipientId', '==', currentUser.uid)
+                        .orderBy('timestamp', 'desc')
+                        .get();
                     isMessageList = true;
                 } else if (collectionName === 'articlesdoc') {
                     querySnapshot = await firestore.collection(collectionName).where('userId', '==', currentUser.uid).get();
@@ -569,7 +676,7 @@
                         const isRead = data.read || false;
                         const subject = data.subject || 'Sem Assunto';
                         const messageDate = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
-                        const sender = data.sender || 'Sistema'; // Quem enviou a mensagem
+                        const sender = data.sender || 'Sistema'; // Quem enviou a mensagem (pode ser o email ou o ID, dependendo de como você salva)
 
                         itemElement.classList.add('message-item');
                         if (!isRead) {
@@ -618,79 +725,57 @@
                         });
                     }
                     dataDisplayList.appendChild(itemElement);
+                    // Atualiza os componentes MDL recém-adicionados
+                    if (window.componentHandler) {
+                        window.componentHandler.upgradeElements(itemElement.querySelectorAll('.mdl-button'));
+                    }
                 });
-                if (window.componentHandler) {
-                    window.componentHandler.upgradeElements(dataDisplayList); // Re-upgrades os novos botões MDL
-                }
-
-
             } catch (error) {
-                dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar ${collectionName}: ${error.message}</p>`;
                 console.error(`Erro ao carregar ${collectionName}:`, error);
-            }
-        }
-
-        // Função para exibir a mensagem completa no diálogo
-        function displayMessageInDialog(messageData, messageId, isReadStatus) {
-            messageDialogSubject.textContent = messageData.subject || 'Sem Assunto';
-            messageDialogSender.textContent = messageData.sender || 'Sistema';
-            messageDialogDate.textContent = messageData.timestamp ? new Date(messageData.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
-            messageDialogBody.textContent = messageData.message || 'Sem conteúdo.';
-            messageDialog.showModal();
-
-            // Marca a mensagem como lida se ainda não estiver
-            if (!isReadStatus) {
-                toggleMessageReadStatus(messageId, false); // Chama para marcar como lida
-            }
-        }
-
-        // Função para alternar o status de leitura da mensagem
-        async function toggleMessageReadStatus(messageId, currentStatus) {
-            try {
-                await firestore.collection('userEmails').doc(messageId).update({
-                    read: !currentStatus
-                });
-                console.log(`Mensagem ${messageId} marcada como ${!currentStatus ? 'lida' : 'não lida'}.`);
-                // Re-carrega a lista de mensagens para atualizar o estado visual e o contador
-                displayUserContent('userEmails', 'subject');
-                updateCounts(); // Atualiza o contador de não lidas
-            } catch (error) {
-                console.error("Erro ao atualizar status da mensagem:", error);
-                alert("Erro ao atualizar status da mensagem. Tente novamente.");
+                dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar dados: ${error.message}</p>`;
             }
         }
 
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Inicializa componentes MDL
-            if (window.componentHandler) {
-                window.componentHandler.upgradeDom();
-            }
-
+            // Inicializa o Firebase Auth para verificar o estado de autenticação
             auth.onAuthStateChanged(user => {
                 if (user) {
                     currentUser = user;
-                    loadUserProfile(user.uid);
+                    loadUserProfile(currentUser.uid);
                 } else {
-                    currentUser = null;
+                    // Usuário não logado, redirecionar ou exibir mensagem
                     displayError("Você precisa estar logado para acessar esta página.");
-                    alert("Você precisa estar logado para acessar esta página.");
-                    // Redireciona para a página de login ou exibe uma mensagem
-                    if (window.parent !== window && window.parent.postMessage) {
-                        window.parent.postMessage({ type: 'navigateIframe', url: './login.html' }, window.location.origin);
-                    } else {
-                        window.location.href = './login.html';
-                    }
+                    // Redirecionar para a página de login, por exemplo:
+                    // window.location.href = '/login.html';
                 }
             });
 
+            // Listeners para os botões da seção "Ações Rápidas"
             btnArticles.addEventListener('click', () => displayUserContent('articlesdoc', 'title'));
             btnMaterials.addEventListener('click', () => displayUserContent('materials', 'title'));
-            btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name')); // Assumindo que 'name' é o campo de título para personas
-            btnMyMessages.addEventListener('click', () => displayUserContent('userEmails', 'subject')); // Novo listener para mensagens
+            btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name'));
+            btnMyMessages.addEventListener('click', () => displayUserContent('userEmails', 'subject'));
+            btnReport.addEventListener('click', () => openReportDialog('', 'other')); // Abre o diálogo de denúncia sem ID pré-definido
 
-            // Event listeners para fechar os diálogos
+            // Listener para o novo botão 'Enviar Nova Mensagem'
+            btnSendMessage.addEventListener('click', () => {
+                if (!currentUser) {
+                    alert("Você precisa estar logado para enviar mensagens.");
+                    return;
+                }
+                openSendMessageDialog();
+            });
+
+            // Listener para o botão 'Enviar' dentro do diálogo de envio de mensagem
+            sendMessageBtn.addEventListener('click', sendNewMessage);
+
+
+            // Listener para o botão de envio de denúncia
+            submitReportBtn.addEventListener('click', submitReport);
+
+            // Listeners para fechar diálogos (usando a classe 'close-dialog')
             document.querySelectorAll('.close-dialog').forEach(button => {
                 button.addEventListener('click', (event) => {
                     const dialog = event.target.closest('.mdl-dialog');
@@ -698,61 +783,6 @@
                         dialog.close();
                     }
                 });
-            });
-
-
-            // Event listener para o botão "Denunciar Conteúdo"
-            btnReport.addEventListener('click', () => {
-                if (!currentUser) {
-                    alert("Você precisa estar logado para fazer uma denúncia.");
-                    return;
-                }
-                // Abre o diálogo de denúncia vazio para preenchimento manual
-                openReportDialog(null, null);
-            });
-
-            // Event listener para o botão de envio dentro do diálogo de denúncia
-            submitReportBtn.addEventListener('click', async () => {
-                if (!currentUser) {
-                    alert("Você precisa estar logado para fazer uma denúncia.");
-                    return;
-                }
-
-                const contentId = reportContentIdInput.value.trim();
-                const contentType = reportContentTypeSelect.value;
-                const description = reportDescriptionTextarea.value.trim();
-
-                if (!description) {
-                    alert("Por favor, forneça uma descrição para a denúncia.");
-                    return;
-                }
-
-                try {
-                    await firestore.collection('denuncias').add({
-                        reporterUid: currentUser.uid,
-                        reporterEmail: currentUser.email,
-                        contentType: contentType,
-                        contentId: contentId || 'N/A', // Se o ID estiver vazio, usa N/A
-                        description: description,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                        status: 'pendente'
-                    });
-                    alert("Denúncia enviada com sucesso! Agradecemos sua colaboração.");
-                    reportDialog.close();
-                } catch (error) {
-                    console.error("Erro ao enviar denúncia:", error);
-                    alert("Erro ao enviar denúncia. Tente novamente mais tarde.");
-                }
-            });
-
-            btnManageTeacher.addEventListener('click', () => {
-                // Redireciona para a página de edição de professor com o UID do usuário logado
-                const urlToLoad = `./admintools/cadastro-professor.html?id=${currentUser.uid}`;
-                if (window.parent !== window && window.parent.postMessage) {
-                    window.parent.postMessage({ type: 'navigateIframe', url: urlToLoad }, window.location.origin);
-                } else {
-                    window.location.href = urlToLoad;
-                }
             });
         });
     </script>
