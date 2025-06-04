@@ -76,6 +76,9 @@
         .data-list p span.message-text {
             flex-grow: 1; /* Permite que o texto ocupe o espaço disponível */
             cursor: pointer; /* Indica que é clicável */
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .data-list p:last-child {
             border-bottom: none;
@@ -114,6 +117,13 @@
         .mdl-dialog__content .mdl-textfield textarea {
             min-height: 80px;
         }
+        .message-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .message-read-btn {
+            min-width: 30px !important; /* Ajuste para o botão de olho */
+        }
     </style>
 </head>
 <body>
@@ -121,7 +131,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script> 
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
     <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
     <div class="container">
@@ -202,7 +212,7 @@
             <button type="button" class="mdl-button close-dialog">Cancelar</button>
         </div>
     </dialog>
-    
+
     <dialog class="mdl-dialog" id="send-message-dialog">
         <h4 class="mdl-dialog__title">Enviar Nova Mensagem</h4>
         <div class="mdl-dialog__content">
@@ -240,7 +250,7 @@
             <button type="button" class="mdl-button close-dialog">Fechar</button>
         </div>
     </dialog>
-    
+
     <script>
         // --- Configuração do Firebase com suas chaves e dados originais ---
         const firebaseConfig = {
@@ -304,7 +314,7 @@
         const reportDescriptionTextarea = document.getElementById('report-description');
 
         // Elementos para o diálogo de mensagens (detalhes)
-        const messageDetailDialog = document.getElementById('message-detail-dialog'); // Renomeado para evitar conflito
+        const messageDetailDialog = document.getElementById('message-detail-dialog');
         const messageDialogSubject = document.getElementById('message-dialog-subject');
         const messageDialogSender = document.getElementById('message-dialog-sender');
         const messageDialogDate = document.getElementById('message-dialog-date');
@@ -317,6 +327,9 @@
         const messageSubjectInput = document.getElementById('message-subject-input');
         const messageBodyInput = document.getElementById('message-body-input');
         const sendMessageBtn = document.getElementById('send-message-btn');
+
+        // Cache para nomes de usuários (para evitar buscas repetidas)
+        const userNameCache = {};
 
         // Função para exibir erros na interface
         function displayError(message) {
@@ -387,7 +400,6 @@
             await updateCounts();
             if (window.componentHandler) {
                 window.componentHandler.upgradeElements(userInfoSection);
-                // Note: action-buttons is a class, not an ID. Upgrade its children.
                 const actionButtonsDiv = document.querySelector('.action-buttons');
                 if (actionButtonsDiv) {
                     window.componentHandler.upgradeElements(actionButtonsDiv.querySelectorAll('.mdl-button'));
@@ -418,7 +430,6 @@
 
             } catch (error) {
                 console.error("Erro ao atualizar contagens:", error);
-                // Não exibe erro na tela principal, apenas no console, para não poluir
             }
         }
 
@@ -431,8 +442,11 @@
             // Atualiza o MDL Textfield para exibir o valor preenchido
             if (window.componentHandler) {
                 window.componentHandler.upgradeElement(reportContentIdInput.parentElement);
+                reportContentIdInput.parentElement.MaterialTextfield.checkDirty(); // Força a atualização do estado visual
                 window.componentHandler.upgradeElement(reportContentTypeSelect.parentElement);
+                reportContentTypeSelect.parentElement.MaterialTextfield.checkDirty();
                 window.componentHandler.upgradeElement(reportDescriptionTextarea.parentElement);
+                reportDescriptionTextarea.parentElement.MaterialTextfield.checkDirty();
             }
         }
 
@@ -447,21 +461,25 @@
             const contentType = reportContentTypeSelect.value;
             const description = reportDescriptionTextarea.value.trim();
 
+            // Validação visual dos campos MDL
+            let isValid = true;
             if (!description) {
-                alert("A descrição da denúncia é obrigatória.");
                 reportDescriptionTextarea.parentElement.classList.add('is-invalid');
-                return;
+                isValid = false;
             } else {
-                 reportDescriptionTextarea.parentElement.classList.remove('is-invalid');
+                reportDescriptionTextarea.parentElement.classList.remove('is-invalid');
             }
             if (!contentId && contentType !== 'other') {
-                 alert("O ID do conteúdo é obrigatório para este tipo de denúncia.");
-                 reportContentIdInput.parentElement.classList.add('is-invalid');
-                 return;
+                reportContentIdInput.parentElement.classList.add('is-invalid');
+                isValid = false;
             } else {
-                 reportContentIdInput.parentElement.classList.remove('is-invalid');
+                reportContentIdInput.parentElement.classList.remove('is-invalid');
             }
 
+            if (!isValid) {
+                alert("Por favor, preencha todos os campos obrigatórios corretamente.");
+                return;
+            }
 
             try {
                 await firestore.collection('reports').add({
@@ -479,7 +497,6 @@
                 alert("Ocorreu um erro ao enviar a denúncia. Tente novamente.");
             }
         }
-
 
         // Nova função para abrir o diálogo de envio de mensagem
         function openSendMessageDialog() {
@@ -576,10 +593,32 @@
             }
         }
 
+        // Função para buscar o nome do usuário a partir do UID
+        async function getUserName(uid) {
+            if (userNameCache[uid]) {
+                return userNameCache[uid];
+            }
+            try {
+                const userDoc = await firestore.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    const name = data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : data.email || uid;
+                    userNameCache[uid] = name;
+                    return name;
+                }
+            } catch (error) {
+                console.error("Erro ao buscar nome do usuário:", error);
+            }
+            return uid; // Retorna o UID se o nome não for encontrado
+        }
+
         // Função para exibir o conteúdo da mensagem em um diálogo e marcar como lida
         async function displayMessageInDialog(messageData, messageId, isRead) {
             messageDialogSubject.textContent = messageData.subject || 'Sem Assunto';
-            messageDialogSender.textContent = messageData.senderEmail || messageData.senderId || 'Desconhecido';
+            // Buscar o nome do remetente
+            const senderName = await getUserName(messageData.senderId);
+            messageDialogSender.textContent = senderName;
+
             messageDialogDate.textContent = messageData.timestamp ? new Date(messageData.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
             messageDialogBody.textContent = messageData.message || 'Mensagem vazia.';
 
@@ -595,8 +634,11 @@
                     const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
                     if (messageElement) {
                         messageElement.classList.remove('unread');
-                        const icon = messageElement.querySelector('.material-icons');
-                        if (icon) icon.textContent = 'drafts'; // Ícone de mensagem lida
+                        const icon = messageElement.querySelector('.message-text .material-icons');
+                        if (icon) {
+                            icon.textContent = 'drafts'; // Ícone de mensagem lida
+                            icon.style.color = ''; // Remove a cor de destaque
+                        }
                         const readBtn = messageElement.querySelector('.message-read-btn');
                         if (readBtn) {
                             readBtn.title = 'Marcar como não lida';
@@ -614,177 +656,212 @@
             try {
                 await firestore.collection('userEmails').doc(messageId).update({ read: !currentReadStatus });
                 await updateCounts();
-                // Opcional: Atualiza o status da mensagem na lista sem recarregar tudo
+                // Atualiza o status da mensagem na lista
                 const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
                 if (messageElement) {
-                    messageElement.classList.toggle('unread', currentReadStatus); // Se estava lida, remove unread. Se não, adiciona.
+                    messageElement.classList.toggle('unread', !currentReadStatus); // Se !currentReadStatus for true, adiciona 'unread'
                     const icon = messageElement.querySelector('.message-text .material-icons');
                     const readBtnIcon = messageElement.querySelector('.message-read-btn .material-icons');
+                    const readBtn = messageElement.querySelector('.message-read-btn');
+
                     if (icon) {
-                        icon.textContent = currentReadStatus ? 'mark_email_unread' : 'drafts';
-                        icon.style.color = currentReadStatus ? '#ff9800' : '';
+                        icon.textContent = !currentReadStatus ? 'mark_email_unread' : 'drafts';
+                        icon.style.color = !currentReadStatus ? '#ff9800' : ''; // Laranja para não lida
                     }
                     if (readBtnIcon) {
-                        readBtnIcon.textContent = currentReadStatus ? 'visibility' : 'visibility_off';
-                        messageElement.querySelector('.message-read-btn').title = currentReadStatus ? 'Marcar como lida' : 'Marcar como não lida';
+                        readBtnIcon.textContent = !currentReadStatus ? 'visibility_off' : 'visibility';
+                    }
+                    if (readBtn) {
+                        readBtn.title = !currentReadStatus ? 'Marcar como lida' : 'Marcar como não lida';
                     }
                 }
             } catch (error) {
-                console.error("Erro ao alternar status da mensagem:", error);
+                console.error("Erro ao alternar status de leitura da mensagem:", error);
+                alert("Ocorreu um erro ao atualizar o status da mensagem.");
             }
         }
 
-
-        async function displayUserContent(collectionName, titleField = 'title') {
-            dataDisplayList.innerHTML = `<p class="loading-message">Carregando ${collectionName === 'userEmails' ? 'mensagens' : collectionName}...</p>`;
-            sectionTitle.textContent = `Meus ${collectionName === 'articlesdoc' ? 'Artigos' : collectionName === 'materials' ? 'Materiais' : collectionName === 'minhapersona' ? 'Personas' : 'Mensagens'}`;
+        // Função genérica para exibir conteúdo do usuário (artigos, materiais, personas, mensagens)
+        async function displayUserContent(collectionName, titleField) {
+            dataDisplayList.innerHTML = '<p class="loading-message">Carregando...</p>';
+            let query;
+            let displayTitle = '';
 
             try {
-                let querySnapshot;
-                let isMessageList = false;
+                if (!currentUser) {
+                    dataDisplayList.innerHTML = '<p class="empty-state">Faça login para ver seu conteúdo.</p>';
+                    return;
+                }
 
-                if (collectionName === 'userEmails') {
-                    querySnapshot = await firestore.collection('userEmails')
-                        .where('recipientId', '==', currentUser.uid)
-                        .orderBy('timestamp', 'desc')
-                        .get();
-                    isMessageList = true;
-                } else if (collectionName === 'articlesdoc') {
-                    querySnapshot = await firestore.collection(collectionName).where('userId', '==', currentUser.uid).get();
+                if (collectionName === 'articlesdoc') {
+                    query = firestore.collection(collectionName).where('userId', '==', currentUser.uid).orderBy('timestamp', 'desc');
+                    displayTitle = 'Meus Artigos Cadastrados';
                 } else if (collectionName === 'materials') {
-                    querySnapshot = await firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).get();
+                    query = firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).orderBy('timestamp', 'desc');
+                    displayTitle = 'Minhas Matérias Cadastradas';
                 } else if (collectionName === 'minhapersona') {
-                    querySnapshot = await firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).get();
+                    query = firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).orderBy('timestamp', 'desc');
+                    displayTitle = 'Minhas Personas Cadastradas';
+                } else if (collectionName === 'userEmails') {
+                    // Para mensagens, buscamos as que o usuário logado é o recipiente
+                    query = firestore.collection(collectionName)
+                        .where('recipientId', '==', currentUser.uid)
+                        .orderBy('timestamp', 'desc');
+                    displayTitle = 'Minhas Mensagens Recebidas';
                 } else {
-                    dataDisplayList.innerHTML = `<p class="empty-state">Coleção desconhecida.</p>`;
+                    dataDisplayList.innerHTML = '<p class="empty-state">Tipo de conteúdo desconhecido.</p>';
                     return;
                 }
 
-                dataDisplayList.innerHTML = ''; // Limpa a mensagem de carregamento
+                sectionTitle.textContent = displayTitle;
+                const snapshot = await query.get();
 
-                if (querySnapshot.empty) {
-                    dataDisplayList.innerHTML = `<p class="empty-state">Nenhum ${collectionName === 'userEmails' ? 'mensagem' : collectionName.replace('doc', '').slice(0, -1)} cadastrado por você ainda.</p>`;
+                dataDisplayList.innerHTML = ''; // Limpa a lista antes de adicionar novos itens
+
+                if (snapshot.empty) {
+                    dataDisplayList.innerHTML = '<p class="empty-state">Nenhum dado encontrado.</p>';
                     return;
                 }
 
-                querySnapshot.forEach(doc => {
+                const fragment = document.createDocumentFragment();
+
+                for (const doc of snapshot.docs) {
                     const data = doc.data();
-                    const itemId = doc.id;
-                    const itemElement = document.createElement('p');
+                    const p = document.createElement('p');
+                    p.setAttribute('data-id', doc.id); // Adiciona o ID do documento
 
-                    if (isMessageList) {
-                        const isRead = data.read || false;
-                        const subject = data.subject || 'Sem Assunto';
-                        const messageDate = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
-                        const sender = data.sender || 'Sistema'; // Quem enviou a mensagem (pode ser o email ou o ID, dependendo de como você salva)
-
-                        itemElement.classList.add('message-item');
-                        if (!isRead) {
-                            itemElement.classList.add('unread');
+                    if (collectionName === 'userEmails') {
+                        // Elementos específicos para mensagens
+                        p.classList.add('message-item');
+                        p.setAttribute('data-message-id', doc.id);
+                        if (!data.read) {
+                            p.classList.add('unread');
                         }
-                        itemElement.dataset.messageId = itemId;
 
-                        itemElement.innerHTML = `
-                            <span class="message-text">
-                                ${isRead ? '<i class="material-icons" style="font-size: 1.2em; vertical-align: middle; margin-right: 5px;">drafts</i>' : '<i class="material-icons" style="font-size: 1.2em; vertical-align: middle; margin-right: 5px; color: #ff9800;">mark_email_unread</i>'}
-                                <strong>${subject}</strong> - <small>${messageDate}</small>
-                            </span>
-                            <button class="mdl-button mdl-js-button mdl-button--icon message-read-btn" title="${isRead ? 'Marcar como não lida' : 'Marcar como lida'}">
-                                <i class="material-icons">${isRead ? 'visibility_off' : 'visibility'}</i>
-                            </button>
-                        `;
+                        const messageTextSpan = document.createElement('span');
+                        messageTextSpan.classList.add('message-text');
+                        messageTextSpan.style.flexGrow = '1';
+                        messageTextSpan.style.cursor = 'pointer';
 
-                        // Adiciona listener para abrir a mensagem
-                        itemElement.querySelector('.message-text').addEventListener('click', () => {
-                            displayMessageInDialog(data, itemId, isRead);
+                        const icon = document.createElement('i');
+                        icon.classList.add('material-icons');
+                        icon.textContent = data.read ? 'drafts' : 'mark_email_unread';
+                        if (!data.read) {
+                            icon.style.color = '#ff9800'; // Laranja para não lida
+                        }
+                        messageTextSpan.appendChild(icon);
+
+                        const subjectSpan = document.createElement('span');
+                        const senderName = await getUserName(data.senderId); // Busca o nome do remetente
+                        subjectSpan.textContent = `De: ${senderName} - Assunto: ${data[titleField] || 'Sem Assunto'}`;
+                        messageTextSpan.appendChild(subjectSpan);
+
+                        messageTextSpan.addEventListener('click', () => displayMessageInDialog(data, doc.id, data.read));
+                        p.appendChild(messageTextSpan);
+
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.classList.add('message-actions');
+
+                        // Botão para marcar como lida/não lida
+                        const toggleReadBtn = document.createElement('button');
+                        toggleReadBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon', 'message-read-btn');
+                        toggleReadBtn.title = data.read ? 'Marcar como não lida' : 'Marcar como lida';
+                        const toggleReadIcon = document.createElement('i');
+                        toggleReadIcon.classList.add('material-icons');
+                        toggleReadIcon.textContent = data.read ? 'visibility_off' : 'visibility';
+                        toggleReadBtn.appendChild(toggleReadIcon);
+                        toggleReadBtn.addEventListener('click', (e) => {
+                            e.stopPropagation(); // Impede que o clique no botão acione o displayMessageInDialog
+                            toggleMessageReadStatus(doc.id, data.read);
                         });
-                        // Adiciona listener para marcar como lida/não lida
-                        itemElement.querySelector('.message-read-btn').addEventListener('click', async (event) => {
-                            event.stopPropagation(); // Evita que o clique no botão abra o diálogo
-                            await toggleMessageReadStatus(itemId, isRead);
+                        actionsDiv.appendChild(toggleReadBtn);
+
+
+                        // Botão de denúncia
+                        const reportBtn = document.createElement('button');
+                        reportBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon');
+                        reportBtn.title = 'Denunciar';
+                        const reportIcon = document.createElement('i');
+                        reportIcon.classList.add('material-icons');
+                        reportIcon.textContent = 'flag';
+                        reportBtn.appendChild(reportIcon);
+                        reportBtn.addEventListener('click', (e) => {
+                            e.stopPropagation(); // Impede que o clique no botão acione o displayMessageInDialog
+                            openReportDialog(doc.id, collectionName);
                         });
+                        actionsDiv.appendChild(reportBtn);
+
+                        p.appendChild(actionsDiv);
 
                     } else {
-                        const itemTitle = data[titleField] || `(Sem ${titleField})`;
-                        const itemType = collectionName === 'articlesdoc' ? 'article' : collectionName === 'materials' ? 'material' : 'persona';
+                        // Conteúdo para artigos, materiais, personas
+                        const textContent = document.createElement('span');
+                        textContent.textContent = data[titleField] || 'Título Indefinido';
+                        p.appendChild(textContent);
 
-                        itemElement.innerHTML = `
-                            <span>${itemTitle} (ID: ${itemId})</span>
-                            <button class="mdl-button mdl-js-button mdl-button--icon report-item-btn"
-                                    data-item-id="${itemId}"
-                                    data-item-type="${itemType}"
-                                    title="Denunciar este item">
-                                <i class="material-icons">flag</i>
-                            </button>
-                        `;
-                        // Adiciona event listener para os botões de denúncia de cada item
-                        itemElement.querySelector('.report-item-btn').addEventListener('click', (event) => {
-                            const itemId = event.currentTarget.dataset.itemId;
-                            const itemType = event.currentTarget.dataset.itemType;
-                            openReportDialog(itemId, itemType);
-                        });
+                        const reportBtn = document.createElement('button');
+                        reportBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon');
+                        reportBtn.title = 'Denunciar';
+                        const reportIcon = document.createElement('i');
+                        reportIcon.classList.add('material-icons');
+                        reportIcon.textContent = 'flag';
+                        reportBtn.appendChild(reportIcon);
+                        reportBtn.addEventListener('click', () => openReportDialog(doc.id, collectionName));
+                        p.appendChild(reportBtn);
                     }
-                    dataDisplayList.appendChild(itemElement);
-                    // Atualiza os componentes MDL recém-adicionados
-                    if (window.componentHandler) {
-                        window.componentHandler.upgradeElements(itemElement.querySelectorAll('.mdl-button'));
-                    }
-                });
+                    fragment.appendChild(p);
+                }
+                dataDisplayList.appendChild(fragment);
+
+                // Atualiza os componentes MDL após adicionar elementos dinamicamente
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(dataDisplayList);
+                }
+
             } catch (error) {
-                console.error(`Erro ao carregar ${collectionName}:`, error);
+                console.error(`Erro ao buscar ${collectionName}:`, error);
                 dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar dados: ${error.message}</p>`;
             }
         }
 
+        // Event Listeners
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                loadUserProfile(user.uid);
+            } else {
+                window.location.href = '/login.html'; // Redireciona para a página de login se não houver usuário logado
+            }
+        });
 
-        // --- Event Listeners ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // Inicializa o Firebase Auth para verificar o estado de autenticação
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    currentUser = user;
-                    loadUserProfile(currentUser.uid);
-                } else {
-                    // Usuário não logado, redirecionar ou exibir mensagem
-                    displayError("Você precisa estar logado para acessar esta página.");
-                    // Redirecionar para a página de login, por exemplo:
-                    // window.location.href = '/login.html';
+        btnArticles.addEventListener('click', () => displayUserContent('articlesdoc', 'title'));
+        btnMaterials.addEventListener('click', () => displayUserContent('materials', 'title'));
+        btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name'));
+        btnMyMessages.addEventListener('click', () => displayUserContent('userEmails', 'subject'));
+        btnReport.addEventListener('click', () => openReportDialog()); // Abre o diálogo de denúncia vazio
+        btnSendMessage.addEventListener('click', openSendMessageDialog); // Abre o diálogo de envio de mensagem
+
+        // Event listener para o botão de enviar denúncia
+        submitReportBtn.addEventListener('click', submitReport);
+        // Event listener para o botão de enviar nova mensagem
+        sendMessageBtn.addEventListener('click', sendNewMessage);
+
+        // Lógica para fechar diálogos
+        document.querySelectorAll('.close-dialog').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const dialog = event.target.closest('dialog');
+                if (dialog) {
+                    dialog.close();
                 }
-            });
-
-            // Listeners para os botões da seção "Ações Rápidas"
-            btnArticles.addEventListener('click', () => displayUserContent('articlesdoc', 'title'));
-            btnMaterials.addEventListener('click', () => displayUserContent('materials', 'title'));
-            btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name'));
-            btnMyMessages.addEventListener('click', () => displayUserContent('userEmails', 'subject'));
-            btnReport.addEventListener('click', () => openReportDialog('', 'other')); // Abre o diálogo de denúncia sem ID pré-definido
-
-            // Listener para o novo botão 'Enviar Nova Mensagem'
-            btnSendMessage.addEventListener('click', () => {
-                if (!currentUser) {
-                    alert("Você precisa estar logado para enviar mensagens.");
-                    return;
-                }
-                openSendMessageDialog();
-            });
-
-            // Listener para o botão 'Enviar' dentro do diálogo de envio de mensagem
-            sendMessageBtn.addEventListener('click', sendNewMessage);
-
-
-            // Listener para o botão de envio de denúncia
-            submitReportBtn.addEventListener('click', submitReport);
-
-            // Listeners para fechar diálogos (usando a classe 'close-dialog')
-            document.querySelectorAll('.close-dialog').forEach(button => {
-                button.addEventListener('click', (event) => {
-                    const dialog = event.target.closest('.mdl-dialog');
-                    if (dialog) {
-                        dialog.close();
-                    }
-                });
             });
         });
+
+        // Garantir que os diálogos são registrados no MDL
+        if (window.componentHandler) {
+            // Upgrade all dialogs and their content when the page loads
+            window.componentHandler.upgradeElements(document.querySelectorAll('.mdl-dialog'));
+            window.componentHandler.upgradeElements(document.querySelectorAll('.mdl-dialog .mdl-textfield'));
+        }
     </script>
 </body>
 </html>
