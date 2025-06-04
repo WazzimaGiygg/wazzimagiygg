@@ -198,21 +198,33 @@
             <button type="button" class="mdl-button close-dialog">Cancelar</button>
         </div>
     </dialog>
-
-    <dialog class="mdl-dialog" id="message-dialog">
-        <h4 class="mdl-dialog__title" id="message-dialog-subject"></h4>
+    
+<dialog class="mdl-dialog" id="send-message-dialog">
+        <h4 class="mdl-dialog__title">Enviar Nova Mensagem</h4>
         <div class="mdl-dialog__content">
-            <p><strong>Remetente:</strong> <span id="message-dialog-sender"></span></p>
-            <p><strong>Data:</strong> <span id="message-dialog-date"></span></p>
-            <hr>
-            <p id="message-dialog-body"></p>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="recipient-uid-input" required>
+                <label class="mdl-textfield__label" for="recipient-uid-input">UID do Destinatário</label>
+                <span class="mdl-textfield__error">UID do destinatário é obrigatório!</span>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="message-subject-input" required maxlength="100">
+                <label class="mdl-textfield__label" for="message-subject-input">Assunto (máx. 100 caracteres)</label>
+                <span class="mdl-textfield__error">Assunto é obrigatório!</span>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <textarea class="mdl-textfield__input" type="text" rows="5" id="message-body-input" required maxlength="256"></textarea>
+                <label class="mdl-textfield__label" for="message-body-input">Mensagem (máx. 256 caracteres)</label>
+                <span class="mdl-textfield__error">Mensagem é obrigatória e deve ter até 256 caracteres!</span>
+            </div>
         </div>
         <div class="mdl-dialog__actions">
-            <button type="button" class="mdl-button close-dialog">Fechar</button>
+            <button type="button" class="mdl-button mdl-button--colored" id="send-message-btn">Enviar</button>
+            <button type="button" class="mdl-button close-dialog">Cancelar</button>
         </div>
     </dialog>
 
-
+    
     <script>
         // --- Configuração do Firebase com suas chaves e dados originais ---
         const firebaseConfig = {
@@ -282,8 +294,129 @@
         const messageDialogDate = document.getElementById('message-dialog-date');
         const messageDialogBody = document.getElementById('message-dialog-body');
 
+         // Elementos HTML (Adições)
+        const btnSendMessage = document.getElementById('btn-send-message');
+        const sendMessageDialog = document.getElementById('send-message-dialog');
+        const recipientUidInput = document.getElementById('recipient-uid-input');
+        const messageSubjectInput = document.getElementById('message-subject-input');
+        const messageBodyInput = document.getElementById('message-body-input');
+        const sendMessageBtn = document.getElementById('send-message-btn');
 
-        function displayError(message) {
+         function openSendMessageDialog() {
+            recipientUidInput.value = '';
+            messageSubjectInput.value = '';
+            messageBodyInput.value = '';
+            // Força a atualização do MDL Textfield para resetar o estado
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElement(recipientUidInput.parentElement);
+                recipientUidInput.parentElement.MaterialTextfield.checkDirty();
+                recipientUidInput.parentElement.MaterialTextfield.checkValidity();
+
+                window.componentHandler.upgradeElement(messageSubjectInput.parentElement);
+                messageSubjectInput.parentElement.MaterialTextfield.checkDirty();
+                messageSubjectInput.parentElement.MaterialTextfield.checkValidity();
+
+                window.componentHandler.upgradeElement(messageBodyInput.parentElement);
+                messageBodyInput.parentElement.MaterialTextfield.checkDirty();
+                messageBodyInput.parentElement.MaterialTextfield.checkValidity();
+            }
+            sendMessageDialog.showModal();
+        }
+
+        // Nova função para enviar a mensagem
+        async function sendNewMessage() {
+            if (!currentUser) {
+                alert("Você precisa estar logado para enviar mensagens.");
+                return;
+            }
+
+            const recipientUid = recipientUidInput.value.trim();
+            const subject = messageSubjectInput.value.trim();
+            const message = messageBodyInput.value.trim();
+
+            // Validação simples
+            if (!recipientUid) {
+                recipientUidInput.parentElement.classList.add('is-invalid');
+                alert("O UID do destinatário é obrigatório.");
+                return;
+            } else {
+                 recipientUidInput.parentElement.classList.remove('is-invalid');
+            }
+            if (!subject) {
+                messageSubjectInput.parentElement.classList.add('is-invalid');
+                alert("O assunto da mensagem é obrigatório.");
+                return;
+            } else {
+                messageSubjectInput.parentElement.classList.remove('is-invalid');
+            }
+            if (!message || message.length > 256) {
+                messageBodyInput.parentElement.classList.add('is-invalid');
+                alert("A mensagem é obrigatória e deve ter no máximo 256 caracteres.");
+                return;
+            } else {
+                messageBodyInput.parentElement.classList.remove('is-invalid');
+            }
+
+            // Opcional: Verificar se o UID do destinatário existe na coleção 'users'
+            // Isso pode ser uma boa prática para evitar enviar mensagens para UIDs inexistentes.
+            // No entanto, para evitar uma chamada extra ao banco de dados e porque as regras
+            // de segurança já impedem a leitura por destinatários inexistentes,
+            // podemos omitir essa verificação aqui se for apenas uma mensagem interna.
+            // Para um sistema mais robusto, você poderia implementar isso.
+            try {
+                const recipientUserDoc = await firestore.collection('users').doc(recipientUid).get();
+                if (!recipientUserDoc.exists) {
+                    alert("O UID do destinatário não corresponde a um usuário válido.");
+                    return;
+                }
+            } catch (error) {
+                console.error("Erro ao verificar UID do destinatário:", error);
+                alert("Erro ao verificar o destinatário. Tente novamente.");
+                return;
+            }
+
+
+            try {
+                await firestore.collection('userEmails').add({
+                    recipientId: recipientUid,
+                    senderId: currentUser.uid,
+                    senderEmail: currentUser.email, // Opcional, para referência
+                    subject: subject,
+                    message: message,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false // Nova mensagem é sempre não lida
+                });
+
+                alert("Mensagem enviada com sucesso!");
+                sendMessageDialog.close(); // Fecha o diálogo
+                // Você pode querer recarregar a lista de mensagens do usuário se ele estiver visualizando-as
+                // displayUserContent('userEmails', 'subject');
+            } catch (error) {
+                console.error("Erro ao enviar mensagem:", error);
+                alert("Erro ao enviar mensagem. Verifique o UID do destinatário e tente novamente.");
+            }
+        }
+
+        // --- Event Listeners (Adições) ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // ... (seus listeners existentes) ...
+
+            // Listener para o novo botão 'Enviar Nova Mensagem'
+            btnSendMessage.addEventListener('click', () => {
+                if (!currentUser) {
+                    alert("Você precisa estar logado para enviar mensagens.");
+                    return;
+                }
+                openSendMessageDialog();
+            });
+
+            // Listener para o botão 'Enviar' dentro do diálogo de envio de mensagem
+            sendMessageBtn.addEventListener('click', sendNewMessage);
+
+            // ... (resto dos seus listeners) ...
+        });
+        
+            function displayError(message) {
             errorDisplay.textContent = `Erro: ${message}`;
             errorDisplay.style.display = 'block';
             loadingMessage.style.display = 'none';
