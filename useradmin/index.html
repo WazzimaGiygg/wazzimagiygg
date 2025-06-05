@@ -73,7 +73,7 @@
             font-weight: bold;
             background-color: #e8eaf6; /* Um leve destaque para mensagens não lidas */
         }
-        .data-list p span.message-text {
+        .data-list p span.message-text, .data-list p span.document-text {
             flex-grow: 1; /* Permite que o texto ocupe o espaço disponível */
             cursor: pointer; /* Indica que é clicável */
             display: flex;
@@ -117,11 +117,11 @@
         .mdl-dialog__content .mdl-textfield textarea {
             min-height: 80px;
         }
-        .message-actions {
+        .message-actions, .document-actions {
             display: flex;
             gap: 5px;
         }
-        .message-read-btn {
+        .message-read-btn, .document-action-btn {
             min-width: 30px !important; /* Ajuste para o botão de olho */
         }
     </style>
@@ -155,6 +155,12 @@
 
             <h2>Ações Rápidas</h2>
             <div class="action-buttons">
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-my-documents">
+                    <i class="material-icons">description</i> Meus Documentos (<span id="documents-count">0</span>)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" id="btn-open-editor">
+                    <i class="material-icons">edit_note</i> Abrir Editor
+                </button>
                 <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-articles">
                     <i class="material-icons">article</i> Artigos Cadastrados (<span id="articles-count">0</span>)
                 </button>
@@ -251,6 +257,20 @@
         </div>
     </dialog>
 
+    <dialog class="mdl-dialog" id="document-detail-dialog">
+        <h4 class="mdl-dialog__title" id="document-dialog-title"></h4>
+        <div class="mdl-dialog__content">
+            <p><strong>Criado em:</strong> <span id="document-dialog-created-at"></span></p>
+            <p><strong>Última Edição:</strong> <span id="document-dialog-updated-at"></span></p>
+            <hr>
+            <div id="document-dialog-content" contenteditable="false"></div> </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button close-dialog">Fechar</button>
+            <button type="button" class="mdl-button mdl-button--colored" id="open-editor-from-dialog">Abrir no Editor</button>
+        </div>
+    </dialog>
+
+
     <script>
         // --- Configuração do Firebase com suas chaves e dados originais ---
         const firebaseConfig = {
@@ -297,11 +317,14 @@
         const btnManageTeacher = document.getElementById('btn-manage-teacher');
         const btnReport = document.getElementById('btn-report'); // Botão de denúncia
         const btnMyMessages = document.getElementById('btn-my-messages'); // Botão de mensagens
+        const btnMyDocuments = document.getElementById('btn-my-documents'); // Novo botão para documentos
+        const btnOpenEditor = document.getElementById('btn-open-editor'); // Botão para abrir o editor
 
         const articlesCountSpan = document.getElementById('articles-count');
         const materialsCountSpan = document.getElementById('materials-count');
         const personasCountSpan = document.getElementById('personas-count');
         const unreadMessagesCountSpan = document.getElementById('unread-messages-count'); // Contador de mensagens não lidas
+        const documentsCountSpan = document.getElementById('documents-count'); // Novo contador para documentos
 
         const sectionTitle = document.getElementById('section-title');
         const dataDisplayList = document.getElementById('data-display-list');
@@ -328,8 +351,18 @@
         const messageBodyInput = document.getElementById('message-body-input');
         const sendMessageBtn = document.getElementById('send-message-btn');
 
+        // Elementos para o diálogo de detalhes do documento
+        const documentDetailDialog = document.getElementById('document-detail-dialog');
+        const documentDialogTitle = document.getElementById('document-dialog-title');
+        const documentDialogCreatedAt = document.getElementById('document-dialog-created-at');
+        const documentDialogUpdatedAt = document.getElementById('document-dialog-updated-at');
+        const documentDialogContent = document.getElementById('document-dialog-content');
+        const openEditorFromDialogBtn = document.getElementById('open-editor-from-dialog');
+
         // Cache para nomes de usuários (para evitar buscas repetidas)
         const userNameCache = {};
+
+        let currentActiveList = null; // Para saber qual lista está ativa (mensagens, documentos, etc.)
 
         // Função para exibir erros na interface
         function displayError(message) {
@@ -407,7 +440,7 @@
             }
         }
 
-        // Função para atualizar as contagens de artigos, materiais, personas e mensagens
+        // Função para atualizar as contagens de artigos, materiais, personas, documentos e mensagens
         async function updateCounts() {
             if (!currentUser) return;
 
@@ -427,6 +460,10 @@
                     .where('read', '==', false)
                     .get();
                 unreadMessagesCountSpan.textContent = unreadMessagesQuery.size;
+
+                // Contar documentos do usuário
+                const documentsQuery = await firestore.collection('docoffice').doc(currentUser.uid).collection('documents').get();
+                documentsCountSpan.textContent = documentsQuery.size;
 
             } catch (error) {
                 console.error("Erro ao atualizar contagens:", error);
@@ -584,9 +621,10 @@
                 alert("Mensagem enviada com sucesso!");
                 sendMessageDialog.close(); // Fecha o diálogo
                 // Recarrega a lista de mensagens do usuário se ele estiver visualizando-as
-                if (sectionTitle.textContent.includes('Mensagens')) { // Verifica se está na seção de mensagens
-                    displayUserContent('userEmails', 'subject');
+                if (currentActiveList === 'messages') { // Verifica se está na seção de mensagens
+                    displayUserMessages();
                 }
+                updateCounts(); // Atualiza o contador de mensagens não lidas
             } catch (error) {
                 console.error("Erro ao enviar mensagem:", error);
                 alert("Erro ao enviar mensagem. Verifique o UID do destinatário e tente novamente.");
@@ -642,7 +680,7 @@
                         const readBtn = messageElement.querySelector('.message-read-btn');
                         if (readBtn) {
                             readBtn.title = 'Marcar como não lida';
-                            readBtn.querySelector('.material-icons').textContent = 'visibility_off';
+                            readBtn.querySelector('.material-icons').textContent = 'visibility_off'; // Icone de olho fechado
                         }
                     }
                 } catch (error) {
@@ -652,201 +690,297 @@
         }
 
         // Função para alternar o status de lida/não lida de uma mensagem
-        async function toggleMessageReadStatus(messageId, currentReadStatus) {
+        async function toggleMessageReadStatus(messageId, currentReadStatus, event) {
+            event.stopPropagation(); // Evita que o clique no botão ative a visualização da mensagem
+
             try {
                 await firestore.collection('userEmails').doc(messageId).update({ read: !currentReadStatus });
-                await updateCounts();
-                // Atualiza o status da mensagem na lista
-                const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
-                if (messageElement) {
-                    messageElement.classList.toggle('unread', !currentReadStatus); // Se !currentReadStatus for true, adiciona 'unread'
-                    const icon = messageElement.querySelector('.message-text .material-icons');
-                    const readBtnIcon = messageElement.querySelector('.message-read-btn .material-icons');
-                    const readBtn = messageElement.querySelector('.message-read-btn');
-
-                    if (icon) {
-                        icon.textContent = !currentReadStatus ? 'mark_email_unread' : 'drafts';
-                        icon.style.color = !currentReadStatus ? '#ff9800' : ''; // Laranja para não lida
-                    }
-                    if (readBtnIcon) {
-                        readBtnIcon.textContent = !currentReadStatus ? 'visibility_off' : 'visibility';
-                    }
-                    if (readBtn) {
-                        readBtn.title = !currentReadStatus ? 'Marcar como lida' : 'Marcar como não lida';
-                    }
-                }
+                await updateCounts(); // Atualiza o contador de não lidas
+                displayUserMessages(); // Recarrega a lista para refletir a mudança
             } catch (error) {
-                console.error("Erro ao alternar status de leitura da mensagem:", error);
-                alert("Ocorreu um erro ao atualizar o status da mensagem.");
+                console.error("Erro ao alternar status da mensagem:", error);
+                alert("Erro ao atualizar status da mensagem.");
             }
         }
 
-        // Função genérica para exibir conteúdo do usuário (artigos, materiais, personas, mensagens)
-        async function displayUserContent(collectionName, titleField) {
-            dataDisplayList.innerHTML = '<p class="loading-message">Carregando...</p>';
-            let query;
-            let displayTitle = '';
+
+        // Função para deletar uma mensagem
+        async function deleteMessage(messageId, event) {
+            event.stopPropagation(); // Evita que o clique no botão ative a visualização da mensagem
+            if (!confirm('Tem certeza que deseja excluir esta mensagem?')) {
+                return;
+            }
+            try {
+                await firestore.collection('userEmails').doc(messageId).delete();
+                alert("Mensagem excluída com sucesso!");
+                await updateCounts(); // Atualiza contadores
+                displayUserMessages(); // Recarrega a lista de mensagens
+            } catch (error) {
+                console.error("Erro ao excluir mensagem:", error);
+                alert("Erro ao excluir mensagem.");
+            }
+        }
+
+        // Função para exibir as mensagens do usuário
+        async function displayUserMessages() {
+            if (!currentUser) {
+                dataDisplayList.innerHTML = '<p class="empty-state">Faça login para ver suas mensagens.</p>';
+                return;
+            }
+
+            currentActiveList = 'messages';
+            sectionTitle.textContent = "Minhas Mensagens Recebidas";
+            dataDisplayList.innerHTML = '<p class="loading-message">Carregando mensagens...</p>';
 
             try {
-                if (!currentUser) {
-                    dataDisplayList.innerHTML = '<p class="empty-state">Faça login para ver seu conteúdo.</p>';
+                const querySnapshot = await firestore.collection('userEmails')
+                    .where('recipientId', '==', currentUser.uid)
+                    .orderBy('timestamp', 'desc')
+                    .get();
+
+                if (querySnapshot.empty) {
+                    dataDisplayList.innerHTML = '<p class="empty-state">Você não tem mensagens.</p>';
                     return;
                 }
 
-                if (collectionName === 'articlesdoc') {
-                    query = firestore.collection(collectionName).where('userId', '==', currentUser.uid).orderBy('timestamp', 'desc');
-                    displayTitle = 'Meus Artigos Cadastrados';
-                } else if (collectionName === 'materials') {
-                    query = firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).orderBy('timestamp', 'desc');
-                    displayTitle = 'Minhas Matérias Cadastradas';
-                } else if (collectionName === 'minhapersona') {
-                    query = firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).orderBy('timestamp', 'desc');
-                    displayTitle = 'Minhas Personas Cadastradas';
-                } else if (collectionName === 'userEmails') {
-                    // Para mensagens, buscamos as que o usuário logado é o recipiente
-                    query = firestore.collection(collectionName)
-                        .where('recipientId', '==', currentUser.uid)
-                        .orderBy('timestamp', 'desc');
-                    displayTitle = 'Minhas Mensagens Recebidas';
-                } else {
-                    dataDisplayList.innerHTML = '<p class="empty-state">Tipo de conteúdo desconhecido.</p>';
-                    return;
-                }
-
-                sectionTitle.textContent = displayTitle;
-                const snapshot = await query.get();
-
-                dataDisplayList.innerHTML = ''; // Limpa a lista antes de adicionar novos itens
-
-                if (snapshot.empty) {
-                    dataDisplayList.innerHTML = '<p class="empty-state">Nenhum dado encontrado.</p>';
-                    return;
-                }
-
-                const fragment = document.createDocumentFragment();
-
-                for (const doc of snapshot.docs) {
-                    const data = doc.data();
-                    const p = document.createElement('p');
-                    p.setAttribute('data-id', doc.id); // Adiciona o ID do documento
-
-                    if (collectionName === 'userEmails') {
-                        // Elementos específicos para mensagens
-                        p.classList.add('message-item');
-                        p.setAttribute('data-message-id', doc.id);
-                        if (!data.read) {
-                            p.classList.add('unread');
-                        }
-
-                        const messageTextSpan = document.createElement('span');
-                        messageTextSpan.classList.add('message-text');
-                        messageTextSpan.style.flexGrow = '1';
-                        messageTextSpan.style.cursor = 'pointer';
-
-                        const icon = document.createElement('i');
-                        icon.classList.add('material-icons');
-                        icon.textContent = data.read ? 'drafts' : 'mark_email_unread';
-                        if (!data.read) {
-                            icon.style.color = '#ff9800'; // Laranja para não lida
-                        }
-                        messageTextSpan.appendChild(icon);
-
-                        const subjectSpan = document.createElement('span');
-                        const senderName = await getUserName(data.senderId); // Busca o nome do remetente
-                        subjectSpan.textContent = `De: ${senderName} - Assunto: ${data[titleField] || 'Sem Assunto'}`;
-                        messageTextSpan.appendChild(subjectSpan);
-
-                        messageTextSpan.addEventListener('click', () => displayMessageInDialog(data, doc.id, data.read));
-                        p.appendChild(messageTextSpan);
-
-                        const actionsDiv = document.createElement('div');
-                        actionsDiv.classList.add('message-actions');
-
-                        // Botão para marcar como lida/não lida
-                        const toggleReadBtn = document.createElement('button');
-                        toggleReadBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon', 'message-read-btn');
-                        toggleReadBtn.title = data.read ? 'Marcar como não lida' : 'Marcar como lida';
-                        const toggleReadIcon = document.createElement('i');
-                        toggleReadIcon.classList.add('material-icons');
-                        toggleReadIcon.textContent = data.read ? 'visibility_off' : 'visibility';
-                        toggleReadBtn.appendChild(toggleReadIcon);
-                        toggleReadBtn.addEventListener('click', (e) => {
-                            e.stopPropagation(); // Impede que o clique no botão acione o displayMessageInDialog
-                            toggleMessageReadStatus(doc.id, data.read);
-                        });
-                        actionsDiv.appendChild(toggleReadBtn);
-
-
-                        // Botão de denúncia
-                        const reportBtn = document.createElement('button');
-                        reportBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon');
-                        reportBtn.title = 'Denunciar';
-                        const reportIcon = document.createElement('i');
-                        reportIcon.classList.add('material-icons');
-                        reportIcon.textContent = 'flag';
-                        reportBtn.appendChild(reportIcon);
-                        reportBtn.addEventListener('click', (e) => {
-                            e.stopPropagation(); // Impede que o clique no botão acione o displayMessageInDialog
-                            openReportDialog(doc.id, collectionName);
-                        });
-                        actionsDiv.appendChild(reportBtn);
-
-                        p.appendChild(actionsDiv);
-
-                    } else {
-                        // Conteúdo para artigos, materiais, personas
-                        const textContent = document.createElement('span');
-                        textContent.textContent = data[titleField] || 'Título Indefinido';
-                        p.appendChild(textContent);
-
-                        const reportBtn = document.createElement('button');
-                        reportBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon');
-                        reportBtn.title = 'Denunciar';
-                        const reportIcon = document.createElement('i');
-                        reportIcon.classList.add('material-icons');
-                        reportIcon.textContent = 'flag';
-                        reportBtn.appendChild(reportIcon);
-                        reportBtn.addEventListener('click', () => openReportDialog(doc.id, collectionName));
-                        p.appendChild(reportBtn);
+                dataDisplayList.innerHTML = '';
+                querySnapshot.forEach(doc => {
+                    const messageData = doc.data();
+                    const messageId = doc.id;
+                    const messageElement = document.createElement('p');
+                    messageElement.classList.add('message-item');
+                    messageElement.dataset.messageId = messageId;
+                    if (!messageData.read) {
+                        messageElement.classList.add('unread');
                     }
-                    fragment.appendChild(p);
-                }
-                dataDisplayList.appendChild(fragment);
 
-                // Atualiza os componentes MDL após adicionar elementos dinamicamente
+                    const senderName = userNameCache[messageData.senderId] || messageData.senderEmail || messageData.senderId;
+                    const displaySubject = messageData.subject ? messageData.subject.substring(0, 50) + (messageData.subject.length > 50 ? '...' : '') : 'Sem Assunto';
+                    const icon = messageData.read ? 'drafts' : 'email'; // 'drafts' para lido, 'email' para não lido
+                    const iconColor = messageData.read ? '' : '#4285f4'; // Cor azul para não lido
+
+                    messageElement.innerHTML = `
+                        <span class="message-text" onclick="displayMessageInDialog(${JSON.stringify(messageData)}, '${messageId}', ${messageData.read})">
+                            <i class="material-icons" style="color: ${iconColor};">${icon}</i>
+                            ${displaySubject} <small>(de: ${senderName})</small>
+                        </span>
+                        <div class="message-actions">
+                            <button class="mdl-button mdl-js-button mdl-button--icon message-read-btn" title="${messageData.read ? 'Marcar como não lida' : 'Marcar como lida'}" onclick="toggleMessageReadStatus('${messageId}', ${messageData.read}, event)">
+                                <i class="material-icons">${messageData.read ? 'visibility_off' : 'visibility'}</i>
+                            </button>
+                            <button class="mdl-button mdl-js-button mdl-button--icon" title="Excluir Mensagem" onclick="deleteMessage('${messageId}', event)">
+                                <i class="material-icons">delete</i>
+                            </button>
+                        </div>
+                    `;
+                    dataDisplayList.appendChild(messageElement);
+                });
+
                 if (window.componentHandler) {
                     window.componentHandler.upgradeElements(dataDisplayList);
                 }
 
             } catch (error) {
-                console.error(`Erro ao buscar ${collectionName}:`, error);
-                dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar dados: ${error.message}</p>`;
+                console.error("Erro ao carregar mensagens:", error);
+                dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar mensagens: ${error.message}</p>`;
             }
         }
 
-        // Event Listeners
-        auth.onAuthStateChanged(user => {
+
+        // --- NOVAS FUNÇÕES PARA DOCUMENTOS ---
+
+        // Função para exibir os documentos do usuário
+        async function displayUserDocuments() {
+            if (!currentUser) {
+                dataDisplayList.innerHTML = '<p class="empty-state">Faça login para ver seus documentos.</p>';
+                return;
+            }
+
+            currentActiveList = 'documents';
+            sectionTitle.textContent = "Meus Documentos";
+            dataDisplayList.innerHTML = '<p class="loading-message">Carregando documentos...</p>';
+
+            try {
+                // Acessa a subcoleção 'documents' dentro do doc do UID do usuário em 'docoffice'
+                const documentsRef = firestore.collection('docoffice').doc(currentUser.uid).collection('documents');
+                const querySnapshot = await documentsRef.orderBy('updatedAt', 'desc').get();
+
+                if (querySnapshot.empty) {
+                    dataDisplayList.innerHTML = '<p class="empty-state">Você não tem documentos salvos. Que tal criar um novo no editor?</p>';
+                    return;
+                }
+
+                dataDisplayList.innerHTML = ''; // Limpa o estado de carregamento/vazio
+
+                querySnapshot.forEach(doc => {
+                    const documentData = doc.data();
+                    const documentId = doc.id;
+                    const documentElement = document.createElement('p');
+                    documentElement.classList.add('document-item');
+                    documentElement.dataset.documentId = documentId;
+
+                    const title = documentData.name || 'Documento Sem Título';
+                    const updatedAt = documentData.updatedAt ? new Date(documentData.updatedAt.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
+
+                    documentElement.innerHTML = `
+                        <span class="document-text" onclick="displayDocumentInDialog(${JSON.stringify(documentData)}, '${documentId}')">
+                            <i class="material-icons">description</i>
+                            ${title} <small>(Última edição: ${updatedAt})</small>
+                        </span>
+                        <div class="document-actions">
+                            <button class="mdl-button mdl-js-button mdl-button--icon document-action-btn" title="Editar no Editor" onclick="openEditorWithDocument('${documentId}', event)">
+                                <i class="material-icons">edit</i>
+                            </button>
+                            <button class="mdl-button mdl-js-button mdl-button--icon document-action-btn" title="Excluir Documento" onclick="deleteDocument('${documentId}', event)">
+                                <i class="material-icons">delete</i>
+                            </button>
+                        </div>
+                    `;
+                    dataDisplayList.appendChild(documentElement);
+                });
+
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(dataDisplayList);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar documentos:", error);
+                // Permissão negada é um erro comum se as regras não estiverem certas
+                if (error.code === 'permission-denied') {
+                    dataDisplayList.innerHTML = `<p class="error-message">Erro de permissão: Suas regras do Firebase não permitem acesso a este documento. Verifique as regras do Firestore.</p>`;
+                } else {
+                    dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar documentos: ${error.message}</p>`;
+                }
+            }
+        }
+
+        // Função para exibir o conteúdo do documento em um diálogo
+        async function displayDocumentInDialog(documentData, documentId) {
+            documentDialogTitle.textContent = documentData.name || 'Documento Sem Título';
+            documentDialogCreatedAt.textContent = documentData.createdAt ? new Date(documentData.createdAt.toDate()).toLocaleString('pt-BR') : 'Indefinida';
+            documentDialogUpdatedAt.textContent = documentData.updatedAt ? new Date(documentData.updatedAt.toDate()).toLocaleString('pt-BR') : 'Indefinida';
+            documentDialogContent.innerHTML = documentData.content || 'Documento vazio.'; // Usa innerHTML para renderizar o HTML
+            documentDetailDialog.showModal();
+
+            // Adiciona o listener para o botão "Abrir no Editor" no diálogo
+            openEditorFromDialogBtn.onclick = (event) => {
+                event.stopPropagation();
+                documentDetailDialog.close(); // Fecha o diálogo
+                openEditorWithDocument(documentId); // Abre o editor com o ID do documento
+            };
+        }
+
+        // Função para abrir o editor (editor.html)
+        function openEditor() {
+            // Abre o editor em uma nova aba ou janela
+            // Esta linha pode ser adaptada para abrir em um modal, iframe, etc.
+            // Para este exemplo, vou abrir em uma nova janela para simular o comportamento de "abrir app".
+            window.open('editor.html', '_blank');
+        }
+
+        // Função para abrir o editor passando um ID de documento específico (PARA FUTURA IMPLEMENTAÇÃO)
+        // Por enquanto, o editor.html não tem lógica para receber um ID e carregar apenas um doc.
+        // Ele carrega TODOS os docs do usuário. Esta função é um placeholder para futura expansão.
+        function openEditorWithDocument(documentId) {
+            // Atualmente, o editor.html carrega TODOS os documentos do usuário.
+            // Para carregar UM documento específico, você precisaria modificar editor.html
+            // para aceitar um parâmetro na URL (ex: editor.html?docId=xyz)
+            // e ter lógica interna para carregar aquele doc e focar nele.
+            console.log(`Abrindo editor para o documento com ID: ${documentId}.`);
+            // Por enquanto, apenas abre o editor principal.
+            openEditor();
+            alert("A funcionalidade de abrir um documento específico no editor ainda não está totalmente implementada. O editor será aberto para que você possa carregar seus documentos.");
+        }
+
+
+        // Função para deletar um documento
+        async function deleteDocument(documentId, event) {
+            event.stopPropagation(); // Evita que o clique no botão ative a visualização do documento
+            if (!currentUser) {
+                alert("Você precisa estar logado para excluir documentos.");
+                return;
+            }
+            if (!confirm('Tem certeza que deseja excluir este documento? Esta ação é irreversível.')) {
+                return;
+            }
+            try {
+                await firestore.collection('docoffice').doc(currentUser.uid).collection('documents').doc(documentId).delete();
+                alert("Documento excluído com sucesso!");
+                await updateCounts(); // Atualiza contadores
+                displayUserDocuments(); // Recarrega a lista de documentos
+            } catch (error) {
+                console.error("Erro ao excluir documento:", error);
+                alert("Erro ao excluir documento: " + error.message);
+            }
+        }
+
+
+        // --- Listeners de Eventos ---
+
+        // Listener de autenticação do Firebase
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
                 currentUser = user;
-                loadUserProfile(user.uid);
+                console.log("Usuário logado:", currentUser.displayName || currentUser.email);
+                await loadUserProfile(currentUser.uid);
             } else {
-                window.location.href = '/login.html'; // Redireciona para a página de login se não houver usuário logado
+                currentUser = null;
+                currentUserProfile = null;
+                currentUserTeacherProfile = null;
+                loadingMessage.style.display = 'none';
+                userInfoSection.style.display = 'none';
+                errorDisplay.textContent = 'Você precisa estar logado para ver seu perfil.';
+                errorDisplay.style.display = 'block';
+                // Limpa os contadores quando deslogado
+                articlesCountSpan.textContent = 0;
+                materialsCountSpan.textContent = 0;
+                personasCountSpan.textContent = 0;
+                unreadMessagesCountSpan.textContent = 0;
+                documentsCountSpan.textContent = 0;
+                // Limpa a lista de exibição
+                sectionTitle.textContent = "";
+                dataDisplayList.innerHTML = '<p class="empty-state">Selecione uma opção acima para ver os dados.</p>';
+                btnManageTeacher.style.display = 'none';
+                console.log("Usuário deslogado.");
             }
         });
 
-        btnArticles.addEventListener('click', () => displayUserContent('articlesdoc', 'title'));
-        btnMaterials.addEventListener('click', () => displayUserContent('materials', 'title'));
-        btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name'));
-        btnMyMessages.addEventListener('click', () => displayUserContent('userEmails', 'subject'));
-        btnReport.addEventListener('click', () => openReportDialog()); // Abre o diálogo de denúncia vazio
-        btnSendMessage.addEventListener('click', openSendMessageDialog); // Abre o diálogo de envio de mensagem
+        // Listeners para os botões de ação
+        btnArticles.addEventListener('click', () => {
+            currentActiveList = 'articles';
+            sectionTitle.textContent = "Artigos Cadastrados";
+            dataDisplayList.innerHTML = '<p class="empty-state">Funcionalidade a ser implementada.</p>';
+        });
 
-        // Event listener para o botão de enviar denúncia
-        submitReportBtn.addEventListener('click', submitReport);
-        // Event listener para o botão de enviar nova mensagem
-        sendMessageBtn.addEventListener('click', sendNewMessage);
+        btnMaterials.addEventListener('click', () => {
+            currentActiveList = 'materials';
+            sectionTitle.textContent = "Matérias Cadastradas";
+            dataDisplayList.innerHTML = '<p class="empty-state">Funcionalidade a ser implementada.</p>';
+        });
 
-        // Lógica para fechar diálogos
+        btnPersonas.addEventListener('click', () => {
+            currentActiveList = 'personas';
+            sectionTitle.textContent = "Minhas Personas Cadastradas";
+            dataDisplayList.innerHTML = '<p class="empty-state">Funcionalidade a ser implementada.</p>';
+        });
+
+        btnReport.addEventListener('click', () => {
+            openReportDialog(); // Abre o diálogo de denúncia sem ID pré-preenchido
+        });
+
+        btnMyMessages.addEventListener('click', displayUserMessages); // Exibe as mensagens
+
+        btnSendMessage.addEventListener('click', openSendMessageDialog); // Abre o diálogo para enviar mensagem
+
+        btnManageTeacher.addEventListener('click', () => {
+            alert("Funcionalidade de gerenciar perfil de professor a ser implementada.");
+        });
+
+        // Novos Listeners para documentos
+        btnMyDocuments.addEventListener('click', displayUserDocuments); // Exibe os documentos do usuário
+        btnOpenEditor.addEventListener('click', openEditor); // Abre o editor
+
+        // Listeners para fechar diálogos
         document.querySelectorAll('.close-dialog').forEach(button => {
             button.addEventListener('click', (event) => {
                 const dialog = event.target.closest('dialog');
@@ -856,12 +990,12 @@
             });
         });
 
-        // Garantir que os diálogos são registrados no MDL
-        if (window.componentHandler) {
-            // Upgrade all dialogs and their content when the page loads
-            window.componentHandler.upgradeElements(document.querySelectorAll('.mdl-dialog'));
-            window.componentHandler.upgradeElements(document.querySelectorAll('.mdl-dialog .mdl-textfield'));
-        }
+        // Listener para o botão de envio de denúncia
+        submitReportBtn.addEventListener('click', submitReport);
+
+        // Listener para o botão de envio de mensagem
+        sendMessageBtn.addEventListener('click', sendNewMessage);
+
     </script>
 </body>
 </html>
