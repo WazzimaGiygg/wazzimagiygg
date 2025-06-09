@@ -104,10 +104,9 @@
         .search-container {
             margin-bottom: 20px;
             display: flex;
+            flex-direction: column; /* Altera para coluna para melhor organização */
+            gap: 15px; /* Espaço entre os elementos de busca */
             align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center; /* Centraliza os itens no container */
         }
 
         /* Estilo Google Scholar para a caixa de busca e o botão */
@@ -202,6 +201,7 @@
             justify-content: center;
             gap: 15px;
             margin-top: 20px;
+            flex-wrap: wrap; /* Permite que os botões quebrem a linha em telas menores */
         }
 
         .search-actions .mdl-button {
@@ -230,6 +230,52 @@
             background-color: #f0f0f0;
         }
 
+        /* Estilos para os novos filtros de idioma e tipo de artigo */
+        .filter-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+            flex-wrap: wrap; /* Permite que os filtros quebrem a linha */
+        }
+
+        .filter-group .mdl-selectfield {
+            flex: 1; /* Permite que os campos cresçam e ocupem o espaço */
+            min-width: 150px; /* Largura mínima para cada dropdown */
+            margin-bottom: 0; /* Remove margem inferior extra */
+        }
+
+        .filter-group .mdl-selectfield select {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,.12);
+            background: transparent;
+            font-size: 16px;
+            color: rgba(0,0,0,.87);
+            cursor: pointer;
+            appearance: none; /* Remove a seta padrão do select */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+        .filter-group .mdl-selectfield label {
+            color: rgba(0,0,0,.26);
+            font-size: 16px;
+            left: 0;
+            top: 10px;
+            position: absolute;
+            pointer-events: none;
+            transition: 0.2s ease all;
+            transform-origin: left top;
+        }
+        .filter-group .mdl-selectfield select:focus + label,
+        .filter-group .mdl-selectfield select:not([value=""]) + label {
+            color: #3f51b5;
+            top: -15px;
+            font-size: 12px;
+            transform: scale(0.75);
+        }
     </style>
 </head>
 <body>
@@ -264,10 +310,36 @@
 
                 <div class="mdl-textfield mdl-js-textfield">
                     <input class="mdl-textfield__input" type="text" id="search-term">
-                    <label class="mdl-textfield__label" for="search-term"></label> </div>
+                    <label class="mdl-textfield__label" for="search-term"></label>
+                </div>
                 <button id="search-button" class="mdl-button mdl-js-button mdl-button--icon">
                     <i class="material-icons">search</i>
                 </button>
+            </div>
+
+            <div class="filter-group">
+                <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                    <select id="filter-language" class="mdl-textfield__input">
+                        <option value="">Todos os Idiomas</option>
+                        <option value="pt-BR">Português (Brasil)</option>
+                        <option value="en-US">English (United States)</option>
+                        </select>
+                    <label for="filter-language" class="mdl-textfield__label">Idioma</label>
+                </div>
+
+                <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                    <select id="filter-article-type" class="mdl-textfield__input">
+                        <option value="">Todos os Tipos</option>
+                        <option value="cientifico">Científico</option>
+                        <option value="revisao">Revisão Bibliográfica</option>
+                        <option value="noticia">Notícia</option>
+                        <option value="editorial">Editorial</option>
+                        <option value="opiniao">Opinião</option>
+                        <option value="entrevista">Entrevista</option>
+                        <option value="tutorial">Tutorial</option>
+                        </select>
+                    <label for="filter-article-type" class="mdl-textfield__label">Tipo de Artigo</label>
+                </div>
             </div>
         </div>
 
@@ -276,7 +348,7 @@
                 <i class="material-icons">search</i> Buscar
             </button>
             <button id="clear-search-button" class="mdl-button mdl-js-button mdl-button--raised">
-                Limpar
+                Limpar Filtros
             </button>
         </div>
 
@@ -312,10 +384,14 @@
         const searchTermInput = document.getElementById('search-term');
         const searchTypeInput = document.getElementById('search-type');
         const searchTypeDisplayInput = document.getElementById('search-type-display');
-        const searchButton = document.getElementById('search-button'); // Botão dentro da caixa de busca
-        const mainSearchButton = document.getElementById('main-search-button'); // Novo botão principal de busca
+        const searchButton = document.getElementById('search-button');
+        const mainSearchButton = document.getElementById('main-search-button');
         const clearSearchButton = document.getElementById('clear-search-button');
         const scholarSearchBox = document.getElementById('scholar-search-box');
+
+        // Novos elementos de filtro
+        const filterLanguageSelect = document.getElementById('filter-language');
+        const filterArticleTypeSelect = document.getElementById('filter-article-type');
 
 
         function displayError(message) {
@@ -324,13 +400,14 @@
             loadingMessage.style.display = 'none';
         }
 
-        async function loadArticles(searchTerm = '', searchField = 'title') {
+        async function loadArticles(searchTerm = '', searchField = 'title', languageFilter = '', articleTypeFilter = '') {
             articlesListDiv.innerHTML = '';
             loadingMessage.style.display = 'block';
             errorDisplay.style.display = 'none';
 
-            if (!searchTerm.trim()) {
-                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa acima para encontrar artigos.</p>`;
+            // Se nenhum termo ou filtro foi aplicado, mostra a mensagem inicial
+            if (!searchTerm.trim() && !languageFilter && !articleTypeFilter) {
+                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`;
                 loadingMessage.style.display = 'none';
                 return;
             }
@@ -339,21 +416,40 @@
                 let articlesRef = firestore.collection('articlesdoc');
                 const trimmedSearchTerm = searchTerm.trim();
 
+                // Aplica o filtro de texto se houver um termo e um campo de busca
                 if (trimmedSearchTerm && searchField) {
                     articlesRef = articlesRef
                         .where(searchField, '>=', trimmedSearchTerm)
-                        .where(searchField, '<=', trimmedSearchTerm + '\uf8ff')
-                        .orderBy(searchField);
-                } else {
-                    articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                        .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
                 }
+
+                // Aplica o filtro de idioma
+                if (languageFilter) {
+                    articlesRef = articlesRef.where('language', '==', languageFilter);
+                }
+
+                // Aplica o filtro de tipo de artigo
+                if (articleTypeFilter) {
+                    articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
+                }
+
+                // Ordena os resultados
+                // Observação: Se você aplicar múltiplos `.where()` em campos diferentes e não usar o `orderBy` no primeiro campo do `where`,
+                // o Firestore exigirá um índice composto. Para simplificar, vou manter o `orderBy` no `searchField` principal
+                // ou no timestamp se não houver searchField.
+                if (trimmedSearchTerm && searchField) {
+                     articlesRef = articlesRef.orderBy(searchField);
+                } else {
+                     articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                }
+
 
                 const snapshot = await articlesRef.get();
                 loadingMessage.style.display = 'none';
 
                 if (snapshot.empty) {
-                    const emptyMessage = trimmedSearchTerm ?
-                        `Nenhum artigo encontrado com o termo "${trimmedSearchTerm}" no campo "${searchField}".` :
+                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ?
+                        `Nenhum artigo encontrado com os critérios de busca.` :
                         'Nenhum artigo (articlesdoc) publicado ainda.';
                     articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
                     return;
@@ -373,6 +469,8 @@
                     const abstract = data.abstract || 'Nenhum abstract disponível.';
                     const conclusion = data.conclusion || 'Nenhuma conclusão disponível.';
                     const sources = (data.sources && Array.isArray(data.sources)) ? data.sources.join(', ') : 'Nenhuma fonte disponível.';
+                    const language = data.language || 'Não especificado'; // Novo campo
+                    const articleType = data.articleType || 'Não especificado'; // Novo campo
 
                     const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
                     const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
@@ -400,6 +498,8 @@
                         </div>
                         <div class="mdl-card__supporting-text">
                             <strong>ID do Usuário:</strong> <p>${userId}</p>
+                            <strong>Idioma:</strong> <p>${language}</p>
+                            <strong>Tipo de Artigo:</strong> <p>${articleType}</p>
                             <strong>Resumo:</strong> <p>${summary}</p>
                             <strong>Introdução:</strong> <p>${introduction}</p>
                             <strong>Descrição:</strong> <p>${description}</p>
@@ -425,6 +525,13 @@
 
             } catch (error) {
                 displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`);
+                console.error("Erro ao carregar artigos:", error);
+                // Sugestão de índice composto se o erro for de falta de índice
+                if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
+                     console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
+                     // Você pode direcionar o usuário para o console do Firebase para criar o índice
+                     // Ex: https://console.firebase.google.com/project/<your-project-id>/firestore/indexes
+                }
             }
         }
 
@@ -434,7 +541,13 @@
             try {
                 await firestore.collection('articlesdoc').doc(articleId).delete();
                 alert('Artigo excluído com sucesso!');
-                loadArticles(searchTermInput.value.trim(), searchTypeInput.value);
+                // Recarrega os artigos com os filtros atuais
+                loadArticles(
+                    searchTermInput.value.trim(),
+                    searchTypeInput.value,
+                    filterLanguageSelect.value,
+                    filterArticleTypeSelect.value
+                );
             } catch (error) {
                 displayError(`Não foi possível excluir o artigo. ${error.message}`);
             }
@@ -481,20 +594,32 @@
                 }
             });
 
+            // Função para executar a busca completa com todos os filtros
+            const performSearch = () => {
+                loadArticles(
+                    searchTermInput.value.trim(),
+                    searchTypeInput.value,
+                    filterLanguageSelect.value,
+                    filterArticleTypeSelect.value
+                );
+            };
+
             // Event listener para o botão de busca dentro da caixa (ícone)
-            searchButton.addEventListener('click', () => {
-                loadArticles(searchTermInput.value.trim(), searchTypeInput.value);
-            });
+            searchButton.addEventListener('click', performSearch);
 
             // Event listener para o novo botão principal de busca
-            mainSearchButton.addEventListener('click', () => {
-                loadArticles(searchTermInput.value.trim(), searchTypeInput.value);
-            });
+            mainSearchButton.addEventListener('click', performSearch);
+
+            // Event listeners para os novos filtros de idioma e tipo de artigo
+            // Para que a busca seja acionada automaticamente ao mudar o filtro
+            filterLanguageSelect.addEventListener('change', performSearch);
+            filterArticleTypeSelect.addEventListener('change', performSearch);
+
 
             searchTermInput.addEventListener('keypress', event => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    loadArticles(searchTermInput.value.trim(), searchTypeInput.value);
+                    performSearch();
                 }
             });
 
@@ -502,12 +627,23 @@
                 searchTermInput.value = '';
                 searchTypeInput.value = 'title';
                 searchTypeDisplayInput.value = 'Título';
+                filterLanguageSelect.value = ''; // Limpa o filtro de idioma
+                filterArticleTypeSelect.value = ''; // Limpa o filtro de tipo de artigo
 
+                // Atualiza o MDL para os campos limpos
                 const selectFieldElement = document.querySelector('.mdl-selectfield');
                 if (selectFieldElement && selectFieldElement.MaterialTextfield) {
                     selectFieldElement.MaterialTextfield.change(searchTypeDisplayInput.value);
                 }
-                loadArticles();
+                // Também atualiza os novos selectfields
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(document.getElementById('filter-language').parentElement);
+                    document.getElementById('filter-language').parentElement.MaterialTextfield.checkDirty();
+                    window.componentHandler.upgradeElements(document.getElementById('filter-article-type').parentElement);
+                    document.getElementById('filter-article-type').parentElement.MaterialTextfield.checkDirty();
+                }
+
+                loadArticles(); // Carrega todos os artigos novamente
             });
 
             // Adiciona classes para estado de foco na caixa de busca
@@ -518,6 +654,9 @@
             searchTermInput.addEventListener('blur', () => {
                 scholarSearchBox.classList.remove('is-focused');
             });
+
+            // Carrega os artigos iniciais (sem filtros) ao carregar a página
+            loadArticles();
         });
     </script>
 </body>
