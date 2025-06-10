@@ -59,13 +59,17 @@ function formatTimestamp(timestamp) {
 
 async function loadArticles() {
     articlesListDiv.innerHTML = `<p class="loading-message">Carregando artigos...</p>`;
-    errorDisplay.style.display = 'none'; // Oculta qualquer erro anterior
+    errorDisplay.style.display = 'none';
 
     const searchTerm = searchTermInput.value.toLowerCase().trim();
-    // Usa o valor do input hidden para o tipo de busca
-    const searchField = searchTypeInput.value;
+    const searchField = searchTypeInput.value; // Valor do input hidden
     const languageFilter = filterLanguageSelect.value;
     const articleTypeFilter = filterArticleTypeSelect.value;
+
+    console.log("Termo de busca:", searchTerm);
+    console.log("Campo de busca:", searchField);
+    console.log("Filtro de Idioma:", languageFilter);
+    console.log("Filtro de Tipo de Artigo:", articleTypeFilter);
 
     try {
         let articlesRef = firestore.collection('articlesdoc');
