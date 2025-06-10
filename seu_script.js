@@ -21,9 +21,7 @@ const auth = firebase.auth(); // Se você estiver usando autenticação
 
 // Referências aos elementos HTML
 const articlesListDiv = document.getElementById('articles-list');
-// Note: Changed id="loading-message" to a class, and updated CSS accordingly
-// if you still have an element with id="loading-message", it will be referenced here
-const loadingMessage = document.getElementById('loading-message');
+const loadingMessage = document.getElementById('loading-message'); // Ainda usado para exibir/ocultar
 const errorDisplay = document.getElementById('error-display');
 const searchTermInput = document.getElementById('search-term');
 const searchTypeInput = document.getElementById('search-type'); // Hidden input para o valor real
@@ -59,7 +57,7 @@ function formatTimestamp(timestamp) {
 
 async function loadArticles() {
     articlesListDiv.innerHTML = `<p class="loading-message">Carregando artigos...</p>`;
-    errorDisplay.style.display = 'none';
+    errorDisplay.style.display = 'none'; // Oculta qualquer erro anterior
 
     const searchTerm = searchTermInput.value.toLowerCase().trim();
     const searchField = searchTypeInput.value; // Valor do input hidden
@@ -104,9 +102,10 @@ async function loadArticles() {
         articlesListDiv.innerHTML = ''; // Limpa a mensagem de carregamento/vazio
 
         if (snapshot.empty) {
+            // Agora esta mensagem cobre todos os casos de "nada encontrado"
             const emptyMessage = (searchTerm || languageFilter || articleTypeFilter) ?
                 `Nenhum artigo encontrado com os critérios de busca.` :
-                'Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.';
+                'Nenhum artigo publicado ainda.'; // Mensagem mais geral para a carga inicial
             articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
             return;
         }
