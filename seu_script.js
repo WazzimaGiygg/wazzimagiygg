@@ -1,6 +1,4 @@
 // Configuração do Firebase
-// ATENÇÃO: As chaves API devem ser mantidas em segurança. Para aplicações de produção,
-// considere usar variáveis de ambiente ou Firebase Functions para operações sensíveis.
 const firebaseConfig = {
     apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
     authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -23,12 +21,14 @@ const auth = firebase.auth(); // Se você estiver usando autenticação
 
 // Referências aos elementos HTML
 const articlesListDiv = document.getElementById('articles-list');
+// Note: Changed id="loading-message" to a class, and updated CSS accordingly
+// if you still have an element with id="loading-message", it will be referenced here
 const loadingMessage = document.getElementById('loading-message');
 const errorDisplay = document.getElementById('error-display');
 const searchTermInput = document.getElementById('search-term');
 const searchTypeInput = document.getElementById('search-type'); // Hidden input para o valor real
 const searchTypeDisplayInput = document.getElementById('search-type-display'); // Input de display para o MDL selectfield
-const searchButton = document.getElementById('search-button'); // Botão de ícone da busca
+const searchButtonIcon = document.getElementById('search-button-icon'); // Botão de ícone da busca (ID corrigido)
 const mainSearchButton = document.getElementById('main-search-button'); // Botão "Buscar" principal
 const clearSearchButton = document.getElementById('clear-search-button'); // Botão "Limpar Filtros"
 const scholarSearchBox = document.getElementById('scholar-search-box'); // A caixa de busca Google Scholar-like
@@ -179,12 +179,7 @@ async function deleteArticle(articleId) {
         await firestore.collection('articlesdoc').doc(articleId).delete();
         alert('Artigo excluído com sucesso!');
         // Recarrega os artigos com os filtros atuais
-        loadArticles(
-            searchTermInput.value.trim(),
-            searchTypeInput.value,
-            filterLanguageSelect.value,
-            filterArticleTypeSelect.value
-        );
+        loadArticles(); // Chama loadArticles sem argumentos para usar os valores atuais dos inputs
     } catch (error) {
         displayError(`Não foi possível excluir o artigo. ${error.message}`);
     }
@@ -198,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.componentHandler.upgradeDom();
     }
 
-    // Lógica para o selectfield de "Tipo de Busca" (dropdown personalizado do MDL)
+    // Lógica para o selectfield de "Buscar por" (dropdown personalizado do MDL)
     const searchTypeMenuItems = document.querySelectorAll('.mdl-menu__item');
     searchTypeMenuItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -210,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
             searchTypeDisplayInput.value = selectedText;
 
             // Encontra o elemento pai do MaterialTextfield para o selectfield de busca
-            const searchTypeMdlSelectfield = document.querySelector('.scholar-search-box .mdl-selectfield');
+            const searchTypeMdlSelectfield = searchTypeDisplayInput.closest('.mdl-textfield');
             if (searchTypeMdlSelectfield && searchTypeMdlSelectfield.MaterialTextfield) {
                 // Sincroniza o display visual do MDL com o novo texto
                 searchTypeMdlSelectfield.MaterialTextfield.change(selectedText);
@@ -239,120 +234,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Função centralizada para executar a busca completa com todos os filtros
     const performSearch = () => {
-        loadArticles(
-            searchTermInput.value.trim(),
-            searchTypeInput.value,
-            filterLanguageSelect.value,
-            filterArticleTypeSelect.value
-        );
+        loadArticles(); // loadArticles já lê os valores dos inputs/selects
     };
 
     // Event listener para o botão de busca dentro da caixa (ícone)
-    searchButton.addEventListener('click', performSearch);
-
-    // Event listener para o novo botão principal de busca
-    mainSearchButton.addEventListener('click', performSearch);
-
-    // Event listeners para os filtros de idioma e tipo de artigo (acionam a busca ao mudar)
-    filterLanguageSelect.addEventListener('change', () => {
-        // Atualiza o display visual do MDL para o select de idioma
-        const parentElement = filterLanguageSelect.parentElement;
-        if (parentElement && parentElement.MaterialTextfield) {
-            parentElement.MaterialTextfield.change(filterLanguageSelect.options[filterLanguageSelect.selectedIndex].text);
-            parentElement.MaterialTextfield.checkDirty();
-        }
-        performSearch();
-    });
-
-    filterArticleTypeSelect.addEventListener('change', () => {
-        // Atualiza o display visual do MDL para o select de tipo de artigo
-        const parentElement = filterArticleTypeSelect.parentElement;
-        if (parentElement && parentElement.MaterialTextfield) {
-            parentElement.MaterialTextfield.change(filterArticleTypeSelect.options[filterArticleTypeSelect.selectedIndex].text);
-            parentElement.MaterialTextfield.checkDirty();
-        }
-        performSearch();
-    });
-
-    // Evento para recarregar artigos ao pressionar Enter no campo de busca
-    searchTermInput.addEventListener('keypress', event => {
-        if (event.key === 'Enter') {
-            event.preventDefault(); // Evita o envio de formulário padrão
-            performSearch();
-        }
-    });
-
-    // Evento para o botão de limpar busca
-    clearSearchButton.addEventListener('click', () => {
-        // Limpa os valores dos inputs e selects
-        searchTermInput.value = '';
-        searchTypeInput.value = 'title'; // Define o valor padrão para o hidden input
-        searchTypeDisplayInput.value = 'Título'; // Define o texto padrão para o display
-
-        filterLanguageSelect.value = ''; // Limpa o filtro de idioma
-        filterArticleTypeSelect.value = ''; // Limpa o filtro de tipo de artigo
-
-        // Atualiza o MDL para os campos de texto
-        if (searchTermInput.parentElement && searchTermInput.parentElement.MaterialTextfield) {
-            searchTermInput.parentElement.MaterialTextfield.checkDirty();
-        }
-
-        // Atualiza o MDL para o selectfield de tipo de busca
-        const searchTypeMdlSelectfield = document.querySelector('.scholar-search-box .mdl-selectfield');
-        if (searchTypeMdlSelectfield && searchTypeMdlSelectfield.MaterialTextfield) {
-            searchTypeMdlSelectfield.MaterialTextfield.change('Título'); // Define o texto padrão
-            searchTypeMdlSelectfield.MaterialTextfield.checkDirty();
-        }
-
-        // Atualiza o MDL para os selectfields de filtro
-        // Para cada select, encontra o MaterialTextfield do pai e atualiza o display
-        const languageParent = filterLanguageSelect.parentElement;
-        if (languageParent && languageParent.MaterialTextfield) {
-            languageParent.MaterialTextfield.change(filterLanguageSelect.options[filterLanguageSelect.selectedIndex].text);
-            languageParent.MaterialTextfield.checkDirty();
-        }
-
-        const articleTypeParent = filterArticleTypeSelect.parentElement;
-        if (articleTypeParent && articleTypeParent.MaterialTextfield) {
-            articleTypeParent.MaterialTextfield.change(filterArticleTypeSelect.options[filterArticleTypeSelect.selectedIndex].text);
-            articleTypeParent.MaterialTextfield.checkDirty();
-        }
-
-        // Carrega os artigos com os filtros limpos
-        loadArticles();
-    });
-
-    // Adiciona classes para estado de foco na caixa de busca estilo Scholar
-    searchTermInput.addEventListener('focus', () => {
-        scholarSearchBox.classList.add('is-focused');
-    });
-
-    searchTermInput.addEventListener('blur', () => {
-        scholarSearchBox.classList.remove('is-focused');
-    });
-
-    // Lógica para preencher o display inicial do select de busca
-    // Encontra o MaterialTextfield para 'search-type-display' e define o valor inicial
-    const initialSearchTypeMdlSelectfield = document.querySelector('.scholar-search-box .mdl-selectfield');
-    if (initialSearchTypeMdlSelectfield && initialSearchTypeMdlSelectfield.MaterialTextfield) {
-        initialSearchTypeMdlSelectfield.MaterialTextfield.change(searchTypeDisplayInput.value);
-        initialSearchTypeMdlSelectfield.MaterialTextfield.checkDirty(); // Marca como "sujo" para o label flutuar
+    if (searchButtonIcon) { // Adiciona verificação de existência para evitar erro null
+        searchButtonIcon.addEventListener('click', performSearch);
+    } else {
+        console.warn("Elemento com ID 'search-button-icon' não encontrado. O botão de busca por ícone não funcionará.");
     }
 
-    // Lógica para preencher o display inicial dos selects de filtro
-    const initialLanguageMdlSelectfield = filterLanguageSelect.parentElement;
+    // Event listener para o novo botão principal de busca
+    if (mainSearchButton) { // Adiciona verificação de existência
+        mainSearchButton.addEventListener('click', performSearch);
+    } else {
+        console.warn("Elemento com ID 'main-search-button' não encontrado.");
+    }
+
+    // Event listeners para os filtros de idioma e tipo de artigo (acionam a busca ao mudar)
+    if (filterLanguageSelect) {
+        filterLanguageSelect.addEventListener('change', () => {
+            // Atualiza o display visual do MDL para o select de idioma
+            const parentElement = filterLanguageSelect.closest('.mdl-textfield');
+            if (parentElement && parentElement.MaterialTextfield) {
+                parentElement.MaterialTextfield.change(filterLanguageSelect.options[filterLanguageSelect.selectedIndex].text);
+                parentElement.MaterialTextfield.checkDirty();
+            }
+            performSearch();
+        });
+    }
+
+    if (filterArticleTypeSelect) {
+        filterArticleTypeSelect.addEventListener('change', () => {
+            // Atualiza o display visual do MDL para o select de tipo de artigo
+            const parentElement = filterArticleTypeSelect.closest('.mdl-textfield');
+            if (parentElement && parentElement.MaterialTextfield) {
+                parentElement.MaterialTextfield.change(filterArticleTypeSelect.options[filterArticleTypeSelect.selectedIndex].text);
+                parentElement.MaterialTextfield.checkDirty();
+            }
+            performSearch();
+        });
+    }
+
+    // Evento para recarregar artigos ao pressionar Enter no campo de busca
+    if (searchTermInput) {
+        searchTermInput.addEventListener('keypress', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Evita o envio de formulário padrão
+                performSearch();
+            }
+        });
+    }
+
+    // Evento para o botão de limpar busca
+    if (clearSearchButton) {
+        clearSearchButton.addEventListener('click', () => {
+            // Limpa os valores dos inputs e selects
+            searchTermInput.value = '';
+            searchTypeInput.value = 'title'; // Define o valor padrão para o hidden input
+            searchTypeDisplayInput.value = 'Título'; // Define o texto padrão para o display
+
+            filterLanguageSelect.value = ''; // Limpa o filtro de idioma
+            filterArticleTypeSelect.value = ''; // Limpa o filtro de tipo de artigo
+
+            // Atualiza o MDL para os campos de texto
+            if (searchTermInput.parentElement && searchTermInput.parentElement.MaterialTextfield) {
+                searchTermInput.parentElement.MaterialTextfield.checkDirty();
+            }
+
+            // Atualiza o MDL para o selectfield de tipo de busca
+            const searchTypeMdlSelectfield = searchTypeDisplayInput.closest('.mdl-textfield');
+            if (searchTypeMdlSelectfield && searchTypeMdlSelectfield.MaterialTextfield) {
+                searchTypeMdlSelectfield.MaterialTextfield.change('Título'); // Define o texto padrão
+                searchTypeMdlSelectfield.MaterialTextfield.checkDirty();
+            }
+
+            // Atualiza o MDL para os selectfields de filtro
+            const languageParent = filterLanguageSelect.closest('.mdl-textfield');
+            if (languageParent && languageParent.MaterialTextfield) {
+                languageParent.MaterialTextfield.change(''); // Define o texto como vazio para 'Todos os Idiomas'
+                languageParent.MaterialTextfield.checkDirty();
+            }
+
+            const articleTypeParent = filterArticleTypeSelect.closest('.mdl-textfield');
+            if (articleTypeParent && articleTypeParent.MaterialTextfield) {
+                articleTypeParent.MaterialTextfield.change(''); // Define o texto como vazio para 'Todos os Tipos'
+                articleTypeParent.MaterialTextfield.checkDirty();
+            }
+
+            // Carrega os artigos com os filtros limpos
+            loadArticles();
+        });
+    }
+
+    // Adiciona classes para estado de foco na caixa de busca estilo Scholar
+    if (searchTermInput && scholarSearchBox) {
+        searchTermInput.addEventListener('focus', () => {
+            scholarSearchBox.classList.add('is-focused');
+        });
+
+        searchTermInput.addEventListener('blur', () => {
+            scholarSearchBox.classList.remove('is-focused');
+        });
+    }
+
+    // Lógica para preencher o display inicial do select de busca e dos filtros
+    // Importante chamar checkDirty para que o label flutue se houver um valor inicial
+    const initialSearchTypeMdlSelectfield = searchTypeDisplayInput.closest('.mdl-textfield');
+    if (initialSearchTypeMdlSelectfield && initialSearchTypeMdlSelectfield.MaterialTextfield) {
+        initialSearchTypeMdlSelectfield.MaterialTextfield.change(searchTypeDisplayInput.value);
+        initialSearchTypeMdlSelectfield.MaterialTextfield.checkDirty();
+    }
+
+    const initialLanguageMdlSelectfield = filterLanguageSelect.closest('.mdl-textfield');
     if (initialLanguageMdlSelectfield && initialLanguageMdlSelectfield.MaterialTextfield) {
         initialLanguageMdlSelectfield.MaterialTextfield.change(filterLanguageSelect.options[filterLanguageSelect.selectedIndex].text);
         initialLanguageMdlSelectfield.MaterialTextfield.checkDirty();
     }
 
-    const initialArticleTypeMdlSelectfield = filterArticleTypeSelect.parentElement;
+    const initialArticleTypeMdlSelectfield = filterArticleTypeSelect.closest('.mdl-textfield');
     if (initialArticleTypeMdlSelectfield && initialArticleTypeMdlSelectfield.MaterialTextfield) {
         initialArticleTypeMdlSelectfield.MaterialTextfield.change(filterArticleTypeSelect.options[filterArticleTypeSelect.selectedIndex].text);
         initialArticleTypeMdlSelectfield.MaterialTextfield.checkDirty();
     }
 
     // Carrega os artigos iniciais (sem filtros) ao carregar a página
-    // Isso deve ser feito APÓS a inicialização dos selectfields do MDL
     loadArticles();
 });
