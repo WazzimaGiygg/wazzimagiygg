@@ -59,41 +59,33 @@ async function loadArticles() {
     articlesListDiv.innerHTML = `<p class="loading-message">Carregando artigos...</p>`;
     errorDisplay.style.display = 'none'; // Oculta qualquer erro anterior
 
-    const searchTerm = searchTermInput.value.toLowerCase().trim();
-    const searchField = searchTypeInput.value; // Valor do input hidden
-    const languageFilter = filterLanguageSelect.value;
-    const articleTypeFilter = filterArticleTypeSelect.value;
+        const searchTerm = searchTermInput.value.toLowerCase().trim();
+    let searchFieldFirestore = searchTypeInput.value; // Pega o valor selecionado (ex: 'title', 'description')
 
-    console.log("Termo de busca:", searchTerm);
-    console.log("Campo de busca:", searchField);
-    console.log("Filtro de Idioma:", languageFilter);
-    console.log("Filtro de Tipo de Artigo:", articleTypeFilter);
+    // Mapeia o campo de busca selecionado para o campo em minúsculas no Firestore
+    // Isso garante que a busca seja case-insensitive
+    if (searchFieldFirestore === 'title') {
+        searchFieldFirestore = 'title_lower';
+    } else if (searchFieldFirestore === 'description') {
+        searchFieldFirestore = 'description_lower';
+    }
+    // Repita para 'summary', 'abstract', 'introduction', etc., se você os armazenar em _lower
+
+    console.log("Termo de busca (minúsculas):", searchTerm);
+    console.log("Campo de busca no Firestore:", searchFieldFirestore); // Verifique este log!
 
     try {
         let articlesRef = firestore.collection('articlesdoc');
 
-        // Aplica os filtros 'where'
-        if (searchTerm && searchField) {
-            // Firestore não faz busca de texto completo. Isso é uma "startsWith"
+        if (searchTerm && searchFieldFirestore) { // Use searchFieldFirestore aqui
             articlesRef = articlesRef
-                .where(searchField, '>=', searchTerm)
-                .where(searchField, '<=', searchTerm + '\uf8ff');
+                .where(searchFieldFirestore, '>=', searchTerm)
+                .where(searchFieldFirestore, '<=', searchTerm + '\uf8ff');
         }
-        if (languageFilter) {
-            articlesRef = articlesRef.where('language', '==', languageFilter);
-        }
-        if (articleTypeFilter) {
-            articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
-        }
-
-        // Ordena os resultados
-        // Se você tiver múltiplos .where() e o .orderBy() em campos diferentes,
-        // o Firestore exigirá um índice composto. Verifique o console do Firebase.
-        if (searchTerm && searchField) {
-            // Se houver termo de busca, ordene pelo campo de busca
-            articlesRef = articlesRef.orderBy(searchField);
+        // ... (restante da lógica de filtros e ordenação) ...
+        if (searchTerm && searchFieldFirestore) { // Use searchFieldFirestore aqui
+            articlesRef = articlesRef.orderBy(searchFieldFirestore);
         } else {
-            // Caso contrário, ordene pela data de criação
             articlesRef = articlesRef.orderBy('timestamp', 'desc');
         }
 
