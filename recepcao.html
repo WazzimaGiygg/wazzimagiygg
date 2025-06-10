@@ -378,7 +378,7 @@
                         <option value="">Todos os Idiomas</option>
                         <option value="pt-BR">Português (Brasil)</option>
                         <option value="en-US">English (United States)</option>
-                        </select>
+                    </select>
                     <label for="filter-language" class="mdl-textfield__label">Idioma</label>
                 </div>
 
@@ -392,7 +392,7 @@
                         <option value="opiniao">Opinião</option>
                         <option value="entrevista">Entrevista</option>
                         <option value="tutorial">Tutorial</option>
-                        </select>
+                    </select>
                     <label for="filter-article-type" class="mdl-textfield__label">Tipo de Artigo</label>
                 </div>
             </div>
@@ -698,102 +698,107 @@
             }
         }
 
+        // Event Listeners
+        searchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+
+        mainSearchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+
+        clearSearchButton.addEventListener('click', () => {
+            searchTermInput.value = '';
+            searchTypeInput.value = 'title';
+            searchTypeDisplayInput.value = 'Título';
+            filterLanguageSelect.value = '';
+            filterArticleTypeSelect.value = '';
+            // Atualizar os selects do MDL para refletir os valores vazios
+            if (window.componentHandler) {
+                // For MDL Selectfields, updating the underlying <select> value isn't enough.
+                // You often need to manually trigger updates or interact with their internal state.
+                // A simpler way is to re-initialize or set the display text.
+                const searchTypeMdl = document.querySelector('#search-type-display').parentElement.MaterialTextfield;
+                if (searchTypeMdl) {
+                    searchTypeMdl.change('Título');
+                }
+                const languageMdl = document.querySelector('#filter-language').parentElement.MaterialTextfield;
+                if (languageMdl) {
+                    languageMdl.change('Todos os Idiomas');
+                }
+                const articleTypeMdl = document.querySelector('#filter-article-type').parentElement.MaterialTextfield;
+                if (articleTypeMdl) {
+                    articleTypeMdl.change('Todos os Tipos');
+                }
+            }
+            loadArticles(); // Carrega todos os artigos (ou a mensagem inicial)
+        });
+
+        articlesListDiv.addEventListener('click', (event) => {
+            if (event.target.classList.contains('view-article-button')) {
+                const articleId = event.target.getAttribute('data-article-id');
+                viewArticleInNewWindow(articleId);
+            }
+        });
+
+        // Adiciona funcionalidade de foco para a caixa de busca (estilo Google Scholar)
+        searchTermInput.addEventListener('focus', () => {
+            scholarSearchBox.classList.add('is-focused');
+        });
+
+        searchTermInput.addEventListener('blur', () => {
+            scholarSearchBox.classList.remove('is-focused');
+        });
+
+        // Event listeners para os filtros de idioma e tipo de artigo
+        filterLanguageSelect.addEventListener('change', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+
+        filterArticleTypeSelect.addEventListener('change', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.componentHandler) {
                 window.componentHandler.upgradeDom();
+                // For mdl-selectfield, the display input needs to be updated after upgradeDom
                 const selectField = document.querySelector('.getmdl-select');
                 if (selectField && selectField.MaterialTextfield) {
                     selectField.MaterialTextfield.change(searchTypeDisplayInput.value);
                 }
             }
+            loadArticles(); // Carrega os artigos iniciais (ou a mensagem de "use a barra de pesquisa")
+        });
 
-            const searchTypeMenuItems = document.querySelectorAll('.mdl-menu__item');
-            searchTypeMenuItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const selectedValue = item.getAttribute('data-val');
-                    const selectedText = item.textContent;
-
-                    searchTypeInput.value = selectedValue;
-                    searchTypeDisplayInput.value = selectedText;
-
-                    const selectFieldElement = document.querySelector('.mdl-selectfield');
-                    if (selectFieldElement && selectFieldElement.MaterialTextfield) {
-                        selectFieldElement.MaterialTextfield.change(selectedText);
-                    }
-                });
-            });
-
-            articlesListDiv.addEventListener('click', event => {
-                const target = event.target;
-                if (target.classList.contains('view-article-button')) {
-                    viewArticleInNewWindow(target.dataset.articleId);
+        // Para garantir que os selectfields do MDL funcionem corretamente
+        // Se o valor inicial for vazio, o label pode não se comportar corretamente.
+        // Adicionar um evento para quando o select é alterado
+        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => {
+            selectElement.addEventListener('change', () => {
+                const parentTextfield = selectElement.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    // Update the MDL component's state to reflect the new value
+                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text);
                 }
             });
-
-            // Função para executar a busca completa com todos os filtros
-            const performSearch = () => {
-                loadArticles(
-                    searchTermInput.value.trim(),
-                    searchTypeInput.value,
-                    filterLanguageSelect.value,
-                    filterArticleTypeSelect.value
-                );
-            };
-
-            // Event listener para o botão de busca dentro da caixa (ícone)
-            searchButton.addEventListener('click', performSearch);
-
-            // Event listener para o novo botão principal de busca
-            mainSearchButton.addEventListener('click', performSearch);
-
-            // Event listeners para os novos filtros de idioma e tipo de artigo
-            // Para que a busca seja acionada automaticamente ao mudar o filtro
-            filterLanguageSelect.addEventListener('change', performSearch);
-            filterArticleTypeSelect.addEventListener('change', performSearch);
-
-
-            searchTermInput.addEventListener('keypress', event => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    performSearch();
-                }
-            });
-
-            clearSearchButton.addEventListener('click', () => {
-                searchTermInput.value = '';
-                searchTypeInput.value = 'title';
-                searchTypeDisplayInput.value = 'Título';
-                filterLanguageSelect.value = ''; // Limpa o filtro de idioma
-                filterArticleTypeSelect.value = ''; // Limpa o filtro de tipo de artigo
-
-                // Atualiza o MDL para os campos limpos
-                const selectFieldElement = document.querySelector('.mdl-selectfield');
-                if (selectFieldElement && selectFieldElement.MaterialTextfield) {
-                    selectFieldElement.MaterialTextfield.change(searchTypeDisplayInput.value);
-                }
-                // Também atualiza os novos selectfields
-                if (window.componentHandler) {
-                    window.componentHandler.upgradeElements(document.getElementById('filter-language').parentElement);
-                    document.getElementById('filter-language').parentElement.MaterialTextfield.checkDirty();
-                    window.componentHandler.upgradeElements(document.getElementById('filter-article-type').parentElement);
-                    document.getElementById('filter-article-type').parentElement.MaterialTextfield.checkDirty();
-                }
-
-                loadArticles(); // Carrega todos os artigos novamente
-            });
-
-            // Adiciona classes para estado de foco na caixa de busca
-            searchTermInput.addEventListener('focus', () => {
-                scholarSearchBox.classList.add('is-focused');
-            });
-
-            searchTermInput.addEventListener('blur', () => {
-                scholarSearchBox.classList.remove('is-focused');
-            });
-
-            // Carrega os artigos iniciais (sem filtros) ao carregar a página
-            loadArticles();
         });
     </script>
 </body>
