@@ -192,7 +192,7 @@
         }
 
         .scholar-search-box .mdl-selectfield .mdl-textfield__label {
-             display: none;
+            display: none;
         }
 
         /* Estilo para os botões de ação abaixo da caixa de busca */
@@ -275,6 +275,61 @@
             top: -15px;
             font-size: 12px;
             transform: scale(0.75);
+        }
+
+        /* Estilos ABNT para o pop-up */
+        .abnt-article-view {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            margin: 3cm 2cm 2cm 3cm; /* Top, Right, Bottom, Left */
+            text-align: justify;
+        }
+
+        .abnt-article-view h2 {
+            font-size: 14pt;
+            text-align: center;
+            margin-bottom: 1em;
+            text-transform: uppercase;
+        }
+
+        .abnt-article-view h3 {
+            font-size: 12pt;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .abnt-article-view p {
+            text-indent: 1.25cm;
+            margin-bottom: 0.5em;
+        }
+
+        .abnt-article-view .abnt-section-title {
+            font-weight: bold;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .abnt-article-view .abnt-source-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .abnt-article-view .abnt-source-list li {
+            margin-bottom: 0.5em;
+        }
+        .abnt-article-view .external-link {
+            display: block;
+            margin-top: 1em;
+            text-align: center;
+        }
+        .abnt-article-view .external-link a {
+            color: #3f51b5;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .abnt-article-view .external-link a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -438,9 +493,9 @@
                 // o Firestore exigirá um índice composto. Para simplificar, vou manter o `orderBy` no `searchField` principal
                 // ou no timestamp se não houver searchField.
                 if (trimmedSearchTerm && searchField) {
-                     articlesRef = articlesRef.orderBy(searchField);
+                    articlesRef = articlesRef.orderBy(searchField);
                 } else {
-                     articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                    articlesRef = articlesRef.orderBy('timestamp', 'desc');
                 }
 
 
@@ -468,9 +523,11 @@
                     const methodology = data.methodology || 'Nenhuma metodologia disponível.';
                     const abstract = data.abstract || 'Nenhum abstract disponível.';
                     const conclusion = data.conclusion || 'Nenhuma conclusão disponível.';
-                    const sources = (data.sources && Array.isArray(data.sources)) ? data.sources.join(', ') : 'Nenhuma fonte disponível.';
+                    const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
+                    const externalLink = data.externalLink || ''; // Novo campo para o link externo
                     const language = data.language || 'Não especificado'; // Novo campo
                     const articleType = data.articleType || 'Não especificado'; // Novo campo
+
 
                     const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
                     const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
@@ -507,13 +564,13 @@
                             <strong>Metodologia:</strong> <p>${methodology}</p>
                             <strong>Abstract:</strong> <p>${abstract}</p>
                             <strong>Conclusão:</strong> <p>${conclusion}</p>
-                            <strong>Fontes:</strong> <p>${sources}</p>
+                            <strong>Fontes:</strong> <p>${sources.join(', ')}</p>
+                            ${externalLink ? `<strong>Link Externo:</strong> <p><a href="${externalLink}" target="_blank" rel="noopener noreferrer">${externalLink}</a></p>` : ''}
                             <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
                             <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
                         </div>
                         <div class="mdl-card__actions mdl-card--border">
-                            <a href="#" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect edit-article-button" data-article-id="${id}">Editar</a>
-                            <button class="mdl-button mdl-button--accent mdl-js-button mdl-js-ripple-effect delete-article-button" data-article-id="${id}">Excluir</button>
+                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${id}">Visualizar Artigo</button>
                         </div>
                     `;
                     articlesListDiv.appendChild(card);
@@ -528,30 +585,119 @@
                 console.error("Erro ao carregar artigos:", error);
                 // Sugestão de índice composto se o erro for de falta de índice
                 if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
-                     console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
-                     // Você pode direcionar o usuário para o console do Firebase para criar o índice
-                     // Ex: https://console.firebase.google.com/project/<your-project-id>/firestore/indexes
+                    console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
+                    // Você pode direcionar o usuário para o console do Firebase para criar o índice
+                    // Ex: https://console.firebase.google.com/project/<your-project-id>/firestore/indexes
                 }
             }
         }
 
-        async function deleteArticle(articleId) {
-            if (!confirm('Tem certeza que deseja excluir este artigo? Esta ação é irreversível.')) return;
-
+        async function viewArticleInNewWindow(articleId) {
             try {
-                await firestore.collection('articlesdoc').doc(articleId).delete();
-                alert('Artigo excluído com sucesso!');
-                // Recarrega os artigos com os filtros atuais
-                loadArticles(
-                    searchTermInput.value.trim(),
-                    searchTypeInput.value,
-                    filterLanguageSelect.value,
-                    filterArticleTypeSelect.value
-                );
+                const doc = await firestore.collection('articlesdoc').doc(articleId).get();
+                if (!doc.exists) {
+                    alert('Artigo não encontrado.');
+                    return;
+                }
+                const data = doc.data();
+
+                const title = data.title || 'Título Indisponível';
+                const summary = data.summary || '';
+                const introduction = data.introduction || '';
+                const methodology = data.methodology || '';
+                const discussion = data.discussion || '';
+                const conclusion = data.conclusion || '';
+                const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
+                const abstract = data.abstract || '';
+                const externalLink = data.externalLink || '';
+
+                const viewContent = `
+                    <!DOCTYPE html>
+                    <html lang="pt-br">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>${title}</title>
+                        <style>
+                            body {
+                                font-family: "Times New Roman", Times, serif;
+                                font-size: 12pt;
+                                line-height: 1.5;
+                                margin: 3cm 2cm 2cm 3cm; /* Top, Right, Bottom, Left */
+                                text-align: justify;
+                            }
+                            h2 {
+                                font-size: 14pt;
+                                text-align: center;
+                                margin-bottom: 1em;
+                                text-transform: uppercase;
+                            }
+                            h3 {
+                                font-size: 12pt;
+                                margin-top: 1.5em;
+                                margin-bottom: 0.5em;
+                            }
+                            p {
+                                text-indent: 1.25cm;
+                                margin-bottom: 0.5em;
+                            }
+                            .abnt-section-title {
+                                font-weight: bold;
+                                margin-top: 1.5em;
+                                margin-bottom: 0.5em;
+                            }
+                            .abnt-source-list {
+                                list-style: none;
+                                padding-left: 0;
+                            }
+                            .abnt-source-list li {
+                                margin-bottom: 0.5em;
+                            }
+                            .external-link {
+                                display: block;
+                                margin-top: 1em;
+                                text-align: center;
+                            }
+                            .external-link a {
+                                color: #3f51b5;
+                                text-decoration: none;
+                                font-weight: bold;
+                            }
+                            .external-link a:hover {
+                                text-decoration: underline;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="abnt-article-view">
+                            <h2>${title}</h2>
+                            ${abstract ? `<p class="abnt-section-title">Abstract:</p><p>${abstract}</p>` : ''}
+                            ${summary ? `<p class="abnt-section-title">Resumo:</p><p>${summary}</p>` : ''}
+                            ${introduction ? `<p class="abnt-section-title">1 INTRODUÇÃO</p><p>${introduction}</p>` : ''}
+                            ${methodology ? `<p class="abnt-section-title">2 METODOLOGIA</p><p>${methodology}</p>` : ''}
+                            ${discussion ? `<p class="abnt-section-title">3 DISCUSSÃO</p><p>${discussion}</p>` : ''}
+                            ${conclusion ? `<p class="abnt-section-title">4 CONCLUSÃO</p><p>${conclusion}</p>` : ''}
+                            ${sources.length > 0 ? `<p class="abnt-section-title">REFERÊNCIAS</p><ul class="abnt-source-list">${sources.map(source => `<li>${source}</li>`).join('')}</ul>` : ''}
+                            ${externalLink ? `<p class="external-link">Acesse o artigo original: <a href="${externalLink}" target="_blank" rel="noopener noreferrer">${externalLink}</a></p>` : ''}
+                        </div>
+                    </body>
+                    </html>
+                `;
+
+                const newWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+                if (newWindow) {
+                    newWindow.document.write(viewContent);
+                    newWindow.document.close();
+                } else {
+                    alert('Por favor, permita pop-ups para visualizar o artigo.');
+                }
+
             } catch (error) {
-                displayError(`Não foi possível excluir o artigo. ${error.message}`);
+                console.error("Erro ao visualizar artigo:", error);
+                alert(`Não foi possível visualizar o artigo. Erro: ${error.message}`);
             }
         }
+
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.componentHandler) {
@@ -580,17 +726,8 @@
 
             articlesListDiv.addEventListener('click', event => {
                 const target = event.target;
-                if (target.classList.contains('delete-article-button')) {
-                    deleteArticle(target.dataset.articleId);
-                }
-                if (target.classList.contains('edit-article-button')) {
-                    event.preventDefault();
-                    const urlToLoad = `./admintools/editordeartigos.html?id=${target.dataset.articleId}`;
-                    if (window.parent !== window && window.parent.postMessage) {
-                        window.parent.postMessage({ type: 'navigateIframe', url: urlToLoad }, window.location.origin);
-                    } else {
-                        window.location.href = urlToLoad;
-                    }
+                if (target.classList.contains('view-article-button')) {
+                    viewArticleInNewWindow(target.dataset.articleId);
                 }
             });
 
