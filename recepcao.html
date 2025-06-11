@@ -331,6 +331,19 @@
         .abnt-article-view .external-link a:hover {
             text-decoration: underline;
         }
+
+        /* Estilo específico para o link externo no card */
+        .article-card .external-link-display {
+            font-size: 0.9em;
+            word-break: break-all; /* Garante que URLs longas não quebrem o layout */
+        }
+        .article-card .external-link-display a {
+            color: #3f51b5;
+            text-decoration: none;
+        }
+        .article-card .external-link-display a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -359,7 +372,7 @@
                         <li class="mdl-menu__item" data-val="conclusion">Conclusão</li>
                         <li class="mdl-menu__item" data-val="sources">Fontes</li>
                         <li class="mdl-menu__item" data-val="userId">ID do Usuário</li>
-                    </ul>
+                        <li class="mdl-menu__item" data-val="originalURL">URL Original</li> </ul>
                     <input type="hidden" name="search-type" id="search-type" value="title">
                 </div>
 
@@ -523,6 +536,9 @@
                     const methodology = data.methodology || 'Nenhuma metodologia disponível.';
                     const abstract = data.abstract || 'Nenhum abstract disponível.';
                     const conclusion = data.conclusion || 'Nenhuma conclusão disponível.';
+                    // const orginalUrl = data.title || 'URL Indisponível'; // Esta linha estava incorreta, usando 'title'
+                    const originalUrl = data.originalURL || 'URL Indisponível'; // CORRIGIDO: usando 'originalURL'
+
                     const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
                     // ---- PONTO DE ALTERAÇÃO CHAVE ----
                     // Garante que externalLink seja uma string, mesmo se for null/undefined no Firestore
@@ -568,7 +584,7 @@
                             <strong>Abstract:</strong> <p>${abstract}</p>
                             <strong>Conclusão:</strong> <p>${conclusion}</p>
                             <strong>Fontes:</strong> <p>${sources.join(', ')}</p>
-                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${externalLink}" target="_blank" rel="noopener noreferrer">${externalLink}</a></p>` : ''}
+                            ${externalLink ? `<p class="external-link-display"><strong>URL Original:</strong> <a href="${externalLink}" target="_blank" rel="noopener noreferrer">${externalLink}</a></p>` : ''}
                             <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
                             <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
                         </div>
@@ -726,32 +742,35 @@
             searchTypeDisplayInput.value = 'Título';
             filterLanguageSelect.value = '';
             filterArticleTypeSelect.value = '';
-            // Atualizar os selects do MDL para refletir os valores vazios
+            // Força a atualização dos selects MDL
             if (window.componentHandler) {
-                const searchTypeMdl = document.querySelector('#search-type-display').parentElement.MaterialTextfield;
-                if (searchTypeMdl) {
-                    searchTypeMdl.change('Título');
+                const searchTypeMdl = searchTypeDisplayInput.parentElement;
+                const languageMdl = filterLanguageSelect.parentElement;
+                const articleTypeMdl = filterArticleTypeSelect.parentElement;
+
+                if (searchTypeMdl && searchTypeMdl.MaterialTextfield) {
+                    searchTypeMdl.MaterialTextfield.checkDirty();
                 }
-                const languageMdl = document.querySelector('#filter-language').parentElement.MaterialTextfield;
-                if (languageMdl) {
-                    languageMdl.change('Todos os Idiomas');
+                if (languageMdl && languageMdl.MaterialTextfield) {
+                    languageMdl.MaterialTextfield.checkDirty();
                 }
-                const articleTypeMdl = document.querySelector('#filter-article-type').parentElement.MaterialTextfield;
-                if (articleTypeMdl) {
-                    articleTypeMdl.change('Todos os Tipos');
+                if (articleTypeMdl && articleTypeMdl.MaterialTextfield) {
+                    articleTypeMdl.MaterialTextfield.checkDirty();
                 }
             }
-            loadArticles(); // Carrega todos os artigos (ou a mensagem inicial)
+            loadArticles(); // Carrega artigos sem filtros
         });
 
         articlesListDiv.addEventListener('click', (event) => {
             if (event.target.classList.contains('view-article-button')) {
-                const articleId = event.target.getAttribute('data-article-id');
-                viewArticleInNewWindow(articleId);
+                const articleId = event.target.dataset.articleId;
+                if (articleId) {
+                    viewArticleInNewWindow(articleId);
+                }
             }
         });
 
-        // Adiciona funcionalidade de foco para a caixa de busca (estilo Google Scholar)
+        // Adiciona funcionalidade de foco para o scholar-search-box
         searchTermInput.addEventListener('focus', () => {
             scholarSearchBox.classList.add('is-focused');
         });
@@ -760,48 +779,8 @@
             scholarSearchBox.classList.remove('is-focused');
         });
 
-        // Event listeners para os filtros de idioma e tipo de artigo
-        filterLanguageSelect.addEventListener('change', () => {
-            const searchTerm = searchTermInput.value;
-            const searchField = searchTypeInput.value;
-            const languageFilter = filterLanguageSelect.value;
-            const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
-        });
-
-        filterArticleTypeSelect.addEventListener('change', () => {
-            const searchTerm = searchTermInput.value;
-            const searchField = searchTypeInput.value;
-            const languageFilter = filterLanguageSelect.value;
-            const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
-        });
-
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.componentHandler) {
-                window.componentHandler.upgradeDom();
-                // For mdl-selectfield, the display input needs to be updated after upgradeDom
-                const selectField = document.querySelector('.getmdl-select');
-                if (selectField && selectField.MaterialTextfield) {
-                    selectField.MaterialTextfield.change(searchTypeDisplayInput.value);
-                }
-            }
-            loadArticles(); // Carrega os artigos iniciais (ou a mensagem de "use a barra de pesquisa")
-        });
-
-        // Para garantir que os selectfields do MDL funcionem corretamente
-        // Se o valor inicial for vazio, o label pode não se comportar corretamente.
-        // Adicionar um evento para quando o select é alterado
-        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => {
-            selectElement.addEventListener('change', () => {
-                const parentTextfield = selectElement.closest('.mdl-textfield');
-                if (parentTextfield && parentTextfield.MaterialTextfield) {
-                    // Update the MDL component's state to reflect the new value
-                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text);
-                }
-            });
-        });
+        // Carrega artigos ao iniciar a página (sem filtros iniciais)
+        loadArticles();
     </script>
 </body>
 </html>
