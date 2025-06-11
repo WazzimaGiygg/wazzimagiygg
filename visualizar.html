@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Visualização de Artigo</title>
+  <style>
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      margin: 3cm 2cm 2cm 3cm;
+      text-align: justify;
+    }
+    h2 {
+      font-size: 14pt;
+      text-align: center;
+      margin-bottom: 1em;
+      text-transform: uppercase;
+    }
+    .abnt-section-title {
+      font-weight: bold;
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+    }
+    p {
+      text-indent: 1.25cm;
+      margin-bottom: 0.5em;
+    }
+    .abnt-source-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    .abnt-source-list li {
+      margin-bottom: 0.5em;
+    }
+    .external-link {
+      display: block;
+      margin-top: 1em;
+      text-align: center;
+    }
+    .external-link a {
+      color: #3f51b5;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .external-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h2 id="article-title">Carregando...</h2>
+  <div id="article-content"></div>
+
+  <!-- Firebase e Firestore compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "SUA_API_KEY",
+      authDomain: "SEU_DOMINIO.firebaseapp.com",
+      projectId: "SEU_PROJECT_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const firestore = firebase.firestore();
+
+    function escapeHtml(unsafe) {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function getArticleIdFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id');
+    }
+
+    async function renderArticle(articleId) {
+      try {
+        const doc = await firestore.collection('articlesdoc').doc(articleId).get();
+        if (!doc.exists) {
+          document.getElementById("article-title").textContent = "Artigo não encontrado.";
+          return;
+        }
+
+        const data = doc.data();
+        const contentDiv = document.getElementById("article-content");
+
+        const buildSection = (title, text) =>
+          text ? `<p class="abnt-section-title">${title}</p><p>${escapeHtml(text)}</p>` : '';
+
+        const html = `
+          ${buildSection("Abstract", data.abstract)}
+          ${buildSection("Resumo", data.summary)}
+          ${buildSection("1 INTRODUÇÃO", data.introduction)}
+          ${buildSection("2 METODOLOGIA", data.methodology)}
+          ${buildSection("3 DISCUSSÃO", data.discussion)}
+          ${buildSection("4 CONCLUSÃO", data.conclusion)}
+          ${data.sources?.length ? `<p class="abnt-section-title">REFERÊNCIAS</p><ul class="abnt-source-list">${data.sources.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : ''}
+          ${data.originalUrl ? `<div class="external-link"><a href="${encodeURI(data.originalUrl)}" target="_blank" rel="noopener noreferrer">Acessar Link Externo</a></div>` : ''}
+        `;
+
+        document.getElementById("article-title").textContent = escapeHtml(data.title);
+        contentDiv.innerHTML = html;
+      } catch (e) {
+        console.error("Erro ao carregar artigo:", e);
+        document.getElementById("article-title").textContent = "Erro ao carregar artigo.";
+      }
+    }
+
+    const id = getArticleIdFromURL();
+    if (id) renderArticle(id);
+    else document.getElementById("article-title").textContent = "ID de artigo não fornecido na URL.";
+  </script>
+</body>
+</html>
