@@ -433,376 +433,368 @@
     </div>
 
     <script>
+        // Função para escapar caracteres HTML
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;"); // ou "&apos;"
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
             projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com", [cite: 93]
+            storageBucket: "wzzm-ce3fc.appspot.com",
             messagingSenderId: "249427877153",
             appId: "1:249427877153:web:0e4297294794a5aadeb260",
             measurementId: "G-PLKNZNFCQ8"
         };
-        let app; [cite: 94]
+        let app;
         try {
-            app = firebase.app(); [cite: 95]
+            app = firebase.app();
         } catch (e) {
-            app = firebase.initializeApp(firebaseConfig); [cite: 96]
+            app = firebase.initializeApp(firebaseConfig);
         }
         const firestore = firebase.firestore();
 
         const articlesListDiv = document.getElementById('articles-list');
-        const loadingMessage = document.getElementById('loading-message'); [cite: 97]
-        const errorDisplay = document.getElementById('error-display'); [cite: 97]
-        const searchTermInput = document.getElementById('search-term'); [cite: 97]
-        const searchTypeInput = document.getElementById('search-type'); [cite: 97]
-        const searchTypeDisplayInput = document.getElementById('search-type-display'); [cite: 97]
-        const searchButton = document.getElementById('search-button'); [cite: 98]
-        const mainSearchButton = document.getElementById('main-search-button'); [cite: 98]
-        const clearSearchButton = document.getElementById('clear-search-button'); [cite: 98]
-        const scholarSearchBox = document.getElementById('scholar-search-box'); [cite: 98]
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        const searchTermInput = document.getElementById('search-term');
+        const searchTypeInput = document.getElementById('search-type');
+        const searchTypeDisplayInput = document.getElementById('search-type-display');
+        const searchButton = document.getElementById('search-button');
+        const mainSearchButton = document.getElementById('main-search-button');
+        const clearSearchButton = document.getElementById('clear-search-button');
+        const scholarSearchBox = document.getElementById('scholar-search-box');
         // Novos elementos de filtro
-        const filterLanguageSelect = document.getElementById('filter-language'); [cite: 99]
-        const filterArticleTypeSelect = document.getElementById('filter-article-type'); [cite: 99]
+        const filterLanguageSelect = document.getElementById('filter-language');
+        const filterArticleTypeSelect = document.getElementById('filter-article-type');
+
         function displayError(message) {
-            errorDisplay.textContent = `Erro: ${message}`; [cite: 100]
-            errorDisplay.style.display = 'block'; [cite: 101]
-            loadingMessage.style.display = 'none'; [cite: 101]
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+            loadingMessage.style.display = 'none';
         }
 
         async function loadArticles(searchTerm = '', searchField = 'title', languageFilter = '', articleTypeFilter = '') {
-            articlesListDiv.innerHTML = ''; [cite: 101]
-            loadingMessage.style.display = 'block'; [cite: 102]
-            errorDisplay.style.display = 'none'; [cite: 102]
+            articlesListDiv.innerHTML = '';
+            loadingMessage.style.display = 'block';
+            errorDisplay.style.display = 'none';
 
             // Se nenhum termo ou filtro foi aplicado, mostra a mensagem inicial
             if (!searchTerm.trim() && !languageFilter && !articleTypeFilter) {
-                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`; [cite: 103]
-                loadingMessage.style.display = 'none'; [cite: 103]
+                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`;
+                loadingMessage.style.display = 'none';
                 return;
             }
 
             try {
-                let articlesRef = firestore.collection('articlesdoc'); [cite: 104]
-                const trimmedSearchTerm = searchTerm.trim(); [cite: 104]
+                let articlesRef = firestore.collection('articlesdoc');
+                const trimmedSearchTerm = searchTerm.trim();
 
                 // Aplica o filtro de texto se houver um termo e um campo de busca
                 if (trimmedSearchTerm && searchField) {
                     articlesRef = articlesRef
                         .where(searchField, '>=', trimmedSearchTerm)
-                        .where(searchField, '<=', trimmedSearchTerm + '\uf8ff'); [cite: 105, 106]
+                        .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
                 }
 
                 // Aplica o filtro de idioma
                 if (languageFilter) {
-                    articlesRef = articlesRef.where('language', '==', languageFilter); [cite: 107]
+                    articlesRef = articlesRef.where('language', '==', languageFilter);
                 }
 
                 // Aplica o filtro de tipo de artigo
                 if (articleTypeFilter) {
-                    articlesRef = articlesRef.where('articleType', '==', articleTypeFilter); [cite: 108]
+                    articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
                 }
 
                 // Ordena os resultados
-                // Observação: Se você aplicar múltiplos `.where()` em campos diferentes e não usar o `orderBy` no primeiro campo do `where`,
-                // o Firestore exigirá um índice composto.  Para simplificar, vou manter o `orderBy` no `searchField` principal
-                // ou no timestamp se não houver searchField. 
                 if (trimmedSearchTerm && searchField) {
-                    articlesRef = articlesRef.orderBy(searchField); [cite: 111]
+                    articlesRef = articlesRef.orderBy(searchField);
                 } else {
-                    articlesRef = articlesRef.orderBy('timestamp', 'desc'); [cite: 112]
+                    articlesRef = articlesRef.orderBy('timestamp', 'desc');
                 }
 
-
-                const snapshot = await articlesRef.get(); [cite: 112]
-                loadingMessage.style.display = 'none'; [cite: 113]
+                const snapshot = await articlesRef.get();
+                loadingMessage.style.display = 'none';
 
                 if (snapshot.empty) {
-                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ? [cite: 114]
+                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ?
                         `Nenhum artigo encontrado com os critérios de busca.` :
-                        'Nenhum artigo (articlesdoc) publicado ainda.'; [cite: 115]
-                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`; [cite: 115]
+                        'Nenhum artigo (articlesdoc) publicado ainda.';
+                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
                     return;
                 }
 
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    const id = doc.id;
+                    const id = doc.id; // ID do documento pode ser usado diretamente
 
                     const title = data.title || 'Título Indisponível';
-                    const userId = data.userId || 'ID do Usuário Indisponível'; [cite: 116]
-                    const summary = data.summary || 'Nenhum resumo disponível.'; [cite: 116]
-                    const introduction = data.introduction || 'Nenhuma introdução disponível.'; [cite: 116]
-                    const description = data.description || 'Nenhuma descrição disponível.'; [cite: 117]
-                    const discussion = data.discussion || 'Nenhuma discussão disponível.'; [cite: 117]
-                    const methodology = data.methodology || 'Nenhuma metodologia disponível.'; [cite: 117]
-                    const abstract = data.abstract || 'Nenhum abstract disponível.'; [cite: 117]
-                    const conclusion = data.conclusion || 'Nenhuma conclusão disponível.'; [cite: 118]
-		            const orginalUrl = data.originalUrl || 'Url Indisponível';
-                    const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : []; [cite: 119]
-                    // ---- PONTO DE ALTERAÇÃO CHAVE ----
-                    // Garante que externalLink seja uma string, mesmo se for null/undefined no Firestore
-                    const externalLink = data.originalUrl ? String(data.originalUrl).trim() : ''; [cite: 120]
-                    // ----------------------------------
-                    const language = data.language || 'Não especificado'; [cite: 121] // Novo campo
-                    const articleType = data.articleType || 'Não especificado'; [cite: 122] // Novo campo
+                    const userId = data.userId || 'ID do Usuário Indisponível';
+                    const summary = data.summary || 'Nenhum resumo disponível.';
+                    const introduction = data.introduction || 'Nenhuma introdução disponível.';
+                    const description = data.description || 'Nenhuma descrição disponível.';
+                    const discussion = data.discussion || 'Nenhuma discussão disponível.';
+                    const methodology = data.methodology || 'Nenhuma metodologia disponível.';
+                    const abstract = data.abstract || 'Nenhum abstract disponível.';
+                    const conclusion = data.conclusion || 'Nenhuma conclusão disponível.';
+                    const orginalUrl = data.originalUrl || 'Url Indisponível'; // Notei que esta variável não é usada em `card.innerHTML`
+                    const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
+                    const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
+                    const language = data.language || 'Não especificado';
+                    const articleType = data.articleType || 'Não especificado';
 
-
-                    const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null; [cite: 123]
+                    const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
                     const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
-                        hour: '2-digit', [cite: 124]
+                        hour: '2-digit',
                         minute: '2-digit'
-                    }) : 'Data de Criação Indisponível'; [cite: 125]
-                    const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null; [cite: 125]
-                    const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', { [cite: 126]
-                        year: 'numeric', [cite: 126]
-                        month: 'long', [cite: 126]
-                        day: 'numeric', [cite: 126]
-                        hour: '2-digit', [cite: 127]
+                    }) : 'Data de Criação Indisponível';
+
+                    const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
+                    const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
                         minute: '2-digit'
-                    }) : 'Data de Modificação Indisponível'; [cite: 127]
-                    const card = document.createElement('div'); [cite: 128]
-                    card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone'; [cite: 128]
+                    }) : 'Data de Modificação Indisponível';
+
+                    const card = document.createElement('div');
+                    card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
                     card.innerHTML = `
                         <div class="mdl-card__title">
-                            <h2 class="mdl-card__title-text">${title}</h2>
+                            <h2 class="mdl-card__title-text">${escapeHtml(title)}</h2>
                         </div>
-                        <div class="mdl-card__supporting-text"> 
-                            <strong>ID do Usuário:</strong> <p>${userId}</p>
-                            <strong>Idioma:</strong> <p>${language}</p>
-                            <strong>Tipo de Artigo:</strong> <p>${articleType}</p>
-                            <strong>Resumo:</strong> <p>${summary}</p> 
-                            <strong>Introdução:</strong> <p>${introduction}</p>
-                            <strong>Descrição:</strong> <p>${description}</p>
-                            <strong>Discussão:</strong> <p>${discussion}</p> 
-                            <strong>Metodologia:</strong> <p>${methodology}</p>
-                            <strong>Abstract:</strong> <p>${abstract}</p>
-                            <strong>Conclusão:</strong> <p>${conclusion}</p>
-                            <strong>Fontes:</strong> <p>${sources.join(', ')}</p> 
-                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${externalLink}</a></p>` : ''}
+                        <div class="mdl-card__supporting-text">
+                            <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
+                            <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
+                            <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
+                            <strong>Resumo:</strong> <p>${escapeHtml(summary)}</p>
+                            <strong>Introdução:</strong> <p>${escapeHtml(introduction)}</p>
+                            <strong>Descrição:</strong> <p>${escapeHtml(description)}</p>
+                            <strong>Discussão:</strong> <p>${escapeHtml(discussion)}</p>
+                            <strong>Metodologia:</strong> <p>${escapeHtml(methodology)}</p>
+                            <strong>Abstract:</strong> <p>${escapeHtml(abstract)}</p>
+                            <strong>Conclusão:</strong> <p>${escapeHtml(conclusion)}</p>
+                            <strong>Fontes:</strong> <p>${sources.map(s => escapeHtml(s)).join(', ')}</p>
+                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
                             <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
                             <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
                         </div>
-                        <div class="mdl-card__actions mdl-card--border"> 
-                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${id}">Visualizar Artigo</button>
+                        <div class="mdl-card__actions mdl-card--border">
+                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo</button>
                         </div>
-                    `; [cite: 136]
-                    articlesListDiv.appendChild(card); [cite: 136]
+                    `;
+                    articlesListDiv.appendChild(card);
                 });
 
                 if (window.componentHandler) {
-                    window.componentHandler.upgradeElements(articlesListDiv); [cite: 137]
+                    window.componentHandler.upgradeElements(articlesListDiv);
                 }
 
             } catch (error) {
-                displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`); [cite: 137]
-                console.error("Erro ao carregar artigos:", error); [cite: 138]
-                // Sugestão de índice composto se o erro for de falta de índice
+                displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`);
+                console.error("Erro ao carregar artigos:", error);
                 if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
-                    console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes."); [cite: 139]
-                    // Você pode direcionar o usuário para o console do Firebase para criar o índice
-                    // Ex: https://console.firebase.google.com/project/<your-project-id>/firestore/indexes
+                    console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
                 }
             }
         }
 
         async function viewArticleInNewWindow(articleId) {
             try {
-                const doc = await firestore.collection('articlesdoc').doc(articleId).get(); [cite: 140, 141]
+                const doc = await firestore.collection('articlesdoc').doc(articleId).get();
                 if (!doc.exists) {
-                    alert('Artigo não encontrado.'); [cite: 141]
-                    return; [cite: 142]
+                    alert('Artigo não encontrado.');
+                    return;
                 }
-                const data = doc.data(); [cite: 142]
-                const title = data.title || 'Título Indisponível'; [cite: 143]
-                const summary = data.summary || ''; [cite: 143]
-                const introduction = data.introduction || ''; [cite: 143]
-                const methodology = data.methodology || ''; [cite: 144]
-                const discussion = data.discussion || ''; [cite: 144]
-                const conclusion = data.conclusion || ''; [cite: 144]
-                const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : []; [cite: 145]
-                const abstract = data.abstract || ''; [cite: 145]
-                const originalUrl = data.originalUrl || ''; [cite: 146]
-                // ---- PONTO DE ALTERAÇÃO CHAVE AQUI TAMBÉM ----
-                const externalLink = data.originalUrl ? String(data.originalUrl).trim() : ''; [cite: 147]
-                // --------------------------------------------
+                const data = doc.data();
+                const title = data.title || 'Título Indisponível';
+                const summary = data.summary || '';
+                const introduction = data.introduction || '';
+                const methodology = data.methodology || '';
+                const discussion = data.discussion || '';
+                const conclusion = data.conclusion || '';
+                const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
+                const abstract = data.abstract || '';
+                const originalUrl = data.originalUrl || '';
+                const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
 
                 const viewContent = `
                     <!DOCTYPE html>
                     <html lang="pt-br">
                     <head>
-                        <meta charset="UTF-8"> 
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-                        <title>${title}</title>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>${escapeHtml(title)}</title>
                         <style>
                             body {
-                                font-family: "Times New Roman", Times, serif; 
-                                font-size: 12pt; 
-                                line-height: 1.5; 
-                                margin: 3cm 2cm 2cm 3cm; /* Top, Right, Bottom, Left */ 
-                                text-align: justify; 
+                                font-family: "Times New Roman", Times, serif;
+                                font-size: 12pt;
+                                line-height: 1.5;
+                                margin: 3cm 2cm 2cm 3cm; /* Top, Right, Bottom, Left */
+                                text-align: justify;
                             }
                             h2 {
-                                font-size: 14pt; 
-                                text-align: center; 
-                                margin-bottom: 1em; 
-                                text-transform: uppercase; 
+                                font-size: 14pt;
+                                text-align: center;
+                                margin-bottom: 1em;
+                                text-transform: uppercase;
                             }
                             h3 {
-                                font-size: 12pt; 
-                                margin-top: 1.5em; 
-                                margin-bottom: 0.5em; 
+                                font-size: 12pt;
+                                margin-top: 1.5em;
+                                margin-bottom: 0.5em;
                             }
                             p {
-                                text-indent: 1.25cm; 
-                                margin-bottom: 0.5em; 
+                                text-indent: 1.25cm;
+                                margin-bottom: 0.5em;
                             }
                             .abnt-section-title {
-                                font-weight: bold; 
-                                margin-top: 1.5em; 
-                                margin-bottom: 0.5em; 
+                                font-weight: bold;
+                                margin-top: 1.5em;
+                                margin-bottom: 0.5em;
                             }
                             .abnt-source-list {
-                                list-style: none; 
-                                padding-left: 0; 
+                                list-style: none;
+                                padding-left: 0;
                             }
                             .abnt-source-list li {
-                                margin-bottom: 0.5em; 
+                                margin-bottom: 0.5em;
                             }
                             .external-link {
-                                display: block; 
-                                margin-top: 1em; 
-                                text-align: center; 
+                                display: block;
+                                margin-top: 1em;
+                                text-align: center;
                             }
                             .external-link a {
-                                color: #3f51b5; 
-                                text-decoration: none; 
-                                font-weight: bold; 
+                                color: #3f51b5;
+                                text-decoration: none;
+                                font-weight: bold;
                             }
                             .external-link a:hover {
-                                text-decoration: underline; 
+                                text-decoration: underline;
                             }
                         </style>
                     </head>
                     <body>
                         <div class="abnt-article-view">
-                            <h2>${title}</h2> 
-                            ${abstract ? `<p class="abnt-section-title">Abstract:</p><p>${abstract}</p>` : ''} 
-                            ${summary ? `<p class="abnt-section-title">Resumo:</p><p>${summary}</p>` : ''} 
-                            ${introduction ? `<p class="abnt-section-title">1 INTRODUÇÃO</p><p>${introduction}</p>` : ''} 
-                            ${methodology ? `<p class="abnt-section-title">2 METODOLOGIA</p><p>${methodology}</p>` : ''} 
-                            ${discussion ? `<p class="abnt-section-title">3 DISCUSSÃO</p><p>${discussion}</p>` : ''} 
-                            ${conclusion ? `<p class="abnt-section-title">4 CONCLUSÃO</p><p>${conclusion}</p>` : ''} 
-                            ${sources.length > 0 ? `<p class="abnt-section-title">REFERÊNCIAS</p><ul class="abnt-source-list">${sources.map(source => `<li>${source}</li>`).join('')}</ul>` : ''} 
-                            ${externalLink ? `<p class="external-link">Acesse o artigo original: <a href="${externalLink}" target="_blank" rel="noopener noreferrer">${externalLink}</a></p>` : ''} 
+                            <h2>${escapeHtml(title)}</h2>
+                            ${abstract ? `<p class="abnt-section-title">Abstract:</p><p>${escapeHtml(abstract)}</p>` : ''}
+                            ${summary ? `<p class="abnt-section-title">Resumo:</p><p>${escapeHtml(summary)}</p>` : ''}
+                            ${introduction ? `<p class="abnt-section-title">1 INTRODUÇÃO</p><p>${escapeHtml(introduction)}</p>` : ''}
+                            ${methodology ? `<p class="abnt-section-title">2 METODOLOGIA</p><p>${escapeHtml(methodology)}</p>` : ''}
+                            ${discussion ? `<p class="abnt-section-title">3 DISCUSSÃO</p><p>${escapeHtml(discussion)}</p>` : ''}
+                            ${conclusion ? `<p class="abnt-section-title">4 CONCLUSÃO</p><p>${escapeHtml(conclusion)}</p>` : ''}
+                            ${sources.length > 0 ? `<p class="abnt-section-title">REFERÊNCIAS</p><ul class="abnt-source-list">${sources.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : ''}
+                            ${externalLink ? `<div class="external-link"><a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">Acessar Link Externo</a></div>` : ''}
                         </div>
                     </body>
                     </html>
                 `;
-                const newWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes'); [cite: 170]
+                const newWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
                 if (newWindow) {
-                    newWindow.document.write(viewContent); [cite: 171]
-                    newWindow.document.close(); [cite: 171]
+                    newWindow.document.write(viewContent);
+                    newWindow.document.close();
                 } else {
-                    alert('Por favor, permita pop-ups para visualizar o artigo.'); [cite: 172]
+                    alert('Por favor, permita pop-ups para visualizar o artigo completo.');
                 }
-
             } catch (error) {
-                console.error("Erro ao visualizar artigo:", error); [cite: 173]
-                alert(`Não foi possível visualizar o artigo. Erro: ${error.message}`); [cite: 173]
+                console.error("Erro ao visualizar artigo:", error);
+                alert(`Erro ao visualizar artigo: ${error.message}`);
             }
         }
 
-        // Event Listeners
+        // Event listener para o botão de busca principal
+        mainSearchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+
+        // Event listener para o botão de busca no campo de texto (ícone de lupa)
         searchButton.addEventListener('click', () => {
             const searchTerm = searchTermInput.value;
             const searchField = searchTypeInput.value;
             const languageFilter = filterLanguageSelect.value;
             const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter); [cite: 174]
-        });
-        mainSearchButton.addEventListener('click', () => { [cite: 175]
-            const searchTerm = searchTermInput.value;
-            const searchField = searchTypeInput.value;
-            const languageFilter = filterLanguageSelect.value;
-            const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter); [cite: 175]
-        });
-        clearSearchButton.addEventListener('click', () => { [cite: 176]
-            searchTermInput.value = ''; [cite: 176]
-            searchTypeInput.value = 'title'; [cite: 176]
-            searchTypeDisplayInput.value = 'Título'; [cite: 176]
-            filterLanguageSelect.value = ''; [cite: 176]
-            filterArticleTypeSelect.value = ''; [cite: 176]
-            // Atualizar os selects do MDL para refletir os valores vazios
-            if (window.componentHandler) { [cite: 177]
-                const searchTypeMdl = document.querySelector('#search-type-display').parentElement.MaterialTextfield; [cite: 177]
-                if (searchTypeMdl) { [cite: 177]
-                    searchTypeMdl.change('Título'); [cite: 177]
-                }
-                const languageMdl = document.querySelector('#filter-language').parentElement.MaterialTextfield; [cite: 178]
-                if (languageMdl) { [cite: 178]
-                    languageMdl.change('Todos os Idiomas'); [cite: 178]
-                }
-                const articleTypeMdl = document.querySelector('#filter-article-type').parentElement.MaterialTextfield; [cite: 178]
-                if (articleTypeMdl) { [cite: 179]
-                    articleTypeMdl.change('Todos os Tipos'); [cite: 180]
-                }
-            }
-            loadArticles(); [cite: 180]
-            // Carrega todos os artigos (ou a mensagem inicial)
-        });
-        articlesListDiv.addEventListener('click', (event) => { [cite: 182]
-            if (event.target.classList.contains('view-article-button')) { [cite: 182]
-                const articleId = event.target.getAttribute('data-article-id'); [cite: 182]
-                viewArticleInNewWindow(articleId); [cite: 182]
-            }
-        });
-        // Adiciona funcionalidade de foco para a caixa de busca (estilo Google Scholar)
-        searchTermInput.addEventListener('focus', () => { [cite: 183]
-            scholarSearchBox.classList.add('is-focused'); [cite: 183]
-        });
-        searchTermInput.addEventListener('blur', () => { [cite: 184]
-            scholarSearchBox.classList.remove('is-focused'); [cite: 184]
-        });
-        // Event listeners para os filtros de idioma e tipo de artigo
-        filterLanguageSelect.addEventListener('change', () => { [cite: 185]
-            const searchTerm = searchTermInput.value;
-            const searchField = searchTypeInput.value;
-            const languageFilter = filterLanguageSelect.value;
-            const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter); [cite: 186]
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
         });
 
-        filterArticleTypeSelect.addEventListener('change', () => { [cite: 186]
-            const searchTerm = searchTermInput.value;
-            const searchField = searchTypeInput.value;
-            const languageFilter = filterLanguageSelect.value;
-            const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter); [cite: 186]
-        });
-        document.addEventListener('DOMContentLoaded', () => { [cite: 187]
-            if (window.componentHandler) { [cite: 187]
-                window.componentHandler.upgradeDom(); [cite: 187]
-                // For mdl-selectfield, the display input needs to be updated after upgradeDom
-                const selectField = document.querySelector('.getmdl-select'); [cite: 188]
-                if (selectField && selectField.MaterialTextfield) { [cite: 188]
-                    selectField.MaterialTextfield.change(searchTypeDisplayInput.value); [cite: 188]
+        clearSearchButton.addEventListener('click', () => {
+            searchTermInput.value = '';
+            searchTypeInput.value = 'title';
+            searchTypeDisplayInput.value = 'Título';
+            filterLanguageSelect.value = '';
+            filterArticleTypeSelect.value = '';
+            // Força a atualização do MDL Selectfield display
+            if (window.componentHandler) {
+                const searchTypeMdlSelect = document.querySelector('.getmdl-select');
+                if (searchTypeMdlSelect && searchTypeMdlSelect.MaterialTextfield) {
+                    searchTypeMdlSelect.MaterialTextfield.change(searchTypeDisplayInput.value);
+                }
+                const languageMdlSelect = filterLanguageSelect.closest('.mdl-textfield');
+                if (languageMdlSelect && languageMdlSelect.MaterialTextfield) {
+                    languageMdlSelect.MaterialTextfield.change(''); // Clear display
+                }
+                const articleTypeMdlSelect = filterArticleTypeSelect.closest('.mdl-textfield');
+                if (articleTypeMdlSelect && articleTypeMdlSelect.MaterialTextfield) {
+                    articleTypeMdlSelect.MaterialTextfield.change(''); // Clear display
                 }
             }
-            loadArticles(); // Carrega os artigos iniciais (ou a mensagem de "use a barra de pesquisa") 
+            loadArticles(); // Recarrega com filtros limpos
         });
+
+        articlesListDiv.addEventListener('click', (event) => {
+            if (event.target.classList.contains('view-article-button')) {
+                const articleId = event.target.dataset.articleId;
+                if (articleId) {
+                    viewArticleInNewWindow(articleId);
+                }
+            }
+        });
+
+        // Adiciona classes de foco para a caixa de busca simulada
+        searchTermInput.addEventListener('focus', () => {
+            scholarSearchBox.classList.add('is-focused');
+        });
+
+        searchTermInput.addEventListener('blur', () => {
+            scholarSearchBox.classList.remove('is-focused');
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+                // For mdl-selectfield, the display input needs to be updated after upgradeDom
+                const selectField = document.querySelector('.getmdl-select');
+                if (selectField && selectField.MaterialTextfield) {
+                    selectField.MaterialTextfield.change(searchTypeDisplayInput.value);
+                }
+            }
+            loadArticles(); // Carrega os artigos iniciais (ou a mensagem de "use a barra de pesquisa")
+        });
+
         // Para garantir que os selectfields do MDL funcionem corretamente
-        // Se o valor inicial for vazio, o label pode não se comportar corretamente. 
+        // Se o valor inicial for vazio, o label pode não se comportar corretamente.
         // Adicionar um evento para quando o select é alterado
-        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => { [cite: 190]
-            selectElement.addEventListener('change', () => { [cite: 190]
-                const parentTextfield = selectElement.closest('.mdl-textfield'); [cite: 190]
-                if (parentTextfield && parentTextfield.MaterialTextfield) { [cite: 190]
-                    // Update the MDL component's state  to reflect the new value
-                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text); [cite: 191]
+        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => {
+            selectElement.addEventListener('change', () => {
+                const parentTextfield = selectElement.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    // Update the MDL component's state to reflect the new value
+                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text);
                 }
             });
         });
