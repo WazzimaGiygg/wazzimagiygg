@@ -224,24 +224,20 @@
                 if (trimmedSearchTerm && searchField) {
                     articlesRef = articlesRef
                         .where(searchField, '>=', trimmedSearchTerm)
-                        .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
+                        .where(searchField, '<=', trimmedSearchTerm + '\uf8ff')
+                        .orderBy(searchField); // Order by the search field when searching
+                } else {
+                    articlesRef = articlesRef.orderBy('timestamp', 'desc'); // Default order for no search term
                 }
 
-                // Apply filters
+                // Apply filters (these will implicitly require composite indexes if combined with searchField and orderBy searchField)
                 if (languageFilter) {
                     articlesRef = articlesRef.where('language', '==', languageFilter);
                 }
                 if (articleTypeFilter) {
                     articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
                 }
-
-                // Order results
-                if (trimmedSearchTerm && searchField) {
-                    articlesRef = articlesRef.orderBy(searchField);
-                } else {
-                    articlesRef = articlesRef.orderBy('timestamp', 'desc');
-                }
-
+                
                 const snapshot = await articlesRef.get();
 
                 articlesListDiv.innerHTML = ''; // Clear previous articles
@@ -255,12 +251,10 @@
                     const id = doc.id; // Correctly get the document ID
                     const data = doc.data();
 
-                    // --- CRITICAL FIXES: Provide fallback values for potentially undefined fields ---
+                    // --- Ensure all fields have fallbacks to prevent 'undefined' errors ---
                     const title = data.title || 'Título Indisponível';
                     const summary = data.summary || ''; // Empty string is good for display
-                    const userId = data.userId || 'Não informado'; // Fallback for userId
-                    const language = data.language || 'Não informado'; // Fallback for language
-                    const articleType = data.articleType || 'Não informado'; // Fallback for articleType
+                    // Removed userId, language, articleType from direct display as requested
                     const abstract = data.abstract || '';
                     const introduction = data.introduction || '';
                     const methodology = data.methodology || '';
@@ -272,7 +266,7 @@
 
                     // Ensure originalUrl is a string, trim it, and handle missing
                     const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
-                    // --- END CRITICAL FIXES ---
+                    // --- END Fallback Fixes ---
 
                     const card = document.createElement('div');
                     card.className = 'article-card mdl-card mdl-shadow--2dp';
@@ -282,9 +276,6 @@
                         </div>
                         <div class="mdl-card__supporting-text">
                             <strong>ID do Artigo:</strong> <p>${escapeHtml(id)}</p>
-                            <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
-                            <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
-                            <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
                             <div class="abnt-summary-container">
                                 <strong>Resumo:</strong> <p>${escapeHtml(summary)}</p>
                             </div>
@@ -311,7 +302,7 @@
             } catch (error) {
                 console.error("Erro ao carregar os artigos:", error);
                 articlesListDiv.innerHTML = `<p class="no-articles-message">Erro: Não foi possível carregar os artigos. Erro: ${escapeHtml(error.message)}</p>`;
-                console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
+                console.warn("Possível erro de falta de índice no Firestore. Verifique o console do navegador para links de criação de índice, especialmente se combinar múltiplos filtros ou ordem de campos diferentes.");
             }
         }
 
@@ -377,17 +368,21 @@
             if (window.componentHandler) {
                 window.componentHandler.upgradeDom();
                 // For mdl-selectfield, the display input needs to be updated after upgradeDom
+                // Set initial display for select fields based on their current value
                 const searchTypeDisplayInput = searchTypeSelect.closest('.mdl-textfield');
                 if (searchTypeDisplayInput && searchTypeDisplayInput.MaterialTextfield) {
-                    searchTypeDisplayInput.MaterialTextfield.change(searchTypeSelect.options[searchTypeSelect.selectedIndex]?.text || '');
+                    const selectedOption = searchTypeSelect.options[searchTypeSelect.selectedIndex];
+                    searchTypeDisplayInput.MaterialTextfield.change(selectedOption ? selectedOption.text : '');
                 }
                 const languageDisplayInput = filterLanguageSelect.closest('.mdl-textfield');
                 if (languageDisplayInput && languageDisplayInput.MaterialTextfield) {
-                    languageDisplayInput.MaterialTextfield.change(filterLanguageSelect.options[filterLanguageSelect.selectedIndex]?.text || '');
+                    const selectedOption = filterLanguageSelect.options[filterLanguageSelect.selectedIndex];
+                    languageDisplayInput.MaterialTextfield.change(selectedOption ? selectedOption.text : '');
                 }
                 const articleTypeDisplayInput = filterArticleTypeSelect.closest('.mdl-textfield');
                 if (articleTypeDisplayInput && articleTypeDisplayInput.MaterialTextfield) {
-                    articleTypeDisplayInput.MaterialTextfield.change(filterArticleTypeSelect.options[filterArticleTypeSelect.selectedIndex]?.text || '');
+                    const selectedOption = filterArticleTypeSelect.options[filterArticleTypeSelect.selectedIndex];
+                    articleTypeDisplayInput.MaterialTextfield.change(selectedOption ? selectedOption.text : '');
                 }
             }
             loadArticles(); // Carrega os artigos iniciais (ou a mensagem de "use a barra de pesquisa")
