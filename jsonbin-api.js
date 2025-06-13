@@ -3,8 +3,8 @@
 // Defina seu ID do Bin e, opcionalmente, sua Access Key para bins públicos/leitura
 // ATENÇÃO: Nunca coloque a X-Master-Key aqui se o seu bin tiver dados sensíveis.
 // Ela seria exposta no navegador.
-const BIN_ID = 'SEU_ID_DO_BIN_AQUI'; // <--- OBRIGATÓRIO: Substitua pelo seu ID real!
-// const ACCESS_KEY = 'SUA_ACCESS_KEY_AQUI'; // Opcional: para bins públicos com leitura via Access Key
+const BIN_ID = '684c71428960c979a5a95fd5'; // <--- OBRIGATÓRIO: Substitua pelo seu ID real!
+// const ACCESS_KEY = '$2a$10$yYkleiX8VSZNdbcsN8o6iuVm56ZSSHYExMh.OZ8DW07Qx5B1OJpj6'; // Opcional: para bins públicos com leitura via Access Key
 
 export async function carregarMensagens() {
     try {
@@ -38,7 +38,7 @@ export async function salvarMensagens(novasMensagens) {
         // Colocar a X-Master-Key diretamente no frontend é ALTAMENTE NÃO RECOMENDADO
         // para bins com dados que precisam de segurança, pois ela ficará visível no código do navegador.
         // Use esta abordagem APENAS se o bin for para dados não sensíveis ou testes.
-        const MASTER_KEY_FRONTEND_EXPOSED = 'SUA_CHAVE_MESTRA_AQUI'; // <--- RISCO DE SEGURANÇA!
+        const MASTER_KEY_FRONTEND_EXPOSED = '$2a$10$/pYrh2SP/V4YNZTFW/elIOorkCNqmqkrOJexb/qq5HCSptdd3Rcfq'; // <--- RISCO DE SEGURANÇA!
 
         const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
             method: 'PUT', // PUT para atualizar o bin existente
