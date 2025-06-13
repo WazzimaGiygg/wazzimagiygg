@@ -93,130 +93,125 @@
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
     <script>
-        // --- Configuração do Firebase ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
+       // server.js (ou index.js, o nome do seu arquivo do backend)
+const express = require('express');
+const fetch = require('node-fetch');
+const bodyParser = require('body-parser');
+const cors = require('cors'); // Adicione este pacote: npm install cors
+
+const app = express();
+const port = 3000;
+
+// JSONBin.io Secret Key (SUA CHAVE MESTRA, MANTENHA-A SEGURA!)
+const JSONBIN_MASTER_KEY = 'SUA_CHAVE_MESTRA_JSONBIN_AQUI'; // <<< SUBSTITUA PELA SUA CHAVE MASTER
+const JSONBIN_BIN_ID = 'SEU_ID_DO_BIN_AQUI'; // <<< SUBSTITUA PELO ID DO SEU BIN DO JSONBIN.IO
+
+// Middleware para parsear o corpo das requisições POST como JSON
+app.use(bodyParser.json());
+// Middleware para CORS - Permitir que o frontend (wzzm.org ou localhost) acesse o backend
+app.use(cors({
+    origin: ['http://localhost', 'http://localhost:8080', 'https://wzzm.org', 'http://wzzm.org'], // Adicione todos os seus domínios
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+}));
+
+// Rota de teste
+app.get('/', (req, res) => {
+    res.send('Backend do Fórum está funcionando!');
+});
+
+// --- Rota para OBTER as mensagens do fórum ---
+app.get('/api/forum/posts', async (req, res) => {
+    try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            method: 'GET',
+            headers: {
+                'X-Master-Key': JSONBIN_MASTER_KEY,
+                'X-Bin-Meta': 'false'
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Erro ao obter posts do JSONBin.io:', response.status, errorText);
+            return res.status(response.status).send(`Erro ao obter posts: ${errorText}`);
+        }
+
+        const data = await response.json();
+        res.json(data.posts || []); // Assume que você armazena posts dentro de um array chamado "posts"
+    } catch (error) {
+        console.error('Erro no servidor ao obter posts do fórum:', error);
+        res.status(500).send('Erro interno do servidor ao obter posts.');
+    }
+});
+
+// --- Rota para ENVIAR uma nova mensagem para o fórum ---
+// IMPORTANTE: Para produção, você deve verificar o token de autenticação do Firebase aqui.
+app.post('/api/forum/posts', async (req, res) => {
+    const { subject, content, authorUid } = req.body;
+
+    if (!subject || !content || !authorUid) {
+        return res.status(400).send('Assunto, conteúdo e UID do autor são obrigatórios.');
+    }
+
+    try {
+        // 1. Obter os posts existentes do JSONBin.io
+        const getResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            method: 'GET',
+            headers: {
+                'X-Master-Key': JSONBIN_MASTER_KEY,
+                'X-Bin-Meta': 'false'
+            }
+        });
+
+        if (!getResponse.ok) {
+            const errorText = await getResponse.text();
+            console.error('Erro ao ler posts existentes do JSONBin.io:', getResponse.status, errorText);
+            return res.status(getResponse.status).send(`Erro ao ler posts existentes: ${errorText}`);
+        }
+
+        const existingData = await getResponse.json();
+        const posts = existingData.posts || [];
+
+        // 2. Criar a nova postagem
+        const newPost = {
+            id: Date.now().toString(), // ID simples baseado no timestamp
+            subject: subject,
+            content: content,
+            authorUid: authorUid,
+            timestamp: new Date().toISOString() // Formato ISO 8601
         };
 
-        // Inicializa o Firebase apenas uma vez
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const firestore = firebase.firestore();
-        const auth = firebase.auth(); // Mantido caso precise do usuário autenticado diretamente aqui
+        // 3. Adicionar a nova postagem ao array (no início para os mais recentes)
+        posts.unshift(newPost);
 
-        // Obtém o UID do usuário da URL passada pelo iframe
-        const urlParams = new URLSearchParams(window.location.search);
-        const userUid = urlParams.get('uid');
-
-        // Referências aos elementos HTML
-        const subjectInput = document.getElementById('subjectInput');
-        const contentInput = document.getElementById('contentInput');
-        const submitButton = document.getElementById('submitButton');
-        const messageList = document.getElementById('messageList');
-
-        // Verifica se o UID foi passado. Se não, alerta e desabilita o formulário de postagem.
-        if (!userUid) {
-            alert("Erro: UID do usuário não fornecido. Você precisa estar logado para postar no fórum.");
-            // Desabilita os campos e o botão para impedir postagens sem UID
-            if (subjectInput) subjectInput.disabled = true;
-            if (contentInput) contentInput.disabled = true;
-            if (submitButton) submitButton.disabled = true;
-            if (messageList) messageList.innerHTML = '<p style="color: red;">Não foi possível carregar o fórum sem as informações do usuário. Por favor, retorne à página principal e faça login novamente.</p>';
-            // Opcional: Redirecionar a janela pai de volta para o index.html
-            // if (window.top) window.top.location.href = 'index.html';
-        }
-
-        // --- Event Listener para o Botão de Enviar ---
-        submitButton.addEventListener('click', async () => {
-            const subject = subjectInput.value.trim(); // .trim() remove espaços em branco extras
-            const content = contentInput.value.trim();
-
-            if (!subject || !content) {
-                alert("Por favor, preencha o assunto e o conteúdo da mensagem.");
-                return;
-            }
-
-            // Garante que o UID existe antes de tentar postar
-            if (!userUid) {
-                alert("Você não está logado. Faça login para postar.");
-                return;
-            }
-
-            try {
-                // Adiciona um novo documento à coleção 'forum_posts'
-                // O Firestore irá gerar um ID automático para este documento.
-                // O UID do Google do usuário é salvo com a postagem.
-                await firestore.collection('forum_posts').add({
-                    subject: subject,
-                    content: content,
-                    authorUid: userUid, // O UID do Google do usuário logado
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp() // Carimbo de data/hora do servidor
-                });
-
-                alert("Sua publicação foi enviada com sucesso!");
-                subjectInput.value = ''; // Limpa os campos
-                contentInput.value = '';
-                fetchMessages(); // Recarrega a lista de mensagens para mostrar a nova postagem
-            } catch (error) {
-                console.error("Erro ao enviar publicação para o Firestore:", error);
-                alert("Ocorreu um erro ao enviar sua publicação. Tente novamente.");
-            }
+        // 4. Salvar o array atualizado de volta no JSONBin.io
+        const putResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': JSONBIN_MASTER_KEY,
+                'X-Bin-Meta': 'false'
+            },
+            body: JSON.stringify({ posts: posts })
         });
 
-        // --- Função para buscar e exibir mensagens ---
-        async function fetchMessages() {
-            try {
-                // Ordena as mensagens pela data/hora em ordem decrescente (mais recentes primeiro)
-                const snapshot = await firestore.collection('forum_posts')
-                                                .orderBy('timestamp', 'desc')
-                                                .get();
-                messageList.innerHTML = ''; // Limpa a lista existente antes de adicionar as novas
-
-                if (snapshot.empty) {
-                    messageList.innerHTML = '<p>Nenhuma publicação ainda. Seja o primeiro a postar!</p>';
-                    return;
-                }
-
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const messageElement = document.createElement('div');
-                    messageElement.classList.add('forum-post'); // Adiciona classe para estilização
-
-                    // Formata o timestamp para ser mais legível
-                    const date = data.timestamp ? new Date(data.timestamp.toDate()) : new Date();
-                    const formattedDate = date.toLocaleString('pt-BR', {
-                        day: '2-digit', month: '2-digit', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit'
-                    });
-
-                    messageElement.innerHTML = `
-                        <h3>${data.subject}</h3>
-                        <p>${data.content}</p>
-                        <small>Publicado por: ${data.authorUid} em ${formattedDate}</small>
-                    `;
-                    messageList.appendChild(messageElement);
-                });
-            } catch (error) {
-                console.error("Erro ao buscar publicações do Firestore:", error);
-                messageList.innerHTML = '<p style="color: red;">Erro ao carregar publicações do fórum.</p>';
-            }
+        if (!putResponse.ok) {
+            const errorText = await putResponse.text();
+            console.error('Erro ao salvar posts no JSONBin.io:', putResponse.status, errorText);
+            return res.status(putResponse.status).send(`Erro ao salvar posts: ${errorText}`);
         }
 
-        // --- Inicialização ao Carregar a Página ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // Garante que os componentes MDL sejam ativados no HTML
-            if (window.componentHandler) {
-                window.componentHandler.upgradeDom();
-            }
-            fetchMessages(); // Carrega as mensagens existentes ao carregar a página
-        });
+        res.status(201).json(newPost);
+    } catch (error) {
+        console.error('Erro no servidor ao enviar postagem do fórum:', error);
+        res.status(500).send('Erro interno do servidor ao enviar postagem.');
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Servidor Express rodando em http://localhost:${port}`);
+});
     </script>
 </body>
 </html>
