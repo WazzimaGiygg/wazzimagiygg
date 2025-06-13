@@ -3,215 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fórum Wiki Zone Zero Mod</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <title>Fórum da Wiki Zone Zero Mod</title>
     <style>
-        /* Estilos CSS para o layout do fórum */
-        .forum-container {
-            padding: 20px;
-            max-width: 800px; /* Largura máxima para o conteúdo do fórum */
-            margin: 20px auto; /* Centraliza o container na página */
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .mdl-textfield {
-            width: 100%; /* Faz os campos de texto ocuparem a largura total */
-            margin-bottom: 20px;
-        }
-        .mdl-button--colored {
-            background-color: #3f51b5; /* Cor primária do MDL */
-        }
-        .mdl-button--colored:hover {
-            background-color: #303f9f;
-        }
-
-        /* Estilos para cada postagem no fórum */
-        .forum-post {
-            border: 1px solid #e0e0e0;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            background-color: #fafafa;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-        }
-        .forum-post h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            color: #424242;
-            font-size: 1.2em;
-        }
-        .forum-post p {
-            margin-bottom: 10px;
-            line-height: 1.5;
-            color: #616161;
-        }
-        .forum-post small {
-            display: block;
-            text-align: right;
-            color: #9e9e9e;
-            font-size: 0.85em;
-        }
-        hr {
+        body { font-family: sans-serif; margin: 20px; }
+        .forum-post { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .forum-post h3 { margin-top: 0; }
+        .forum-post small { color: #888; }
+        #post-form { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9; }
+        #post-form input[type="text"], #post-form textarea { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box; }
+        #post-form button { padding: 10px 15px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #post-form button:hover { background-color: #218838; }
+        .edit-button, .delete-button {
+            background: none;
             border: none;
-            border-top: 1px solid #eeeeee;
-            margin: 30px 0;
+            color: #007bff;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-left: 5px;
+        }
+        .edit-button:hover, .delete-button:hover {
+            color: #0056b3;
+        }
+        .loading-message { color: gray; }
+        .error-message { color: red; }
+        #forum-disabled-message {
+            text-align: center;
+            padding: 30px;
+            font-size: 1.2em;
+            color: #d33;
+            border: 1px solid #f00;
+            background-color: #fee;
+            border-radius: 5px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <h1>Fórum da Wiki Zone Zero Mod</h1>
 
-    <div class="forum-container">
-        <h2>Criar Nova Publicação</h2>
-
-        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-            <input class="mdl-textfield__input" type="text" id="subjectInput">
-            <label class="mdl-textfield__label" for="subjectInput">Assunto da Publicação</label>
-        </div>
-        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-            <textarea class="mdl-textfield__input" type="text" rows="5" id="contentInput"></textarea>
-            <label class="mdl-textfield__label" for="contentInput">Conteúdo da Publicação</label>
-        </div>
-
-        <button id="submitButton" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored mdl-js-ripple-effect">
-            <i class="material-icons">send</i> Enviar Publicação
-        </button>
-
-        <hr>
-
-        <h2>Publicações Recentes</h2>
-        <div id="messageList">
-            <p>Carregando publicações...</p>
-        </div>
+    <div id="forum-disabled-message" style="display: none;">
+        O fórum está desativado. Você precisa fazer login com uma conta Google no site principal para poder postar.
     </div>
 
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <div id="post-form" style="display: none;">
+        <h2>Nova Mensagem</h2>
+        <input type="hidden" id="postIdToEdit">
+        <label for="assunto">Assunto:</label><br>
+        <input type="text" id="assunto" placeholder="Digite o assunto" required><br><br>
+        <label for="conteudo">Conteúdo:</label><br>
+        <textarea id="conteudo" placeholder="Escreva sua mensagem" rows="5" required></textarea><br><br>
+        <button onclick="salvarMensagem()">Postar Mensagem</button>
+    </div>
 
-    <script defer src="server.js"></script>
+    <hr>
 
-const express = require('express');
-const fetch = require('node-fetch'); // Certifique-se de ter 'node-fetch' instalado: npm install node-fetch
-const bodyParser = require('body-parser');
-const cors = require('cors'); // Certifique-se de ter 'cors' instalado: npm install cors
+    <h2>Mensagens Anteriores</h2>
+    <div id="mensagensContainer">
+        <p class="loading-message">Carregando mensagens...</p>
+    </div>
 
-const app = express();
-const port = 3000; // Ou a porta que você desejar
+    <script>
+        // *** COLOQUE O ID DO SEU BIN AQUI! ***
+        // Exemplo: const BIN_ID = '60f7e9b01c3e387140e70a2a';
+        const BIN_ID = 'SEU_ID_DO_BIN_AQUI'; // Substitua pelo ID real do seu bin no jsonbin.io!
 
-// JSONBin.io Secret Key (SUA CHAVE MESTRA, MANTENHA-A SEGURA!)
-const JSONBIN_MASTER_KEY = '$2a$10$cEA4Da43tn/93eVxBkR.AufLM/ALUPxOgh8KskR1QvSLsUHzLyb4y'; // <<< Corrija para sua chave real
-const JSONBIN_BIN_ID = '$2a$10$yYkleiX8VSZNdbcsN8o6iuVm56ZSSHYExMh.OZ8DW07Qx5B1OJpj6'; // <<< Corrija para seu ID de Bin real
+        const ACCESS_KEY = '$2a$10$yYkleiX8VSZNdbcsN8o6iuVm56ZSSHYExMh.OZ8DW07Qx5B1OJpj6'; // Sua Chave de Acesso X
+        const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-// Middleware para parsear o corpo das requisições POST como JSON
-app.use(bodyParser.json());
-// Middleware para CORS - Permitir que o frontend (wzzm.org ou localhost) acesse o backend
-app.use(cors({
-    origin: ['http://localhost', 'http://localhost:8080', 'https://wzzm.org', 'http://wzzm.org'], // Adicione todos os seus domínios
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-}));
+        let currentGoogleUID = null; // Armazenará a UID recebida da página principal
 
-// Rota de teste
-app.get('/', (req, res) => {
-    res.send('Backend do Fórum está funcionando!');
-});
+        const forumForm = document.getElementById('post-form');
+        const forumDisabledMessage = document.getElementById('forum-disabled-message');
 
-// --- Rota para OBTER as mensagens do fórum ---
-app.get('/api/forum/posts', async (req, res) => {
-    try {
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-            method: 'GET',
-            headers: {
-                'X-Master-Key': JSONBIN_MASTER_KEY,
-                'X-Bin-Meta': 'false'
+        // Função para habilitar/desabilitar o formulário do fórum
+        function setForumEnabled(enabled) {
+            if (enabled) {
+                forumForm.style.display = 'block';
+                forumDisabledMessage.style.display = 'none';
+            } else {
+                forumForm.style.display = 'none';
+                forumDisabledMessage.style.display = 'block';
+            }
+        }
+
+        // Listener para receber mensagens da página pai (index.html)
+        window.addEventListener('message', (event) => {
+            // É CRUCIAL verificar a origem do evento em um ambiente de produção
+            // if (event.origin !== "http://seu-dominio.com") return; 
+
+            if (event.data && event.data.type === 'UID_GOOGLE_LOGIN') {
+                currentGoogleUID = event.data.uid;
+                console.log("UID do Google recebida no fórum:", currentGoogleUID);
+                setForumEnabled(true); // Habilita o formulário
+                exibirMensagens(); // Recarrega as mensagens após receber a UID
             }
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Erro ao obter posts do JSONBin.io:', response.status, errorText);
-            return res.status(response.status).send(`Erro ao obter posts: ${errorText}`);
+
+        // --- Funções de interação com JSONBin.io (iguais às do exemplo anterior) ---
+
+        function generateUniqueId() {
+            return 'msg-' + Math.random().toString(36).substr(2, 9) + Date.now();
         }
 
-        const data = await response.json();
-        res.json(data.posts || []); // Assume que você armazena posts dentro de um array chamado "posts"
-    } catch (error) {
-        console.error('Erro no servidor ao obter posts do fórum:', error);
-        res.status(500).send('Erro interno do servidor ao obter posts.');
-    }
-});
+        async function carregarMensagens() {
+            try {
+                const response = await fetch(BIN_URL, {
+                    method: 'GET',
+                    headers: {
+                        'X-Access-Key': ACCESS_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
 
-// --- Rota para ENVIAR uma nova mensagem para o fórum ---
-// IMPORTANTE: Para produção, você deve verificar o token de autenticação do Firebase aqui.
-app.post('/api/forum/posts', async (req, res) => {
-    const { subject, content, authorUid } = req.body;
+                if (!response.ok) {
+                    throw new Error(`Erro ao carregar mensagens: ${response.statusText}`);
+                }
 
-    if (!subject || !content || !authorUid) {
-        return res.status(400).send('Assunto, conteúdo e UID do autor são obrigatórios.');
-    }
-
-    try {
-        // 1. Obter os posts existentes do JSONBin.io
-        const getResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-            method: 'GET',
-            headers: {
-                'X-Master-Key': JSONBIN_MASTER_KEY,
-                'X-Bin-Meta': 'false'
+                const data = await response.json();
+                return data.record || [];
+            } catch (error) {
+                console.error("Erro ao carregar mensagens:", error);
+                document.getElementById('mensagensContainer').innerHTML = `<p class="error-message">Erro ao carregar mensagens: ${error.message}</p>`;
+                return [];
             }
-        });
-
-        if (!getResponse.ok) {
-            const errorText = await getResponse.text();
-            console.error('Erro ao ler posts existentes do JSONBin.io:', getResponse.status, errorText);
-            return res.status(getResponse.status).send(`Erro ao ler posts existentes: ${errorText}`);
         }
 
-        const existingData = await getResponse.json();
-        const posts = existingData.posts || [];
+        async function salvarMensagens(mensagens) {
+            try {
+                const response = await fetch(BIN_URL, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Access-Key': ACCESS_KEY,
+                        'X-Bin-Meta': 'false'
+                    },
+                    body: JSON.stringify(mensagens)
+                });
 
-        // 2. Criar a nova postagem
-        const newPost = {
-            id: Date.now().toString(), // ID simples baseado no timestamp
-            subject: subject,
-            content: content,
-            authorUid: authorUid,
-            timestamp: new Date().toISOString() // Formato ISO 8601
-        };
+                if (!response.ok) {
+                    throw new Error(`Erro ao salvar mensagens: ${response.statusText}`);
+                }
 
-        // 3. Adicionar a nova postagem ao array (no início para os mais recentes)
-        posts.unshift(newPost);
-
-        // 4. Salvar o array atualizado de volta no JSONBin.io
-        const putResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': JSONBIN_MASTER_KEY,
-                'X-Bin-Meta': 'false'
-            },
-            body: JSON.stringify({ posts: posts })
-        });
-
-        if (!putResponse.ok) {
-            const errorText = await putResponse.text();
-            console.error('Erro ao salvar posts no JSONBin.io:', putResponse.status, errorText);
-            return res.status(putResponse.status).send(`Erro ao salvar posts: ${errorText}`);
+                console.log("Mensagens salvas com sucesso no JSONBin.io!");
+            } catch (error) {
+                console.error("Erro ao salvar mensagens:", error);
+                document.getElementById('mensagensContainer').innerHTML += `<p class="error-message">Erro ao salvar mensagens: ${error.message}</p>`;
+            }
         }
 
-        res.status(201).json(newPost);
-    } catch (error) {
-        console.error('Erro no servidor ao enviar postagem do fórum:', error);
-        res.status(500).send('Erro interno do servidor ao enviar postagem.');
-    }
-});
+        async function exibirMensagens() {
+            document.getElementById('mensagensContainer').innerHTML = '<p class="loading-message">Carregando mensagens...</p>';
+            const mensagens = await carregarMensagens();
+            const container = document.getElementById('mensagensContainer');
+            container.innerHTML = '';
 
-app.listen(port, () => {
-    console.log(`Servidor Express rodando em http://localhost:${port}`);
-});
+            if (mensagens.length === 0) {
+                container.innerHTML = '<p>Nenhuma mensagem ainda. Seja o primeiro a postar!</p>';
+                return;
+            }
+
+            mensagens.forEach(msg => {
+                const postDiv = document.createElement('div');
+                postDiv.className = 'forum-post';
+                postDiv.setAttribute('data-id', msg.id);
+
+                let buttonsHtml = '';
+                // Habilita botões de edição/exclusão APENAS se a UID do post corresponder à UID logada
+                // E o currentGoogleUID não for nulo (usuário Google logado)
+                if (currentGoogleUID && msg.authorUID === currentGoogleUID) { 
+                    buttonsHtml = `
+                        <button class="edit-button" onclick="prepararEdicao('${msg.id}')">Editar</button>
+                        <button class="delete-button" onclick="deletarMensagem('${msg.id}')">Excluir</button>
+                    `;
+                }
+
+                postDiv.innerHTML = `
+                    <h3>${msg.assunto}</h3>
+                    <p>${msg.conteudo}</p>
+                    <small>ID: ${msg.id} | Autor: ${msg.authorUID ? msg.authorUID.substring(0, 8) + '...' : 'Anônimo'}</small>
+                    ${buttonsHtml}
+                `;
+                container.appendChild(postDiv);
+            });
+        }
+
+        async function salvarMensagem() {
+            const assuntoInput = document.getElementById('assunto');
+            const conteudoInput = document.getElementById('conteudo');
+            const postIdToEdit = document.getElementById('postIdToEdit');
+
+            if (!assuntoInput.value || !conteudoInput.value) {
+                alert("Assunto e conteúdo não podem ser vazios.");
+                return;
+            }
+            
+            // Verifica se o usuário Google está logado antes de salvar
+            if (!currentGoogleUID) {
+                alert("Você precisa estar logado com uma conta Google para postar.");
+                return;
+            }
+
+            let mensagens = await carregarMensagens();
+            const id = postIdToEdit.value;
+
+            if (id) {
+                // Editando mensagem existente
+                const index = mensagens.findIndex(msg => msg.id === id);
+                if (index !== -1 && mensagens[index].authorUID === currentGoogleUID) { // Adiciona verificação de autoria
+                    mensagens[index].assunto = assuntoInput.value;
+                    mensagens[index].conteudo = conteudoInput.value;
+                } else {
+                    alert("Você não tem permissão para editar esta mensagem.");
+                    return;
+                }
+                postIdToEdit.value = '';
+            } else {
+                // Adicionando nova mensagem
+                const novaMensagem = {
+                    id: generateUniqueId(),
+                    assunto: assuntoInput.value,
+                    conteudo: conteudoInput.value,
+                    authorUID: currentGoogleUID // Adiciona a UID do autor!
+                };
+                mensagens.push(novaMensagem);
+            }
+
+            await salvarMensagens(mensagens);
+            assuntoInput.value = '';
+            conteudoInput.value = '';
+            exibirMensagens();
+        }
+
+        async function prepararEdicao(id) {
+            const mensagens = await carregarMensagens();
+            const mensagem = mensagens.find(msg => msg.id === id);
+
+            // Verifica a autoria antes de preparar para edição
+            if (mensagem && mensagem.authorUID === currentGoogleUID) {
+                document.getElementById('assunto').value = mensagem.assunto;
+                document.getElementById('conteudo').value = mensagem.conteudo;
+                document.getElementById('postIdToEdit').value = mensagem.id;
+            } else {
+                alert("Você não tem permissão para editar esta mensagem.");
+            }
+        }
+
+        async function deletarMensagem(id) {
+            if (confirm('Tem certeza que deseja excluir esta mensagem?')) {
+                let mensagens = await carregarMensagens();
+                const indexToDelete = mensagens.findIndex(msg => msg.id === id);
+
+                // Verifica a autoria antes de deletar
+                if (indexToDelete !== -1 && mensagens[indexToDelete].authorUID === currentGoogleUID) {
+                    mensagens.splice(indexToDelete, 1); // Remove a mensagem
+                    await salvarMensagens(mensagens);
+                    exibirMensagens();
+                } else {
+                    alert("Você não tem permissão para excluir esta mensagem.");
+                }
+            }
+        }
+
+        // Inicialmente, desativa o fórum até receber a UID
+        document.addEventListener('DOMContentLoaded', () => {
+            setForumEnabled(false);
+            exibirMensagens(); // Carrega as mensagens existentes (mas o formulário estará desativado)
+        });
     </script>
 </body>
 </html>
