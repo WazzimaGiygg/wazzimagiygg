@@ -353,109 +353,127 @@
 
 
         // Listener de estado de autenticação (Firebase) - ATUALIZADO
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
-                loginGoogleButton.style.display = 'none';
-                loginGitHubButton.style.display = 'none';
-                
-                if (user.photoURL) {
-                    userProfilePic.src = user.photoURL;
-                    userProfilePic.style.display = 'inline-block'; 
-                } else {
-                    userProfilePic.style.display = 'none'; 
-                }
+       auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        // --- Lógica existente para exibir informações do usuário logado (UI) ---
+        userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
+        loginGoogleButton.style.display = 'none';
+        loginGitHubButton.style.display = 'none'; // Se você ainda tem login GitHub
 
-                googleAppsButton.style.display = 'inline-block';
-                userInfoContainer.style.display = 'flex';
+        if (user.photoURL) {
+            userProfilePic.src = user.photoURL;
+            userProfilePic.style.display = 'inline-block';
+        } else {
+            userProfilePic.style.display = 'none';
+        }
+        googleAppsButton.style.display = 'inline-block';
+        userInfoContainer.style.display = 'flex';
+        // --- Fim da lógica existente (UI) ---
 
-                await createUserProfileDocument(user);
+        // Garante que o perfil do usuário principal (da plataforma) exista
+        await createUserProfileDocument(user);
 
-                try {
-                    const userProfileRef = firestore.collection('users').doc(user.uid);
-                    const doc = await userProfileRef.get();
-                    
-                    if (doc.exists && doc.data()) {
-                        isCurrentUserBanned = doc.data().isBan || false; 
-                        
-                        if (isCurrentUserBanned) {
-                            console.warn(`Usuário ${user.uid} está banido.`);
-                            setNavLinksEnabled(false); 
-                            logoutButton.style.display = 'none'; 
-                            logoutButton.removeEventListener('click', handleLogout); 
-                            adminPanelButton.style.display = 'none'; 
-                            loadPage('recepcao.html', false); 
-                            bannedMessage.style.display = 'block'; 
-                        } else {
-                            setNavLinksEnabled(true); 
-                            logoutButton.style.display = 'inline-block'; 
-                            // Remova e adicione o listener para evitar duplicação em múltiplos logins
-                            logoutButton.removeEventListener('click', handleLogout); 
-                            logoutButton.addEventListener('click', handleLogout); 
-                            bannedMessage.style.display = 'none'; 
+        let isUserBanned = false; // Flag para controlar o banimento
+        let isUserAdmin = false; // Flag para controlar se é admin
 
-                            if (doc.data().isAdmin === true) { 
-                                adminPanelButton.style.display = 'inline-block';
-                            } else {
-                                adminPanelButton.style.display = 'none';
-                            }
+        try {
+            // Verifica o perfil principal do usuário (não o cliente, mas o "usuário" do sistema)
+            const userProfileRef = firestore.collection('users').doc(user.uid);
+            const doc = await userProfileRef.get();
 
-                            // Carrega e aplica o CSS dos aplicativos do usuário
-                            await loadAndApplyUserAppsCSS(user.uid); 
-
-                            const currentPage = contentFrame.src.split('/').pop(); 
-                            if (currentPage === 'recepcao.html' || currentPage === 'about:blank' || !currentPage) {
-                                loadPage('recepcao.html', false); // Recepção não requer auth
-                            } else {
-                                // Verifica se a página atual exige autenticação antes de recarregar
-                                const currentNavLink = Array.from(navLinks).find(link => link.dataset.pageSrc && link.dataset.pageSrc.endsWith(currentPage));
-                                const currentRequiresAuth = currentNavLink ? currentNavLink.dataset.requiresAuth === 'true' : false;
-                                loadPage(currentPage, currentRequiresAuth);
-                            }
-                        }
-                    } else {
-                        // Perfil de usuário não existe (caso raro após createUserProfileDocument), assume não banido
-                        isCurrentUserBanned = false;
-                        setNavLinksEnabled(true);
-                        logoutButton.style.display = 'inline-block';
-                        logoutButton.removeEventListener('click', handleLogout); // Previne duplicatas
-                        logoutButton.addEventListener('click', handleLogout);
-                        adminPanelButton.style.display = 'none';
-                        bannedMessage.style.display = 'none';
-                        await loadAndApplyUserAppsCSS(user.uid); // Tenta carregar mesmo se o perfil ainda não estiver 100% pronto
-                        loadPage('recepcao.html', false);
-                    }
-                } catch (error) {
-                    console.error("Erro ao verificar perfil de usuário ou status de banimento:", error);
-                    adminPanelButton.style.display = 'none';
-                    isCurrentUserBanned = false; 
-                    setNavLinksEnabled(true);
-                    logoutButton.style.display = 'inline-block';
-                    logoutButton.removeEventListener('click', handleLogout); // Previne duplicatas
-                    logoutButton.addEventListener('click', handleLogout);
-                    bannedMessage.style.display = 'none';
-                    loadPage('recepcao.html', false);
-                }
-
-            } else {
-                userInfo.textContent = '';
-                loginGoogleButton.style.display = 'inline-block';
-                loginGitHubButton.style.display = 'inline-block';
-                logoutButton.style.display = 'none';
-                adminPanelButton.style.display = 'none'; 
-                isCurrentUserBanned = false; 
-                bannedMessage.style.display = 'none'; 
-                setNavLinksEnabled(false);
-                loadPage('recepcao.html', false);
-
-                userProfilePic.style.display = 'none';
-                userProfilePic.src = ''; 
-                googleAppsButton.style.display = 'none';
-                userInfoContainer.style.display = 'none'; 
-                googleAppsPopup.style.display = 'none';
-                customAppCssStyleTag.innerHTML = ''; // Limpa o CSS customizado ao deslogar
+            if (doc.exists && doc.data()) {
+                isUserBanned = doc.data().isBan || false;
+                isUserAdmin = doc.data().isAdmin || false; // Pega o status de admin
             }
-        });
+            // Se o documento não existir, assume que não é banido nem admin por padrão.
+        } catch (error) {
+            console.error("Erro ao verificar perfil de usuário ou status de banimento/admin:", error);
+            // Em caso de erro, por segurança, assume que não é banido/admin para não travar o acesso
+            isUserBanned = false;
+            isUserAdmin = false;
+        }
+
+        // --- Lógica para o status de banimento (continua como está) ---
+        if (isUserBanned) {
+            console.warn(`Usuário ${user.uid} está banido.`);
+            setNavLinksEnabled(false);
+            logoutButton.style.display = 'none';
+            logoutButton.removeEventListener('click', handleLogout);
+            adminPanelButton.style.display = 'none';
+            loadPage('recepcao.html', false); // Ou uma página específica para banidos
+            bannedMessage.style.display = 'block';
+        } else {
+            // Usuário NÃO está banido
+            setNavLinksEnabled(true);
+            logoutButton.style.display = 'inline-block';
+            logoutButton.removeEventListener('click', handleLogout);
+            logoutButton.addEventListener('click', handleLogout);
+            bannedMessage.style.display = 'none';
+
+            if (isUserAdmin) { // Usa a flag isUserAdmin
+                adminPanelButton.style.display = 'inline-block';
+            } else {
+                adminPanelButton.style.display = 'none';
+            }
+
+            await loadAndApplyUserAppsCSS(user.uid); // Carrega CSS personalizado
+
+            // --- AQUI É ONDE VAMOS ADICIONAR A NOVA LÓGICA DE VERIFICAÇÃO DO CLIENTE ---
+            const clientId = user.uid; // O UID do usuário Google é o ID do cliente
+
+            try {
+                // Verifica se o cliente tem um cadastro COMPLETO na coleção 'clients'
+                const clientDoc = await firestore.collection('clients').doc(clientId).get();
+
+                if (clientDoc.exists) {
+                    // O cliente JÁ TEM cadastro completo.
+                    // Redirecionar para a página de informações do cliente.
+                    loadPage('informacoes_cliente.html?uid=' + clientId, true);
+                } else {
+                    // O cliente NÃO TEM cadastro completo.
+                    // Redirecionar para a página de cadastro do cliente.
+                    loadPage('cadastro_cliente.html?uid=' + clientId, true);
+                }
+            } catch (error) {
+                console.error("Erro ao verificar cadastro do cliente no Firestore:", error);
+                // Em caso de erro na verificação do Firestore (para 'clients'),
+                // por segurança, direcione para a página de cadastro de cliente.
+                loadPage('cadastro_cliente.html?uid=' + clientId, true);
+            }
+            // --- FIM DA NOVA LÓGICA DE VERIFICAÇÃO DO CLIENTE ---
+
+            // Remova ou ajuste esta parte se ela estiver em conflito com a nova lógica acima
+            // const currentPage = contentFrame.src.split('/').pop();
+            // if (currentPage === 'recepcao.html' || currentPage === 'about:blank' || !currentPage) {
+            //     loadPage('recepcao.html', false); // Pode ser removido, pois o loadPage acima já direcionará
+            // } else {
+            //     const currentNavLink = Array.from(navLinks).find(link => link.dataset.pageSrc && link.dataset.pageSrc.endsWith(currentPage));
+            //     const currentRequiresAuth = currentNavLink ? currentNavLink.dataset.requiresAuth === 'true' : false;
+            //     loadPage(currentPage, currentRequiresAuth); // Pode ser removido
+            // }
+        }
+
+    } else {
+        // --- Lógica existente para usuário deslogado ---
+        userInfo.textContent = '';
+        loginGoogleButton.style.display = 'inline-block';
+        loginGitHubButton.style.display = 'inline-block'; // Se você ainda tem
+        logoutButton.style.display = 'none';
+        adminPanelButton.style.display = 'none';
+        isCurrentUserBanned = false;
+        bannedMessage.style.display = 'none';
+        setNavLinksEnabled(false);
+        loadPage('recepcao.html', false); // Tela inicial para deslogados
+
+        userProfilePic.style.display = 'none';
+        userProfilePic.src = '';
+        googleAppsButton.style.display = 'none';
+        userInfoContainer.style.display = 'none';
+        googleAppsPopup.style.display = 'none';
+        customAppCssStyleTag.innerHTML = '';
+        // --- Fim da lógica existente (deslogado) ---
+    }
+});
 
         const handleLogout = () => {
             auth.signOut().then(() => {
