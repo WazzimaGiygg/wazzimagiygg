@@ -19,7 +19,7 @@
         }
         .mdl-card {
             width: 100%;
-            max-width: 900px; /* Um pouco mais largo para as barras e notas */
+            max-width: 900px;
             margin: 20px auto;
             padding: 20px;
         }
@@ -40,20 +40,20 @@
         .summary-card {
             margin-top: 30px;
             padding: 20px;
-            background-color: #e8eaf6; /* Light indigo */
-            color: #3f51b5; /* Darker indigo */
+            background-color: #e8eaf6;
+            color: #3f51b5;
             font-size: 1.2em;
             font-weight: bold;
             text-align: center;
             border-radius: 4px;
         }
         .summary-card.positive {
-            background-color: #e0f2f1; /* Light teal */
-            color: #00796b; /* Darker teal */
+            background-color: #e0f2f1;
+            color: #00796b;
         }
         .summary-card.negative {
-            background-color: #ffebee; /* Light red */
-            color: #d32f2f; /* Darker red */
+            background-color: #ffebee;
+            color: #d32f2f;
         }
         .donation-section {
             margin-top: 20px;
@@ -71,23 +71,23 @@
             border-radius: 5px;
             height: 25px;
             margin-bottom: 10px;
-            overflow: hidden; /* Garante que a barra interna não transborde */
+            overflow: hidden;
             position: relative;
         }
         .progress-bar {
             height: 100%;
             background-color: #4CAF50; /* Verde para contribuições */
-            width: 0%; /* Será preenchido por JS */
+            width: 0%;
             text-align: center;
             color: white;
             line-height: 25px;
             font-weight: bold;
             transition: width 0.5s ease-in-out;
-            position: absolute; /* Para que o texto da barra de custo fique em cima */
+            position: absolute;
         }
         .cost-bar {
             background-color: #f44336; /* Vermelho para custos */
-            width: 0%; /* Será preenchido por JS */
+            width: 0%;
             text-align: right;
             padding-right: 5px;
             line-height: 25px;
@@ -95,16 +95,16 @@
             color: white;
             transition: width 0.5s ease-in-out;
             position: absolute;
-            right: 0; /* Alinha a barra de custo à direita */
-            z-index: 1; /* Garante que ela fique por cima da barra de contribuição se as duas estiverem no mesmo wrapper */
+            right: 0;
+            z-index: 1;
         }
         .bar-label {
             position: absolute;
             width: 100%;
             text-align: center;
             line-height: 25px;
-            color: #333; /* Cor do texto para o label geral */
-            z-index: 2; /* Fica acima de tudo */
+            color: #333;
+            z-index: 2;
             font-weight: bold;
         }
 
@@ -114,13 +114,43 @@
             margin-top: 20px;
         }
         .mdl-data-table th, .mdl-data-table td {
-            text-align: left; /* Alinha o texto à esquerda para clareza */
+            text-align: left;
         }
-        .mdl-data-table th:nth-child(4), .mdl-data-table td:nth-child(4) { /* Coluna de valor */
+        .mdl-data-table th:nth-child(4), .mdl-data-table td:nth-child(4) {
              text-align: right;
         }
         .mdl-data-table__cell--non-numeric {
-            white-space: normal; /* Permite que o texto quebre linhas */
+            white-space: normal;
+        }
+        .status-message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #fff3cd; /* Amarelo claro para alerta */
+            color: #856404;
+            border: 1px solid #ffeeba;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connected-services {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #555;
+            text-align: center;
+        }
+        .connected-services ul {
+            list-style: none;
+            padding: 0;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        .connected-services li {
+            display: inline-block;
+            margin: 0 5px;
+            background-color: #e0e0e0;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
         }
     </style>
 </head>
@@ -133,7 +163,10 @@
         <div class="mdl-card__supporting-text">
             <p>O projeto WZZM opera sem fins lucrativos e depende de doações para cobrir seus custos de infraestrutura, como Firebase e Google Workspace. Agradecemos imensamente seu apoio!</p>
 
-            <h3>Resumo Mensal (<span id="currentMonthYear"></span>)</h3>
+            <div id="statusMessage" class="status-message" style="display: none;">
+                </div>
+
+            <h3 style="margin-top: 20px;">Resumo Mensal (<span id="currentMonthYear"></span>)</h3>
             <ul class="mdl-list">
                 <li class="mdl-list__item">
                     <span class="mdl-list__item-primary-content">Doações Recebidas:</span>
@@ -151,6 +184,12 @@
 
             <div id="balanceCard" class="summary-card">
                 Saldo Atual: <span id="currentBalance">R$ 0,00</span>
+            </div>
+            
+            <div id="connectedServicesDiv" class="connected-services">
+                <strong>Serviços Conectados (Este mês):</strong>
+                <ul id="servicesList">
+                    </ul>
             </div>
 
             <p style="margin-top: 20px; font-size: 0.9em; color: #555;">
@@ -229,6 +268,8 @@
         const costsBar = document.getElementById('costsBar');
         const barLabel = document.getElementById('barLabel');
         const invoicesTableBody = document.getElementById('invoicesTableBody');
+        const statusMessageDiv = document.getElementById('statusMessage');
+        const servicesList = document.getElementById('servicesList');
 
         // Função para formatar moeda
         function formatCurrency(value) {
@@ -249,6 +290,8 @@
             let totalDonations = 0;
             let firebaseCost = 0;
             let workspaceCost = 0;
+            let statusText = "";
+            let connectedServices = [];
 
             try {
                 // 1. Buscar dados financeiros do mês atual
@@ -260,10 +303,31 @@
                     totalDonations = data.totalDonations || 0;
                     firebaseCost = data.firebaseCost || 0;
                     workspaceCost = data.workspaceCost || 0;
+                    statusText = data.statusMessage || ""; // Obter mensagem de status
+                    connectedServices = data.connectedServices || []; // Obter lista de serviços
                 } else {
                     console.warn(`Dados financeiros para ${monthYearId} não encontrados no Firestore. Exibindo zeros.`);
-                    // Opcional: Criar o documento com zeros se não existir, para facilitar o manual
-                    // await financialDocRef.set({ totalDonations: 0, firebaseCost: 0, workspaceCost: 0 });
+                    statusText = "Dados financeiros para este mês ainda não foram registrados.";
+                }
+
+                // Exibir mensagem de status
+                if (statusText) {
+                    statusMessageDiv.textContent = statusText;
+                    statusMessageDiv.style.display = 'block';
+                } else {
+                    statusMessageDiv.style.display = 'none';
+                }
+
+                // Exibir serviços conectados
+                servicesList.innerHTML = ''; // Limpa a lista existente
+                if (connectedServices.length > 0) {
+                    connectedServices.forEach(service => {
+                        const li = document.createElement('li');
+                        li.textContent = service;
+                        servicesList.appendChild(li);
+                    });
+                } else {
+                    servicesList.innerHTML = '<li>Nenhum serviço conectado listado.</li>';
                 }
 
                 const totalCosts = firebaseCost + workspaceCost;
@@ -283,7 +347,7 @@
                 }
 
                 // --- Lógica das Barras de Progresso ---
-                const maxAmount = Math.max(totalDonations, totalCosts, 1); // Garante que não divida por zero
+                const maxAmount = Math.max(totalDonations, totalCosts, 1);
                 let contributionsPercentage = (totalDonations / maxAmount) * 100;
                 let costsPercentage = (totalCosts / maxAmount) * 100;
 
@@ -303,18 +367,18 @@
                 // 2. Buscar Notas Fiscais
                 invoicesTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Carregando notas fiscais...</td></tr>';
                 const invoicesSnapshot = await firestore.collection('invoices')
-                                                          .where('monthYear', '==', monthYearId) // Assumindo campo monthYear na invoice
+                                                          .where('monthYear', '==', monthYearId)
                                                           .orderBy('date', 'desc')
                                                           .get();
                 
                 if (!invoicesSnapshot.empty) {
-                    invoicesTableBody.innerHTML = ''; // Limpa a mensagem de carregamento
+                    invoicesTableBody.innerHTML = '';
                     invoicesSnapshot.forEach(doc => {
                         const invoice = doc.data();
                         const row = invoicesTableBody.insertRow();
                         row.insertCell(0).textContent = invoice.service || 'N/A';
                         row.insertCell(1).textContent = invoice.invoiceNumber || 'N/A';
-                        row.insertCell(2).textContent = invoice.date ? new Date(invoice.date.seconds * 1000).toLocaleDateString() : 'N/A'; // Se for Timestamp
+                        row.insertCell(2).textContent = invoice.date ? new Date(invoice.date.seconds * 1000).toLocaleDateString() : 'N/A';
                         row.insertCell(3).textContent = formatCurrency(invoice.amount || 0);
                         const linkCell = row.insertCell(4);
                         if (invoice.fileURL) {
@@ -340,14 +404,13 @@
                 balanceCardEl.classList.remove('positive', 'negative');
                 barLabel.textContent = "Erro ao carregar dados.";
                 invoicesTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Erro ao carregar notas fiscais.</td></tr>';
+                statusMessageDiv.textContent = "Houve um erro ao carregar os dados de status. Por favor, tente novamente mais tarde.";
+                statusMessageDiv.style.display = 'block';
             }
         }
 
         // Carregar dados ao carregar a página
         document.addEventListener('DOMContentLoaded', loadFinancialData);
-
-        // Opcional: Se você quiser um botão para recarregar ou para meses anteriores/futuros
-        // Você pode adicionar botões e ajustar a função loadFinancialData para aceitar um `monthYearId`
     </script>
 </body>
 </html>
