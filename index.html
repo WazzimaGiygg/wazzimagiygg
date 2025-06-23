@@ -147,7 +147,7 @@
                 <div class="mdl-logo">WZZM © 2025</div>
                 <ul class="mdl-mini-footer__link-list">
                     <li><a href="./Privacidade/">Privacidade</a></li>
-                      <li><a href="https://wikizero.wzzm.org/">Doações</a></li>
+                    <li><a href="https://wikizero.wzzm.org/">Doações</a></li>
                 </ul>
             </div>
             <div class="mdl-mini-footer__right-section">
@@ -207,15 +207,19 @@
 
         const customAppCssStyleTag = document.getElementById('custom-app-css'); // Nova referência
 
-        let isCurrentUserBanned = false;
+        let isCurrentUserBanned = false; // Manter para controle global
 
         function loadPage(page, requiresAuth = true) {
-            if (isCurrentUserBanned && page !== 'recepcao.html') {
-                contentFrame.src = "about:blank";
-                contentFrame.style.display = 'none';
-                accessDeniedMessage.style.display = 'none';
-                bannedMessage.style.display = 'block'; 
-                return;
+            if (isCurrentUserBanned) {
+                // Se o usuário está banido, apenas a página de recepção é permitida
+                // Todos os outros links serão redirecionados para a mensagem de banido
+                if (page !== 'recepcao.html' && !page.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    contentFrame.src = "about:blank"; // Limpa o iframe
+                    contentFrame.style.display = 'none'; // Esconde o iframe
+                    accessDeniedMessage.style.display = 'none';
+                    bannedMessage.style.display = 'block';
+                    return;
+                }
             }
 
             if (!requiresAuth || auth.currentUser) {
@@ -233,20 +237,35 @@
         }
 
         navLinks.forEach(link => {
-            if (!link.dataset.pageSrc) {
-                return;
+            if (!link.dataset.pageSrc && !link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                return; // Ignora links sem data-page-src, a menos que seja o PDF de políticas
             }
 
             link.addEventListener('click', function(event) {
-                event.preventDefault();
+                const pageSrc = this.dataset.pageSrc || this.href; // Usa href para o link do PDF
+                const requiresAuth = this.dataset.requiresAuth === 'true';
 
-                const pageSrc = this.dataset.pageSrc;
-                const requiresAuth = this.dataset.requiresAuth === 'true'; // Obter do data-attribute
+                if (isCurrentUserBanned && pageSrc !== 'recepcao.html' && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    event.preventDefault(); // Impede a navegação
+                    loadPage('recepcao.html', false); // Redireciona para a recepção e mostra a mensagem de banido
+                    return;
+                }
 
-                if (this.classList.contains('disabled') && requiresAuth) {
+                // Permite a navegação se não estiver banido ou se for recepcao.html/políticas
+                if (this.classList.contains('disabled') && requiresAuth && !isCurrentUserBanned) {
+                     event.preventDefault(); // Impede a navegação se estiver desabilitado e requerer auth, e NÃO estiver banido
+                     return; 
+                }
+                
+                // Se o link está desabilitado por banimento, o event.preventDefault() já foi chamado acima.
+                // Se não está banido, e o link é desabilitado por não logado, o loadPage vai tratar.
+
+                if (pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    // Para o link do PDF, permite a abertura em nova aba sem modificar o iframe
                     return; 
                 }
 
+                event.preventDefault(); // Previne a navegação padrão para links de data-page-src
                 loadPage(pageSrc, requiresAuth);
                 if (document.querySelector('.mdl-layout__drawer.is-visible')) {
                     document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
@@ -257,17 +276,19 @@
 
         function setNavLinksEnabled(enabled) {
             navLinks.forEach(link => {
-                if (link.dataset.pageSrc === 'recepcao.html' || !link.dataset.pageSrc || link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { 
+                // A página de recepção e o link das políticas NUNCA são desativados
+                if (link.dataset.pageSrc === 'recepcao.html' || link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { 
                     link.classList.remove('disabled');
                     return;
                 }
 
-                // Check if the link specifically requires authentication
                 const requiresAuth = link.dataset.requiresAuth === 'true';
 
-                if (enabled || !requiresAuth) { // Enable if logged in OR if it doesn't require auth
+                if (enabled && !isCurrentUserBanned) { // Habilita se o usuário estiver logado E NÃO banido
                     link.classList.remove('disabled');
-                } else {
+                } else if (!enabled && !requiresAuth) { // Desabilita se não estiver logado, mas NÃO requer autenticação
+                    link.classList.remove('disabled'); // Na verdade, mantém habilitado se não requer auth
+                } else { // Desabilita em todos os outros casos (banido OU não logado e requer auth)
                     link.classList.add('disabled');
                 }
             });
@@ -353,127 +374,118 @@
 
 
         // Listener de estado de autenticação (Firebase) - ATUALIZADO
-       auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        // --- Lógica existente para exibir informações do usuário logado (UI) ---
-        userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
-        loginGoogleButton.style.display = 'none';
-        loginGitHubButton.style.display = 'none'; // Se você ainda tem login GitHub
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // --- Lógica existente para exibir informações do usuário logado (UI) ---
+                userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
+                loginGoogleButton.style.display = 'none';
+                loginGitHubButton.style.display = 'none'; // Se você ainda tem login GitHub
 
-        if (user.photoURL) {
-            userProfilePic.src = user.photoURL;
-            userProfilePic.style.display = 'inline-block';
-        } else {
-            userProfilePic.style.display = 'none';
-        }
-        googleAppsButton.style.display = 'inline-block';
-        userInfoContainer.style.display = 'flex';
-        // --- Fim da lógica existente (UI) ---
-
-        // Garante que o perfil do usuário principal (da plataforma) exista
-        await createUserProfileDocument(user);
-
-        let isUserBanned = false; // Flag para controlar o banimento
-        let isUserAdmin = false; // Flag para controlar se é admin
-
-        try {
-            // Verifica o perfil principal do usuário (não o cliente, mas o "usuário" do sistema)
-            const userProfileRef = firestore.collection('users').doc(user.uid);
-            const doc = await userProfileRef.get();
-
-            if (doc.exists && doc.data()) {
-                isUserBanned = doc.data().isBan || false;
-                isUserAdmin = doc.data().isAdmin || false; // Pega o status de admin
-            }
-            // Se o documento não existir, assume que não é banido nem admin por padrão.
-        } catch (error) {
-            console.error("Erro ao verificar perfil de usuário ou status de banimento/admin:", error);
-            // Em caso de erro, por segurança, assume que não é banido/admin para não travar o acesso
-            isUserBanned = false;
-            isUserAdmin = false;
-        }
-
-        // --- Lógica para o status de banimento (continua como está) ---
-        if (isUserBanned) {
-            console.warn(`Usuário ${user.uid} está banido.`);
-            setNavLinksEnabled(false);
-            logoutButton.style.display = 'none';
-            logoutButton.removeEventListener('click', handleLogout);
-            adminPanelButton.style.display = 'none';
-            loadPage('recepcao.html', false); // Ou uma página específica para banidos
-            bannedMessage.style.display = 'block';
-        } else {
-            // Usuário NÃO está banido
-            setNavLinksEnabled(true);
-            logoutButton.style.display = 'inline-block';
-            logoutButton.removeEventListener('click', handleLogout);
-            logoutButton.addEventListener('click', handleLogout);
-            bannedMessage.style.display = 'none';
-
-            if (isUserAdmin) { // Usa a flag isUserAdmin
-                adminPanelButton.style.display = 'inline-block';
-            } else {
-                adminPanelButton.style.display = 'none';
-            }
-
-            await loadAndApplyUserAppsCSS(user.uid); // Carrega CSS personalizado
-
-            // --- AQUI É ONDE VAMOS ADICIONAR A NOVA LÓGICA DE VERIFICAÇÃO DO CLIENTE ---
-            const clientId = user.uid; // O UID do usuário Google é o ID do cliente
-
-            try {
-                // Verifica se o cliente tem um cadastro COMPLETO na coleção 'clients'
-                const clientDoc = await firestore.collection('clients').doc(clientId).get();
-
-                if (clientDoc.exists) {
-                    // O cliente JÁ TEM cadastro completo.
-                    // Redirecionar para a página de informações do cliente.
-                    loadPage('informacoes_cliente/?uid=' + clientId, true);
+                if (user.photoURL) {
+                    userProfilePic.src = user.photoURL;
+                    userProfilePic.style.display = 'inline-block';
                 } else {
-                    // O cliente NÃO TEM cadastro completo.
-                    // Redirecionar para a página de cadastro do cliente.
-                    loadPage('cadastro_cliente/?uid=' + clientId, true);
+                    userProfilePic.style.display = 'none';
                 }
-            } catch (error) {
-                console.error("Erro ao verificar cadastro do cliente no Firestore:", error);
-                // Em caso de erro na verificação do Firestore (para 'clients'),
-                // por segurança, direcione para a página de cadastro de cliente.
-                loadPage('cadastro_cliente/?uid=' + clientId, true);
+                googleAppsButton.style.display = 'inline-block';
+                userInfoContainer.style.display = 'flex';
+                // --- Fim da lógica existente (UI) ---
+
+                // Garante que o perfil do usuário principal (da plataforma) exista
+                await createUserProfileDocument(user);
+
+                let isUserBanned = false; // Flag para controlar o banimento
+                let isUserAdmin = false; // Flag para controlar se é admin
+
+                try {
+                    // Verifica o perfil principal do usuário (não o cliente, mas o "usuário" do sistema)
+                    const userProfileRef = firestore.collection('users').doc(user.uid);
+                    const doc = await userProfileRef.get();
+
+                    if (doc.exists && doc.data()) {
+                        isUserBanned = doc.data().isBan || false;
+                        isUserAdmin = doc.data().isAdmin || false; // Pega o status de admin
+                    }
+                    // Se o documento não existir, assume que não é banido nem admin por padrão.
+                } catch (error) {
+                    console.error("Erro ao verificar perfil de usuário ou status de banimento/admin:", error);
+                    // Em caso de erro, por segurança, assume que não é banido/admin para não travar o acesso
+                    isUserBanned = false;
+                    isUserAdmin = false;
+                }
+                
+                // Atualiza a flag global de banimento
+                isCurrentUserBanned = isUserBanned;
+
+                // --- Lógica para o status de banimento ---
+                if (isUserBanned) {
+                    console.warn(`Usuário ${user.uid} está banido.`);
+                    setNavLinksEnabled(false); // Desabilita todos os links (exceto recepção e políticas)
+                    logoutButton.style.display = 'none'; // Desabilita o logout (para evitar ciclo)
+                    logoutButton.removeEventListener('click', handleLogout); // Garante que o handler não esteja duplicado
+                    adminPanelButton.style.display = 'none';
+                    // Redireciona para a página de recepção, que é a única permitida
+                    loadPage('recepcao.html', false); 
+                    bannedMessage.style.display = 'block';
+                    contentFrame.style.display = 'none'; // Esconde o iframe quando banido
+                } else {
+                    // Usuário NÃO está banido
+                    setNavLinksEnabled(true); // Habilita os links normais
+                    logoutButton.style.display = 'inline-block';
+                    logoutButton.removeEventListener('click', handleLogout); // Garante que o handler não esteja duplicado
+                    logoutButton.addEventListener('click', handleLogout);
+                    bannedMessage.style.display = 'none';
+                    contentFrame.style.display = 'block'; // Mostra o iframe
+                    accessDeniedMessage.style.display = 'none'; // Garante que a mensagem de acesso negado não apareça
+
+                    if (isUserAdmin) { // Usa a flag isUserAdmin
+                        adminPanelButton.style.display = 'inline-block';
+                    } else {
+                        adminPanelButton.style.display = 'none';
+                    }
+
+                    await loadAndApplyUserAppsCSS(user.uid); // Carrega CSS personalizado
+
+                    // --- Lógica de verificação do cliente ---
+                    const clientId = user.uid; // O UID do usuário Google é o ID do cliente
+
+                    try {
+                        const clientDoc = await firestore.collection('clients').doc(clientId).get();
+
+                        if (clientDoc.exists) {
+                            loadPage('informacoes_cliente/?uid=' + clientId, true);
+                        } else {
+                            loadPage('cadastro_cliente/?uid=' + clientId, true);
+                        }
+                    } catch (error) {
+                        console.error("Erro ao verificar cadastro do cliente no Firestore:", error);
+                        loadPage('cadastro_cliente/?uid=' + clientId, true);
+                    }
+                    // --- FIM DA LÓGICA DE VERIFICAÇÃO DO CLIENTE ---
+                }
+
+            } else {
+                // --- Lógica existente para usuário deslogado ---
+                userInfo.textContent = '';
+                loginGoogleButton.style.display = 'inline-block';
+                loginGitHubButton.style.display = 'inline-block'; // Se você ainda tem
+                logoutButton.style.display = 'none';
+                adminPanelButton.style.display = 'none';
+                isCurrentUserBanned = false; // Garante que a flag de banimento seja falsa para deslogados
+                bannedMessage.style.display = 'none';
+                setNavLinksEnabled(false); // Desabilita links que requerem autenticação
+                loadPage('recepcao.html', false); // Tela inicial para deslogados
+
+                userProfilePic.style.display = 'none';
+                userProfilePic.src = '';
+                googleAppsButton.style.display = 'none';
+                userInfoContainer.style.display = 'none';
+                googleAppsPopup.style.display = 'none';
+                customAppCssStyleTag.innerHTML = '';
+                contentFrame.style.display = 'block'; // Mostra o iframe para a recepção
+                accessDeniedMessage.style.display = 'none'; // Garante que não mostre acesso negado ao deslogar
             }
-            // --- FIM DA NOVA LÓGICA DE VERIFICAÇÃO DO CLIENTE ---
-
-            // Remova ou ajuste esta parte se ela estiver em conflito com a nova lógica acima
-            // const currentPage = contentFrame.src.split('/').pop();
-            // if (currentPage === 'recepcao.html' || currentPage === 'about:blank' || !currentPage) {
-            //     loadPage('recepcao.html', false); // Pode ser removido, pois o loadPage acima já direcionará
-            // } else {
-            //     const currentNavLink = Array.from(navLinks).find(link => link.dataset.pageSrc && link.dataset.pageSrc.endsWith(currentPage));
-            //     const currentRequiresAuth = currentNavLink ? currentNavLink.dataset.requiresAuth === 'true' : false;
-            //     loadPage(currentPage, currentRequiresAuth); // Pode ser removido
-            // }
-        }
-
-    } else {
-        // --- Lógica existente para usuário deslogado ---
-        userInfo.textContent = '';
-        loginGoogleButton.style.display = 'inline-block';
-        loginGitHubButton.style.display = 'inline-block'; // Se você ainda tem
-        logoutButton.style.display = 'none';
-        adminPanelButton.style.display = 'none';
-        isCurrentUserBanned = false;
-        bannedMessage.style.display = 'none';
-        setNavLinksEnabled(false);
-        loadPage('recepcao.html', false); // Tela inicial para deslogados
-
-        userProfilePic.style.display = 'none';
-        userProfilePic.src = '';
-        googleAppsButton.style.display = 'none';
-        userInfoContainer.style.display = 'none';
-        googleAppsPopup.style.display = 'none';
-        customAppCssStyleTag.innerHTML = '';
-        // --- Fim da lógica existente (deslogado) ---
-    }
-});
+        });
 
         const handleLogout = () => {
             auth.signOut().then(() => {
