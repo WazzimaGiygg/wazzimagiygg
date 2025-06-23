@@ -3,398 +3,539 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administração de Custos</title>
+    <title>Wiki Zone Zero Mod</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style id="custom-app-css">
+        /* Este será o local onde o CSS dos aplicativos do usuário será injetado */
+    </style>
     <style>
-        /* Estilos básicos para o exemplo */
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: #fff;
+        /* Seus estilos CSS existentes aqui */
+        .page-content {
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        h1, h2 {
-            color: #0056b3;
-        }
-        form {
-            margin-top: 20px;
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="number"],
-        input[type="text"],
-        button {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #28a745;
-            color: white;
+        #contentFrame {
+            width: 100%;
+            height: calc(100vh - 200px);
             border: none;
-            cursor: pointer;
-            font-size: 16px;
         }
-        button:hover {
-            background-color: #218838;
+
+        /* Estilos adicionais para os links do menu lateral quando desabilitados */
+        .mdl-navigation__link.disabled,
+        #google-apps-popup a.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            color: #777 !important;
+            pointer-events: none;
         }
-        #financialDataDisplay {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px dashed #ccc;
-            background-color: #f9f9f9;
-            border-radius: 4px;
+
+        /* Estilos para a imagem de perfil e ícone do Google Apps */
+        #user-profile-pic {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin-right: 8px;
+            object-fit: cover;
         }
-        .error-message {
-            color: red;
-            font-weight: bold;
-            margin-top: 10px;
+        #google-apps-button {
+            min-width: 32px;
+            height: 32px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        #currentUserStatus {
-            margin-bottom: 20px;
-            padding: 10px;
-            background-color: #e9ecef;
-            border-radius: 5px;
+        /* Estilos para o pop-up dos serviços Google */
+        #google-apps-popup a.mdl-button {
+            margin-bottom: 4px;
+            justify-content: flex-start;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Administração de Custos</h1>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
 
-        <div id="currentUserStatus">
-            <p>Status do Usuário: <span id="userStatus">Não Autenticado</span></p>
-            <p>Email: <span id="userEmail">N/A</span></p>
-            <p>Admin: <span id="isAdminStatus">Não</span></p>
-            <button id="signInButton" style="display: none;">Fazer Login (Exemplo)</button>
-            <button id="signOutButton" style="display: none;">Sair</button>
-        </div>
-
-        <div id="adminContent" style="display: none;">
-            <h2>Adicionar/Atualizar Dados Financeiros</h2>
-            <form id="financialDataForm">
-                <label for="currentMonthYear">Mês/Ano:</label>
-                <input type="text" id="currentMonthYear" readonly>
-
-                <label for="monthlyCost">Custo Mensal:</label>
-                <input type="number" id="monthlyCost" placeholder="Ex: 1500.50" step="0.01" required>
-
-                <label for="monthlyRevenue">Receita Mensal:</label>
-                <input type="number" id="monthlyRevenue" placeholder="Ex: 2000.00" step="0.01" required>
-
-                <button type="submit">Salvar Dados Financeiros</button>
-            </form>
-
-            <h2>Dados Financeiros Atuais</h2>
-            <div id="financialDataDisplay">
-                Carregando dados...
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+        <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title">Wiki Zone Zero Mod</span>
+                <div class="mdl-layout-spacer"></div>
+                <div style="position: relative; display: flex; align-items: center;">
+                    <button class="mdl-button mdl-js-button mdl-button--icon" id="google-apps-button" style="display: none; margin-right: 8px;">
+                        <i class="material-icons">apps</i>
+                    </button>
+                    <div id="google-apps-popup" style="
+                        display: none;
+                        position: absolute;
+                        top: 48px;
+                        right: 0;
+                        background-color: white;
+                        border: 1px solid #ccc;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                        z-index: 100;
+                        padding: 10px;
+                        min-width: 180px;
+                        border-radius: 4px;
+                    ">
+                        <a href="https://mail.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Gmail</a>
+                        <a href="https://drive.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Drive</a>
+                        <a href="https://calendar.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Agenda</a>
+                        <a href="https://photos.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Fotos</a>
+                        <a href="https://www.youtube.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">YouTube</a>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
+                        <a href="https://myaccount.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Minha Conta Google</a>
+                        </div>
+                    <div id="user-info-container" style="display: flex; align-items: center;">
+                        <img id="user-profile-pic" src="" alt="Foto de Perfil" style="display: none;">
+                        <div id="user-info" class="mdl-typography--body-1-force-preferred-font-color-contrast"></div>
+                    </div>
+                </div>
             </div>
-            <p class="error-message" id="financialDataError"></p>
+        </header>
+
+        <div class="mdl-layout__drawer">
+            <span class="mdl-layout-title">Menu</span>
+            <nav class="mdl-navigation" id="main-navigation">
+                <a class="mdl-navigation__link" href="#" data-page-src="recepcao.html" data-requires-auth="false">Página Inicio</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="artigos.html">Artigos</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="artigosdesaudementalgerados.html">Artigos Automáticos de Ensaio</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="imagens.html">Imagens</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./cw22.html">Client WZZM</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="contato.html">Contato</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./buscaavancada/index.html">Busca Avançada</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="ferramentasuteis.html">Ferramentas Úteis</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/">Página do Usuário</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/denunciar/">Rastrear usuário / Denunciar</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./transparencia/">Transparência</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="servicoswzzm.html">Outros serviços da Wiki Zone Zero Mod</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="forum.html">Fórum</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="visualizarnoticias.html">Visualizar Noticias</a>
+
+                <a class="mdl-navigation__link" href="http://www.wzzm.org/POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf" target="_blank">Políticas da WZZM</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="cadastro-aplicativo.html" data-requires-auth="true">
+                    <i class="material-icons">developer_mode</i> Cadastrar Aplicativo
+                </a>
+                <a class="mdl-navigation__link" href="#" data-page-src="meus-aplicativos.html" data-requires-auth="true">
+                    <i class="material-icons">apps</i> Meus Aplicativos
+                </a>
+            </nav>
         </div>
 
-        <div id="loadingMessage">
-            <p>Carregando Firebase e verificando autenticação...</p>
-        </div>
+        <main class="mdl-layout__content">
+            <div class="page-content">
+                <div class="separator" style="clear: both; text-align: center;">
+                    <a href="https://static.wikitide.net/wikimetrospwiki/thumb/8/88/Wiki_Zone_Zero_Mod_Banner.png/1920px-Wiki_Zone_Zero_Mod_Banner.png" style="display: block; padding: 1em 0;">
+                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4DaOswxBHJ6BFlZaG4MCEiimtNbLDv4Q6Z-MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
+                    </a>
+                </div>
+                <iframe id="contentFrame" src="recepcao.html"></iframe>
+                <div id="access-denied-message" style="text-align: center; padding: 50px; font-size: 20px; color: #666; display: none;">
+                    Você precisa estar logado para acessar esta página.
+                </div>
+                <div id="banned-message" style="text-align: center; padding: 50px; font-size: 20px; color: red; display: none;">
+                    Sua conta foi banida. Você não pode usar os recursos do site.
+                </div>
+            </div>
+        </main>
+
+        <footer class="mdl-mini-footer">
+            <div class="mdl-mini-footer__left-section">
+                <div class="mdl-logo">WZZM © 2025</div>
+                <ul class="mdl-mini-footer__link-list">
+                    <li><a href="./Privacidade/">Privacidade</a></li>
+                    <li><a href="https://wikizero.wzzm.org/">Doações</a></li>
+                </ul>
+            </div>
+            <div class="mdl-mini-footer__right-section">
+                <button id="login-google" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="display: none;">
+                    <i class="material-icons">account_circle</i> Login com Google
+                </button>
+                <button id="login-github" class="mdl-button mdl-js-button mdl-button--raised" style="display: none;">
+                    <i class="material-icons">code</i> Login com GitHub
+                </button>
+                <button id="logout-button" class="mdl-button mdl-js-button mdl-button--accent" style="display: none;">
+                    <i class="material-icons">exit_to_app</i> Sair
+                </button>
+                <button id="admin-panel-button" class="mdl-button mdl-js-button mdl-button--primary" style="display: none;">
+                    <i class="material-icons">admin_panel_settings</i> Admin
+                </button>
+            </div>
+        </footer>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <script>
-        // Substitua pelas suas credenciais do Firebase
+        // --- Configuração do Firebase ---
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
         };
 
-        // Inicializar o Firebase
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        const app = firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
-        const db = firebase.firestore();
+        const firestore = firebase.firestore();
+        const analytics = firebase.analytics();
 
-        // Referências aos elementos HTML
-        const userStatusSpan = document.getElementById('userStatus');
-        const userEmailSpan = document.getElementById('userEmail');
-        const isAdminStatusSpan = document.getElementById('isAdminStatus');
-        const signInButton = document.getElementById('signInButton');
-        const signOutButton = document.getElementById('signOutButton');
-        const adminContentDiv = document.getElementById('adminContent');
-        const loadingMessageDiv = document.getElementById('loadingMessage');
-        const currentMonthYearInput = document.getElementById('currentMonthYear');
-        const financialDataForm = document.getElementById('financialDataForm');
-        const financialDataDisplay = document.getElementById('financialDataDisplay');
-        const financialDataError = document.getElementById('financialDataError');
+        // Elementos da UI
+        const loginGoogleButton = document.getElementById('login-google');
+        const loginGitHubButton = document.getElementById('login-github');
+        const logoutButton = document.getElementById('logout-button');
+        const userInfo = document.getElementById('user-info');
+        const adminPanelButton = document.getElementById('admin-panel-button');
+        const contentFrame = document.getElementById('contentFrame');
+        const accessDeniedMessage = document.getElementById('access-denied-message');
+        const bannedMessage = document.getElementById('banned-message');
+        const navLinks = document.querySelectorAll('.mdl-navigation__link');
+        const googleAppsLinks = document.querySelectorAll('#google-apps-popup a');
 
-        let currentUser = null;
-        let currentUserIsAdmin = false;
+        const userProfilePic = document.getElementById('user-profile-pic');
+        const googleAppsButton = document.getElementById('google-apps-button');
+        const userInfoContainer = document.getElementById('user-info-container');
+        const googleAppsPopup = document.getElementById('google-apps-popup');
 
-        // --- Funções Auxiliares ---
+        const customAppCssStyleTag = document.getElementById('custom-app-css');
 
-        /**
-         * Gera o ID do mês/ano atual no formato YYYY-MM.
-         * @returns {string} O ID do mês/ano.
-         */
-        function getCurrentMonthYearId() {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = (today.getMonth() + 1).toString().padStart(2, '0'); // Mês de 01 a 12
-            return `${year}-${month}`;
-        }
+        let isCurrentUserBanned = false; // Manter para controle global
 
-        /**
-         * Verifica se o usuário logado é um administrador.
-         * Assume que existe uma coleção 'users' e um campo 'isAdmin: true' no documento do usuário.
-         * @returns {Promise<boolean>} True se for admin, false caso contrário.
-         */
-        async function checkAdminStatus() {
-            if (!currentUser) {
-                return false;
-            }
-            try {
-                const userDoc = await db.collection('users').doc(currentUser.uid).get();
-                return userDoc.exists && userDoc.data().isAdmin === true;
-            } catch (error) {
-                console.error("Erro ao verificar status de admin:", error);
-                return false;
-            }
-        }
-
-        /**
-         * Carrega e aplica CSS personalizado de aplicativos do usuário.
-         * Este é um exemplo. Adapte com base na sua estrutura de dados.
-         */
-        async function loadAndApplyUserAppsCSS() {
-            console.log("Tentando carregar/aplicar CSS de aplicativos do usuário...");
-            try {
-                // EX: Se o CSS está em um documento fixo na coleção 'aplicativo'
-                // Ou se você armazena CSS por usuário, você precisará do UID aqui
-                const docRef = db.collection('aplicativo').doc('meuAppCSSGlobal'); // Substitua pelo ID real do seu documento CSS
-                const docSnap = await docRef.get();
-
-                if (docSnap.exists) {
-                    const cssContent = docSnap.data().cssContent; // Supondo que o campo se chama 'cssContent'
-                    if (cssContent) {
-                        let styleTag = document.getElementById('userAppStyle');
-                        if (!styleTag) {
-                            styleTag = document.createElement('style');
-                            styleTag.id = 'userAppStyle';
-                            document.head.appendChild(styleTag);
-                        }
-                        styleTag.innerHTML = cssContent;
-                        console.log("CSS de aplicativos do usuário aplicado com sucesso.");
-                    }
-                } else {
-                    console.log("Documento de CSS de aplicativos não encontrado.");
-                }
-            } catch (error) {
-                console.error("Erro ao carregar/aplicar CSS de aplicativos do usuário:", error);
-                // Exiba uma mensagem de erro na UI se necessário
-                // document.getElementById('someErrorDiv').innerText = 'Erro ao carregar estilos personalizados.';
-            }
-        }
-
-
-        /**
-         * Carrega os dados financeiros do mês atual.
-         */
-        async function loadCurrentFinancialData() {
-            financialDataError.textContent = ''; // Limpa mensagens de erro anteriores
-            financialDataDisplay.innerHTML = 'Carregando dados...';
-
-            const monthYearId = getCurrentMonthYearId();
-            currentMonthYearInput.value = monthYearId; // Preenche o input do formulário
-
-            if (!monthYearId) {
-                const errorMessage = "Erro: ID do mês/ano está vazio. Não foi possível carregar dados financeiros.";
-                console.error(errorMessage);
-                financialDataError.textContent = errorMessage;
-                financialDataDisplay.innerHTML = 'Nenhum dado disponível.';
+        function loadPage(page, requiresAuth = true) {
+            // Se o usuário está banido, apenas as políticas são permitidas para navegação "direta"
+            // A página de recepção será carregada via `auth.onAuthStateChanged` para exibir a mensagem de banido.
+            if (isCurrentUserBanned && page !== 'recepcao.html' && !page.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                contentFrame.src = "about:blank";
+                contentFrame.style.display = 'none';
+                accessDeniedMessage.style.display = 'none';
+                bannedMessage.style.display = 'block'; // Exibe a mensagem de banido
                 return;
             }
 
-            try {
-                const docRef = db.collection('financialData').doc(monthYearId);
-                const docSnap = await docRef.get();
-
-                if (docSnap.exists) {
-                    const data = docSnap.data();
-                    financialDataDisplay.innerHTML = `
-                        <p><strong>Custo Mensal:</strong> R$ ${data.monthlyCost ? data.monthlyCost.toFixed(2) : 'N/A'}</p>
-                        <p><strong>Receita Mensal:</strong> R$ ${data.monthlyRevenue ? data.monthlyRevenue.toFixed(2) : 'N/A'}</p>
-                        <p><strong>Última Atualização:</strong> ${data.updatedAt ? new Date(data.updatedAt.toDate()).toLocaleString() : 'N/A'}</p>
-                    `;
-                    // Preencher formulário para edição
-                    document.getElementById('monthlyCost').value = data.monthlyCost || '';
-                    document.getElementById('monthlyRevenue').value = data.monthlyRevenue || '';
-                } else {
-                    financialDataDisplay.innerHTML = 'Nenhum dado financeiro encontrado para o mês atual. Você pode adicionar um novo.';
-                    // Limpar formulário se não houver dados
-                    document.getElementById('monthlyCost').value = '';
-                    document.getElementById('monthlyRevenue').value = '';
-                }
-            } catch (error) {
-                console.error("Erro ao carregar dados financeiros:", error);
-                financialDataError.textContent = `Erro ao carregar dados financeiros: ${error.message}`;
-                financialDataDisplay.innerHTML = 'Erro ao carregar dados.';
+            if (!requiresAuth || auth.currentUser) {
+                contentFrame.src = page;
+                contentFrame.style.display = 'block';
+                accessDeniedMessage.style.display = 'none';
+                bannedMessage.style.display = 'none';
+            } else {
+                contentFrame.src = "about:blank";
+                contentFrame.style.display = 'none';
+                accessDeniedMessage.style.display = 'block';
+                bannedMessage.style.display = 'none';
+                alert("Você precisa estar logado para acessar esta página.");
             }
         }
 
-        /**
-         * Lida com o envio do formulário de dados financeiros.
-         */
-        financialDataForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            if (!currentUser || !currentUserIsAdmin) {
-                alert("Você não tem permissão para salvar dados financeiros.");
-                return;
+        navLinks.forEach(link => {
+            if (!link.dataset.pageSrc && !link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                return; // Ignora links sem data-page-src, a menos que seja o PDF de políticas
             }
 
-            const monthYearId = currentMonthYearInput.value;
-            const monthlyCost = parseFloat(document.getElementById('monthlyCost').value);
-            const monthlyRevenue = parseFloat(document.getElementById('monthlyRevenue').value);
+            link.addEventListener('click', function(event) {
+                const pageSrc = this.dataset.pageSrc || this.href;
+                const requiresAuth = this.dataset.requiresAuth === 'true';
 
-            if (isNaN(monthlyCost) || isNaN(monthlyRevenue)) {
-                alert("Por favor, insira valores numéricos válidos para Custo e Receita.");
-                return;
-            }
-
-            try {
-                const docRef = db.collection('financialData').doc(monthYearId);
-                const dataToSave = {
-                    monthlyCost: monthlyCost,
-                    monthlyRevenue: monthlyRevenue,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    editorUid: currentUser.uid
-                };
-
-                // Verifica se o documento já existe para decidir entre set ou update
-                const docSnap = await docRef.get();
-                if (docSnap.exists) {
-                    await docRef.update(dataToSave);
-                    console.log("Dados financeiros atualizados com sucesso!");
-                } else {
-                    await docRef.set(dataToSave);
-                    console.log("Novos dados financeiros criados com sucesso!");
+                // Se o usuário está banido, impede a navegação para qualquer página que não seja políticas
+                // A navegação para recepcao.html para banidos será controlada pelo setNavLinksEnabled e o loadPage inicial
+                if (isCurrentUserBanned && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    event.preventDefault(); // Impede a navegação
+                    // Não é necessário chamar loadPage aqui, pois a UI já estará mostrando a mensagem de banido.
+                    return;
                 }
 
-                alert("Dados financeiros salvos com sucesso!");
-                loadCurrentFinancialData(); // Recarrega os dados para exibição
-            } catch (error) {
-                console.error("Erro ao salvar dados financeiros:", error);
-                alert(`Erro ao salvar dados financeiros: ${error.message}`);
-            }
+                // Impede a navegação se o link está desabilitado e não for as políticas
+                if (this.classList.contains('disabled') && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                     event.preventDefault();
+                     return;
+                }
+
+                if (pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    // Para o link do PDF, permite a abertura em nova aba sem modificar o iframe
+                    return;
+                }
+
+                event.preventDefault(); // Previne a navegação padrão para links de data-page-src
+                loadPage(pageSrc, requiresAuth);
+                if (document.querySelector('.mdl-layout__drawer.is-visible')) {
+                    document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
+                    document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
+                }
+            });
         });
 
-        // --- Gerenciamento de Autenticação ---
+        function setNavLinksEnabled(enabled) {
+            // Desativa/ativa links do menu lateral
+            navLinks.forEach(link => {
+                // O link das políticas é o ÚNICO que NUNCA é desativado
+                if (link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    link.classList.remove('disabled');
+                } else {
+                    const requiresAuth = link.dataset.requiresAuth === 'true';
+                    if (enabled && !isCurrentUserBanned) {
+                        link.classList.remove('disabled');
+                    } else if (!enabled && !requiresAuth) {
+                        // Mantém habilitado se não requer auth e não está logado,
+                        // mas AGORA DESABILITA se o usuário estiver banido, mesmo que não exija auth.
+                        if (isCurrentUserBanned) {
+                            link.classList.add('disabled');
+                        } else {
+                            link.classList.remove('disabled');
+                        }
+                    } else {
+                        link.classList.add('disabled'); // Desabilita por padrão se não atende as condições
+                    }
+                }
+            });
+
+            // Desativa/ativa links do popup do Google Apps
+            googleAppsLinks.forEach(link => {
+                if (enabled && !isCurrentUserBanned) {
+                    link.classList.remove('disabled');
+                } else {
+                    link.classList.add('disabled');
+                }
+            });
+        }
+
+        async function createUserProfileDocument(user) {
+            if (!user) return;
+
+            const userRef = firestore.collection('users').doc(user.uid);
+            const docSnapshot = await userRef.get();
+
+            if (!docSnapshot.exists) {
+                const { displayName, email, photoURL } = user;
+                const createdAt = firebase.firestore.FieldValue.serverTimestamp();
+
+                try {
+                    await userRef.set({
+                        uid: user.uid,
+                        name: displayName,
+                        email: email,
+                        profilePictureUrl: photoURL,
+                        createdAt: createdAt,
+                        lastLoginAt: createdAt,
+                        isBan: false,
+                        isAdmin: false,
+                    });
+                    console.log("Novo perfil de usuário criado no Firestore!");
+                } catch (error) {
+                    console.error("Erro ao criar perfil de usuário no Firestore:", error);
+                }
+            } else {
+                try {
+                    await userRef.update({
+                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log("Perfil de usuário atualizado no Firestore (lastLoginAt).");
+                } catch (error) {
+                    console.error("Erro ao atualizar perfil de usuário no Firestore:", error);
+                }
+            }
+        }
+
+        async function loadAndApplyUserAppsCSS(userId) {
+            try {
+                customAppCssStyleTag.innerHTML = '';
+
+                const userAppsSnapshot = await firestore.collection('users').doc(userId)
+                    .collection('listasecundariah')
+                    .where('tipo', '==', 'Aparência')
+                    .where('status', '==', 'ativo')
+                    .get();
+
+                let combinedCSS = '';
+                if (!userAppsSnapshot.empty) {
+                    for (const doc of userAppsSnapshot.docs) {
+                        const appId = doc.id;
+                        const appDoc = await firestore.collection('aplicativo').doc(appId).get();
+
+                        if (appDoc.exists && appDoc.data().codigoAplicativo) {
+                            const appCode = appDoc.data().codigoAplicativo;
+                            const cssMatch = appCode.match(/\|CSS\|:\s*\n\+\+([\s\S]*?)-\+/);
+                            if (cssMatch && cssMatch[1]) {
+                                combinedCSS += cssMatch[1].trim() + '\n';
+                            }
+                        }
+                    }
+                }
+
+                if (combinedCSS) {
+                    customAppCssStyleTag.innerHTML = combinedCSS;
+                    console.log("CSS de aplicativos do usuário aplicado.");
+                } else {
+                    console.log("Nenhum aplicativo de aparência ativo ou CSS encontrado para o usuário.");
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar/aplicar CSS de aplicativos do usuário:", error);
+            }
+        }
 
         auth.onAuthStateChanged(async (user) => {
-            currentUser = user;
-            loadingMessageDiv.style.display = 'none'; // Esconde a mensagem de carregamento
-
             if (user) {
-                userStatusSpan.textContent = 'Autenticado';
-                userEmailSpan.textContent = user.email;
-                signOutButton.style.display = 'inline-block';
-                signInButton.style.display = 'none';
+                userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
+                loginGoogleButton.style.display = 'none';
+                loginGitHubButton.style.display = 'none';
 
-                // Verifica se o email do usuário é verificado
-                if (user.emailVerified) {
-                    console.log("Email verificado.");
-                    // Tenta atualizar o lastLoginAt do usuário no Firestore
-                    try {
-                        await db.collection('users').doc(user.uid).update({
-                            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log("Perfil de usuário atualizado no Firestore (lastLoginAt).");
-                    } catch (error) {
-                        console.error("Erro ao atualizar lastLoginAt:", error);
-                        // Isso pode acontecer se o documento 'users/{uid}' não existir
-                        // Ou se as regras não permitirem a escrita
-                    }
-
-                    // Verifica o status de admin
-                    currentUserIsAdmin = await checkAdminStatus();
-                    isAdminStatusSpan.textContent = currentUserIsAdmin ? 'Sim' : 'Não';
-
-                    if (currentUserIsAdmin) {
-                        adminContentDiv.style.display = 'block'; // Mostra conteúdo de admin
-                        loadCurrentFinancialData(); // Carrega os dados financeiros se for admin
-                    } else {
-                        adminContentDiv.style.display = 'none'; // Esconde se não for admin
-                        financialDataDisplay.innerHTML = 'Você não tem permissão para ver/editar dados financeiros.';
-                    }
-
-                    loadAndApplyUserAppsCSS(); // Tenta carregar o CSS para todos os usuários logados
+                if (user.photoURL) {
+                    userProfilePic.src = user.photoURL;
+                    userProfilePic.style.display = 'inline-block';
                 } else {
-                    userStatusSpan.textContent = 'Autenticado (Email NÃO Verificado)';
-                    isAdminStatusSpan.textContent = 'Não'; // Não é admin se email não for verificado (pela sua regra isEmailVerified)
-                    adminContentDiv.style.display = 'none';
-                    financialDataDisplay.innerHTML = 'Por favor, verifique seu e-mail para acessar os recursos.';
-                    console.warn("Usuário logado, mas email não verificado.");
-                    // Opcional: oferecer reenvio de e-mail de verificação
+                    userProfilePic.style.display = 'none';
+                }
+                googleAppsButton.style.display = 'inline-block';
+                userInfoContainer.style.display = 'flex';
+
+                await createUserProfileDocument(user);
+
+                let isUserBanned = false;
+                let isUserAdmin = false;
+
+                try {
+                    const userProfileRef = firestore.collection('users').doc(user.uid);
+                    const doc = await userProfileRef.get();
+
+                    if (doc.exists && doc.data()) {
+                        isUserBanned = doc.data().isBan || false;
+                        isUserAdmin = doc.data().isAdmin || false;
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar perfil de usuário ou status de banimento/admin:", error);
+                    isUserBanned = false;
+                    isUserAdmin = false;
+                }
+
+                isCurrentUserBanned = isUserBanned;
+
+                if (isUserBanned) {
+                    console.warn(`Usuário ${user.uid} está banido.`);
+                    setNavLinksEnabled(false); // Desabilita todos os links (incluindo Página Inicial e popup)
+                    logoutButton.style.display = 'none';
+                    logoutButton.removeEventListener('click', handleLogout);
+                    adminPanelButton.style.display = 'none';
+                    loadPage('recepcao.html', false); // Carrega a página de recepção, mas a mensagem de banido será mostrada
+                    bannedMessage.style.display = 'block';
+                    contentFrame.style.display = 'none'; // Esconde o iframe
+                    googleAppsButton.style.pointerEvents = 'none';
+                    googleAppsButton.style.opacity = '0.6';
+                    googleAppsPopup.style.display = 'none';
+                } else {
+                    setNavLinksEnabled(true); // Habilita os links normais (incluindo Página Inicial e popup)
+                    logoutButton.style.display = 'inline-block';
+                    logoutButton.removeEventListener('click', handleLogout);
+                    logoutButton.addEventListener('click', handleLogout);
+                    bannedMessage.style.display = 'none';
+                    contentFrame.style.display = 'block';
+                    accessDeniedMessage.style.display = 'none';
+                    googleAppsButton.style.pointerEvents = 'auto';
+                    googleAppsButton.style.opacity = '1';
+
+                    if (isUserAdmin) {
+                        adminPanelButton.style.display = 'inline-block';
+                    } else {
+                        adminPanelButton.style.display = 'none';
+                    }
+
+                    await loadAndApplyUserAppsCSS(user.uid);
+
+                    const clientId = user.uid;
+
+                    try {
+                        const clientDoc = await firestore.collection('clients').doc(clientId).get();
+
+                        if (clientDoc.exists) {
+                            loadPage('informacoes_cliente/?uid=' + clientId, true);
+                        } else {
+                            loadPage('cadastro_cliente/?uid=' + clientId, true);
+                        }
+                    } catch (error) {
+                        console.error("Erro ao verificar cadastro do cliente no Firestore:", error);
+                        loadPage('cadastro_cliente/?uid=' + clientId, true);
+                    }
                 }
 
             } else {
-                userStatusSpan.textContent = 'Não Autenticado';
-                userEmailSpan.textContent = 'N/A';
-                isAdminStatusSpan.textContent = 'Não';
-                signOutButton.style.display = 'none';
-                signInButton.style.display = 'inline-block';
-                adminContentDiv.style.display = 'none'; // Esconde o conteúdo de admin
-                financialDataDisplay.innerHTML = 'Faça login para acessar os dados.';
+                userInfo.textContent = '';
+                loginGoogleButton.style.display = 'inline-block';
+                loginGitHubButton.style.display = 'inline-block';
+                logoutButton.style.display = 'none';
+                adminPanelButton.style.display = 'none';
+                isCurrentUserBanned = false;
+                bannedMessage.style.display = 'none';
+                setNavLinksEnabled(false); // Desabilita todos os links que requerem autenticação (incluindo Página Inicial e popup)
+                loadPage('recepcao.html', false); // Tela inicial para deslogados
+                userProfilePic.style.display = 'none';
+                userProfilePic.src = '';
+                googleAppsButton.style.display = 'none';
+                userInfoContainer.style.display = 'none';
+                googleAppsPopup.style.display = 'none';
+                customAppCssStyleTag.innerHTML = '';
+                contentFrame.style.display = 'block';
+                accessDeniedMessage.style.display = 'none';
             }
         });
 
-        // --- Botões de Exemplo (Para teste, remova em produção ou use seu sistema de login real) ---
-        signInButton.addEventListener('click', async () => {
-            // Este é um exemplo simplificado de login ANÔNIMO para fins de teste.
-            // Em um app real, você usaria login com email/senha, Google, etc.
-            try {
-                await auth.signInAnonymously();
-                console.log("Usuário logado anonimamente (para teste).");
-                alert("Login anônimo realizado. Lembre-se que você precisa de um usuário com email verificado e isAdmin: true no Firestore para ver o conteúdo de admin.");
-            } catch (error) {
-                console.error("Erro ao tentar login:", error);
-                alert("Erro ao fazer login: " + error.message);
-            }
-        });
-
-        signOutButton.addEventListener('click', async () => {
-            try {
-                await auth.signOut();
+        const handleLogout = () => {
+            auth.signOut().then(() => {
                 console.log("Usuário deslogado.");
-                alert("Deslogado com sucesso!");
-            } catch (error) {
+            }).catch((error) => {
                 console.error("Erro ao fazer logout:", error);
-                alert("Erro ao fazer logout: " + error.message);
+                alert(`Erro ao fazer logout: ${error.message}`);
+            });
+        };
+
+        loginGoogleButton.addEventListener('click', async () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error("Erro ao fazer login com Google:", error);
+                alert(`Erro ao fazer login com Google: ${error.message}`);
             }
         });
 
-        // Inicializa o input do mês/ano ao carregar a página
-        document.addEventListener('DOMContentLoaded', () => {
-            currentMonthYearInput.value = getCurrentMonthYearId();
+        loginGitHubButton.addEventListener('click', async () => {
+            const provider = new firebase.auth.GithubAuthProvider();
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error("Erro ao fazer login com GitHub:", error);
+                alert(`Erro ao fazer login com GitHub: ${error.message}`);
+            }
         });
 
+        googleAppsButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (googleAppsPopup.style.display === 'block') {
+                googleAppsPopup.style.display = 'none';
+            } else {
+                googleAppsPopup.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', (event) => {
+            if (googleAppsPopup.style.display === 'block' &&
+                !googleAppsButton.contains(event.target) &&
+                !googleAppsPopup.contains(event.target)) {
+                googleAppsPopup.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
     </script>
 </body>
 </html>
