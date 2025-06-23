@@ -22,7 +22,8 @@
         }
 
         /* Estilos adicionais para os links do menu lateral quando desabilitados */
-        .mdl-navigation__link.disabled {
+        .mdl-navigation__link.disabled,
+        #google-apps-popup a.disabled { /* Adicionado seletor para links do popup */
             cursor: not-allowed;
             opacity: 0.6;
             color: #777 !important; /* Adicionado !important para sobrepor estilos do MDL */
@@ -199,6 +200,7 @@
         const accessDeniedMessage = document.getElementById('access-denied-message');
         const bannedMessage = document.getElementById('banned-message'); 
         const navLinks = document.querySelectorAll('.mdl-navigation__link'); 
+        const googleAppsLinks = document.querySelectorAll('#google-apps-popup a'); // Nova referência para os links do popup
 
         const userProfilePic = document.getElementById('user-profile-pic');
         const googleAppsButton = document.getElementById('google-apps-button');
@@ -275,20 +277,28 @@
         });
 
         function setNavLinksEnabled(enabled) {
+            // Desativa/ativa links do menu lateral
             navLinks.forEach(link => {
                 // A página de recepção e o link das políticas NUNCA são desativados
                 if (link.dataset.pageSrc === 'recepcao.html' || link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { 
                     link.classList.remove('disabled');
-                    return;
+                } else {
+                    const requiresAuth = link.dataset.requiresAuth === 'true';
+                    if (enabled && !isCurrentUserBanned) {
+                        link.classList.remove('disabled');
+                    } else if (!enabled && !requiresAuth) {
+                        link.classList.remove('disabled'); // Mantém habilitado se não requer auth e não está logado
+                    } else {
+                        link.classList.add('disabled');
+                    }
                 }
+            });
 
-                const requiresAuth = link.dataset.requiresAuth === 'true';
-
-                if (enabled && !isCurrentUserBanned) { // Habilita se o usuário estiver logado E NÃO banido
+            // Desativa/ativa links do popup do Google Apps
+            googleAppsLinks.forEach(link => {
+                if (enabled && !isCurrentUserBanned) {
                     link.classList.remove('disabled');
-                } else if (!enabled && !requiresAuth) { // Desabilita se não estiver logado, mas NÃO requer autenticação
-                    link.classList.remove('disabled'); // Na verdade, mantém habilitado se não requer auth
-                } else { // Desabilita em todos os outros casos (banido OU não logado e requer auth)
+                } else {
                     link.classList.add('disabled');
                 }
             });
@@ -420,7 +430,7 @@
                 // --- Lógica para o status de banimento ---
                 if (isUserBanned) {
                     console.warn(`Usuário ${user.uid} está banido.`);
-                    setNavLinksEnabled(false); // Desabilita todos os links (exceto recepção e políticas)
+                    setNavLinksEnabled(false); // Desabilita todos os links (incluindo popup)
                     logoutButton.style.display = 'none'; // Desabilita o logout (para evitar ciclo)
                     logoutButton.removeEventListener('click', handleLogout); // Garante que o handler não esteja duplicado
                     adminPanelButton.style.display = 'none';
@@ -428,15 +438,20 @@
                     loadPage('recepcao.html', false); 
                     bannedMessage.style.display = 'block';
                     contentFrame.style.display = 'none'; // Esconde o iframe quando banido
+                    googleAppsButton.style.pointerEvents = 'none'; // Desativa o clique no botão do Google Apps
+                    googleAppsButton.style.opacity = '0.6'; // Diminui a opacidade do botão do Google Apps
+                    googleAppsPopup.style.display = 'none'; // Garante que o popup esteja escondido
                 } else {
                     // Usuário NÃO está banido
-                    setNavLinksEnabled(true); // Habilita os links normais
+                    setNavLinksEnabled(true); // Habilita os links normais (incluindo popup)
                     logoutButton.style.display = 'inline-block';
                     logoutButton.removeEventListener('click', handleLogout); // Garante que o handler não esteja duplicado
                     logoutButton.addEventListener('click', handleLogout);
                     bannedMessage.style.display = 'none';
                     contentFrame.style.display = 'block'; // Mostra o iframe
                     accessDeniedMessage.style.display = 'none'; // Garante que a mensagem de acesso negado não apareça
+                    googleAppsButton.style.pointerEvents = 'auto'; // Reativa o clique no botão do Google Apps
+                    googleAppsButton.style.opacity = '1'; // Restaura a opacidade do botão do Google Apps
 
                     if (isUserAdmin) { // Usa a flag isUserAdmin
                         adminPanelButton.style.display = 'inline-block';
@@ -473,7 +488,7 @@
                 adminPanelButton.style.display = 'none';
                 isCurrentUserBanned = false; // Garante que a flag de banimento seja falsa para deslogados
                 bannedMessage.style.display = 'none';
-                setNavLinksEnabled(false); // Desabilita links que requerem autenticação
+                setNavLinksEnabled(false); // Desabilita links que requerem autenticação (incluindo popup)
                 loadPage('recepcao.html', false); // Tela inicial para deslogados
 
                 userProfilePic.style.display = 'none';
@@ -537,8 +552,6 @@
             if (componentHandler) {
                 componentHandler.upgradeDom();
             }
-            // A carga inicial da página será tratada pelo onAuthStateChanged
-            // loadPage('recepcao.html', false); 
         });
     </script>
 </body>
