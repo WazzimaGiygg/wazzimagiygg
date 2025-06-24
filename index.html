@@ -1,7 +1,356 @@
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiki Zone Zero Mod</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style id="custom-app-css">
+        /* Este será o local onde o CSS dos aplicativos do usuário será injetado */
+    </style>
+    <style>
+        /* Seus estilos CSS existentes aqui */
+        body {
+            display: flex; /*  */
+            flex-direction: column; /*  */
+            min-height: 100vh; /*  */
+            margin: 0; /*  */
+            font-family: 'Roboto', sans-serif; /*  */
+            background-color: #f5f5f5; /*  */
+        }
+        .mdl-layout__content {
+            flex-grow: 1; /*  */
+            display: flex; /*  */
+            flex-direction: column; /* Para iframe preencher o espaço  */
+            padding: 0; /*  */
+        }
+        .page-content {
+            flex-grow: 1; /*  */
+            padding: 20px; /*  */
+            display: flex; /*  */
+            flex-direction: column; /*  */
+            align-items: center; /*  */
+            justify-content: flex-start; /*  */
+        }
+        #contentFrame {
+            width: 100%; /*  */
+            flex-grow: 1; /*  */
+            border: none; /*  */
+            min-height: calc(100vh - 250px); /*  */
+        }
+
+        /* Estilos adicionais para os links do menu lateral quando desabilitados */
+        .mdl-navigation__link.disabled,
+        #google-apps-popup a.disabled {
+            cursor: not-allowed; /*  */
+            opacity: 0.6; /*  */
+            color: #777 !important; /*  */
+            pointer-events: none; /*  */
+        }
+
+        /* Estilos para a imagem de perfil e ícone do Google Apps */
+        #user-profile-pic {
+            width: 32px; /*  */
+            height: 32px; /*  */
+            border-radius: 50%; /*  */
+            margin-right: 8px; /*  */
+            object-fit: cover; /*  */
+        }
+        #google-apps-button {
+            min-width: 32px; /*  */
+            height: 32px; /*  */
+            padding: 0; /*  */
+            display: flex; /*  */
+            align-items: center; /*  */
+            justify-content: center; /*  */
+        }
+        /* Estilos para o pop-up dos serviços Google */
+        #google-apps-popup {
+            display: none; /*  */
+            position: absolute; /*  */
+            top: 48px; /*  */
+            right: 0; /*  */
+            background-color: white; /*  */
+            border: 1px solid #ccc; /*  */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); /*  */
+            z-index: 100; /*  */
+            padding: 10px; /*  */
+            min-width: 180px; /*  */
+            border-radius: 4px; /*  */
+            flex-direction: column; /*  */
+        }
+        #google-apps-popup a.mdl-button {
+            margin-bottom: 4px; /*  */
+            justify-content: flex-start; /*  */
+        }
+
+        /* --- NOVOS ESTILOS PARA NOTIFICAÇÕES (Sino e Popup da Central) --- */
+
+        #notification-bell-button {
+            position: relative; /* Para o badge de notificação */
+            margin-right: 8px;
+            display: none; /* Inicialmente escondido, mostrado ao logar */
+        }
+
+        #notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: #f44336; /* Vermelho vibrante */
+            color: white;
+            border-radius: 50%;
+            padding: 3px 6px;
+            font-size: 10px;
+            line-height: 1;
+            min-width: 18px;
+            text-align: center;
+            display: none; /* Escondido por padrão, aparece com notificações */
+        }
+
+        #notifications-center-popup {
+            display: none; /* Escondido por padrão */
+            position: absolute; /* Posicionado absolutamente dentro do header ou fixed na tela */
+            top: 48px; /* Ajuste para aparecer abaixo do header */
+            right: 0;
+            width: 350px;
+            max-height: 80vh; /* Altura máxima para não estourar a tela */
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 999;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #notifications-popup-header {
+            background-color: #3f51b5; /* Cor primária do MDL */
+            color: white;
+            padding: 10px 15px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8 فرد;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        #notifications-popup-header .close-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        #notifications-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            flex-grow: 1;
+            overflow-y: auto; /* Rolagem para a lista de notificações */
+        }
+
+        .notification-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: flex-start;
+        }
+        .notification-item:last-child {
+            border-bottom: none;
+        }
+        .notification-item:hover {
+            background-color: #f0f0f0;
+        }
+        .notification-item.unread {
+            background-color: #e3f2fd; /* Azul claro para não lidas */
+            font-weight: bold;
+        }
+        .notification-item .icon {
+            font-size: 24px;
+            margin-right: 10px;
+            color: #3f51b5;
+        }
+        .notification-item .content {
+            flex-grow: 1;
+        }
+        .notification-item .title {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .notification-item .snippet {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+        .notification-item .timestamp {
+            font-size: 12px;
+            color: #999;
+            text-align: right;
+            margin-top: 5px;
+        }
+        .notification-item.unread .title, .notification-item.unread .snippet {
+            color: #000;
+        }
+        .no-notifications {
+            padding: 20px;
+            text-align: center;
+            color: #777;
+        }
+
+        /* Removendo estilos do mini-chat antigo */
+        #mini-chat-container,
+        #mini-chat-header,
+        #mini-chat-content,
+        #mini-chat-list,
+        .mini-chat-list-item,
+        .mini-chat-list-item-info,
+        .mini-chat-list-item .unread-count,
+        #mini-chat-messages-view,
+        .mini-message-bubble,
+        .mini-message-meta,
+        #mini-chat-input-area,
+        #mini-message-input,
+        #mini-send-button,
+        #mini-chat-back-button,
+        #mini-chat-header-text,
+        .chat-state-message {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+        <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title">Wiki Zone Zero Mod</span>
+                <div class="mdl-layout-spacer"></div>
+    
+                <div style="position: relative; display: flex; align-items: center;">
+                    <button class="mdl-button mdl-js-button mdl-button--icon" id="notification-bell-button" style="display: none;">
+                        <i class="material-icons">notifications</i>
+                        <span id="notification-badge"></span>
+                    </button>
+                    <div id="notifications-center-popup">
+                        <div id="notifications-popup-header">
+                            <span>Central de Notificações</span>
+                            <button class="close-button" id="close-notifications-popup-button">&times;</button>
+                        </div>
+                        <ul id="notifications-list">
+                            <li class="no-notifications">Nenhuma notificação recente.</li>
+                        </ul>
+                    </div>
+
+                    <button class="mdl-button mdl-js-button mdl-button--icon" id="google-apps-button" style="display: none; margin-right: 8px;">
+                        <i class="material-icons">apps</i>
+                    </button>
+                    <div id="google-apps-popup">
+                        <a href="https://mail.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Gmail</a>
+                        <a href="https://drive.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Drive</a>
+                        <a href="https://calendar.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Agenda</a>
+                        <a href="https://photos.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Fotos</a>
+                        <a href="https://www.youtube.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">YouTube</a>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
+                        <a href="https://myaccount.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Minha Conta Google</a>
+                    </div>
+                    <div id="user-info-container" style="display: flex; align-items: center;">
+                        <img id="user-profile-pic" src="" alt="Foto de Perfil" style="display: none;">
+                        <div id="user-info" class="mdl-typography--body-1-force-preferred-font-color-contrast"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="mdl-layout__drawer">
+            <span class="mdl-layout-title">Menu</span>
+            <nav class="mdl-navigation" id="main-navigation">
+                <a class="mdl-navigation__link" href="#" data-page-src="recepcao.html" data-requires-auth="false">Página Inicio</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="artigos.html">Artigos</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="artigosdesaudementalgerados.html">Artigos Automáticos de Ensaio</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="imagens.html">Imagens</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./cw22.html">Client WZZM</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="contato.html">Contato</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./buscaavancada/index.html">Busca Avançada</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="ferramentasuteis.html">Ferramentas Úteis</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/">Página do Usuário</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/denunciar/">Rastrear usuário / Denunciar</a>
+                <a class="mdl-navigation__link" href="https://wikizero.wzzm.org/">Transparência</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="servicoswzzm.html">Outros serviços da Wiki Zone Zero Mod</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="forum.html">Fórum</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="visualizarnoticias.html">Visualizar Noticias</a>
+
+                <a class="mdl-navigation__link" href="http://www.wzzm.org/POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf" target="_blank">Políticas da WZZM</a>
+                <a class="mdl-navigation__link" href="#" data-page-src="cadastro-aplicativo.html" data-requires-auth="true">
+                    <i class="material-icons">developer_mode</i> Cadastrar Aplicativo
+                </a>
+                <a class="mdl-navigation__link" href="#" data-page-src="meus-aplicativos.html" data-requires-auth="true">
+                    <i class="material-icons">apps</i> Meus Aplicativos
+                </a>
+            </nav>
+        </div>
+
+        <main class="mdl-layout__content">
+            <div class="page-content">
+                <div class="separator" style="clear: both; text-align: center;">
+                    <a href="https://static.wikitide.net/wikimetrospwiki/thumb/8/88/Wiki_Zone_Zero_Mod_Banner.png/1920px-Wiki_Zone_Zero_Mod_Banner.png" style="display: block; padding: 1em 0;">
+                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlpD_OswxBHJ6BFlZaG4MCEiimtNbLDv4Q6Z-MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
+                    </a>
+                </div>
+                <iframe id="contentFrame" src="recepcao.html"></iframe>
+                <div id="access-denied-message" style="text-align: center; padding: 50px; font-size: 20px; color: #666; display: none;">
+                    Você precisa estar logado para acessar esta página.
+                </div>
+                <div id="banned-message" style="text-align: center; padding: 50px; font-size: 20px; color: red; display: none;">
+                    Sua conta foi banida. Você não pode usar os recursos do site.
+                </div>
+            </div>
+        </main>
+
+        <footer class="mdl-mini-footer">
+            <div class="mdl-mini-footer__left-section">
+                <div class="mdl-logo">WZZM © 2025</div>
+                <ul class="mdl-mini-footer__link-list">
+                    <li><a href="./Privacidade/">Privacidade</a></li>
+                    <li><a href="https://wikizero.wzzm.org/">Doações</a></li>
+                </ul>
+            </div>
+            <div class="mdl-mini-footer__right-section">
+                <button id="login-google" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="display: none;">
+                    <i class="material-icons">account_circle</i> Login com Google
+                </button>
+                <button id="login-github" class="mdl-button mdl-js-button mdl-button--raised" style="display: none;">
+                    <i class="material-icons">code</i> Login com GitHub
+                </button>
+                <button id="logout-button" class="mdl-button mdl-js-button mdl-button--accent" style="display: none;">
+                    <i class="material-icons">exit_to_app</i> Sair
+                </button>
+                <button id="admin-panel-button" class="mdl-button mdl-js-button mdl-button--primary" style="display: none;">
+                    <i class="material-icons">admin_panel_settings</i> Admin
+                </button>
+            </div>
+        </footer>
+    </div>
+
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <script>
         // --- Configuração do Firebase ---
@@ -14,203 +363,527 @@
             appId: "1:249427877153:web:0e4297294794a5aadeb260",
             measurementId: "G-PLKNZNFCQ8"
         };
+
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
+
         const app = firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const firestore = firebase.firestore();
         const analytics = firebase.analytics();
 
-        // Variáveis globais para o estado do usuário e notificações
+        // Elementos da UI
+        const loginGoogleButton = document.getElementById('login-google');
+        const loginGitHubButton = document.getElementById('login-github');
+        const logoutButton = document.getElementById('logout-button');
+        const userInfo = document.getElementById('user-info');
+        const adminPanelButton = document.getElementById('admin-panel-button');
+        const contentFrame = document.getElementById('contentFrame');
+        const accessDeniedMessage = document.getElementById('access-denied-message');
+        const bannedMessage = document.getElementById('banned-message');
+        const navLinks = document.querySelectorAll('.mdl-navigation__link');
+        const googleAppsLinks = document.querySelectorAll('#google-apps-popup a');
+        const userProfilePic = document.getElementById('user-profile-pic');
+        const googleAppsButton = document.getElementById('google-apps-button');
+        const userInfoContainer = document.getElementById('user-info-container');
+        const googleAppsPopup = document.getElementById('google-apps-popup');
+
+        const customAppCssStyleTag = document.getElementById('custom-app-css');
+        let isCurrentUserBanned = false;
         let currentUser = null;
-        let unsubscribeNotifications = null;
+        let unsubscribeNotifications = null; // Listener para notificações
 
-        // --- Funções Auxiliares (Mantenha-as como estão, pois não dependem diretamente de elementos UI na definição) ---
-        // Ex: isAdmin, createUserProfileDocument, loadAndApplyUserAppsCSS, loadPage
-        async function createUserProfileDocument(user) { /* ... seu código ... */ }
-        async function loadAndApplyUserAppsCSS(userUid) { /* ... seu código ... */ }
-        function loadPage(url) {
-            document.getElementById('main-iframe').src = url;
+        // --- NOVOS ELEMENTOS PARA NOTIFICAÇÕES ---
+        const notificationBellButton = document.getElementById('notification-bell-button');
+        const notificationBadge = document.getElementById('notification-badge');
+        const notificationsCenterPopup = document.getElementById('notifications-center-popup');
+        const closeNotificationsPopupButton = document.getElementById('close-notifications-popup-button');
+        const notificationsList = document.getElementById('notifications-list');
+
+
+        // --- Funções Auxiliares (EXISTENTES) ---
+        function loadPage(page, requiresAuth = true) {
+            if (isCurrentUserBanned && page !== 'recepcao.html' && !page.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                contentFrame.src = "about:blank"; /*  */
+                contentFrame.style.display = 'none'; /*  */
+                accessDeniedMessage.style.display = 'none'; /*  */
+                bannedMessage.style.display = 'block'; /*  */
+                return; /*  */
+            }
+
+            if (!requiresAuth || auth.currentUser) {
+                contentFrame.src = page; /*  */
+                contentFrame.style.display = 'block'; /*  */
+                accessDeniedMessage.style.display = 'none'; /*  */
+                bannedMessage.style.display = 'none'; /*  */
+            } else {
+                contentFrame.src = "about:blank"; /*  */
+                contentFrame.style.display = 'none'; /*  */
+                accessDeniedMessage.style.display = 'block'; /*  */
+                bannedMessage.style.display = 'none'; /*  */
+                alert("Você precisa estar logado para acessar esta página."); /*  */
+            }
         }
-        function toggleNotificationsPopup() { /* ... seu código ... */ }
-        function showNotificationsPopup() { /* ... seu código ... */ }
-        function hideNotificationsPopup() { /* ... seu código ... */ }
-        function listenForNotifications(userUid) { /* ... seu código ... */ }
 
-
-        // --- Event Listeners e Elementos da UI - Coloque TUDO AQUI DENTRO ---
-        // Isso garante que o DOM esteja completamente carregado antes de tentar acessá-los.
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- Elementos da UI (Agora seguros para acessar) ---
-            const notificationBellButton = document.getElementById('notification-bell-button');
-            const unreadNotificationsCount = document.getElementById('unread-notifications-count');
-            const notificationsPopup = document.getElementById('notifications-popup');
-            const notificationsList = document.getElementById('notifications-list');
-            const noNotificationsMessage = document.getElementById('no-notifications');
-            const viewAllChatMessagesButton = document.getElementById('view-all-chat-messages-button');
-            const mainIframe = document.getElementById('main-iframe');
-
-            // Autenticação
-            const loginGoogleButton = document.getElementById('login-google');
-            const loginGitHubButton = document.getElementById('login-github');
-            const logoutButton = document.getElementById('logout-button');
-            const adminPanelButton = document.getElementById('admin-panel-button');
-
-            // Google Apps Popup (se existir no seu HTML)
-            const googleAppsButton = document.getElementById('google-apps-button');
-            const googleAppsPopup = document.getElementById('google-apps-popup');
-
-            // Mini-chat (se existir no seu HTML)
-            const chatNotificationButton = document.getElementById('chat-notification-button');
-            const miniChatContainer = document.getElementById('mini-chat-container');
-            const miniChatCloseButton = document.getElementById('mini-chat-close-button');
-
-
-            // --- Funções de Autenticação (Podem estar aqui ou serem chamadas a partir daqui) ---
-            const handleLogout = () => {
-                auth.signOut().then(() => {
-                    console.log("Usuário deslogado.");
-                }).catch((error) => {
-                    console.error("Erro ao fazer logout:", error);
-                    alert(`Erro ao fazer logout: ${error.message}`);
-                });
-            };
-
-            // Event Listeners para autenticação
-            if (loginGoogleButton) { // Verificação para garantir que o elemento existe
-                loginGoogleButton.addEventListener('click', async () => {
-                    const provider = new firebase.auth.GoogleAuthProvider();
-                    try {
-                        await auth.signInWithPopup(provider);
-                    } catch (error) {
-                        console.error("Erro ao fazer login com Google:", error);
-                        alert(`Erro ao fazer login com Google: ${error.message}`);
-                    }
-                });
-            }
-            if (loginGitHubButton) {
-                loginGitHubButton.addEventListener('click', async () => {
-                    const provider = new firebase.auth.GithubAuthProvider();
-                    try {
-                        await auth.signInWithPopup(provider);
-                    } catch (error) {
-                        console.error("Erro ao fazer login com GitHub:", error);
-                        alert(`Erro ao fazer login com GitHub: ${error.message}`);
-                    }
-                });
-            }
-            if (logoutButton) {
-                logoutButton.addEventListener('click', handleLogout);
+        navLinks.forEach(link => {
+            if (!link.dataset.pageSrc && !link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                return;
             }
 
-            // --- Event Listeners para Notificações e Chat ---
-            if (notificationBellButton) {
-                notificationBellButton.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    toggleNotificationsPopup();
-                });
-            }
+            link.addEventListener('click', function(event) {
+                const pageSrc = this.dataset.pageSrc || this.href;
+                const requiresAuth = this.dataset.requiresAuth === 'true'; /*  */
 
-            if (viewAllChatMessagesButton) {
-                viewAllChatMessagesButton.addEventListener('click', () => {
-                    loadPage('chat/');
-                    hideNotificationsPopup();
-                });
-            }
-
-            // Listener global para fechar pop-ups ao clicar fora
-            document.addEventListener('click', (event) => {
-                if (notificationsPopup && notificationsPopup.style.display === 'flex' &&
-                    !notificationBellButton.contains(event.target) &&
-                    !notificationsPopup.contains(event.target)) {
-                    hideNotificationsPopup();
+                if (isCurrentUserBanned && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    event.preventDefault();
+                    return;
                 }
-                if (googleAppsPopup && googleAppsPopup.style.display === 'flex' &&
-                    !googleAppsButton.contains(event.target) &&
-                    !googleAppsPopup.contains(event.target)) {
-                    googleAppsPopup.style.display = 'none';
+
+                if (this.classList.contains('disabled') && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { /*  */
+                    event.preventDefault();
+                    return;
                 }
-                if (miniChatContainer && miniChatContainer.style.display === 'flex' &&
-                    chatNotificationButton && !chatNotificationButton.contains(event.target) &&
-                    !miniChatContainer.contains(event.target)) {
-                    miniChatContainer.style.display = 'none';
+
+                if (pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { /*  */
+                    return;
+                }
+
+                event.preventDefault(); /*  */
+                loadPage(pageSrc, requiresAuth); /*  */
+                if (document.querySelector('.mdl-layout__drawer.is-visible')) {
+                    document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible'); /*  */
+                    document.querySelector('.mdl-layout__drawer').classList.remove('is-visible'); /*  */
                 }
             });
-
-            // --- Inicialização MDL e Polyfill para dialog (se necessário) ---
-            if (componentHandler) {
-                componentHandler.upgradeDom();
-            }
-            // A parte do dialogPolyfill pode ser removida do index.html se você moveu o diálogo para chat.html
-            // Se você ainda tiver diálogos showModal() no index.html, mantenha:
-            // const addContactDialog = document.getElementById('add-contact-dialog'); // Se este diálogo existir no index.html
-            // if (addContactDialog && !addContactDialog.showModal) {
-            //     dialogPolyfill.registerDialog(addContactDialog);
-            // }
         });
 
-        // --- Gerenciamento de Estado de Autenticação (Pode continuar aqui, pois 'auth' é global) ---
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                currentUser = user;
-                console.log("Usuário logado:", user.uid);
-
-                // Acesse os botões diretamente aqui, pois DOMContentLoaded já foi disparado
-                // ou passe-os como parâmetro se a função estiver em outro lugar
-                const loginGoogleButton = document.getElementById('login-google');
-                const loginGitHubButton = document.getElementById('login-github');
-                const logoutButton = document.getElementById('logout-button');
-                const adminPanelButton = document.getElementById('admin-panel-button');
-                const unreadNotificationsCount = document.getElementById('unread-notifications-count'); // Recupere novamente se necessário
-
-                if (loginGoogleButton) loginGoogleButton.style.display = 'none';
-                if (loginGitHubButton) loginGitHubButton.style.display = 'none';
-                if (logoutButton) logoutButton.style.display = 'inline-block';
-
-                await createUserProfileDocument(user);
-                await loadAndApplyUserAppsCSS(user.uid);
-                listenForNotifications(user.uid); // Começa a ouvir notificações
-
-                // Lógica de adminPanelButton aqui, se aplicável
-                firestore.collection('users').doc(user.uid).get().then(doc => {
-                    if (doc.exists && doc.data().isAdmin && adminPanelButton) {
-                        adminPanelButton.style.display = 'inline-block';
-                    } else if (adminPanelButton) {
-                        adminPanelButton.style.display = 'none';
+        function setNavLinksEnabled(enabled) { /*  */
+            navLinks.forEach(link => {
+                if (link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    link.classList.remove('disabled');
+                } else {
+                    const requiresAuth = link.dataset.requiresAuth === 'true';
+                    if (enabled && !isCurrentUserBanned) { /*  */
+                        link.classList.remove('disabled');
+                    } else if (!enabled && !requiresAuth) {
+                        if (isCurrentUserBanned) { /*  */
+                            link.classList.add('disabled');
+                        } else {
+                            link.classList.remove('disabled');
+                        }
+                    } else {
+                        link.classList.add('disabled');
                     }
-                }).catch(error => console.error("Erro ao verificar status de admin:", error));
-
-            } else {
-                currentUser = null;
-                console.log("Usuário deslogado.");
-
-                const loginGoogleButton = document.getElementById('login-google');
-                const loginGitHubButton = document.getElementById('login-github');
-                const logoutButton = document.getElementById('logout-button');
-                const adminPanelButton = document.getElementById('admin-panel-button');
-                const unreadNotificationsCount = document.getElementById('unread-notifications-count');
-                const notificationsList = document.getElementById('notifications-list');
-                const noNotificationsMessage = document.getElementById('no-notifications');
-
-
-                if (loginGoogleButton) loginGoogleButton.style.display = 'inline-block';
-                if (loginGitHubButton) loginGitHubButton.style.display = 'inline-block';
-                if (logoutButton) logoutButton.style.display = 'none';
-                if (adminPanelButton) adminPanelButton.style.display = 'none';
-
-                if (unsubscribeNotifications) {
-                    unsubscribeNotifications(); // Desinscreve-se das notificações ao deslogar
                 }
-                if (unreadNotificationsCount) unreadNotificationsCount.style.display = 'none';
-                if (notificationsList) notificationsList.innerHTML = '';
-                if (noNotificationsMessage) {
-                    noNotificationsMessage.style.display = 'block';
-                    noNotificationsMessage.textContent = 'Faça login para ver as notificações.';
+            });
+            googleAppsLinks.forEach(link => { /*  */
+                if (enabled && !isCurrentUserBanned) {
+                    link.classList.remove('disabled');
+                } else {
+                    link.classList.add('disabled');
+                }
+            });
+        }
+
+        async function createUserProfileDocument(user) { /*  */
+            if (!user) return; /*  */
+            const userRef = firestore.collection('users').doc(user.uid); /*  */
+            const docSnapshot = await userRef.get(); /*  */
+
+            if (!docSnapshot.exists) {
+                const { displayName, email, photoURL } = user; /*  */
+                const createdAt = firebase.firestore.FieldValue.serverTimestamp(); /*  */
+
+                try {
+                    await userRef.set({
+                        uid: user.uid,
+                        name: displayName,
+                        email: email, /*  */
+                        profilePictureUrl: photoURL, /*  */
+                        createdAt: createdAt, /*  */
+                        lastLoginAt: createdAt, /*  */
+                        isBan: false, /*  */
+                        isAdmin: false, /*  */
+                    });
+                    console.log("Novo perfil de usuário criado no Firestore!"); /*  */
+                } catch (error) {
+                    console.error("Erro ao criar perfil de usuário no Firestore:", error); /*  */
+                }
+            } else {
+                try {
+                    await userRef.update({
+                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log("Perfil de usuário atualizado no Firestore (lastLoginAt)."); /*  */
+                } catch (error) {
+                    console.error("Erro ao atualizar perfil de usuário no Firestore:", error); /*  */
                 }
             }
+        }
+
+        async function loadAndApplyUserAppsCSS(userId) { /*  */
+            try {
+                customAppCssStyleTag.innerHTML = ''; /*  */
+                const userAppsSnapshot = await firestore.collection('users').doc(userId) /*  */
+                    .collection('listasecundariah') /*  */
+                    .where('tipo', '==', 'Aparência') /*  */
+                    .where('status', '==', 'ativo') /*  */
+                    .get(); /*  */
+                let combinedCSS = ''; /*  */
+                if (!userAppsSnapshot.empty) { /*  */
+                    for (const doc of userAppsSnapshot.docs) { /*  */
+                        const appId = doc.id; /*  */
+                        const appDoc = await firestore.collection('aplicativo').doc(appId).get(); /*  */
+
+                        if (appDoc.exists && appDoc.data().codigoAplicativo) {
+                            const appCode = appDoc.data().codigoAplicativo; /*  */
+                            const cssMatch = appCode.match(/\|CSS\|:\s*\n\+\+([\s\S]*?)-\+/); /*  */
+                            if (cssMatch && cssMatch[1]) {
+                                combinedCSS += cssMatch[1].trim() + '\n'; /*  */
+                            }
+                        }
+                    }
+                }
+
+                if (combinedCSS) {
+                    customAppCssStyleTag.innerHTML = combinedCSS; /*  */
+                    console.log("CSS de aplicativos do usuário aplicado.");
+                } else {
+                    console.log("Nenhum aplicativo de aparência ativo ou CSS encontrado para o usuário."); /*  */
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar/aplicar CSS de aplicativos do usuário:", error); /*  */
+            }
+        }
+
+        // --- Funções de Notificação (NOVAS / MODIFICADAS) ---
+
+        // Função para atualizar o contador de notificações não lidas no sino
+        function updateNotificationBadge(count) {
+            if (count > 0) {
+                notificationBadge.textContent = count;
+                notificationBadge.style.display = 'block';
+            } else {
+                notificationBadge.textContent = '0';
+                notificationBadge.style.display = 'none';
+            }
+        }
+
+        // Listener para monitorar notificações não lidas no Firestore
+        function listenForNotifications() {
+            if (!currentUser) {
+                updateNotificationBadge(0);
+                if (unsubscribeNotifications) {
+                    unsubscribeNotifications();
+                    unsubscribeNotifications = null;
+                }
+                notificationsList.innerHTML = '<li class="no-notifications">Faça login para ver as notificações.</li>';
+                return;
+            }
+
+            // Desinscreve-se de um listener anterior, se houver
+            if (unsubscribeNotifications) {
+                unsubscribeNotifications();
+            }
+
+            const notificationsRef = firestore.collection('users').doc(currentUser.uid).collection('notifications');
+
+            unsubscribeNotifications = notificationsRef.orderBy('timestamp', 'desc').onSnapshot(snapshot => {
+                notificationsList.innerHTML = ''; // Limpa a lista existente
+                let unreadCount = 0;
+
+                if (snapshot.empty) {
+                    notificationsList.innerHTML = '<li class="no-notifications">Nenhuma notificação recente.</li>';
+                } else {
+                    snapshot.forEach(doc => {
+                        const notification = doc.data();
+                        const notificationId = doc.id;
+
+                        if (!notification.read) {
+                            unreadCount++;
+                        }
+
+                        const listItem = document.createElement('li');
+                        listItem.classList.add('notification-item');
+                        if (!notification.read) {
+                            listItem.classList.add('unread');
+                        }
+                        listItem.dataset.notificationId = notificationId;
+                        listItem.dataset.type = notification.type;
+                        if (notification.chatId) listItem.dataset.chatId = notification.chatId;
+
+                        const timestampDate = notification.timestamp ? notification.timestamp.toDate() : new Date();
+                        const timeString = timestampDate.toLocaleString([], {
+                            year: 'numeric', month: 'numeric', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                        });
+
+                        let iconHtml = '<i class="material-icons icon">notifications_none</i>';
+                        let title = 'Notificação';
+                        let snippet = notification.message || notification.messageSnippet || 'Nenhuma descrição.';
+
+                        if (notification.type === 'new_message') {
+                            iconHtml = '<i class="material-icons icon">chat</i>';
+                            title = `Nova Mensagem de ${notification.senderName || 'Desconhecido'}`;
+                        } else if (notification.type === 'system_alert') {
+                            iconHtml = '<i class="material-icons icon">info</i>';
+                            title = notification.title || 'Alerta do Sistema';
+                        }
+                        // Adicione mais tipos de notificação aqui
+
+                        listItem.innerHTML = `
+                            ${iconHtml}
+                            <div class="content">
+                                <div class="title">${title}</div>
+                                <div class="snippet">${snippet}</div>
+                                <div class="timestamp">${timeString}</div>
+                            </div>
+                        `;
+                        notificationsList.appendChild(listItem);
+
+                        listItem.addEventListener('click', async () => {
+                            // Marcar notificação como lida
+                            if (!notification.read) {
+                                try {
+                                    await notificationsRef.doc(notificationId).update({ read: true });
+                                    console.log('Notificação marcada como lida:', notificationId);
+                                } catch (error) {
+                                    console.error('Erro ao marcar notificação como lida:', error);
+                                }
+                            }
+
+                            // Ação baseada no tipo de notificação
+                            if (notification.type === 'new_message' && notification.chatId) {
+                                // Redirecionar para a página de chat
+                                loadPage(`chat.html?uid=${currentUser.uid}&chatId=${notification.chatId}`, true);
+                            } else {
+                                // Para outros tipos, pode exibir um modal maior ou ir para uma página de detalhes
+                                alert(`Você clicou em uma notificação:\nTipo: ${notification.type}\nTítulo: ${title}\nMensagem: ${snippet}`);
+                            }
+                            hideNotificationsPopup(); // Esconde o popup após clicar
+                        });
+                    });
+                }
+                updateNotificationBadge(unreadCount);
+            }, error => {
+                console.error("Erro ao carregar notificações:", error);
+                notificationsList.innerHTML = '<li class="no-notifications" style="color: red;">Erro ao carregar notificações.</li>';
+                updateNotificationBadge(0);
+            });
+        }
+
+        // Função para criar uma notificação (principalmente para uso do backend ou do chat.html)
+        async function createNotification(uid, notificationData) {
+            if (!uid) {
+                console.error("UID do usuário é necessário para criar notificação.");
+                return;
+            }
+            try {
+                await firestore.collection('users').doc(uid).collection('notifications').add({
+                    ...notificationData,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false
+                });
+                console.log("Notificação criada para", uid);
+            } catch (error) {
+                console.error("Erro ao criar notificação:", error);
+            }
+        }
+
+
+        // --- Event Listeners do Sino e Popup de Notificações ---
+
+        notificationBellButton.addEventListener('click', (event) => {
+            event.stopPropagation(); // Evita que o clique feche o popup imediatamente
+            if (notificationsCenterPopup.style.display === 'flex') {
+                hideNotificationsPopup();
+            } else {
+                notificationsCenterPopup.style.display = 'flex';
+                // Garante que as notificações mais recentes sejam carregadas ao abrir
+                // fetchAndRenderNotifications() já está no onSnapshot, então ele já atualiza automaticamente.
+            }
+        });
+
+        closeNotificationsPopupButton.addEventListener('click', () => {
+            hideNotificationsPopup();
+        });
+
+        function hideNotificationsPopup() {
+            notificationsCenterPopup.style.display = 'none';
+        }
+
+
+        // --- Gerenciamento de Estado de Autenticação (EXISTENTE, COM ADIÇÕES) ---
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user; // Define o currentUser globalmente
+            if (user) {
+                userInfo.textContent = `Olá, ${user.displayName || user.email}!`; /*  */
+                loginGoogleButton.style.display = 'none'; /*  */
+                loginGitHubButton.style.display = 'none'; /*  */
+
+                if (user.photoURL) {
+                    userProfilePic.src = user.photoURL;
+                    userProfilePic.style.display = 'inline-block';
+                } else {
+                    userProfilePic.style.display = 'none'; /*  */
+                }
+                googleAppsButton.style.display = 'inline-block'; /*  */
+                userInfoContainer.style.display = 'flex'; /*  */
+
+                await createUserProfileDocument(user);
+
+                let isUserBanned = false; /*  */
+                let isUserAdmin = false; /*  */
+
+                try {
+                    const userProfileRef = firestore.collection('users').doc(user.uid); /*  */
+                    const doc = await userProfileRef.get(); /*  */
+
+                    if (doc.exists && doc.data()) {
+                        isUserBanned = doc.data().isBan || false; /*  */
+                        isUserAdmin = doc.data().isAdmin || false; /*  */
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar perfil de usuário ou status de banimento/admin:", error); /*  */
+                    isUserBanned = false; /*  */
+                    isUserAdmin = false; /*  */
+                }
+
+                isCurrentUserBanned = isUserBanned; /*  */
+                if (isUserBanned) {
+                    console.warn(`Usuário ${user.uid} está banido.`); /*  */
+                    setNavLinksEnabled(false); /*  */
+                    logoutButton.style.display = 'none'; /*  */
+                    logoutButton.removeEventListener('click', handleLogout); /*  */
+                    adminPanelButton.style.display = 'none'; /*  */
+                    loadPage('recepcao.html', false);
+                    bannedMessage.style.display = 'block'; /*  */
+                    contentFrame.style.display = 'none'; /*  */
+                    googleAppsButton.style.pointerEvents = 'none'; /*  */
+                    googleAppsButton.style.opacity = '0.6'; /*  */
+                    googleAppsPopup.style.display = 'none'; /*  */
+                    notificationBellButton.style.display = 'none'; // Esconde o botão de notificação (sino)
+                    updateNotificationBadge(0); // Zera o contador
+                } else {
+                    setNavLinksEnabled(true); /*  */
+                    logoutButton.style.display = 'inline-block'; /*  */
+                    logoutButton.removeEventListener('click', handleLogout); /*  */
+                    logoutButton.addEventListener('click', handleLogout); /*  */
+                    bannedMessage.style.display = 'none'; /*  */
+                    contentFrame.style.display = 'block'; /*  */
+                    accessDeniedMessage.style.display = 'none'; /*  */
+                    googleAppsButton.style.pointerEvents = 'auto'; /*  */
+                    googleAppsButton.style.opacity = '1'; /*  */
+                    notificationBellButton.style.display = 'inline-block'; // Mostra o botão de notificação (sino)
+
+                    if (isUserAdmin) {
+                        adminPanelButton.style.display = 'inline-block'; /*  */
+                    } else {
+                        adminPanelButton.style.display = 'none'; /*  */
+                    }
+
+                    await loadAndApplyUserAppsCSS(user.uid); /*  */
+                    listenForNotifications(); // Inicia o monitoramento de notificações
+
+                    const clientId = user.uid; /*  */
+                    try {
+                        const clientDoc = await firestore.collection('clients').doc(clientId).get(); /*  */
+                        if (clientDoc.exists) {
+                            loadPage('informacoes_cliente/?uid=' + clientId, true); /*  */
+                        } else {
+                            loadPage('cadastro_cliente/?uid=' + clientId, true); /*  */
+                        }
+                    } catch (error) {
+                        console.error("Erro ao verificar cadastro do cliente no Firestore:", error); /*  */
+                        loadPage('cadastro_cliente/?uid=' + clientId, true); /*  */
+                    }
+                }
+
+            } else {
+                currentUser = null; /*  */
+                userInfo.textContent = ''; /*  */
+                loginGoogleButton.style.display = 'inline-block'; /*  */
+                loginGitHubButton.style.display = 'inline-block'; /*  */
+                logoutButton.style.display = 'none'; /*  */
+                adminPanelButton.style.display = 'none'; /*  */
+                isCurrentUserBanned = false;
+                bannedMessage.style.display = 'none'; /*  */
+                setNavLinksEnabled(false); /*  */
+                loadPage('recepcao.html', false); /*  */
+                userProfilePic.style.display = 'none'; /*  */
+                userProfilePic.src = ''; /*  */
+                googleAppsButton.style.display = 'none'; /*  */
+                userInfoContainer.style.display = 'none'; /*  */
+                googleAppsPopup.style.display = 'none'; /*  */
+                customAppCssStyleTag.innerHTML = ''; /*  */
+                contentFrame.style.display = 'block'; /*  */
+                accessDeniedMessage.style.display = 'none'; /*  */
+                notificationBellButton.style.display = 'none'; // Esconde o botão de notificação (sino)
+                updateNotificationBadge(0); // Zera o contador
+                if (unsubscribeNotifications) { // Garante que o listener seja parado ao deslogar
+                    unsubscribeNotifications();
+                    unsubscribeNotifications = null;
+                }
+                hideNotificationsPopup(); // Fecha o popup se o usuário desloga
+            }
             if (componentHandler) {
-                componentHandler.upgradeDom();
+                componentHandler.upgradeDom(); /*  */
+            }
+        });
+
+        const handleLogout = () => { /*  */
+            auth.signOut().then(() => {
+                console.log("Usuário deslogado.");
+            }).catch((error) => {
+                console.error("Erro ao fazer logout:", error);
+                alert(`Erro ao fazer logout: ${error.message}`);
+            });
+        };
+        loginGoogleButton.addEventListener('click', async () => { /*  */
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error("Erro ao fazer login com Google:", error); /*  */
+                alert(`Erro ao fazer login com Google: ${error.message}`); /*  */
+            }
+        });
+        loginGitHubButton.addEventListener('click', async () => { /*  */
+            const provider = new firebase.auth.GithubAuthProvider();
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error("Erro ao fazer login com GitHub:", error); /*  */
+                alert(`Erro ao fazer login com GitHub: ${error.message}`); /*  */
+            }
+        });
+        googleAppsButton.addEventListener('click', (event) => { /*  */
+            event.stopPropagation();
+            if (googleAppsPopup.style.display === 'flex') {
+                googleAppsPopup.style.display = 'none';
+            } else {
+                googleAppsPopup.style.display = 'flex'; /*  */
+            }
+        });
+        document.addEventListener('click', (event) => { /*  */
+            // Fecha o popup de apps do google
+            if (googleAppsPopup.style.display === 'flex' &&
+                !googleAppsButton.contains(event.target) &&
+                !googleAppsPopup.contains(event.target)) {
+                googleAppsPopup.style.display = 'none'; /*  */
+            }
+            // Fecha o popup de notificações se clicar fora dele
+            if (notificationsCenterPopup.style.display === 'flex' &&
+                !notificationBellButton.contains(event.target) &&
+                !notificationsCenterPopup.contains(event.target)) {
+                notificationsCenterPopup.style.display = 'none';
+            }
+        });
+        document.addEventListener('DOMContentLoaded', () => { /*  */
+            if (componentHandler) {
+                componentHandler.upgradeDom(); /*  */
             }
         });
     </script>
