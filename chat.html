@@ -1,23 +1,64 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat</title>
-    <link rel="stylesheet" href="chat.css"> </head>
-<body>
-    <div id="chatApp">
-        <h2>Chat com Usuário <span id="currentChatUser"></span></h2>
-        <div id="messagesContainer">
-            <div class="message received">
-                <span class="sender">Suporte:</span> Olá, como posso ajudar?
-            </div>
-        </div>
-        <form id="chatForm">
-            <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
-            <button type="submit">Enviar</button>
-        </form>
-    </div>
+// chat.html (Exemplo simplificado)
+// ... (inicialização do Firebase, auth, firestore) ...
 
-    <script src="chat.js"></script> </body>
-</html>
+const currentUser = firebase.auth().currentUser; // Pegue o usuário logado
+
+// Assumindo que você tem uma função para ouvir mensagens em um chat específico
+function listenForChatMessages(chatId) {
+    if (!currentUser) return;
+
+    // Obtém a referência para a subcoleção de mensagens do chat
+    const messagesRef = firestore.collection('wwebmodmail').doc(chatId).collection('messages');
+
+    messagesRef.orderBy('timestamp', 'desc').limit(1).onSnapshot(snapshot => {
+        if (!snapshot.empty) {
+            const latestMessage = snapshot.docs[0].data();
+            const senderId = latestMessage.senderId;
+            const messageText = latestMessage.text;
+
+            // Evita notificar o próprio remetente da mensagem
+            if (senderId !== currentUser.uid) {
+                // Notificação para o RECEPTOR
+                // Você precisaria identificar quem é o receptor se o chat for 1:1,
+                // ou notificar todos os outros participantes.
+                // Para simplificar, vamos assumir que o "currentUser" é o receptor aqui.
+                // Em um chat real, você pegaria os participants do 'wwebmodmail/{chatId}'
+                // e para cada um que não é o senderId, você criaria a notificação.
+
+                const notificationData = {
+                    type: 'new_message',
+                    title: `Nova Mensagem de ${latestMessage.senderName || 'Um Contato'}`,
+                    message: messageText.substring(0, 100) + (messageText.length > 100 ? '...' : ''), // Snippet da mensagem
+                    chatId: chatId, // Para redirecionar para o chat correto
+                    senderUid: senderId,
+                    read: false,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp() // Firestore server timestamp
+                };
+
+                // Chame a função para criar a notificação para o currentUser (que é o receptor neste contexto)
+                createNotification(currentUser.uid, notificationData);
+            }
+        }
+    });
+}
+
+// A função `createNotification` já está no seu index.html, mas se for usar em chat.html:
+async function createNotification(uid, notificationData) {
+    if (!uid) {
+        console.error("UID do usuário é necessário para criar notificação.");
+        return;
+    }
+    try {
+        await firestore.collection('users').doc(uid).collection('notifications').add(notificationData);
+        console.log("Notificação de chat criada para", uid);
+    } catch (error) {
+        console.error("Erro ao criar notificação de chat:", error);
+    }
+}
+
+// Exemplo de como você chamaria listenForChatMessages após entrar em um chat:
+// const urlParams = new URLSearchParams(window.location.search);
+// const currentChatId = urlParams.get('chatId');
+// if (currentChatId) {
+//     listenForChatMessages(currentChatId);
+// }
