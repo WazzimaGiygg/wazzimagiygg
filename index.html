@@ -12,13 +12,33 @@
     </style>
     <style>
         /* Seus estilos CSS existentes aqui */
+        body {
+            display: flex;
+            flex-direction: column; /* Necessário para footer fixo */
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+        }
+        .mdl-layout__content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column; /* Para iframe preencher o espaço */
+            padding: 0;
+        }
         .page-content {
+            flex-grow: 1; /* Permite que o conteúdo preencha o espaço */
             padding: 20px;
+            display: flex; /* Para centralizar o banner e o iframe */
+            flex-direction: column;
+            align-items: center; /* Centraliza horizontalmente */
+            justify-content: flex-start; /* Alinha ao topo verticalmente */
         }
         #contentFrame {
             width: 100%;
-            height: calc(100vh - 200px);
+            flex-grow: 1; /* Permite que o iframe preencha o espaço disponível */
             border: none;
+            min-height: calc(100vh - 250px); /* Garante uma altura mínima razoável */
         }
 
         /* Estilos adicionais para os links do menu lateral quando desabilitados */
@@ -47,9 +67,234 @@
             justify-content: center;
         }
         /* Estilos para o pop-up dos serviços Google */
+        #google-apps-popup {
+            display: none;
+            position: absolute;
+            top: 48px;
+            right: 0;
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 100;
+            padding: 10px;
+            min-width: 180px;
+            border-radius: 4px;
+            flex-direction: column; /* Para os botões empilharem */
+        }
         #google-apps-popup a.mdl-button {
             margin-bottom: 4px;
             justify-content: flex-start;
+        }
+
+        /* --- NOVOS ESTILOS PARA CHAT DE NOTIFICAÇÃO E MINI-CHAT --- */
+
+        #chat-notification-button {
+            position: relative; /* Para posicionar o badge */
+            margin-right: 8px;
+            display: none; /* Inicialmente escondido, mostrado ao logar */
+        }
+
+        #unread-messages-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: #f44336; /* Vermelho vibrante */
+            color: white;
+            border-radius: 50%;
+            padding: 3px 6px;
+            font-size: 10px;
+            line-height: 1;
+            min-width: 18px; /* Garante que números de 1 ou 2 dígitos fiquem bem */
+            text-align: center;
+            display: none; /* Escondido por padrão, aparece com mensagens */
+        }
+
+        #mini-chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px; /* Largura do mini-chat */
+            height: 450px; /* Altura do mini-chat */
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: none; /* Escondido por padrão */
+            flex-direction: column;
+            z-index: 999; /* Acima da maioria dos outros elementos */
+            overflow: hidden; /* Garante que nada transborde as bordas arredondadas */
+        }
+
+        #mini-chat-header {
+            background-color: #3f51b5; /* Cor primária do MDL */
+            color: white;
+            padding: 10px 15px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer; /* Para fechar/abrir o chat */
+        }
+        #mini-chat-header .material-icons {
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        #mini-chat-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Evita que o conteúdo interno transborde */
+        }
+
+        #mini-chat-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-grow: 1;
+            overflow-y: auto; /* Rolagem para a lista de chats */
+            display: flex;
+            flex-direction: column; /* Garante que os itens de chat fiquem empilhados */
+        }
+
+        .mini-chat-list-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .mini-chat-list-item:hover {
+            background-color: #f0f0f0;
+        }
+        .mini-chat-list-item.active-chat {
+            background-color: #e0e0e0;
+        }
+        .mini-chat-list-item img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 8px;
+            object-fit: cover;
+        }
+        .mini-chat-list-item-info {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .mini-chat-list-item-info strong {
+            font-size: 14px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .mini-chat-list-item-info span {
+            font-size: 12px;
+            color: #777;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .mini-chat-list-item .unread-count {
+            background-color: #f44336;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 5px;
+            font-size: 10px;
+            line-height: 1;
+            margin-left: 5px;
+            min-width: 15px;
+            text-align: center;
+            display: inline-block;
+        }
+
+        #mini-chat-messages-view {
+            display: none; /* Escondido por padrão, aparece ao selecionar um chat */
+            flex-direction: column;
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            border-top: 1px solid #eee;
+        }
+        .mini-message-bubble {
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 15px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            line-height: 1.3;
+            word-wrap: break-word;
+        }
+        .mini-message-bubble.sent {
+            background-color: #e3f2fd; /* Azul claro */
+            color: #333;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .mini-message-bubble.received {
+            background-color: #f0f0f0;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .mini-message-meta {
+            font-size: 9px;
+            color: #999;
+            margin-top: 3px;
+            text-align: right;
+        }
+        .mini-message-bubble.received .mini-message-meta {
+            text-align: left;
+        }
+
+        #mini-chat-input-area {
+            display: none; /* Escondido por padrão, aparece ao selecionar um chat */
+            padding: 8px 10px;
+            border-top: 1px solid #e0e0e0;
+            background-color: #ffffff;
+            align-items: center;
+        }
+        #mini-message-input {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-size: 14px;
+            margin-right: 8px;
+            outline: none;
+            resize: none;
+            min-height: 30px;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        #mini-send-button {
+            min-width: 40px;
+            height: 30px;
+            padding: 0 10px;
+        }
+        #mini-chat-back-button {
+            margin-right: 10px;
+            color: white; /* Cor do ícone de volta */
+            cursor: pointer;
+        }
+
+        #mini-chat-header-text {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Mensagens de estado do chat (carregando, sem chat) */
+        .chat-state-message {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -65,22 +310,15 @@
                 <span class="mdl-layout-title">Wiki Zone Zero Mod</span>
                 <div class="mdl-layout-spacer"></div>
                 <div style="position: relative; display: flex; align-items: center;">
+                    <button class="mdl-button mdl-js-button mdl-button--icon" id="chat-notification-button" style="display: none;">
+                        <i class="material-icons">email</i>
+                        <span id="unread-messages-badge"></span>
+                    </button>
+
                     <button class="mdl-button mdl-js-button mdl-button--icon" id="google-apps-button" style="display: none; margin-right: 8px;">
                         <i class="material-icons">apps</i>
                     </button>
-                    <div id="google-apps-popup" style="
-                        display: none;
-                        position: absolute;
-                        top: 48px;
-                        right: 0;
-                        background-color: white;
-                        border: 1px solid #ccc;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                        z-index: 100;
-                        padding: 10px;
-                        min-width: 180px;
-                        border-radius: 4px;
-                    ">
+                    <div id="google-apps-popup">
                         <a href="https://mail.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Gmail</a>
                         <a href="https://drive.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Drive</a>
                         <a href="https://calendar.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Agenda</a>
@@ -88,7 +326,7 @@
                         <a href="https://www.youtube.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">YouTube</a>
                         <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
                         <a href="https://myaccount.google.com/" target="_blank" class="mdl-button mdl-js-button mdl-button--flat">Minha Conta Google</a>
-                        </div>
+                    </div>
                     <div id="user-info-container" style="display: flex; align-items: center;">
                         <img id="user-profile-pic" src="" alt="Foto de Perfil" style="display: none;">
                         <div id="user-info" class="mdl-typography--body-1-force-preferred-font-color-contrast"></div>
@@ -110,7 +348,7 @@
                 <a class="mdl-navigation__link" href="#" data-page-src="ferramentasuteis.html">Ferramentas Úteis</a>
                 <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/">Página do Usuário</a>
                 <a class="mdl-navigation__link" href="#" data-page-src="./useradmin/denunciar/">Rastrear usuário / Denunciar</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="https://wikizero.wzzm.org/">Transparência</a>
+                <a class="mdl-navigation__link" href="https://wikizero.wzzm.org/">Transparência</a>
                 <a class="mdl-navigation__link" href="#" data-page-src="servicoswzzm.html">Outros serviços da Wiki Zone Zero Mod</a>
                 <a class="mdl-navigation__link" href="#" data-page-src="forum.html">Fórum</a>
                 <a class="mdl-navigation__link" href="#" data-page-src="visualizarnoticias.html">Visualizar Noticias</a>
@@ -129,7 +367,7 @@
             <div class="page-content">
                 <div class="separator" style="clear: both; text-align: center;">
                     <a href="https://static.wikitide.net/wikimetrospwiki/thumb/8/88/Wiki_Zone_Zero_Mod_Banner.png/1920px-Wiki_Zone_Zero_Mod_Banner.png" style="display: block; padding: 1em 0;">
-                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCrFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4DaOswxBHJ6BFlZaG4MCEiimtNbLDv4Q6Z-MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
+                        <img alt="" border="0" width="320" data-original-height="873" data-original-width="2833" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi1fx0b6zFkwQ-U45g3millPHUg03_Gmc-Q9xtmTY98HWYrqjJBmgQjr-HeNZdMCFj3R7dQHOcyEfkmPVcEShF5-1gKJLMvkI-N60JKuq7XFigE67uVlp4DaOswxBHJ6BFlZaG4MCEiimtNbLDv4Q6Z-MNk7Xuy9OmjBj-k0UD_IvnnDUXe-ZmynmypNnV/s320/Wiki_Zone_Zero_Mod_Banner.webp"/>
                     </a>
                 </div>
                 <iframe id="contentFrame" src="recepcao.html"></iframe>
@@ -166,6 +404,29 @@
             </div>
         </footer>
     </div>
+
+    <div id="mini-chat-container">
+        <div id="mini-chat-header">
+            <span id="mini-chat-header-text">Chats</span>
+            <i class="material-icons" id="mini-chat-close-button">close</i>
+        </div>
+        <div id="mini-chat-content">
+            <ul id="mini-chat-list">
+                <p class="chat-state-message">Nenhum chat para exibir.</p>
+            </ul>
+            <div id="mini-chat-messages-view">
+                <p class="chat-state-message">Selecione um chat para ver as mensagens.</p>
+            </div>
+            <div id="mini-chat-input-area">
+                <i class="material-icons" id="mini-chat-back-button">arrow_back</i>
+                <textarea id="mini-message-input" placeholder="Digite sua mensagem..." rows="1"></textarea>
+                <button id="mini-send-button" class="mdl-button mdl-js-button mdl-button--icon">
+                    <i class="material-icons">send</i>
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <script>
@@ -209,15 +470,33 @@
         const customAppCssStyleTag = document.getElementById('custom-app-css');
 
         let isCurrentUserBanned = false; // Manter para controle global
+        let currentUser = null; // Usuário logado
+        let unreadMessagesCount = 0; // Contador global de mensagens não lidas
+        let unsubscribeAllChats = null; // Listener para todos os chats do usuário
+        let unsubscribeMiniChatMessages = null; // Listener para as mensagens do chat selecionado no mini-chat
 
+        // --- NOVOS ELEMENTOS PARA CHAT DE NOTIFICAÇÃO E MINI-CHAT ---
+        const chatNotificationButton = document.getElementById('chat-notification-button');
+        const unreadMessagesBadge = document.getElementById('unread-messages-badge');
+        const miniChatContainer = document.getElementById('mini-chat-container');
+        const miniChatCloseButton = document.getElementById('mini-chat-close-button');
+        const miniChatList = document.getElementById('mini-chat-list');
+        const miniChatMessagesView = document.getElementById('mini-chat-messages-view');
+        const miniChatInputArea = document.getElementById('mini-chat-input-area');
+        const miniMessageInput = document.getElementById('mini-message-input');
+        const miniSendButton = document.getElementById('mini-send-button');
+        const miniChatBackButton = document.getElementById('mini-chat-back-button');
+        const miniChatHeaderText = document.getElementById('mini-chat-header-text');
+
+        let currentMiniChatId = null; // ID do chat atualmente aberto no mini-chat
+
+        // --- Funções Auxiliares ---
         function loadPage(page, requiresAuth = true) {
-            // Se o usuário está banido, apenas as políticas são permitidas para navegação "direta"
-            // A página de recepção será carregada via `auth.onAuthStateChanged` para exibir a mensagem de banido.
             if (isCurrentUserBanned && page !== 'recepcao.html' && !page.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
                 contentFrame.src = "about:blank";
                 contentFrame.style.display = 'none';
                 accessDeniedMessage.style.display = 'none';
-                bannedMessage.style.display = 'block'; // Exibe a mensagem de banido
+                bannedMessage.style.display = 'block';
                 return;
             }
 
@@ -237,33 +516,28 @@
 
         navLinks.forEach(link => {
             if (!link.dataset.pageSrc && !link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                return; // Ignora links sem data-page-src, a menos que seja o PDF de políticas
+                return;
             }
 
             link.addEventListener('click', function(event) {
                 const pageSrc = this.dataset.pageSrc || this.href;
                 const requiresAuth = this.dataset.requiresAuth === 'true';
 
-                // Se o usuário está banido, impede a navegação para qualquer página que não seja políticas
-                // A navegação para recepcao.html para banidos será controlada pelo setNavLinksEnabled e o loadPage inicial
                 if (isCurrentUserBanned && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                    event.preventDefault(); // Impede a navegação
-                    // Não é necessário chamar loadPage aqui, pois a UI já estará mostrando a mensagem de banido.
+                    event.preventDefault();
                     return;
                 }
 
-                // Impede a navegação se o link está desabilitado e não for as políticas
                 if (this.classList.contains('disabled') && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                     event.preventDefault();
-                     return;
+                    event.preventDefault();
+                    return;
                 }
 
                 if (pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                    // Para o link do PDF, permite a abertura em nova aba sem modificar o iframe
                     return;
                 }
 
-                event.preventDefault(); // Previne a navegação padrão para links de data-page-src
+                event.preventDefault();
                 loadPage(pageSrc, requiresAuth);
                 if (document.querySelector('.mdl-layout__drawer.is-visible')) {
                     document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
@@ -273,9 +547,7 @@
         });
 
         function setNavLinksEnabled(enabled) {
-            // Desativa/ativa links do menu lateral
             navLinks.forEach(link => {
-                // O link das políticas é o ÚNICO que NUNCA é desativado
                 if (link.href.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
                     link.classList.remove('disabled');
                 } else {
@@ -283,20 +555,17 @@
                     if (enabled && !isCurrentUserBanned) {
                         link.classList.remove('disabled');
                     } else if (!enabled && !requiresAuth) {
-                        // Mantém habilitado se não requer auth e não está logado,
-                        // mas AGORA DESABILITA se o usuário estiver banido, mesmo que não exija auth.
                         if (isCurrentUserBanned) {
                             link.classList.add('disabled');
                         } else {
                             link.classList.remove('disabled');
                         }
                     } else {
-                        link.classList.add('disabled'); // Desabilita por padrão se não atende as condições
+                        link.classList.add('disabled');
                     }
                 }
             });
 
-            // Desativa/ativa links do popup do Google Apps
             googleAppsLinks.forEach(link => {
                 if (enabled && !isCurrentUserBanned) {
                     link.classList.remove('disabled');
@@ -381,7 +650,294 @@
             }
         }
 
+        // --- Funções do Mini-Chat e Notificação ---
+
+        // Função para atualizar o contador de mensagens não lidas
+        function updateUnreadMessagesBadge(count) {
+            unreadMessagesCount = count;
+            if (count > 0) {
+                unreadMessagesBadge.textContent = count;
+                unreadMessagesBadge.style.display = 'block';
+                // Adicione uma classe para animação/destaque se desejar
+                chatNotificationButton.classList.add('new-messages-alert');
+            } else {
+                unreadMessagesBadge.style.display = 'none';
+                chatNotificationButton.classList.remove('new-messages-alert');
+            }
+        }
+
+        // Listener para monitorar mensagens não lidas
+        function listenForUnreadMessages() {
+            if (!currentUser) {
+                updateUnreadMessagesBadge(0);
+                if (unsubscribeAllChats) {
+                    unsubscribeAllChats();
+                    unsubscribeAllChats = null;
+                }
+                return;
+            }
+
+            // Desinscreve-se de um listener anterior, se houver
+            if (unsubscribeAllChats) {
+                unsubscribeAllChats();
+            }
+
+            // Monitora todos os chats do usuário
+            unsubscribeAllChats = firestore.collection('wwebmodmail')
+                .where('participants', 'array-contains', currentUser.uid)
+                .onSnapshot(async snapshot => {
+                    let totalUnread = 0;
+                    for (const chatDoc of snapshot.docs) {
+                        const chatId = chatDoc.id;
+                        const chatData = chatDoc.data();
+
+                        // Recupera o timestamp da última visualização do usuário para este chat
+                        // Armazenamos isso como um subcampo no documento do chat, ex: lastSeen.{userId}
+                        const lastSeenTimestamp = chatData.lastSeen && chatData.lastSeen[currentUser.uid] ?
+                                                  chatData.lastSeen[currentUser.uid].toDate() : new Date(0); // Início dos tempos se não houver
+
+                        // Consulta mensagens enviadas por outros usuários desde a última visualização
+                        const messagesSnapshot = await firestore.collection('wwebmodmail').doc(chatId).collection('messages')
+                            .where('timestamp', '>', lastSeenTimestamp)
+                            .where('senderId', '!=', currentUser.uid)
+                            .get();
+
+                        totalUnread += messagesSnapshot.size;
+                    }
+                    updateUnreadMessagesBadge(totalUnread);
+                }, error => {
+                    console.error("Erro no listener de chats para mensagens não lidas:", error);
+                    updateUnreadMessagesBadge(0);
+                });
+        }
+
+        // Função para enviar mensagem no mini-chat
+        async function sendMiniChatMessage(chatId, text) {
+            if (!currentUser || !chatId || !text.trim()) {
+                console.warn("Não é possível enviar mensagem no mini-chat: usuário não logado, chat não selecionado ou mensagem vazia.");
+                return;
+            }
+
+            const messagesRef = firestore.collection('wwebmodmail').doc(chatId).collection('messages');
+            try {
+                await messagesRef.add({
+                    senderId: currentUser.uid,
+                    text: text.trim(),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                });
+                await firestore.collection('wwebmodmail').doc(chatId).update({
+                    lastMessageTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastMessageText: text.trim(),
+                });
+                miniMessageInput.value = '';
+                miniMessageInput.style.height = 'auto';
+                miniChatMessagesView.scrollTop = miniChatMessagesView.scrollHeight;
+                // Como enviamos uma mensagem, garantimos que ela seja marcada como lida para nós
+                markChatAsRead(chatId);
+            } catch (error) {
+                console.error("Erro ao enviar mensagem no mini-chat:", error);
+                alert("Erro ao enviar mensagem no mini-chat.");
+            }
+        }
+
+        // Carregar a lista de chats no mini-chat
+        function loadMiniChatList() {
+            if (!currentUser) {
+                miniChatList.innerHTML = '<p class="chat-state-message">Faça login para ver seus chats.</p>';
+                return;
+            }
+
+            // Remove o listener anterior se já houver
+            if (unsubscribeMiniChatMessages) {
+                unsubscribeMiniChatMessages();
+                unsubscribeMiniChatMessages = null;
+            }
+            miniChatMessagesView.style.display = 'none';
+            miniChatInputArea.style.display = 'none';
+            miniChatList.style.display = 'flex'; // Exibe a lista de chats
+
+            miniChatList.innerHTML = '<p class="chat-state-message">Carregando chats...</p>';
+
+            firestore.collection('wwebmodmail')
+                .where('participants', 'array-contains', currentUser.uid)
+                .orderBy('lastMessageTimestamp', 'desc')
+                .onSnapshot(async snapshot => {
+                    miniChatList.innerHTML = '';
+                    if (snapshot.empty) {
+                        miniChatList.innerHTML = '<p class="chat-state-message">Nenhum chat para exibir. Inicie um novo!</p>';
+                        return;
+                    }
+
+                    for (const doc of snapshot.docs) {
+                        const chat = doc.data();
+                        const chatId = doc.id;
+                        const otherUserId = chat.participants.find(uid => uid !== currentUser.uid);
+
+                        let otherUserName = "Usuário Desconhecido";
+                        let otherUserPic = "https://via.placeholder.com/30";
+
+                        if (otherUserId) {
+                            try {
+                                const otherUserDoc = await firestore.collection('users').doc(otherUserId).get();
+                                if (otherUserDoc.exists) {
+                                    otherUserName = otherUserDoc.data().name || otherUserDoc.data().email;
+                                    otherUserPic = otherUserDoc.data().profilePictureUrl || otherUserPic;
+                                }
+                            } catch (error) {
+                                console.warn("Não foi possível obter informações do outro usuário para mini-chat:", otherUserId, error);
+                            }
+                        }
+
+                        // Contar mensagens não lidas para este chat específico no mini-chat
+                        const lastSeenTimestamp = chat.lastSeen && chat.lastSeen[currentUser.uid] ?
+                                                  chat.lastSeen[currentUser.uid].toDate() : new Date(0);
+                        const unreadMessagesSnapshot = await firestore.collection('wwebmodmail').doc(chatId).collection('messages')
+                            .where('timestamp', '>', lastSeenTimestamp)
+                            .where('senderId', '!=', currentUser.uid)
+                            .get();
+                        const unreadCount = unreadMessagesSnapshot.size;
+
+                        const listItem = document.createElement('li');
+                        listItem.classList.add('mini-chat-list-item');
+                        listItem.dataset.chatId = chatId;
+                        listItem.innerHTML = `
+                            <img src="${otherUserPic}" alt="${otherUserName} Avatar">
+                            <div class="mini-chat-list-item-info">
+                                <strong>${otherUserName}</strong>
+                                <span>${chat.lastMessageText || 'Nenhuma mensagem.'}</span>
+                            </div>
+                            ${unreadCount > 0 ? `<span class="unread-count">${unreadCount}</span>` : ''}
+                        `;
+                        miniChatList.appendChild(listItem);
+
+                        listItem.addEventListener('click', () => {
+                            currentMiniChatId = chatId;
+                            miniChatHeaderText.textContent = otherUserName; // Atualiza o cabeçalho do mini-chat
+                            openMiniChatMessagesView(chatId);
+                            markChatAsRead(chatId); // Marca como lida ao abrir
+                        });
+                    }
+                }, error => {
+                    console.error("Erro ao carregar lista de mini-chats:", error);
+                    miniChatList.innerHTML = '<p class="chat-state-message">Erro ao carregar chats.</p>';
+                });
+        }
+
+        // Abre a visualização de mensagens para um chat específico no mini-chat
+        function openMiniChatMessagesView(chatId) {
+            miniChatList.style.display = 'none'; // Esconde a lista de chats
+            miniChatMessagesView.style.display = 'flex'; // Mostra a área de mensagens
+            miniChatInputArea.style.display = 'flex'; // Mostra a área de input
+            miniChatMessagesView.innerHTML = '<p class="chat-state-message">Carregando mensagens...</p>';
+
+            // Desinscreve-se de um listener anterior de mensagens, se houver
+            if (unsubscribeMiniChatMessages) {
+                unsubscribeMiniChatMessages();
+            }
+
+            const messagesRef = firestore.collection('wwebmodmail').doc(chatId).collection('messages');
+
+            unsubscribeMiniChatMessages = messagesRef.orderBy('timestamp', 'asc').onSnapshot(snapshot => {
+                miniChatMessagesView.innerHTML = ''; // Limpa para redesenhar
+                if (snapshot.empty) {
+                    miniChatMessagesView.innerHTML = '<p class="chat-state-message">Nenhuma mensagem neste chat.</p>';
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const message = doc.data();
+                    const isSent = message.senderId === currentUser.uid;
+                    const messageBubble = document.createElement('div');
+                    messageBubble.classList.add('mini-message-bubble');
+                    messageBubble.classList.add(isSent ? 'sent' : 'received');
+
+                    const timestampDate = message.timestamp ? message.timestamp.toDate() : new Date();
+                    const timeString = timestampDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    messageBubble.innerHTML = `${message.text}
+                        <div class="mini-message-meta">${isSent ? 'Você' : ''}, ${timeString}</div>`;
+                    miniChatMessagesView.appendChild(messageBubble);
+                });
+                miniChatMessagesView.scrollTop = miniChatMessagesView.scrollHeight;
+            }, error => {
+                console.error("Erro no listener de mensagens do mini-chat:", error);
+                miniChatMessagesView.innerHTML = `<p class="chat-state-message" style="color: red;">Erro ao carregar mensagens: ${error.message}</p>`;
+            });
+        }
+
+        // Marca um chat como lido
+        async function markChatAsRead(chatId) {
+            if (!currentUser || !chatId) return;
+
+            try {
+                await firestore.collection('wwebmodmail').doc(chatId).update({
+                    [`lastSeen.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`Chat ${chatId} marcado como lido para ${currentUser.uid}`);
+                // Força a atualização do contador de não lidas global
+                listenForUnreadMessages();
+                // Também atualiza a badge específica no item da lista do mini-chat
+                const listItem = document.querySelector(`.mini-chat-list-item[data-chat-id="${chatId}"]`);
+                if (listItem) {
+                    const unreadBadge = listItem.querySelector('.unread-count');
+                    if (unreadBadge) {
+                        unreadBadge.remove();
+                    }
+                }
+            } catch (error) {
+                console.error("Erro ao marcar chat como lido:", error);
+            }
+        }
+
+
+        // --- Event Listeners do Mini-Chat ---
+
+        chatNotificationButton.addEventListener('click', () => {
+            if (miniChatContainer.style.display === 'flex') {
+                miniChatContainer.style.display = 'none'; // Fecha
+            } else {
+                miniChatContainer.style.display = 'flex'; // Abre
+                miniChatHeaderText.textContent = 'Chats'; // Volta para o título principal
+                loadMiniChatList(); // Carrega a lista de chats
+            }
+        });
+
+        miniChatCloseButton.addEventListener('click', () => {
+            miniChatContainer.style.display = 'none';
+        });
+
+        miniChatBackButton.addEventListener('click', () => {
+            // Volta para a lista de chats
+            currentMiniChatId = null;
+            if (unsubscribeMiniChatMessages) {
+                unsubscribeMiniChatMessages();
+                unsubscribeMiniChatMessages = null;
+            }
+            miniChatHeaderText.textContent = 'Chats';
+            miniChatMessagesView.style.display = 'none';
+            miniChatInputArea.style.display = 'none';
+            miniChatList.style.display = 'flex';
+            loadMiniChatList(); // Recarrega a lista para atualizar contadores de não lidas
+        });
+
+        miniSendButton.addEventListener('click', () => {
+            sendMiniChatMessage(currentMiniChatId, miniMessageInput.value);
+        });
+
+        miniMessageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMiniChatMessage(currentMiniChatId, miniMessageInput.value);
+            }
+        });
+
+        miniMessageInput.addEventListener('input', () => {
+            miniMessageInput.style.height = 'auto';
+            miniMessageInput.style.height = miniMessageInput.scrollHeight + 'px';
+        });
+
+        // --- Gerenciamento de Estado de Autenticação (EXISTENTE, COM ADIÇÕES) ---
         auth.onAuthStateChanged(async (user) => {
+            currentUser = user; // Define o currentUser globalmente
             if (user) {
                 userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
                 loginGoogleButton.style.display = 'none';
@@ -419,26 +975,29 @@
 
                 if (isUserBanned) {
                     console.warn(`Usuário ${user.uid} está banido.`);
-                    setNavLinksEnabled(false); // Desabilita todos os links (incluindo Página Inicial e popup)
+                    setNavLinksEnabled(false);
                     logoutButton.style.display = 'none';
                     logoutButton.removeEventListener('click', handleLogout);
                     adminPanelButton.style.display = 'none';
-                    loadPage('recepcao.html', false); // Carrega a página de recepção, mas a mensagem de banido será mostrada
+                    loadPage('recepcao.html', false);
                     bannedMessage.style.display = 'block';
-                    contentFrame.style.display = 'none'; // Esconde o iframe
+                    contentFrame.style.display = 'none';
                     googleAppsButton.style.pointerEvents = 'none';
                     googleAppsButton.style.opacity = '0.6';
                     googleAppsPopup.style.display = 'none';
+                    chatNotificationButton.style.display = 'none'; // Esconde o botão de notificação
+                    updateUnreadMessagesBadge(0); // Zera o contador
                 } else {
-                    setNavLinksEnabled(true); // Habilita os links normais (incluindo Página Inicial e popup)
+                    setNavLinksEnabled(true);
                     logoutButton.style.display = 'inline-block';
-                    logoutButton.removeEventListener('click', handleLogout);
+                    logoutButton.removeEventListener('click', handleLogout); // Remove antes de adicionar para evitar duplicação
                     logoutButton.addEventListener('click', handleLogout);
                     bannedMessage.style.display = 'none';
                     contentFrame.style.display = 'block';
                     accessDeniedMessage.style.display = 'none';
                     googleAppsButton.style.pointerEvents = 'auto';
                     googleAppsButton.style.opacity = '1';
+                    chatNotificationButton.style.display = 'inline-block'; // Mostra o botão de notificação
 
                     if (isUserAdmin) {
                         adminPanelButton.style.display = 'inline-block';
@@ -447,6 +1006,7 @@
                     }
 
                     await loadAndApplyUserAppsCSS(user.uid);
+                    listenForUnreadMessages(); // Inicia o monitoramento de mensagens não lidas
 
                     const clientId = user.uid;
 
@@ -465,6 +1025,7 @@
                 }
 
             } else {
+                currentUser = null; // Garante que o currentUser é nulo
                 userInfo.textContent = '';
                 loginGoogleButton.style.display = 'inline-block';
                 loginGitHubButton.style.display = 'inline-block';
@@ -472,8 +1033,8 @@
                 adminPanelButton.style.display = 'none';
                 isCurrentUserBanned = false;
                 bannedMessage.style.display = 'none';
-                setNavLinksEnabled(false); // Desabilita todos os links que requerem autenticação (incluindo Página Inicial e popup)
-                loadPage('recepcao.html', false); // Tela inicial para deslogados
+                setNavLinksEnabled(false);
+                loadPage('recepcao.html', false);
                 userProfilePic.style.display = 'none';
                 userProfilePic.src = '';
                 googleAppsButton.style.display = 'none';
@@ -482,6 +1043,20 @@
                 customAppCssStyleTag.innerHTML = '';
                 contentFrame.style.display = 'block';
                 accessDeniedMessage.style.display = 'none';
+                chatNotificationButton.style.display = 'none'; // Esconde o botão de notificação
+                updateUnreadMessagesBadge(0); // Zera o contador
+                if (unsubscribeAllChats) { // Garante que o listener seja parado ao deslogar
+                    unsubscribeAllChats();
+                    unsubscribeAllChats = null;
+                }
+                if (unsubscribeMiniChatMessages) { // Para o listener de mensagens do mini-chat
+                    unsubscribeMiniChatMessages();
+                    unsubscribeMiniChatMessages = null;
+                }
+                miniChatContainer.style.display = 'none'; // Fecha o mini-chat
+            }
+            if (componentHandler) {
+                componentHandler.upgradeDom();
             }
         });
 
@@ -516,18 +1091,25 @@
 
         googleAppsButton.addEventListener('click', (event) => {
             event.stopPropagation();
-            if (googleAppsPopup.style.display === 'block') {
+            if (googleAppsPopup.style.display === 'flex') { // Alterado para 'flex' no CSS
                 googleAppsPopup.style.display = 'none';
             } else {
-                googleAppsPopup.style.display = 'block';
+                googleAppsPopup.style.display = 'flex'; // Abre como flex container
             }
         });
 
         document.addEventListener('click', (event) => {
-            if (googleAppsPopup.style.display === 'block' &&
+            // Fecha o popup de apps do google
+            if (googleAppsPopup.style.display === 'flex' &&
                 !googleAppsButton.contains(event.target) &&
                 !googleAppsPopup.contains(event.target)) {
                 googleAppsPopup.style.display = 'none';
+            }
+            // Fecha o mini-chat se clicar fora dele
+            if (miniChatContainer.style.display === 'flex' &&
+                !chatNotificationButton.contains(event.target) &&
+                !miniChatContainer.contains(event.target)) {
+                miniChatContainer.style.display = 'none';
             }
         });
 
