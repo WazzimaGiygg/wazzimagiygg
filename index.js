@@ -1,103 +1,143 @@
 // index.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    const emailButton = document.getElementById('emailButton');
-    const notificationBadge = document.getElementById('notificationBadge');
-    const chatContainer = document.getElementById('chatContainer');
-    const chatIframe = document.getElementById('chatIframe');
-    const userUidElement = document.getElementById('userUid');
-    const messagePreviewModal = document.getElementById('messagePreviewModal');
-    const senderNameSpan = document.getElementById('senderName');
-    const messageSnippetP = document.getElementById('messageSnippet');
-    const replyBtn = document.getElementById('replyBtn');
-    const closePreviewBtn = document.getElementById('closePreviewBtn');
+    const openChatButton = document.getElementById('open-chat-button');
+    const notificationBadge = document.getElementById('notification-badge');
+    const chatPopupContainer = document.getElementById('chat-popup-container');
+    const closeChatPopupButton = document.getElementById('close-chat-popup-button');
+    const chatIframe = document.getElementById('chat-iframe');
+    const userUidElement = document.getElementById('userUid'); // Onde seu UID está
 
-    let unreadCount = 0;
-    let currentSender = ''; // Para armazenar o remetente da última mensagem notificada
+    const newMessageModal = document.getElementById('new-message-modal');
+    const modalSenderName = document.getElementById('modal-sender-name');
+    const modalMessageSnippet = document.getElementById('modal-message-snippet');
+    const replyMessageBtn = document.getElementById('reply-message-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const modalBackdrop = document.getElementById('modal-backdrop');
 
-    // --- Lógica para o UID ---
-    // Pega o UID do elemento invisível no HTML
+    let unreadMessageCount = 0;
+    let lastMessageSender = ''; // Para armazenar o remetente da última notificação
+
+    // --- Carrega o UID do usuário e passa para o iframe ---
     const userUid = userUidElement.dataset.uid;
-    // Passa o UID para o iframe via URL (se já não estiver no HTML)
-    // Isso garante que o iframe seja carregado com o UID correto.
+    // O UID DEVE SER OBTIDO DO SEU SISTEMA DE AUTENTICAÇÃO REAL.
+    // Se o UID estiver vazio (PLACEHOLDER_UID), o chat não funcionará corretamente.
+    // Exemplo: Se o usuário estiver logado com Firebase Auth:
+    /*
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            chatIframe.src = `chat.html?uid=${user.uid}`;
+            console.log("UID do usuário carregado no iframe:", user.uid);
+        } else {
+            console.warn("Nenhum usuário logado. Chat não inicializado.");
+            // Você pode redirecionar para login ou mostrar uma mensagem
+        }
+    });
+    */
+    // Por enquanto, usaremos o PLACEHOLDER_UID do HTML para demonstração.
     chatIframe.src = `chat.html?uid=${userUid}`;
 
 
-    // --- Lógica de Notificação ---
-
-    // Função para atualizar o contador de notificações
+    // --- Funções de Notificação ---
     function updateNotificationBadge() {
-        if (unreadCount > 0) {
-            notificationBadge.textContent = unreadCount;
-            notificationBadge.style.display = 'inline-block'; // Mostra o badge
+        if (unreadMessageCount > 0) {
+            notificationBadge.textContent = unreadMessageCount;
+            notificationBadge.style.display = 'inline-block';
         } else {
             notificationBadge.textContent = '0';
-            notificationBadge.style.display = 'none'; // Esconde o badge
+            notificationBadge.style.display = 'none';
         }
     }
 
-    // Ouvinte de evento para mensagens vindas do iframe (chat.html)
+    function showNewMessageModal(sender, snippet) {
+        modalSenderName.textContent = sender;
+        modalMessageSnippet.textContent = snippet;
+        newMessageModal.style.display = 'block';
+        modalBackdrop.style.display = 'block';
+        lastMessageSender = sender; // Guarda o remetente para a ação de responder
+    }
+
+    function hideNewMessageModal() {
+        newMessageModal.style.display = 'none';
+        modalBackdrop.style.display = 'none';
+    }
+
+    // --- Lógica de Comunicação entre Iframe e Pai ---
+    // Ouve mensagens vindas do iframe (chat.html)
     window.addEventListener('message', (event) => {
-        // Verifica a origem para segurança (importante em produção!)
-        // if (event.origin !== 'https://seusite.com.br') return; // Exemplo de verificação de origem
+        // MUITO IMPORTANTE: Em produção, verifique a origem do evento para segurança!
+        // if (event.origin !== 'https://seudominio.com.br') { return; }
 
         const messageData = event.data;
 
-        // Se a mensagem for sobre uma nova notificação de chat
-        if (messageData.type === 'newMessage' && messageData.sender && messageData.snippet) {
-            unreadCount++;
-            currentSender = messageData.sender; // Armazena o remetente
-            updateNotificationBadge();
-
-            // Mostra o modal de pré-visualização
-            senderNameSpan.textContent = messageData.sender;
-            messageSnippetP.textContent = messageData.snippet;
-            messagePreviewModal.style.display = 'block';
+        // Quando o chat envia uma nova mensagem recebida (pode ser de terceiros ou sua)
+        if (messageData.type === 'chatNewMessage' && messageData.senderId && messageData.text) {
+            // Se o chat NÃO ESTÁ VISÍVEL ou o usuário NÃO ESTÁ NA ABA ATIVA
+            if (chatPopupContainer.style.display === 'none' || document.hidden) {
+                unreadMessageCount++;
+                updateNotificationBadge();
+                // Mostra o popup de notificação se for uma nova mensagem de um contato
+                if (messageData.senderId !== userUidElement.dataset.uid) { // Não notifica se for sua própria mensagem
+                    showNewMessageModal(messageData.senderName, messageData.text);
+                }
+            } else {
+                // Se o chat está aberto e visível, não notifica, apenas zera o badge
+                // (Isso será tratado pelo foco no chat.js)
+                unreadMessageCount = 0;
+                updateNotificationBadge();
+            }
         }
-        // Se a mensagem for para zerar as notificações (ex: usuário abriu o chat)
-        else if (messageData.type === 'clearNotifications') {
-            unreadCount = 0;
+        // Quando o chat sinaliza que o usuário leu/abriu, zera as notificações
+        else if (messageData.type === 'chatOpenedAndRead') {
+            unreadMessageCount = 0;
             updateNotificationBadge();
-            messagePreviewModal.style.display = 'none'; // Esconde o modal se estava aberto
+            hideNewMessageModal(); // Garante que o modal esteja escondido
         }
     });
 
-    // --- Lógica do Botão de E-mail/Notificação ---
-
-    emailButton.addEventListener('click', () => {
-        // Ao clicar no botão, mostra o chat e zera as notificações
-        chatContainer.style.display = 'block';
-        unreadCount = 0; // Zera as notificações ao abrir o chat
+    // --- Event Listeners do Botão e Popup do Chat ---
+    openChatButton.addEventListener('click', () => {
+        chatPopupContainer.style.display = 'flex'; // Mostra o popup
+        unreadMessageCount = 0; // Zera as notificações ao abrir o chat
         updateNotificationBadge();
-        messagePreviewModal.style.display = 'none'; // Esconde o modal
+        hideNewMessageModal(); // Esconde o modal de notificação
 
-        // Foca no iframe do chat para que o usuário possa interagir imediatamente
+        // Envia mensagem para o iframe para que ele saiba que foi aberto
+        chatIframe.contentWindow.postMessage({ type: 'parentChatOpened' }, '*'); // * em dev, domínio real em prod
+        // Opcional: Foca no iframe para interação imediata
         chatIframe.contentWindow.focus();
-
-        // Envia uma mensagem para o iframe indicando que o chat foi aberto,
-        // caso o chat precise saber disso (ex: para parar de enviar notificações)
-        chatIframe.contentWindow.postMessage({ type: 'chatOpened' }, '*'); // Use o domínio do seu iframe em produção!
     });
 
-    // --- Lógica do Modal de Pré-visualização ---
+    closeChatPopupButton.addEventListener('click', () => {
+        chatPopupContainer.style.display = 'none'; // Esconde o popup
+        // Você pode querer enviar uma mensagem para o iframe que ele foi fechado se precisar.
+        chatIframe.contentWindow.postMessage({ type: 'parentChatClosed' }, '*'); // * em dev, domínio real em prod
+    });
 
-    replyBtn.addEventListener('click', () => {
-        // Ao clicar em responder, abre o chat e pode pré-selecionar o remetente
-        chatContainer.style.display = 'block';
-        unreadCount = 0;
+    // --- Event Listeners do Modal de Notificação ---
+    replyMessageBtn.addEventListener('click', () => {
+        hideNewMessageModal(); // Esconde o modal
+        chatPopupContainer.style.display = 'flex'; // Abre o chat
+        unreadMessageCount = 0; // Zera notificações
         updateNotificationBadge();
-        messagePreviewModal.style.display = 'none';
 
-        chatIframe.contentWindow.focus();
-        // Envia uma mensagem para o iframe para indicar quem deve ser respondido
-        chatIframe.contentWindow.postMessage({ type: 'replyTo', sender: currentSender }, '*'); // Use o domínio do seu iframe em produção!
+        // Envia uma mensagem para o iframe para que ele possa selecionar a conversa do remetente
+        chatIframe.contentWindow.postMessage({
+            type: 'replyToSender',
+            senderName: lastMessageSender
+        }, '*'); // * em dev, domínio real em prod
+        chatIframe.contentWindow.focus(); // Foca no iframe
     });
 
-    closePreviewBtn.addEventListener('click', () => {
-        messagePreviewModal.style.display = 'none';
-        // As notificações permanecem até o chat ser aberto
+    closeModalBtn.addEventListener('click', () => {
+        hideNewMessageModal();
+        // As notificações permanecem no badge até o chat ser realmente aberto
     });
 
-    // Opcional: Fechar o chatContainer clicando fora dele ou com um botão de fechar dentro do iframe
-    // Por simplicidade, não incluído aqui, mas seria bom para UX.
+    modalBackdrop.addEventListener('click', () => {
+        hideNewMessageModal();
+    });
+
+    // Inicializa o badge no carregamento
+    updateNotificationBadge();
 });
