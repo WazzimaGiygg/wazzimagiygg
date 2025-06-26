@@ -235,7 +235,7 @@
             z-index: 1001;
         }
 
-        /* --- NOVOS ESTILOS PARA NOTÍCIAS (Botão e Popup) --- */
+        /* --- ESTILOS PARA NOTÍCIAS (Botão e Popup) --- */
         #news-button {
             margin-right: 8px;
             display: none; /* Inicialmente escondido, mostrado ao logar */
@@ -251,7 +251,7 @@
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            z-index: 998; /* Um pouco abaixo das notificações se ambas ficarem visíveis */
+            z-index: 998;
             flex-direction: column;
             overflow: hidden;
         }
@@ -312,6 +312,7 @@
             line-height: 1.5;
         }
         .news-popup-item small {
+            font-size: 0.8em;
             color: #888;
             display: block;
             margin-top: 10px;
@@ -321,6 +322,65 @@
             height: auto;
             margin-top: 10px;
             border-radius: 4px;
+        }
+
+        /* --- NOVOS ESTILOS PARA CHAT POPUP --- */
+        #chat-button {
+            margin-right: 8px;
+            display: none; /* Inicialmente escondido, mostrado ao logar */
+        }
+
+        #chat-popup {
+            display: none;
+            position: absolute;
+            top: 48px;
+            right: 0;
+            width: 500px; /* Largura ajustável para o chat */
+            max-height: 80vh;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 997; /* Um pouco abaixo de news e notifications */
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #chat-popup-header {
+            background-color: #3f51b5;
+            color: white;
+            padding: 10px 15px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        #chat-popup-header .close-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        #chat-popup-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        #chat-popup-footer {
+            padding: 10px 15px;
+            border-top: 1px solid #eee;
+            text-align: center;
+        }
+
+        #chat-popup-footer button {
+            width: 100%;
         }
     </style>
 </head>
@@ -332,8 +392,23 @@
                 <div class="mdl-layout-spacer"></div>
                 <nav class="mdl-navigation">
                     <a class="mdl-navigation__link" href="#" onclick="loadPage('recepcao.html', false)">Início</a>
-                    <a class="mdl-navigation__link" href="#" onclick="loadPage('chat.html', true)">Chat</a>
-                    <a class="mdl-navigation__link" href="#" data-requires-auth="true" onclick="loadPage('https://admin.wzzm.org/', true)" id="admin-panel-button" style="display: none;">Admin</a>
+                    <button class="mdl-button mdl-js-button mdl-button--icon" id="chat-button" style="display: none;">
+                        <i class="material-icons">chat</i>
+                    </button>
+                    <div id="chat-popup">
+                        <div id="chat-popup-header">
+                            <span>Chat Global</span>
+                            <button class="close-button" id="close-chat-popup-button">×</button>
+                        </div>
+                        <div id="chat-popup-content">
+                            <p>Carregando chat...</p>
+                        </div>
+                        <div id="chat-popup-footer">
+                            <button id="view-full-chat-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
+                                Ir para a página do Chat
+                            </button>
+                        </div>
+                    </div>
                     <div style="position: relative; display: flex; align-items: center;">
                         <button class="mdl-button mdl-js-button mdl-button--icon" id="news-button" style="display: none;">
                             <i class="material-icons">article</i>
@@ -396,9 +471,7 @@
             <span class="mdl-layout-title">Navegação</span>
             <nav class="mdl-navigation">
                 <a class="mdl-navigation__link" href="#" onclick="loadPage('recepcao.html', false)">Início</a>
-                <a class="mdl-navigation__link" href="#" data-requires-auth="true" onclick="loadPage('chat.html', true)">Chat</a>
-                <a class="mdl-navigation__link" href="#" data-requires-auth="true" onclick="loadPage('painel_admin.html', true)" id="admin-panel-button-drawer" style="display: none;">Admin</a>
-                <a class="mdl-navigation__link" href="#" onclick="loadPage('POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf', false)">Regras</a>
+                <a class="mdl-navigation__link" href="#" data-requires-auth="true" onclick="showChatPopup();">Chat</a> <a class="mdl-navigation__link" href="#" onclick="loadPage('POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf', false)">Regras</a>
                 <a class="mdl-navigation__link" href="#" onclick="loadPage('termos_de_uso.html', false)">Termos de Uso</a>
                 <a class="mdl-navigation__link" href="#" onclick="loadPage('visualizarnoticias.html', false)">Notícias</a>
             </nav>
@@ -485,15 +558,7 @@
                 }
             });
 
-            // Atualiza o botão de admin no drawer
-            const adminPanelButtonDrawer = document.getElementById('admin-panel-button-drawer');
-            if (adminPanelButtonDrawer) {
-                if (enabled && currentUser && currentUser.isAdmin) { // Assume que isAdmin é uma propriedade no objeto currentUser
-                    adminPanelButtonDrawer.style.display = 'block';
-                } else {
-                    adminPanelButtonDrawer.style.display = 'none';
-                }
-            }
+            // O botão de admin no drawer foi removido
         }
 
 
@@ -579,9 +644,9 @@
                 unsubscribeNotifications();
             }
 
-            const notificationsRef = firestore.collection('notifications');
+            // Ajustado para a subcoleção de notificações do usuário
+            const notificationsRef = firestore.collection('users').doc(currentUser.uid).collection('notifications');
             unsubscribeNotifications = notificationsRef
-                .where('recipientId', '==', currentUser.uid)
                 .where('read', '==', false)
                 .onSnapshot(snapshot => {
                     updateNotificationBadge(snapshot.size);
@@ -591,23 +656,6 @@
         }
 
 
-        // Função para criar uma notificação (principalmente para uso do backend ou do chat.html)
-        async function createNotification(recipientId, message, link = '', type = 'info') {
-            try {
-                await firestore.collection('notifications').add({
-                    recipientId: recipientId,
-                    message: message,
-                    link: link,
-                    type: type,
-                    read: false,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log("Notificação criada para:", recipientId);
-            } catch (error) {
-                console.error("Erro ao criar notificação:", error);
-            }
-        }
-
         // Funções para mostrar/esconder o popup de notificações
         function showNotificationsPopup() {
             const notificationsCenterPopup = document.getElementById('notifications-center-popup');
@@ -616,8 +664,11 @@
                 notificationsCenterPopup.style.display = 'flex';
                 // Carregar notificações aqui
                 notificationsPopupContent.innerHTML = '<p>Carregando notificações...</p>';
-                firestore.collection('notifications')
-                    .where('recipientId', '==', currentUser.uid)
+                if (!currentUser) {
+                    notificationsPopupContent.innerHTML = '<p>Faça login para ver suas notificações.</p>';
+                    return;
+                }
+                firestore.collection('users').doc(currentUser.uid).collection('notifications')
                     .orderBy('timestamp', 'desc')
                     .limit(10) // Limita as últimas 10 notificações
                     .get()
@@ -640,7 +691,7 @@
                             `;
                             notificationItem.addEventListener('click', async () => {
                                 // Marcar como lida e redirecionar se houver link
-                                await firestore.collection('notifications').doc(doc.id).update({ read: true });
+                                await firestore.collection('users').doc(currentUser.uid).collection('notifications').doc(doc.id).update({ read: true });
                                 if (notification.link) {
                                     loadPage(notification.link, false); // ou true se o link exigir autenticação
                                 }
@@ -649,10 +700,9 @@
                             notificationsPopupContent.appendChild(notificationItem);
                         });
                         // Marca todas as notificações visíveis no popup como lidas
-                        // Isso pode ser ajustado para marcar como lidas apenas ao fechar o popup, etc.
                         snapshot.forEach(async (doc) => {
                             if (!doc.data().read) {
-                                await firestore.collection('notifications').doc(doc.id).update({ read: true });
+                                await firestore.collection('users').doc(currentUser.uid).collection('notifications').doc(doc.id).update({ read: true });
                             }
                         });
                     })
@@ -670,8 +720,7 @@
             }
         }
 
-        // --- NOVAS FUNÇÕES PARA O POPUP DE NOTÍCIAS ---
-
+        // --- FUNÇÕES PARA O POPUP DE NOTÍCIAS ---
         function showNewsPopup() {
             const newsCenterPopup = document.getElementById('news-center-popup');
             if (newsCenterPopup) {
@@ -730,6 +779,44 @@
             }
         }
 
+        // --- NOVAS FUNÇÕES PARA O POPUP DE CHAT ---
+
+        function showChatPopup() {
+            const chatPopup = document.getElementById('chat-popup');
+            if (!currentUser) { // Chat exige login
+                loadPage('chat.html', true); // Redireciona para a página de chat que lida com o login
+                return;
+            }
+
+            if (chatPopup) {
+                chatPopup.style.display = 'flex';
+                loadChatPopupContent('chat_popup_content.html'); // Carrega o conteúdo HTML do arquivo
+            }
+        }
+
+        function hideChatPopup() {
+            const chatPopup = document.getElementById('chat-popup');
+            if (chatPopup) {
+                chatPopup.style.display = 'none';
+            }
+        }
+
+        async function loadChatPopupContent(htmlFile) {
+            const chatPopupContent = document.getElementById('chat-popup-content');
+            chatPopupContent.innerHTML = '<p>Carregando conteúdo do chat...</p>';
+            try {
+                const response = await fetch(htmlFile);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const html = await response.text();
+                chatPopupContent.innerHTML = html;
+            } catch (error) {
+                console.error("Erro ao carregar conteúdo do chat HTML:", error);
+                chatPopupContent.innerHTML = `<p style="color: red;">Erro ao carregar chat: ${error.message}</p>`;
+            }
+        }
+
 
         // --- Funções de Autenticação (EXISTENTES) ---
         const providerGoogle = new firebase.auth.GoogleAuthProvider();
@@ -768,7 +855,7 @@
             const loginGoogleButton = document.getElementById('login-google');
             const loginGitHubButton = document.getElementById('login-github');
             const logoutButton = document.getElementById('logout-button');
-            const adminPanelButton = document.getElementById('admin-panel-button');
+            // const adminPanelButton = document.getElementById('admin-panel-button'); // REMOVIDO
             const userProfilePic = document.getElementById('user-profile-pic');
             const googleAppsButton = document.getElementById('google-apps-button');
             const userInfoContainer = document.getElementById('user-info-container');
@@ -778,9 +865,11 @@
             const accessDeniedMessage = document.getElementById('access-denied-message');
             const bannedMessage = document.getElementById('banned-message');
             const notificationBellButton = document.getElementById('notification-bell-button');
-            // Adicionado aqui para escopo
-            const newsButton = document.getElementById('news-button'); // NEW: Get reference to news button
-            const newsCenterPopup = document.getElementById('news-center-popup'); // NEW: Get reference to news popup
+            const newsButton = document.getElementById('news-button');
+            const newsCenterPopup = document.getElementById('news-center-popup');
+            // NOVO: Chat elements
+            const chatButton = document.getElementById('chat-button');
+            const chatPopup = document.getElementById('chat-popup');
 
 
             if (user) {
@@ -802,7 +891,7 @@
                 await createUserProfileDocument(user);
 
                 let isUserBanned = false;
-                let isUserAdmin = false;
+                // let isUserAdmin = false; // REMOVIDO
 
                 try {
                     const userProfileRef = firestore.collection('users').doc(user.uid);
@@ -810,12 +899,12 @@
 
                     if (doc.exists && doc.data()) {
                         isUserBanned = doc.data().isBan || false;
-                        isUserAdmin = doc.data().isAdmin || false;
+                        // isUserAdmin = doc.data().isAdmin || false; // REMOVIDO
                     }
                 } catch (error) {
                     console.error("Erro ao verificar perfil de usuário ou status de banimento/admin:", error);
                     isUserBanned = false;
-                    isUserAdmin = false;
+                    // isUserAdmin = false; // REMOVIDO
                 }
 
                 isCurrentUserBanned = isUserBanned;
@@ -826,7 +915,7 @@
                         logoutButton.style.display = 'none';
                         logoutButton.removeEventListener('click', handleLogout);
                     }
-                    if (adminPanelButton) adminPanelButton.style.display = 'none';
+                    // if (adminPanelButton) adminPanelButton.style.display = 'none'; // REMOVIDO
                     loadPage('recepcao.html', false);
                     if (bannedMessage) bannedMessage.style.display = 'block';
                     if (contentFrame) contentFrame.style.display = 'none';
@@ -835,8 +924,10 @@
                         googleAppsButton.style.opacity = '0.6';
                     }
                     if (googleAppsPopup) googleAppsPopup.style.display = 'none';
-                    if (newsButton) newsButton.style.display = 'none'; // NEW: Hide news button if banned
-                    if (newsCenterPopup) newsCenterPopup.style.display = 'none'; // NEW: Hide news popup if banned
+                    if (newsButton) newsButton.style.display = 'none';
+                    if (newsCenterPopup) newsCenterPopup.style.display = 'none';
+                    if (chatButton) chatButton.style.display = 'none'; // NOVO: Hide chat button if banned
+                    if (chatPopup) chatPopup.style.display = 'none'; // NOVO: Hide chat popup if banned
                 } else { // User is not banned
                     if (logoutButton) logoutButton.style.display = 'inline-block';
                     setNavLinksEnabled(true); // Enable all links if not banned
@@ -848,13 +939,15 @@
                         googleAppsButton.style.opacity = '1';
                     }
                     if (notificationBellButton) notificationBellButton.style.display = 'inline-block';
-                    if (newsButton) newsButton.style.display = 'inline-block'; // NEW: Show news button if not banned
+                    if (newsButton) newsButton.style.display = 'inline-block';
+                    if (chatButton) chatButton.style.display = 'inline-block'; // NOVO: Show chat button if not banned
 
-                    if (isUserAdmin) {
-                        if (adminPanelButton) adminPanelButton.style.display = 'inline-block';
-                    } else {
-                        if (adminPanelButton) adminPanelButton.style.display = 'none';
-                    }
+                    // Lógica do admin foi removida para o painel de admin
+                    // if (isUserAdmin) {
+                    //     if (adminPanelButton) adminPanelButton.style.display = 'inline-block';
+                    // } else {
+                    //     if (adminPanelButton) adminPanelButton.style.display = 'none';
+                    // }
 
                     await loadAndApplyUserAppsCSS(user.uid);
                     listenForNotifications();
@@ -879,7 +972,7 @@
                 if (loginGoogleButton) loginGoogleButton.style.display = 'inline-block';
                 if (loginGitHubButton) loginGitHubButton.style.display = 'inline-block';
                 if (logoutButton) logoutButton.style.display = 'none';
-                if (adminPanelButton) adminPanelButton.style.display = 'none';
+                // if (adminPanelButton) adminPanelButton.style.display = 'none'; // REMOVIDO
                 isCurrentUserBanned = false;
                 if (bannedMessage) bannedMessage.style.display = 'none';
                 setNavLinksEnabled(false);
@@ -895,15 +988,18 @@
                 if (contentFrame) contentFrame.style.display = 'block';
                 if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
                 if (notificationBellButton) notificationBellButton.style.display = 'none';
-                if (newsButton) newsButton.style.display = 'none'; // NEW: Hide news button when logged out
-                if (newsCenterPopup) newsCenterPopup.style.display = 'none'; // NEW: Hide news popup when logged out
+                if (newsButton) newsButton.style.display = 'none';
+                if (newsCenterPopup) newsCenterPopup.style.display = 'none';
+                if (chatButton) chatButton.style.display = 'none'; // NOVO: Hide chat button when logged out
+                if (chatPopup) chatPopup.style.display = 'none'; // NOVO: Hide chat popup when logged out
                 updateNotificationBadge(0);
                 if (unsubscribeNotifications) { // Garante que o listener seja parado ao deslogar
                     unsubscribeNotifications();
                     unsubscribeNotifications = null;
                 }
                 hideNotificationsPopup();
-                hideNewsPopup(); // NEW: Hide news popup when logged out
+                hideNewsPopup();
+                hideChatPopup(); // NOVO: Hide chat popup when logged out
             }
             if (componentHandler) {
                 componentHandler.upgradeDom();
@@ -913,8 +1009,6 @@
         // --- Event Listeners DOMContentLoaded ---
         document.addEventListener('DOMContentLoaded', () => {
             // Re-obter referências aos elementos DOM dentro deste escopo
-            const loginGoogleButton = document.getElementById('login-google');
-            const loginGitHubButton = document.getElementById('login-github');
             const googleAppsButton = document.getElementById('google-apps-button');
             const googleAppsPopup = document.getElementById('google-apps-popup');
             const notificationBellButton = document.getElementById('notification-bell-button');
@@ -922,13 +1016,18 @@
             const closeNotificationsPopupButton = document.getElementById('close-notifications-popup-button');
             const viewAllChatMessagesButton = document.getElementById('view-all-chat-messages-button');
             const navLinks = document.querySelectorAll('.mdl-navigation__link');
-            const mainNavigation = document.getElementById('main-navigation');
 
             // NEW: Get references for news popup elements
             const newsButton = document.getElementById('news-button');
             const newsCenterPopup = document.getElementById('news-center-popup');
             const closeNewsPopupButton = document.getElementById('close-news-popup-button');
             const viewAllNewsButton = document.getElementById('view-all-news-button');
+
+            // NEW: Get references for chat popup elements
+            const chatButton = document.getElementById('chat-button');
+            const chatPopup = document.getElementById('chat-popup');
+            const closeChatPopupButton = document.getElementById('close-chat-popup-button');
+            const viewFullChatButton = document.getElementById('view-full-chat-button');
 
 
             // --- Adicionar Event Listeners ---
@@ -980,11 +1079,12 @@
             // Botão do Sino de Notificações
             if (notificationBellButton) {
                 notificationBellButton.addEventListener('click', (event) => {
-                    event.stopPropagation(); // Impede que o clique feche imediatamente
+                    event.stopPropagation();
                     if (notificationsCenterPopup.style.display === 'flex') {
                         hideNotificationsPopup();
                     } else {
                         hideNewsPopup(); // Fecha o popup de notícias se estiver aberto
+                        hideChatPopup(); // NOVO: Fecha o popup de chat se estiver aberto
                         showNotificationsPopup();
                     }
                 });
@@ -997,15 +1097,15 @@
                 });
             }
 
-            // Botão "Ver todas as Mensagens do Chat"
+            // Botão "Ver todas as Mensagens do Chat" (dentro do popup de notificações)
             if (viewAllChatMessagesButton) {
                 viewAllChatMessagesButton.addEventListener('click', () => {
-                    loadPage('chat.html', true); // Carrega a página do chat
+                    loadPage('chat.html', true); // Carrega a página do chat (ainda pode ser uma página full)
                     hideNotificationsPopup(); // Esconde o popup
                 });
             }
 
-            // NEW: Event Listeners for News Button and Popup
+            // Event Listeners for News Button and Popup
             if (newsButton) {
                 newsButton.addEventListener('click', (event) => {
                     event.stopPropagation();
@@ -1013,6 +1113,7 @@
                         hideNewsPopup();
                     } else {
                         hideNotificationsPopup(); // Close notifications popup if open
+                        hideChatPopup(); // NOVO: Close chat popup if open
                         showNewsPopup();
                     }
                 });
@@ -1031,6 +1132,34 @@
                 });
             }
 
+            // --- NOVO: Event Listeners para o Botão e Popup do Chat ---
+            if (chatButton) {
+                chatButton.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    if (chatPopup.style.display === 'flex') {
+                        hideChatPopup();
+                    } else {
+                        hideNotificationsPopup(); // Fecha popup de notificações
+                        hideNewsPopup(); // Fecha popup de notícias
+                        showChatPopup();
+                    }
+                });
+            }
+
+            if (closeChatPopupButton) {
+                closeChatPopupButton.addEventListener('click', () => {
+                    hideChatPopup();
+                });
+            }
+
+            if (viewFullChatButton) {
+                viewFullChatButton.addEventListener('click', () => {
+                    loadPage('chat.html', true); // Carrega a página completa do chat
+                    hideChatPopup();
+                });
+            }
+
+
             // Listener global para fechar popups ao clicar fora
             document.addEventListener('click', (event) => {
                 // Fecha o popup de apps se clicar fora dele
@@ -1046,36 +1175,63 @@
                     !notificationsCenterPopup.contains(event.target)) {
                     notificationsCenterPopup.style.display = 'none';
                 }
-                // NEW: Fecha o popup de notícias se clicar fora dele
+                // Fecha o popup de notícias se clicar fora dele
                 if (newsCenterPopup && newsCenterPopup.style.display === 'flex' &&
                     !newsButton.contains(event.target) &&
                     !newsCenterPopup.contains(event.target)) {
                     newsCenterPopup.style.display = 'none';
+                }
+                // NOVO: Fecha o popup do chat se clicar fora dele
+                if (chatPopup && chatPopup.style.display === 'flex' &&
+                    !chatButton.contains(event.target) &&
+                    !chatPopup.contains(event.target)) {
+                    chatPopup.style.display = 'none';
                 }
             });
 
             // Adiciona event listener para links de navegação no drawer
             navLinks.forEach(link => {
                 link.addEventListener('click', function(event) {
-                    const pageSrc = this.getAttribute('onclick').match(/'([^']*)'/)[1];
-                    const requiresAuth = this.dataset.requiresAuth === 'true';
+                    const pageSrc = this.getAttribute('onclick'); // Get the raw onclick attribute
+                    let actualPageSrc = '';
+                    let requiresAuth = false;
 
-                    if (isCurrentUserBanned && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    // Extract actual page source and requiresAuth
+                    if (pageSrc && pageSrc.includes("loadPage(")) {
+                        const match = pageSrc.match(/loadPage\('([^']*)', (true|false)\)/);
+                        if (match) {
+                            actualPageSrc = match[1];
+                            requiresAuth = match[2] === 'true';
+                        }
+                    } else if (pageSrc && pageSrc.includes("showChatPopup()")) {
+                        // Special handling for chat popup in drawer
+                        event.preventDefault(); // Prevent default loadPage behavior
+                        showChatPopup();
+                        // Close drawer
+                        if (document.querySelector('.mdl-layout__drawer.is-visible')) {
+                            document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
+                            document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
+                        }
+                        return; // Exit here as we handled the chat popup
+                    }
+
+
+                    if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
                         event.preventDefault();
                         return;
                     }
 
-                    if (this.classList.contains('disabled') && !pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    if (this.classList.contains('disabled') && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
                         event.preventDefault();
                         return;
                     }
 
-                    if (pageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                        return;
+                    if (actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                        return; // Allow opening PDF rules
                     }
 
                     event.preventDefault();
-                    loadPage(pageSrc, requiresAuth);
+                    loadPage(actualPageSrc, requiresAuth);
                     // Fecha o drawer do MDL se estiver aberto
                     if (document.querySelector('.mdl-layout__drawer.is-visible')) {
                         document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
