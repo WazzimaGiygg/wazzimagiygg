@@ -781,38 +781,58 @@
             });
 
             // Adiciona event listener para links de navegação no drawer (ajustado)
-           navLinks.forEach(link => {
+            navLinks.forEach(link => {
                 link.addEventListener('click', function(event) {
-                    // const pageSrc = this.getAttribute('onclick'); // <--- Remove this line
-                    let actualPageSrc = this.getAttribute('data-page-src'); // <--- Add this line
-                    let requiresAuth = this.getAttribute('data-requires-auth') === 'true'; // <--- Add this line
+                    // Previne o comportamento padrão do link (evita que o href="#" recarregue a página)
+                    event.preventDefault();
 
-                    // The block that extracts from onclick can be removed or modified to use data attributes
-                    // if (pageSrc && pageSrc.includes("loadPage(")) {
-                    //     const match = pageSrc.match(/loadPage\('([^']*)', (true|false)\)/);
-                    //     if (match) {
-                    //         actualPageSrc = match[1];
-                    //         requiresAuth = match[2] === 'true';
-                    //     }
-                    // }
+                    // Obtém o src da página do atributo 'data-page-src'
+                    let actualPageSrc = this.getAttribute('data-page-src');
 
+                    // Obtém o requisito de autenticação do atributo 'data-requires-auth'
+                    // Ele será 'true' se o atributo existir e for 'true', caso contrário, 'false'.
+                    let requiresAuth = this.getAttribute('data-requires-auth') === 'true';
 
-                    if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                        event.preventDefault();
+                    // === NOVAS CONDIÇÕES PARA LINKS QUE NÃO TÊM data-page-src (como 'Regras') ===
+                    // Se o data-page-src não estiver definido, tente extrair do onclick como fallback
+                    if (!actualPageSrc) {
+                        const onclickAttr = this.getAttribute('onclick');
+                        if (onclickAttr && onclickAttr.includes("loadPage(")) {
+                            const match = onclickAttr.match(/loadPage\('([^']*)', (true|false)\)/);
+                            if (match) {
+                                actualPageSrc = match[1];
+                                requiresAuth = match[2] === 'true';
+                            }
+                        }
+                    }
+                    // ===========================================================================
+
+                    // Se por algum motivo ainda não tivermos um src, pare a execução
+                    if (!actualPageSrc) {
+                        console.warn('Nenhum src de página encontrado para o link:', this);
                         return;
+                    }
+
+                    // Verifica se o usuário está banido (Mantenha o seu código de lógica aqui)
+                    if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                        return; // O preventDefault já foi chamado
                     }
 
                     if (this.classList.contains('disabled') && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                        event.preventDefault();
-                        return;
+                        return; // O preventDefault já foi chamado
                     }
 
                     if (actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                        return; // Permitir a abertura de PDFs de regras
+                        // Para PDFs ou outros arquivos que o navegador deve lidar, não chame loadPage
+                        // e permita que o href padrão funcione (se houver, mas aqui é #).
+                        // Se for um PDF para o iframe, mantenha loadPage.
+                        // Dado o seu código anterior que permitia a abertura de PDFs, vamos mantê-lo.
+                        // Se você quiser que PDFs abram em uma nova aba, você precisaria de um 'target="_blank"' no link
+                        // ou um tratamento JS diferente.
                     }
 
-                    event.preventDefault();
-                    loadPage(actualPageSrc, requiresAuth);
+                    loadPage(actualPageSrc, requiresAuth); // Chama a função para carregar a página
+                    
                     // Fecha o drawer do MDL se estiver aberto
                     if (document.querySelector('.mdl-layout__drawer.is-visible')) {
                         document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
