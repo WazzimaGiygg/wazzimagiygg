@@ -1,732 +1,870 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wiki Zone Zero Mod</title>
-    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <title>Buscar Artigos - WZZM Admin</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
-    <style id="custom-app-css">
-        /* Este será o local onde o CSS dos aplicativos do usuário será injetado */
-    </style>
     <style>
-        /* Seus estilos CSS existentes aqui */
         body {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            margin: 0;
-            font-family: 'Roboto', sans-serif;
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
             background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
         }
-        .mdl-layout__content {
-            flex-grow: 1;
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        #articles-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+            width: 100%;
+        }
+        .article-card {
+            width: 100%;
             display: flex;
             flex-direction: column;
-            padding: 0;
+            background: #fff;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
         }
-        .page-content {
+        .article-card:hover {
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,.2), 0 6px 2px -4px rgba(0,0,0,.2), 0 2px 10px 0 rgba(0,0,0,.12);
+        }
+        .article-card .mdl-card__title {
+            color: #fff;
+            background-color: #3f51b5;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .article-card .mdl-card__title-text {
+            color: #fff;
+            font-size: 1.5em;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+        .article-card .mdl-card__supporting-text {
+            padding: 16px;
+            font-size: 0.9em;
+            line-height: 1.5;
             flex-grow: 1;
+            white-space: normal;
         }
-
-        /* Estilos adicionais para o recurso de notícias */
-        #news-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 999;
-        }
-
-        #news-center-popup {
-            display: none; /* Inicia oculto */
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .news-popup-card {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 80%;
-            max-height: 80%;
-            overflow-y: auto;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            position: relative; /* Para posicionar o botão de fechar */
-        }
-
-        .news-popup-close {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-        }
-
-        .news-item {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-        }
-
-        .news-item:last-child {
-            border-bottom: none;
-        }
-
-        .news-item h3 {
-            margin-top: 0;
+        .article-card .mdl-card__supporting-text strong {
             color: #3f51b5;
+            /* Cor para os títulos dos campos */
+            display: block;
+            /* Garante que cada título fique em sua própria linha */
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+        .article-card .mdl-card__actions {
+            border-top: 1px solid rgba(0,0,0,.1);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        .article-card .mdl-card__actions .mdl-button {
+            margin-left: 8px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: #777;
+            font-size: 1.1em;
+            width: 100%;
+        }
+        .error-message {
+            text-align: center;
+            padding: 30px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+            width: 100%;
+        }
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column; /* Altera para coluna para melhor organização */
+            gap: 15px;
+            /* Espaço entre os elementos de busca */
+            align-items: center;
         }
 
-        .news-item p {
-            color: #555;
+        /* Estilo Google Scholar para a caixa de busca e o botão */
+        .scholar-search-box {
+            display: flex;
+            border: 1px solid #dfe1e5;
+            border-radius: 24px; /* Cantos arredondados */
+            box-shadow: none;
+            height: 48px; /* Altura da caixa de busca */
+            margin: 0 auto;
+            width: 100%;
+            max-width: 600px; /* Largura máxima similar ao Google Scholar */
+            background-color: #fff;
+            align-items: center;
+            padding: 0 10px;
+            transition: box-shadow 0.3s ease;
         }
 
-        .news-item small {
-            color: #888;
-            font-size: 0.8em;
+        .scholar-search-box:hover {
+            box-shadow: 0 1px 6px rgba(32,33,36,.28);
+            /* Sombra ao passar o mouse */
         }
 
-        .news-item.read {
-            opacity: 0.6;
+        .scholar-search-box.is-focused {
+            box-shadow: 0 1px 6px rgba(32,33,36,.28);
+            /* Sombra quando focado */
+            border-color: rgba(223,225,229,0);
         }
 
-        #notification-badge {
-            background-color: red;
-            color: white;
-            border-radius: 50%;
-            padding: 4px 8px;
-            font-size: 0.8em;
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            display: none;
-        }
-
-        .mdl-navigation__link.disabled {
-            pointer-events: none;
-            color: #9e9e9e; /* Cor para links desabilitados */
-        }
-
-        #login-google-button,
-        #login-github-button,
-        #logout-button {
-            display: none; /* Oculta os botões por padrão */
-        }
-
-        #user-profile-pic {
-            display: none; /* Oculta a imagem de perfil por padrão */
-            width: 40px; /* Ajuste o tamanho conforme necessário */
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-            object-fit: cover;
-        }
-
-        #user-info-container {
-            display: none; /* Oculta o contêiner de informações do usuário por padrão */
+        .scholar-search-box .mdl-textfield {
+            padding: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
         }
 
-        #banned-message {
-            display: none; /* Oculta a mensagem de banimento por padrão */
-            color: red;
-            font-weight: bold;
-            text-align: center;
-            margin-top: 20px;
-        }
-        #google-apps-button {
-            display: none;
-        }
-        #google-apps-popup {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
+        .scholar-search-box .mdl-textfield__input {
+            border: none;
+            outline: none;
+            font-size: 16px;
+            padding: 0 10px; /* Padding interno para o texto */
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1001;
+            box-sizing: border-box;
+        }
+
+        .scholar-search-box .mdl-textfield__label {
+            display: none;
+            /* Esconde o label flutuante para um estilo mais limpo */
+        }
+
+        .scholar-search-box .mdl-button {
+            background-color: transparent;
+            color: #4285f4; /* Cor do ícone de busca do Google */
+            box-shadow: none;
+            height: 46px; /* Ajuste para o botão */
+            width: 46px;
+            min-width: 46px;
+            padding: 0;
+            border-radius: 50%; /* Botão redondo */
+            display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        .google-apps-card {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 80%;
-            max-height: 80%;
-            overflow-y: auto;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            position: relative;
-        }
-
-        .google-apps-close {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
+        .scholar-search-box .mdl-button .material-icons {
             font-size: 24px;
-            cursor: pointer;
         }
 
-        .google-app-item {
+        /* Ajustes para o selectfield dentro do estilo Scholar */
+        .scholar-search-box .mdl-selectfield {
+            width: auto;
+            /* Permite que o select ocupe o espaço necessário */
+            min-width: 120px;
+            /* Largura mínima para o select */
+            flex-grow: 0;
+            /* Não cresce para preencher o espaço */
+            margin-right: 10px;
+            /* Espaço entre o select e o campo de texto */
+            height: 100%;
             display: flex;
             align-items: center;
-            margin-bottom: 15px;
         }
 
-        .google-app-item img {
-            width: 48px;
-            height: 48px;
-            margin-right: 15px;
+        .scholar-search-box .mdl-selectfield .mdl-textfield__input {
+            font-size: 14px;
+            /* Fonte um pouco menor para o select */
+            padding-left: 0;
+            padding-right: 0;
+            text-align: center; /* Centraliza o texto do select */
         }
 
-        .google-app-item a {
-            font-size: 1.2em;
+        .scholar-search-box .mdl-selectfield .mdl-textfield__label {
+            display: none;
+        }
+
+        /* Estilo para os botões de ação abaixo da caixa de busca */
+        .search-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap; /* Permite que os botões quebrem a linha em telas menores */
+        }
+
+        .search-actions .mdl-button {
+            border-radius: 4px;
+            font-size: 14px;
+            padding: 0 16px;
+            height: 36px;
+            min-width: 54px;
+            text-transform: none;
+            /* Mantém o texto normal */
+            box-shadow: 0 1px 1px rgba(0,0,0,.1);
+        }
+
+        .search-actions .mdl-button--colored {
+            background-color: #4285f4;
+            /* Cor azul do Google */
+            color: #fff;
+        }
+
+        .search-actions .mdl-button--raised {
+            background-color: #f8f8f8;
+            color: #3c4043;
+            border: 1px solid #dadce0;
+        }
+
+        .search-actions .mdl-button--raised:hover {
+            box-shadow: 0 1px 3px rgba(0,0,0,.2);
+            background-color: #f0f0f0;
+        }
+
+        /* Estilos para os novos filtros de idioma e tipo de artigo */
+        .filter-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+            flex-wrap: wrap;
+            /* Permite que os filtros quebrem a linha */
+        }
+
+        .filter-group .mdl-selectfield {
+            flex: 1;
+            /* Permite que os campos cresçam e ocupem o espaço */
+            min-width: 150px;
+            /* Largura mínima para cada dropdown */
+            margin-bottom: 0;
+            /* Remove margem inferior extra */
+        }
+
+        .filter-group .mdl-selectfield select {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,.12);
+            background: transparent;
+            font-size: 16px;
+            color: rgba(0,0,0,.87);
+            cursor: pointer;
+            appearance: none;
+            /* Remove a seta padrão do select */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+        .filter-group .mdl-selectfield label {
+            color: rgba(0,0,0,.26);
+            font-size: 16px;
+            left: 0;
+            top: 10px;
+            position: absolute;
+            pointer-events: none;
+            transition: 0.2s ease all;
+            transform-origin: left top;
+        }
+        .filter-group .mdl-selectfield select:focus + label,
+        .filter-group .mdl-selectfield select:not([value=""]) + label {
+            color: #3f51b5;
+            top: -15px;
+            font-size: 12px;
+            transform: scale(0.75);
+        }
+
+        /* Estilos ABNT para o pop-up */
+        .abnt-article-view {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            margin: 3cm 2cm 2cm 3cm; /* Top, Right, Bottom, Left */
+            text-align: justify;
+        }
+
+        .abnt-article-view h2 {
+            font-size: 14pt;
+            text-align: center;
+            margin-bottom: 1em;
+            text-transform: uppercase;
+        }
+
+        .abnt-article-view h3 {
+            font-size: 12pt;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .abnt-article-view p {
+            text-indent: 1.25cm;
+            margin-bottom: 0.5em;
+        }
+
+        .abnt-article-view .abnt-section-title {
+            font-weight: bold;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .abnt-article-view .abnt-source-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .abnt-article-view .abnt-source-list li {
+            margin-bottom: 0.5em;
+        }
+        .abnt-article-view .external-link {
+            display: block;
+            margin-top: 1em;
+            text-align: center;
+        }
+        .abnt-article-view .external-link a {
             color: #3f51b5;
             text-decoration: none;
+            font-weight: bold;
+        }
+        .abnt-article-view .external-link a:hover {
+            text-decoration: underline;
         }
     </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
-        <header class="mdl-layout__header">
-            <div class="mdl-layout__header-row">
-                <span class="mdl-layout-title">Wiki Zone Zero Mod</span>
-                <div class="mdl-layout-spacer"></div>
-                <nav class="mdl-navigation mdl-layout--large-screen-only">
-                    <a class="mdl-navigation__link" href="#" data-page-src="recepcao.html" data-requires-auth="false">Página Inicio</a>
-                    <a class="mdl-navigation__link" href="#" onclick="window.open('POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf', '_blank'); return false;">Regras</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="artigos.html" data-requires-auth="true">Artigos</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="imagens.html" data-requires-auth="true">Imagens</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="client-wzzm.html" data-requires-auth="true">Client WZZM</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="contato.html" data-requires-auth="true">Contato</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="user-page.html" data-requires-auth="true">Página do Usuário</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="track-report-user.html" data-requires-auth="true">Rastrear usuário / Denunciar</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="other-services.html" data-requires-auth="true">Outros serviços da Wiki Zone Zero Mod</a>
-                    <a class="mdl-navigation__link" href="#" data-page-src="noticias.html" data-requires-auth="true">Visualizar Noticias</a>
-                </nav>
-                <div id="user-info-container">
-                    <img id="user-profile-pic" src="" alt="Foto de Perfil">
-                    <span id="user-info"></span>
-                    <button id="google-apps-button" class="mdl-button mdl-js-button mdl-button--icon">
-                        <i class="material-icons">apps</i>
-                    </button>
-                    <button id="login-google-button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
-                        Login Google
-                    </button>
-                    <button id="login-github-button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
-                        Login GitHub
-                    </button>
-                    <button id="logout-button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
-                        Logout
-                    </button>
-                </div>
-            </div>
-        </header>
-        <div class="mdl-layout__drawer">
-            <span class="mdl-layout-title">Menu</span>
-            <nav class="mdl-navigation">
-                <a class="mdl-navigation__link" href="#" data-page-src="recepcao.html" data-requires-auth="false">Página Inicio</a>
-                <a class="mdl-navigation__link" href="#" onclick="window.open('POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf', '_blank'); return false;">Regras</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="artigos.html" data-requires-auth="true">Artigos</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="imagens.html" data-requires-auth="true">Imagens</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="client-wzzm.html" data-requires-auth="true">Client WZZM</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="contato.html" data-requires-auth="true">Contato</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="user-page.html" data-requires-auth="true">Página do Usuário</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="track-report-user.html" data-requires-auth="true">Rastrear usuário / Denunciar</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="other-services.html" data-requires-auth="true">Outros serviços da Wiki Zone Zero Mod</a>
-                <a class="mdl-navigation__link" href="#" data-page-src="noticias.html" data-requires-auth="true">Visualizar Noticias</a>
-            </nav>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+    <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+        <div id="g_id_onload"
+             data-client_id="SEU_CLIENT_ID_GOOGLE.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
         </div>
-        <main class="mdl-layout__content">
-            <div id="banned-message" class="mdl-typography--headline">
-                Você está banido do Wiki Zone Zero Mod. Você ainda pode visualizar a "Página Inicio" e as "Regras".
-            </div>
-            <iframe id="content-frame" class="page-content" src="recepcao.html" frameborder="0"></iframe>
-            <div id="access-denied-message" class="mdl-typography--headline" style="display: none;">
-                Acesso negado. Faça login para visualizar este conteúdo.
-            </div>
-        </main>
+        <div class="g_signin2" data-width="200" data-height="40" data-longtitle="true"></div>
     </div>
+    <div class="container">
+        <h1>Wiki Zero - Beta0.512</h1>
 
-    <button id="news-button" class="mdl-button mdl-js-button mdl-button--fab mdl-js-ripple-effect mdl-button--colored">
-        <i class="material-icons">announcement</i>
-        <span id="notification-badge">0</span>
-    </button>
+        <div class="search-container">
+            <div class="scholar-search-box" id="scholar-search-box">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label getmdl-select mdl-selectfield">
+                   <input class="mdl-textfield__input" id="search-type-display" readonly tabIndex="-1" value="Título">
+                    <label for="search-type-display" class="mdl-textfield__label">Buscar por</label>
+                    <ul for="search-type-display" class="mdl-menu mdl-menu--bottom-left mdl-js-menu" id="search-type-menu">
+                        <li class="mdl-menu__item" data-val="title">Título</li>
+                        <li class="mdl-menu__item" data-val="description">Descrição Curta</li>
+                        <li class="mdl-menu__item" data-val="summary">Resumo</li>
+                        <li class="mdl-menu__item" data-val="abstract">Abstract</li>
+                        <li class="mdl-menu__item" data-val="introduction">Introdução</li>
+                        <li class="mdl-menu__item" data-val="methodology">Metodologia</li>
+                        <li class="mdl-menu__item" data-val="discussion">Discussão</li>
+                        <li class="mdl-menu__item" data-val="conclusion">Conclusão</li>
+                        <li class="mdl-menu__item" data-val="sources">Fontes</li>
+                        <li class="mdl-menu__item" data-val="userId">ID do Usuário</li>
+                        <li class="mdl-menu__item" data-val="id">ID do Artigo</li>
+                        <li class="mdl-menu__item" data-val="originalUrl">Url</li>
+                    </ul>
+                    <input type="hidden" name="search-type" id="search-type" value="title">
+                </div>
 
-    <div id="news-center-popup">
-        <div class="mdl-card mdl-shadow--8dp news-popup-card">
-            <button class="news-popup-close">&times;</button>
-            <h3>Notícias</h3>
-            <div id="news-popup-content">
+                <div class="mdl-textfield mdl-js-textfield">
+                    <input class="mdl-textfield__input" type="text" id="search-term">
+                    <label class="mdl-textfield__label" for="search-term"></label>
                 </div>
-        </div>
-    </div>
+                <button id="search-button" class="mdl-button mdl-js-button mdl-button--icon">
+                    <i class="material-icons">search</i>
+                </button>
+            </div>
 
-    <div id="google-apps-popup">
-        <div class="mdl-card mdl-shadow--8dp google-apps-card">
-            <button class="google-apps-close">&times;</button>
-            <h3>Aplicativos Google</h3>
-            <div id="google-apps-content">
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/drive_48dp.png" alt="Google Drive">
-                    <a href="https://drive.google.com/" target="_blank">Google Drive</a>
+            <div class="filter-group">
+                <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                   <select id="filter-language" class="mdl-textfield__input">
+                        <option value="">Todos os Idiomas</option>
+                        <option value="pt-BR">Português (Brasil)</option>
+                        <option value="en-US">English (United States)</option>
+                   </select>
+                    <label for="filter-language" class="mdl-textfield__label">Idioma</label>
                 </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/docs_48dp.png" alt="Google Docs">
-                    <a href="https://docs.google.com/" target="_blank">Google Docs</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/sheets_48dp.png" alt="Google Sheets">
-                    <a href="https://sheets.google.com/" target="_blank">Google Sheets</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/slides_48dp.png" alt="Google Slides">
-                    <a href="https://slides.google.com/" target="_blank">Google Slides</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/gmail_48dp.png" alt="Gmail">
-                    <a href="https://mail.google.com/" target="_blank">Gmail</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/calendar_48dp.png" alt="Google Calendar">
-                    <a href="https://calendar.google.com/" target="_blank">Google Calendar</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/photos_48dp.png" alt="Google Photos">
-                    <a href="https://photos.google.com/" target="_blank">Google Photos</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/meet_48dp.png" alt="Google Meet">
-                    <a href="https://meet.google.com/" target="_blank">Google Meet</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/classroom_48dp.png" alt="Google Classroom">
-                    <a href="https://classroom.google.com/" target="_blank">Google Classroom</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/forms_48dp.png" alt="Google Forms">
-                    <a href="https://docs.google.com/forms/" target="_blank">Google Forms</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/sites_48dp.png" alt="Google Sites">
-                    <a href="https://sites.google.com/" target="_blank">Google Sites</a>
-                </div>
-                <div class="google-app-item">
-                    <img src="https://www.gstatic.com/images/branding/product/2x/keep_48dp.png" alt="Google Keep">
-                    <a href="https://keep.google.com/" target="_blank">Google Keep</a>
+
+                <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                    <select id="filter-article-type" class="mdl-textfield__input">
+                        <option value="">Todos os Tipos</option>
+                        <option value="cientifico">Científico</option>
+                        <option value="revisao">Revisão Bibliográfica</option>
+                        <option value="noticia">Notícia</option>
+                        <option value="editorial">Editorial</option>
+                        <option value="opiniao">Opinião</option>
+                        <option value="entrevista">Entrevista</option>
+                        <option value="tutorial">Tutorial</option>
+                    </select>
+                    <label for="filter-article-type" class="mdl-textfield__label">Tipo de Artigo</label>
                 </div>
             </div>
         </div>
+
+        <div class="search-actions">
+            <button id="main-search-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                <i class="material-icons">search</i> Buscar
+            </button>
+            <button id="clear-search-button" class="mdl-button mdl-js-button mdl-button--raised">
+                Limpar Filtros
+            </button>
+        </div>
+
+        <div id="articles-list" class="mdl-grid">
+            <p class="empty-state" id="loading-message">Use a barra de pesquisa acima para encontrar artigos.</p>
+        </div>
+
+        <div id="error-display" class="error-message" style="display: none;"></div>
     </div>
 
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <script type="module">
-        // Importa as bibliotecas Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+    <script>
+        // Função para escapar caracteres HTML
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
 
-        // Configuração do Firebase
+        // ***** FUNÇÃO DE CALLBACK DO LOGIN GOOGLE API *****
+        function handleCredentialResponse(response) {
+            console.log("Encoded JWT ID token: " + response.credential);
+            // Aqui você deve enviar o `response.credential` (JWT) para o seu backend.
+            // O backend irá verificar o token e autenticar o usuário.
+            // Exemplo:
+            // fetch('/api/google-auth', {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //     },
+            //     body: JSON.stringify({ token: response.credential }),
+            // })
+            // .then(response => response.json())
+            // .then(data => {
+            //     console.log('Autenticação bem-sucedida:', data);
+            //     // Redirecionar o usuário ou atualizar a UI
+            // })
+            // .catch(error => {
+            //     console.error('Erro na autenticação:', error);
+            // });
+        }
+        // **************************************************
+
         const firebaseConfig = {
-            // Suas credenciais de configuração do Firebase aqui
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
         };
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
 
-        // Inicializa o Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const firestore = getFirestore(app);
+        const articlesListDiv = document.getElementById('articles-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        const searchTermInput = document.getElementById('search-term');
+        const searchTypeInput = document.getElementById('search-type');
+        const searchTypeDisplayInput = document.getElementById('search-type-display');
+        const searchTypeMenu = document.getElementById('search-type-menu');
+        // Adicionado
+        const searchButton = document.getElementById('search-button');
+        const mainSearchButton = document.getElementById('main-search-button');
+        const clearSearchButton = document.getElementById('clear-search-button');
+        const scholarSearchBox = document.getElementById('scholar-search-box');
+        // Novos elementos de filtro
+        const filterLanguageSelect = document.getElementById('filter-language');
+        const filterArticleTypeSelect = document.getElementById('filter-article-type');
 
-        // Referências aos elementos do DOM
-        let currentUser = null;
-        let isCurrentUserBanned = false;
-        let unsubscribeNewsListener = null;
-        let unsubscribeReadNewsListener = null;
-
-        const userInfo = document.getElementById('user-info');
-        const loginGoogleButton = document.getElementById('login-google-button');
-        const loginGitHubButton = document.getElementById('login-github-button');
-        const logoutButton = document.getElementById('logout-button');
-        const userProfilePic = document.getElementById('user-profile-pic');
-        const userInfoContainer = document.getElementById('user-info-container');
-        const bannedMessage = document.getElementById('banned-message');
-        const contentFrame = document.getElementById('content-frame');
-        const accessDeniedMessage = document.getElementById('access-denied-message');
-        const customAppCssStyleTag = document.getElementById('custom-app-css');
-        const googleAppsButton = document.getElementById('google-apps-button');
-        const googleAppsPopup = document.getElementById('google-apps-popup');
-        const googleAppsCloseButton = document.querySelector('.google-apps-close');
-
-        const newsButton = document.getElementById('news-button');
-        const newsCenterPopup = document.getElementById('news-center-popup');
-        const newsPopupCloseButton = document.querySelector('.news-popup-close');
-        const newsPopupContent = document.getElementById('news-popup-content');
-        const notificationBadge = document.getElementById('notification-badge');
-
-        // Provedores de Autenticação
-        const googleProvider = new GoogleAuthProvider();
-        const githubProvider = new GithubAuthProvider();
-
-        // Funções de Autenticação
-        const handleLogin = async (provider) => {
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                console.error("Erro no login:", error);
-                alert(`Erro ao fazer login: ${error.message}`);
-            }
-        };
-
-        const handleLogout = async () => {
-            try {
-                await signOut(auth);
-                alert("Você foi desconectado.");
-            } catch (error) {
-                console.error("Erro no logout:", error);
-                alert(`Erro ao fazer logout: ${error.message}`);
-            }
-        };
-
-        // Função para carregar o conteúdo da página no iframe
-        function loadPage(src, requiresAuth) {
-            if (isCurrentUserBanned && src !== 'recepcao.html' && src !== 'POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf') {
-                contentFrame.style.display = 'none';
-                accessDeniedMessage.style.display = 'none';
-                bannedMessage.style.display = 'block';
-                return;
-            }
-
-            if (requiresAuth && !currentUser) {
-                contentFrame.style.display = 'none';
-                accessDeniedMessage.style.display = 'block';
-                bannedMessage.style.display = 'none';
-            } else {
-                contentFrame.src = src;
-                contentFrame.style.display = 'block';
-                accessDeniedMessage.style.display = 'none';
-                bannedMessage.style.display = 'none';
-            }
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+            loadingMessage.style.display = 'none';
         }
 
-        // Função para habilitar/desabilitar links de navegação
-        function setNavLinksEnabled(enabled) {
-            const navLinks = document.querySelectorAll('.mdl-navigation__link');
-            navLinks.forEach(link => {
-                const requiresAuth = link.getAttribute('data-requires-auth') === 'true';
-                const isRulesLink = link.getAttribute('onclick') && link.getAttribute('onclick').includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf');
-                const isHomePage = link.getAttribute('data-page-src') === 'recepcao.html';
+        async function loadArticles(searchTerm = '', searchField = 'title', languageFilter = '', articleTypeFilter = '') {
+            articlesListDiv.innerHTML = '';
+            loadingMessage.style.display = 'block';
+            errorDisplay.style.display = 'none';
 
-                if (isHomePage || isRulesLink || (requiresAuth && enabled) || (!requiresAuth && enabled)) {
-                    link.style.pointerEvents = 'auto';
-                    link.style.color = '#424242'; // Cor padrão
-                    link.classList.remove('disabled');
-                } else {
-                    link.style.pointerEvents = 'none';
-                    link.style.color = '#9e9e9e'; // Cor para desabilitado
-                    link.classList.add('disabled');
-                }
-            });
-        }
-
-        // Funções para gerenciar o popup de notícias
-        function showNewsPopup() {
-            if (newsCenterPopup) {
-                newsCenterPopup.style.display = 'flex';
-                loadNewsForPopup(); // Garante que as notícias sejam carregadas ao abrir o popup
-            }
-        }
-
-        function hideNewsPopup() {
-            if (newsCenterPopup) {
-                newsCenterPopup.style.display = 'none';
-                newsPopupContent.innerHTML = ''; // Limpa o conteúdo quando o popup é escondido
-            }
-        }
-
-        async function loadNewsForPopup() {
-            newsPopupContent.innerHTML = 'Carregando últimas notícias...'; // Garante que esta mensagem seja exibida apenas uma vez
-            try {
-                const newsSnapshot = await firestore.collection('news').orderBy('timestamp', 'desc').get();
-                const readNewsDoc = currentUser ? await getDoc(doc(firestore, 'users', currentUser.uid, 'readNews', 'status')) : null;
-                const readNews = readNewsDoc && readNewsDoc.exists() ? readNewsDoc.data().read : [];
-
-                newsPopupContent.innerHTML = ''; // Limpa a mensagem de carregamento
-                newsSnapshot.forEach(doc => {
-                    const news = doc.data();
-                    const newsId = doc.id;
-                    const isRead = readNews.includes(newsId);
-
-                    const newsItemDiv = document.createElement('div');
-                    newsItemDiv.classList.add('news-item');
-                    if (isRead) {
-                        newsItemDiv.classList.add('read');
-                    }
-                    newsItemDiv.innerHTML = `
-                        <h3>${news.title}</h3>
-                        <p>${news.content}</p>
-                        <small>${news.timestamp ? new Date(news.timestamp.toDate()).toLocaleString() : 'Data desconhecida'}</small>
-                    `;
-                    newsItemDiv.addEventListener('click', async () => {
-                        if (currentUser && !isRead) {
-                            await updateDoc(doc(firestore, 'users', currentUser.uid, 'readNews', 'status'), {
-                                read: [...readNews, newsId]
-                            }, { merge: true });
-                            newsItemDiv.classList.add('read'); // Marca como lida imediatamente na UI
-                        }
-                    });
-                    newsPopupContent.appendChild(newsItemDiv);
-                });
-            } catch (error) {
-                console.error("Erro ao carregar notícias:", error);
-                newsPopupContent.innerHTML = '<p>Erro ao carregar notícias. Tente novamente mais tarde.</p>';
-            }
-        }
-
-        async function updateNewsNotificationCount(userId) {
-            if (!userId) {
-                notificationBadge.style.display = 'none';
-                notificationBadge.textContent = '0';
+            // Se nenhum termo ou filtro foi aplicado, mostra a mensagem inicial
+            if (!searchTerm.trim() && !languageFilter && !articleTypeFilter) {
+                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`;
+                loadingMessage.style.display = 'none';
                 return;
             }
 
             try {
-                const newsSnapshot = await firestore.collection('news').get();
-                const readNewsDoc = await getDoc(doc(firestore, 'users', userId, 'readNews', 'status'));
-                const readNews = readNewsDoc.exists() ? readNewsDoc.data().read : [];
+                const trimmedSearchTerm = searchTerm.trim();
+                let snapshot;
 
-                const unreadCount = newsSnapshot.docs.filter(doc => !readNews.includes(doc.id)).length;
-
-                if (unreadCount > 0) {
-                    notificationBadge.textContent = unreadCount.toString();
-                    notificationBadge.style.display = 'block';
-                } else {
-                    notificationBadge.style.display = 'none';
-                    notificationBadge.textContent = '0';
-                }
-            } catch (error) {
-                console.error("Erro ao atualizar contador de notificações:", error);
-                notificationBadge.style.display = 'none';
-            }
-        }
-
-        // Funções para gerenciar o popup de aplicativos Google
-        function showGoogleAppsPopup() {
-            if (googleAppsPopup) {
-                googleAppsPopup.style.display = 'flex';
-            }
-        }
-
-        function hideGoogleAppsPopup() {
-            if (googleAppsPopup) {
-                googleAppsPopup.style.display = 'none';
-            }
-        }
-
-        // Event Listeners
-        loginGoogleButton.addEventListener('click', () => handleLogin(googleProvider));
-        loginGitHubButton.addEventListener('click', () => handleLogin(githubProvider));
-        logoutButton.addEventListener('click', handleLogout);
-
-        newsButton.addEventListener('click', showNewsPopup);
-        newsPopupCloseButton.addEventListener('click', hideNewsPopup);
-        newsCenterPopup.addEventListener('click', (e) => {
-            if (e.target === newsCenterPopup) {
-                hideNewsPopup();
-            }
-        });
-
-        googleAppsButton.addEventListener('click', showGoogleAppsPopup);
-        googleAppsCloseButton.addEventListener('click', hideGoogleAppsPopup);
-        googleAppsPopup.addEventListener('click', (e) => {
-            if (e.target === googleAppsPopup) {
-                hideGoogleAppsPopup();
-            }
-        });
-
-        // Monitora o estado de autenticação
-        onAuthStateChanged(auth, async (user) => {
-            currentUser = user; // Atualiza a variável global
-            let actualPageSrc = contentFrame.src; // Pega a página atual do iframe
-
-            if (user) {
-                userInfo.textContent = `Bem-vindo, ${user.displayName || user.email}!`;
-                userInfoContainer.style.display = 'flex';
-                loginGoogleButton.style.display = 'none';
-                loginGitHubButton.style.display = 'none';
-                logoutButton.style.display = 'inline-block';
-                userProfilePic.style.display = 'inline-block';
-                userProfilePic.src = user.photoURL || '';
-                googleAppsButton.style.display = 'inline-block';
-                newsButton.style.display = 'block';
-
-                // Verifica status de banimento
-                const userDocRef = doc(firestore, 'users', user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    isCurrentUserBanned = userData.isBanned || false;
-                    if (userData.customAppCss) {
-                        customAppCssStyleTag.innerHTML = userData.customAppCss;
-                    }
-                } else {
-                    // Cria o documento do usuário se não existir (primeiro login)
-                    await setDoc(userDocRef, {
-                        uid: user.uid,
-                        displayName: user.displayName,
-                        email: user.email,
-                        photoURL: user.photoURL,
-                        createdAt: serverTimestamp(),
-                        isBanned: false,
-                        customAppCss: ''
-                    });
-                    isCurrentUserBanned = false;
-                }
-
-                if (isCurrentUserBanned) {
-                    console.warn(`Usuário ${user.uid} está banido.`);
-                    bannedMessage.style.display = 'block';
-                    setNavLinksEnabled(false); // Desabilita todos, exceto "Página Inicio" e "Regras"
-                    loadPage('recepcao.html', false); // Redireciona para a página inicial
-                    contentFrame.style.display = 'none'; // Oculta o iframe para exibir a mensagem de banimento
-                    accessDeniedMessage.style.display = 'none'; // Garante que a mensagem de acesso negado esteja oculta
-                } else {
-                    bannedMessage.style.display = 'none';
-                    setNavLinksEnabled(true); // Habilita todos os links
-                    // Se o usuário não está banido e estava em uma página restrita, redireciona para a página original
-                    // ou para 'recepcao.html' se a página atual for inacessível
-                    if (actualPageSrc.includes('access-denied.html')) { // Se a página atual é a de acesso negado
-                        loadPage('recepcao.html', false); // Redireciona para a página inicial
+                if (searchField === 'id' && trimmedSearchTerm) {
+                    // Search directly by document ID
+                    const doc = await firestore.collection('articlesdoc').doc(trimmedSearchTerm).get();
+                    if (doc.exists) {
+                        snapshot = {
+                            empty: false,
+                            forEach: (callback) => callback(doc)
+                        };
                     } else {
-                        // Recarrega a página atual com as permissões corretas
-                        const currentNavLink = document.querySelector(`.mdl-navigation__link[data-page-src="${actualPageSrc}"]`);
-                        const requiresAuthCurrentPage = currentNavLink ? currentNavLink.getAttribute('data-requires-auth') === 'true' : false;
-                        loadPage(actualPageSrc, requiresAuthCurrentPage);
+                        snapshot = {
+                            empty: true
+                        };
                     }
-                }
-
-                // Inscrição em tempo real para notícias e status de leitura
-                if (unsubscribeNewsListener) {
-                    unsubscribeNewsListener(); // Desinscreve o ouvinte anterior
-                }
-                unsubscribeNewsListener = onSnapshot(query(collection(firestore, 'news'), orderBy('timestamp', 'desc')), snapshot => {
-                    if (newsCenterPopup.style.display === 'flex') {
-                        loadNewsForPopup(); // Recarrega notícias se o popup estiver aberto
+                } else {
+                    let articlesRef = firestore.collection('articlesdoc');
+                    // Aplica o filtro de texto se houver um termo e um campo de busca
+                    if (trimmedSearchTerm && searchField) {
+                        articlesRef = articlesRef
+                            .where(searchField, '>=', trimmedSearchTerm)
+                            .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
                     }
-                    updateNewsNotificationCount(user.uid); // Atualiza o badge
-                }, error => console.error("Erro ao ouvir notícias:", error));
 
-                if (unsubscribeReadNewsListener) {
-                    unsubscribeReadNewsListener(); // Desinscreve o ouvinte anterior
-                }
-                unsubscribeReadNewsListener = onSnapshot(doc(firestore, 'users', user.uid, 'readNews', 'status'), () => {
-                    updateNewsNotificationCount(user.uid); // Atualiza o contador de notificações
-                    if (newsCenterPopup.style.display === 'flex') {
-                        loadNewsForPopup(); // Recarrega notícias se o popup estiver aberto
+                    // Aplica o filtro de idioma
+                    if (languageFilter) {
+                        articlesRef = articlesRef.where('language', '==', languageFilter);
                     }
-                }, error => console.error("Erro ao ouvir status de leitura:", error));
 
-                updateNewsNotificationCount(user.uid); // Carrega o contador inicial de notificações ao iniciar
+                    // Aplica o filtro de tipo de artigo
+                    if (articleTypeFilter) {
+                        articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
+                    }
 
-            } else { // Usuário deslogado
-                currentUser = null;
-                userInfo.textContent = '';
-                userInfoContainer.style.display = 'none';
-                loginGoogleButton.style.display = 'inline-block';
-                loginGitHubButton.style.display = 'inline-block';
-                logoutButton.style.display = 'none';
-                isCurrentUserBanned = false; // Garante que o status de banimento seja resetado
-                bannedMessage.style.display = 'none';
-                setNavLinksEnabled(false); // Desabilita todos, exceto "Página Inicio" e "Regras"
-                loadPage('recepcao.html', false); // Redireciona para a página inicial
-                userProfilePic.style.display = 'none';
-                userProfilePic.src = '';
-                googleAppsButton.style.display = 'none';
-                googleAppsPopup.style.display = 'none'; // Esconde o popup de apps
-                customAppCssStyleTag.innerHTML = ''; // Limpa CSS de app personalizado
-                contentFrame.style.display = 'block'; // Garante que o iframe esteja visível na página inicial
-                accessDeniedMessage.style.display = 'none'; // Garante que a mensagem de acesso negado esteja oculta
-                newsButton.style.display = 'none';
-                hideNewsPopup(); // Garante que o popup de notícias esteja oculto
+                    // Ordena os resultados
+                    if (trimmedSearchTerm && searchField && searchField !== 'id') { // Don't order by ID if searching by ID directly
+                        articlesRef = articlesRef.orderBy(searchField);
+                    } else if (languageFilter || articleTypeFilter) {
+                        // If only filters are applied, order by timestamp
+                        articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                    } else {
+                        // Default order if no search term or filters
+                        articlesRef = articlesRef.orderBy('timestamp', 'desc');
+                    }
 
-                // Desinscreve os ouvintes quando o usuário desloga
-                if (unsubscribeNewsListener) {
-                    unsubscribeNewsListener();
+                    snapshot = await articlesRef.get();
                 }
-                if (unsubscribeReadNewsListener) {
-                    unsubscribeReadNewsListener();
+
+                loadingMessage.style.display = 'none';
+                if (snapshot.empty) {
+                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ?
+                        `Nenhum artigo encontrado com os critérios de busca.` :
+                        'Nenhum artigo (articlesdoc) publicado ainda.';
+                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+                    return;
                 }
-                notificationBadge.style.display = 'none'; // Garante que o badge esteja oculto
-                notificationBadge.textContent = '0';
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const id = doc.id; // ID do documento pode ser usado diretamente
+
+                    const title = data.title || 'Título Indisponível';
+                    const userId = data.userId || 'ID do Usuário Indisponível';
+                    const summary = data.summary || 'Nenhum resumo disponível.';
+                    const introduction = data.introduction || 'Nenhuma introdução disponível.';
+                    const description = data.description || 'Nenhuma descrição disponível.';
+                    const discussion = data.discussion || 'Nenhuma discussão disponível.';
+                    const methodology = data.methodology || 'Nenhuma metodologia disponível.';
+                    const abstract = data.abstract || 'Nenhum abstract disponível.';
+                    const conclusion = data.conclusion || 'Nenhuma conclusão disponível.';
+                    const orginalUrl = data.originalUrl || 'Url Indisponível'; // Notei que esta variável não é usada em `card.innerHTML`
+                    const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
+                    const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
+                    const language = data.language || 'Não especificado';
+                    const articleType = data.articleType || 'Não especificado';
+
+                    const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
+                    const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Data de Criação Indisponível';
+                    const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
+                    const formattedLastModified = lastModifiedDate ?
+                        lastModifiedDate.toLocaleDateString('pt-BR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : 'Data de Modificação Indisponível';
+
+                    const card = document.createElement('div');
+                    card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
+                    card.innerHTML = `
+                        <div class="mdl-card__title">
+                            <h2 class="mdl-card__title-text">${escapeHtml(title)}</h2>
+                        </div>
+                        <div class="mdl-card__supporting-text">
+                            <strong>ID do artigo:</strong> <p>${escapeHtml(id)}</p>
+                            <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
+                            <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
+                            <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
+                            <strong>Resumo:</strong> <p>${escapeHtml(summary)}</p>
+                            <strong>Introdução:</strong> <p>${escapeHtml(introduction)}</p>
+                            <strong>Descrição:</strong> <p>${escapeHtml(description)}</p>
+                            <strong>Discussão:</strong> <p>${escapeHtml(discussion)}</p>
+                            <strong>Metodologia:</strong> <p>${escapeHtml(methodology)}</p>
+                            <strong>Abstract:</strong> <p>${escapeHtml(abstract)}</p>
+                            <strong>Conclusão:</strong> <p>${escapeHtml(conclusion)}</p>
+                            <strong>Fontes:</strong> <p>${sources.map(s => escapeHtml(s)).join(', ')}</p>
+                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
+                            <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
+                            <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
+                        </div>
+                        <div class="mdl-card__actions mdl-card--border">
+                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo</button>
+                        </div>
+                    `;
+                    articlesListDiv.appendChild(card);
+                });
+
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(articlesListDiv);
+                }
+
+            } catch (error) {
+                displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`);
+                console.error("Erro ao carregar artigos:", error);
+                if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
+                    console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
+                }
             }
-            // Garante que os componentes MDL sejam atualizados após as mudanças no DOM
-            if (componentHandler) {
-                componentHandler.upgradeDom();
+        }
+
+       async function viewArticleInNewWindow(articleId) {
+            const newWindow = window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
+            if (!newWindow) {
+                alert('Por favor, permita pop-ups para visualizar o artigo completo.');
+                return;
             }
+
+            try {
+                const doc = await firestore.collection('articlesdoc').doc(articleId).get();
+                if (!doc.exists) {
+                    newWindow.document.write('<p>Artigo não encontrado.</p>');
+                    return;
+                }
+
+                const id = doc.id; // Corrected to use doc.id
+                const data = doc.data();
+                const title = data.title || 'Título Indisponível';
+                const summary = data.summary || '';
+                const introduction = data.introduction || '';
+                const methodology = data.methodology || '';
+                const discussion = data.discussion || '';
+                const conclusion = data.conclusion || '';
+                const abstract = data.abstract || '';
+                const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
+                const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
+
+                const viewContent = `
+                    <!DOCTYPE html>
+                    <html lang="pt-br">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>${escapeHtml(title)}</title>
+                        <style>
+                            body {
+                                font-family: "Times New Roman", Times, serif;
+                                font-size: 12pt;
+                                line-height: 1.5;
+                                margin: 3cm 2cm 2cm 3cm;
+                                text-align: justify;
+                            }
+                            h2 {
+                                font-size: 14pt;
+                                text-align: center;
+                                text-transform: uppercase;
+                                margin-bottom: 1em;
+                            }
+                            .abnt-section-title {
+                                font-weight: bold;
+                                margin-top: 1.5em;
+                                margin-bottom: 0.5em;
+                            }
+                            p {
+                                text-indent: 1.25cm;
+                                margin-bottom: 0.5em;
+                            }
+                            .abnt-source-list {
+                                list-style: none;
+                                padding-left: 0;
+                            }
+                            .abnt-source-list li {
+                                margin-bottom: 0.5em;
+                            }
+                            .external-link {
+                                display: block;
+                                margin-top: 1em;
+                                text-align: center;
+                            }
+                            .external-link a {
+                                color: #3f51b5;
+                                font-weight: bold;
+                                text-decoration: none;
+                            }
+                            .external-link a:hover {
+                                text-decoration: underline;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>${escapeHtml(title)}</h2>
+                        <strong>ID do Artigo:</strong> <p>${escapeHtml(id)}</p>
+                        ${abstract ? `<p class="abnt-section-title">Abstract:</p><p>${escapeHtml(abstract)}</p>` : ''}
+                        ${summary ? `<p class="abnt-section-title">Resumo:</p><p>${escapeHtml(summary)}</p>` : ''}
+                        ${introduction ? `<p class="abnt-section-title">1 INTRODUÇÃO</p><p>${escapeHtml(introduction)}</p>` : ''}
+                        ${methodology ? `<p class="abnt-section-title">2 METODOLOGIA</p><p>${escapeHtml(methodology)}</p>` : ''}
+                        ${discussion ? `<p class="abnt-section-title">3 DISCUSSÃO</p><p>${escapeHtml(discussion)}</p>` : ''}
+                        ${conclusion ? `<p class="abnt-section-title">4 CONCLUSÃO</p><p>${escapeHtml(conclusion)}</p>` : ''}
+                        ${sources.length > 0 ? `<p class="abnt-section-title">REFERÊNCIAS</p><ul class="abnt-source-list">${sources.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>` : ''}
+                        ${externalLink ? `<div class="external-link"><a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">Acessar Link Externo</a></div>` : ''}
+                    </body>
+                    </html>
+                `;
+                newWindow.document.write(viewContent);
+                newWindow.document.close();
+
+            } catch (error) {
+                console.error("Erro ao visualizar artigo:", error);
+                newWindow.document.write(`<p>Erro ao carregar o artigo: ${escapeHtml(error.message)}</p>`);
+            }
+        }
+
+
+        // Event listener para o botão de busca principal
+        mainSearchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+        // Event listener para o botão de busca no campo de texto (ícone de lupa)
+        searchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter,
+articleTypeFilter);
         });
 
-        // Event listener para links de navegação
-        document.addEventListener('DOMContentLoaded', () => {
-            const navLinks = document.querySelectorAll('.mdl-navigation__link');
-            navLinks.forEach(link => {
-                link.addEventListener('click', (event) => {
-                    // Se o link tem um onclick, ele já está sendo tratado (ex: regras.pdf)
-                    if (link.getAttribute('onclick')) {
-                        return;
-                    }
-
-                    event.preventDefault(); // Impede o comportamento padrão do link
-
-                    const actualPageSrc = link.getAttribute('data-page-src');
-                    const requiresAuth = link.getAttribute('data-requires-auth') === 'true';
-
-                    // Se o usuário está banido, apenas "Página Inicio" e "Regras" são permitidos
-                    if (isCurrentUserBanned && actualPageSrc !== 'recepcao.html' && actualPageSrc !== 'POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf') {
-                        // O loadPage já vai lidar com a exibição da mensagem de banimento
-                        loadPage(actualPageSrc, requiresAuth);
-                        return;
-                    }
-
-                    // Se a página requer autenticação e o usuário não está logado
-                    if (requiresAuth && !currentUser) {
-                        loadPage(actualPageSrc, true); // Chame loadPage para mostrar a mensagem de acesso negado
-                        return;
-                    }
-
-                    loadPage(actualPageSrc, requiresAuth); // Chama a função para carregar a página
-
-                    // Fecha o drawer do MDL se estiver aberto
-                    if (document.querySelector('.mdl-layout__drawer.is-visible')) {
-                        document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
-                        document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
-                    }
-                });
-            });
-
-            // Inicializa componentes MDL ao carregar o DOM pela primeira vez
-            if (componentHandler) {
-                componentHandler.upgradeDom();
+        clearSearchButton.addEventListener('click', () => {
+            searchTermInput.value = '';
+            searchTypeInput.value = 'title';
+            searchTypeDisplayInput.value = 'Título';
+            filterLanguageSelect.value = '';
+            filterArticleTypeSelect.value = '';
+            // Força a atualização do MDL para o select de busca
+            const searchTypeMdlSelect = document.querySelector('.getmdl-select');
+            if (searchTypeMdlSelect && searchTypeMdlSelect.MaterialTextfield) {
+                searchTypeMdlSelect.MaterialTextfield.change(searchTypeDisplayInput.value);
             }
+            // Força a atualização dos selects de filtro
+            const languageMdlSelect = filterLanguageSelect.closest('.mdl-textfield');
+            if (languageMdlSelect && languageMdlSelect.MaterialTextfield) {
+                languageMdlSelect.MaterialTextfield.change(''); // Clear display
+            }
+            const articleTypeMdlSelect = filterArticleTypeSelect.closest('.mdl-textfield');
+            if (articleTypeMdlSelect && articleTypeMdlSelect.MaterialTextfield) {
+                articleTypeMdlSelect.MaterialTextfield.change('');
+            }
+            loadArticles();
+        });
+        articlesListDiv.addEventListener('click', (event) => {
+            if (event.target.classList.contains('view-article-button')) {
+                const articleId = event.target.dataset.articleId;
+                if (articleId) {
+                // Abrir imediatamente a nova aba, no clique
+                window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
+                }
+            }
+        });
+        // Adiciona classes de foco para a caixa de busca simulada
+        searchTermInput.addEventListener('focus', () => {
+            scholarSearchBox.classList.add('is-focused');
+        });
+        searchTermInput.addEventListener('blur', () => {
+            scholarSearchBox.classList.remove('is-focused');
+        });
+        // Adiciona listener para os itens do menu de busca
+        searchTypeMenu.addEventListener('click', (event) => {
+            const clickedItem = event.target.closest('.mdl-menu__item');
+            if (clickedItem) {
+                const value = clickedItem.dataset.val;
+                const text = clickedItem.textContent.trim();
+
+                searchTypeInput.value = value;
+                searchTypeDisplayInput.value = text;
+
+                // Atualiza o componente MDL para que o input de exibição reflita a mudança
+                // Isso é crucial para o MDL reconhecer a nova seleção
+                const parentTextfield = searchTypeDisplayInput.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    parentTextfield.MaterialTextfield.change(text);
+                }
+            }
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+                // For mdl-selectfield, the display input needs to be updated after upgradeDom
+                const selectField = document.querySelector('.getmdl-select');
+                if (selectField && selectField.MaterialTextfield) {
+                    selectField.MaterialTextfield.change(searchTypeDisplayInput.value);
+                }
+            }
+            loadArticles(); // Carrega os artigos iniciais (ou a mensagem de "use a barra de pesquisa")
+        });
+        // Para garantir que os selectfields do MDL funcionem corretamente
+        // Se o valor inicial for vazio, o label pode não se comportar corretamente.
+        // Adicionar um evento para quando o select é alterado
+        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => {
+            selectElement.addEventListener('change', () => {
+                const parentTextfield = selectElement.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    // Update the MDL component's state
+                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text);
+                }
+            });
         });
     </script>
 </body>
