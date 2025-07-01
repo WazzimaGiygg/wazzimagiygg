@@ -555,24 +555,20 @@
                     return;
                 }
 
-                snapshot.forEach(doc => {
+                                snapshot.forEach(doc => {
                     const data = doc.data();
-                    const id = doc.id; // ID do documento pode ser usado diretamente
+                    const id = doc.id;
 
-                    const title =
-data.title || 'Título Indisponível';
+                    const title = data.title || 'Título Indisponível';
                     const userId = data.userId || 'ID do Usuário Indisponível';
-                    const summary = data.summary || 'Nenhum resumo disponível.';
-                    const introduction = data.introduction || 'Nenhuma introdução disponível.';
-                    const description = data.description || 'Nenhuma descrição disponível.';
-                    const discussion = data.discussion || 'Nenhuma discussão disponível.';
-                    const methodology = data.methodology || 'Nenhuma metodologia disponível.';
-                    const abstract = data.abstract || 'Nenhum abstract disponível.';
-                    const conclusion = data.conclusion || 'Nenhuma conclusão disponível.';
-                    const orginalUrl = data.originalUrl ||
-'Url Indisponível'; // Notei que esta variável não é usada em `card.innerHTML`
-                    const sources = (data.sources && Array.isArray(data.sources)) ?
-data.sources : [];
+                    const summary = data.summary || ''; // Pegar o conteúdo completo
+                    const introduction = data.introduction || ''; // Pegar o conteúdo completo
+                    const description = data.description || ''; // Pegar o conteúdo completo
+                    const discussion = data.discussion || ''; // Pegar o conteúdo completo
+                    const methodology = data.methodology || ''; // Pegar o conteúdo completo
+                    const abstract = data.abstract || ''; // Pegar o conteúdo completo
+                    const conclusion = data.conclusion || ''; // Pegar o conteúdo completo
+                    const sources = (data.sources && Array.isArray(data.sources)) ? data.sources : [];
                     const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
                     const language = data.language || 'Não especificado';
                     const articleType = data.articleType || 'Não especificado';
@@ -586,14 +582,28 @@ data.sources : [];
                         minute: '2-digit'
                     }) : 'Data de Criação Indisponível';
                     const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
-                    const formattedLastModified = lastModifiedDate ?
-lastModifiedDate.toLocaleDateString('pt-BR', {
+                    const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
                     }) : 'Data de Modificação Indisponível';
+
+                    // --- INÍCIO DA ADIÇÃO PARA CONTEÚDO FORMATADO NO CARD ---
+                    // Esta é uma versão simplificada para o card.
+                    // Se você quiser a formatação ABNT completa com margens e recuos,
+                    // seria mais complexo e pode não ser ideal para um card pequeno.
+                    let abntContent = '';
+                    if (abstract) abntContent += `<p class="abnt-section-title">Abstract:</p><p>${escapeHtml(abstract)}</p>`;
+                    if (summary) abntContent += `<p class="abnt-section-title">Resumo:</p><p>${escapeHtml(summary)}</p>`;
+                    if (introduction) abntContent += `<p class="abnt-section-title">1 INTRODUÇÃO</p><p>${escapeHtml(introduction)}</p>`;
+                    if (methodology) abntContent += `<p class="abnt-section-title">2 METODOLOGIA</p><p>${escapeHtml(methodology)}</p>`;
+                    if (discussion) abntContent += `<p class="abnt-section-title">3 DISCUSSÃO</p><p>${escapeHtml(discussion)}</p>`;
+                    if (conclusion) abntContent += `<p class="abnt-section-title">4 CONCLUSÃO</p><p>${escapeHtml(conclusion)}</p>`;
+                    if (sources.length > 0) abntContent += `<p class="abnt-section-title">REFERÊNCIAS</p><ul class="abnt-source-list">${sources.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`;
+                    // --- FIM DA ADIÇÃO PARA CONTEÚDO FORMATADO NO CARD ---
+
                     const card = document.createElement('div');
                     card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
                     card.innerHTML = `
@@ -605,18 +615,17 @@ lastModifiedDate.toLocaleDateString('pt-BR', {
                             <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
                             <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
                             <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
-                            <strong>Resumo:</strong> <p>${escapeHtml(summary)}</p>
-                            <strong>Introdução:</strong> <p>${escapeHtml(introduction)}</p>
-                            <strong>Descrição:</strong> <p>${escapeHtml(description)}</p>
-                            <strong>Discussão:</strong> <p>${escapeHtml(discussion)}</p>
-                            <strong>Metodologia:</strong> <p>${escapeHtml(methodology)}</p>
-                            <strong>Abstract:</strong> <p>${escapeHtml(abstract)}</p>
-                            <strong>Conclusão:</strong> <p>${escapeHtml(conclusion)}</p>
-                            <strong>Fontes:</strong> <p>${sources.map(s => escapeHtml(s)).join(', ')}</p>
-                            ${externalLink ?
-`<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
+                            
+                            <div class="abnt-preview">
+                                ${abntContent}
+                            </div>
+
+                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
                             <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
                             <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
+                        </div>
+                        <div class="mdl-card__actions mdl-card--border">
+                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo Completo</button>
                         </div>
                         <div class="mdl-card__actions mdl-card--border">
                             <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo</button>
