@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comunidades - Wiki Zone Zero Mod</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #3f51b5;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #auth-status-message {
+            text-align: center;
+            padding: 20px;
+            color: #e65100;
+            font-weight: bold;
+        }
+        #create-community-section, #community-list-section {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        #create-community-section h3, #community-list-section h3 {
+            margin-top: 0;
+            color: #5c6bc0;
+        }
+        #create-community-form .mdl-textfield {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        #create-community-form button {
+            width: 100%;
+            padding: 10px;
+            font-size: 1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #create-community-form button:hover {
+            background-color: #45a049;
+        }
+        .community-card {
+            display: flex;
+            align-items: center;
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .community-card .community-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 15px;
+            flex-shrink: 0; /* Prevents shrinking */
+        }
+        .community-card .community-details {
+            flex-grow: 1;
+        }
+        .community-card .community-details h4 {
+            margin: 0 0 5px 0;
+            color: #3f51b5;
+        }
+        .community-card .community-details p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #555;
+            line-height: 1.4;
+        }
+        .community-card .join-button {
+            background-color: #03a9f4; /* Light Blue */
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            white-space: nowrap; /* Prevent button text from wrapping */
+        }
+        .community-card .join-button:hover {
+            background-color: #0288d1; /* Darker Light Blue */
+        }
+        .community-card .join-button.joined {
+            background-color: #757575; /* Gray */
+            cursor: default;
+        }
+        .loading-message, .no-communities-message {
+            text-align: center;
+            padding: 20px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Comunidades</h2>
+
+        <div id="auth-status-message" style="display:none;">Por favor, faça login para ver e interagir com as comunidades.</div>
+
+        <div id="create-community-section" style="display:none;">
+            <h3>Criar Nova Comunidade</h3>
+            <form id="create-community-form">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="community-name" required>
+                    <label class="mdl-textfield__label" for="community-name">Nome da Comunidade</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <textarea class="mdl-textfield__input" type="text" rows="3" id="community-description"></textarea>
+                    <label class="mdl-textfield__label" for="community-description">Descrição da Comunidade</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="url" id="community-logo-url">
+                    <label class="mdl-textfield__label" for="community-logo-url">URL do Logo (opcional)</label>
+                    <span class="mdl-textfield__error">URL inválida!</span>
+                </div>
+                <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--colored">
+                    Criar Comunidade
+                </button>
+            </form>
+        </div>
+
+        <div id="community-list-section">
+            <h3>Comunidades Disponíveis</h3>
+            <div id="communities-list">
+                <p class="loading-message">Carregando comunidades...</p>
+            </div>
+        </div>
+    </div>
+
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script>
+        // Inicialização do Firebase (MESMA CONFIGURAÇÃO DO INDEX.HTML/PÁGINA PRINCIPAL)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+
+        let currentUser = null; // Variável global para o usuário logado
+        let userCommunities = []; // Armazenará os UIDs das comunidades que o usuário participa
+
+        // --- Elementos do DOM ---
+        const authStatusMessage = document.getElementById('auth-status-message');
+        const createCommunitySection = document.getElementById('create-community-section');
+        const createCommunityForm = document.getElementById('create-community-form');
+        const communityNameInput = document.getElementById('community-name');
+        const communityDescriptionInput = document.getElementById('community-description');
+        const communityLogoUrlInput = document.getElementById('community-logo-url');
+        const communitiesListDiv = document.getElementById('communities-list');
+
+        // --- Funções Auxiliares ---
+
+        // Função para carregar as comunidades que o usuário participa
+        async function loadUserJoinedCommunities(userId) {
+            userCommunities = []; // Limpa antes de carregar
+            if (!userId) return;
+
+            try {
+                // Caminho para o documento do usuário
+                const userDocRef = firestore.collection('social').doc('users').collection(userId).doc(userId);
+                const userDoc = await userDocRef.get();
+
+                if (userDoc.exists && userDoc.data() && userDoc.data().comunidadesParticipantes) {
+                    userCommunities = userDoc.data().comunidadesParticipantes;
+                }
+            } catch (error) {
+                console.error("Erro ao carregar comunidades do usuário:", error);
+            }
+        }
+
+        // Função para criar uma nova comunidade
+        async function createCommunity(event) {
+            event.preventDefault(); // Impede o recarregamento da página
+
+            if (!currentUser) {
+                alert('Você precisa estar logado para criar uma comunidade.');
+                return;
+            }
+
+            const name = communityNameInput.value.trim();
+            const description = communityDescriptionInput.value.trim();
+            const logoUrl = communityLogoUrlInput.value.trim();
+
+            if (!name) {
+                alert('O nome da comunidade é obrigatório.');
+                return;
+            }
+
+            try {
+                // Adiciona a comunidade no Firestore
+                // Gera um UID automático para a nova comunidade
+                const newCommunityRef = firestore.collection('social').doc('comunidades').collection(firestore.collection('social').doc('comunidades').doc().id).doc(); // Gera um ID único para a subcoleção e para o documento
+                const newCommunityId = newCommunityRef.id;
+
+
+                await newCommunityRef.set({
+                    nomeComunidade: name,
+                    uidAdmin: currentUser.uid,
+                    membros: [currentUser.uid], // O criador já é um membro
+                    descricao: description,
+                    logoUrl: logoUrl || 'https://via.placeholder.com/60', // Logo padrão
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Adiciona a nova comunidade à lista de comunidades participantes do usuário
+                const userDocRef = firestore.collection('social').doc('users').collection(currentUser.uid).doc(currentUser.uid);
+                await userDocRef.update({
+                    comunidadesParticipantes: firebase.firestore.FieldValue.arrayUnion(newCommunityId)
+                });
+
+                alert('Comunidade criada e você se tornou um membro!');
+                createCommunityForm.reset(); // Limpa o formulário
+                loadCommunities(); // Recarrega a lista de comunidades
+            } catch (error) {
+                console.error("Erro ao criar comunidade:", error);
+                alert('Erro ao criar comunidade. Tente novamente.');
+            }
+        }
+
+        // Função para renderizar uma comunidade
+        function renderCommunity(community) {
+            const communityCard = document.createElement('div');
+            communityCard.classList.add('community-card');
+            communityCard.dataset.communityId = community.id; // Armazena o ID da comunidade
+
+            const isMember = userCommunities.includes(community.id);
+            const buttonText = isMember ? 'Membro' : 'Entrar';
+            const buttonClass = isMember ? 'join-button joined' : 'join-button';
+            const buttonDisabled = isMember ? 'disabled' : '';
+
+            communityCard.innerHTML = `
+                <img class="community-logo" src="${community.logoUrl || 'https://via.placeholder.com/60'}" alt="Logo da Comunidade">
+                <div class="community-details">
+                    <h4>${community.nomeComunidade}</h4>
+                    <p>${community.descricao || 'Nenhuma descrição fornecida.'}</p>
+                    <p>Membros: ${community.membros ? community.membros.length : 0}</p>
+                </div>
+                <button class="${buttonClass}" ${buttonDisabled} data-community-id="${community.id}">
+                    ${buttonText}
+                </button>
+            `;
+
+            const joinButton = communityCard.querySelector('.join-button');
+            if (!isMember) { // Apenas adiciona o listener se o usuário não for membro
+                joinButton.addEventListener('click', () => joinCommunity(community.id));
+            }
+            return communityCard;
+        }
+
+        // Função para carregar todas as comunidades
+        async function loadCommunities() {
+            communitiesListDiv.innerHTML = '<p class="loading-message">Carregando comunidades...</p>';
+            try {
+                // Busca todas as comunidades
+                // Como cada comunidade é uma subcoleção com um documento de mesmo UID, precisamos iterar as subcoleções
+                const communitiesCollectionRef = firestore.collection('social').doc('comunidades');
+                const communitySubcollections = await communitiesCollectionRef.listCollections();
+
+                const communities = [];
+                for (const subcollectionRef of communitySubcollections) {
+                    const communityDocRef = subcollectionRef.doc(subcollectionRef.id);
+                    const communityDoc = await communityDocRef.get();
+                    if (communityDoc.exists && communityDoc.data()) {
+                        communities.push({ id: communityDoc.id, ...communityDoc.data() });
+                    }
+                }
+
+
+                if (communities.length === 0) {
+                    communitiesListDiv.innerHTML = '<p class="no-communities-message">Nenhuma comunidade encontrada.</p>';
+                    return;
+                }
+
+                communitiesListDiv.innerHTML = ''; // Limpa o "Carregando..."
+                for (const community of communities) {
+                    const communityElement = renderCommunity(community);
+                    communitiesListDiv.appendChild(communityElement);
+                }
+
+                // Upgrade MDL components after adding new elements
+                if (componentHandler) {
+                    componentHandler.upgradeElements(communitiesListDiv);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar comunidades:", error);
+                communitiesListDiv.innerHTML = '<p class="loading-message" style="color: red;">Erro ao carregar comunidades. Tente novamente mais tarde.</p>';
+            }
+        }
+
+        // Função para o usuário entrar em uma comunidade
+        async function joinCommunity(communityId) {
+            if (!currentUser) {
+                alert('Você precisa estar logado para entrar em uma comunidade.');
+                return;
+            }
+
+            try {
+                // 1. Adicionar o UID do usuário ao array 'membros' da comunidade
+                const communityDocRef = firestore.collection('social').doc('comunidades').collection(communityId).doc(communityId);
+                await communityDocRef.update({
+                    membros: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+
+                // 2. Adicionar o UID da comunidade ao array 'comunidadesParticipantes' do perfil do usuário
+                const userDocRef = firestore.collection('social').doc('users').collection(currentUser.uid).doc(currentUser.uid);
+                await userDocRef.update({
+                    comunidadesParticipantes: firebase.firestore.FieldValue.arrayUnion(communityId)
+                });
+
+                alert('Você entrou na comunidade com sucesso!');
+                // Recarrega a lista para atualizar o status do botão
+                await loadUserJoinedCommunities(currentUser.uid); // Atualiza a lista local
+                loadCommunities(); // Recarrega o display
+            } catch (error) {
+                console.error("Erro ao entrar na comunidade:", error);
+                alert('Erro ao entrar na comunidade. Tente novamente.');
+            }
+        }
+
+
+        // --- Event Listeners e Gerenciamento de Autenticação ---
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user; // Atualiza o usuário logado
+
+            if (user) {
+                authStatusMessage.style.display = 'none';
+                createCommunitySection.style.display = 'block';
+                await loadUserJoinedCommunities(user.uid); // Carrega as comunidades que o usuário já participa
+            } else {
+                authStatusMessage.style.display = 'block';
+                createCommunitySection.style.display = 'none';
+                userCommunities = []; // Limpa as comunidades do usuário se deslogado
+            }
+
+            // Sempre carrega a lista de comunidades (visível para todos, mas o botão de "Entrar" será condicional)
+            loadCommunities();
+
+            // Atualiza o MDL DOM para os novos elementos/estados
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
+
+        // Adiciona o listener para o formulário de criação de comunidade
+        createCommunityForm.addEventListener('submit', createCommunity);
+
+        // Inicializa o MDL para os elementos estáticos
+        document.addEventListener('DOMContentLoaded', () => {
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
+    </script>
+</body>
+</html>
