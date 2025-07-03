@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recepção - Wiki Zone Zero Mod</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #3f51b5;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #post-form {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        #post-form h3 {
+            margin-top: 0;
+            color: #5c6bc0;
+        }
+        #post-form .mdl-textfield {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        #post-form .mdl-selectfield {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        #post-form button {
+            width: 100%;
+            padding: 10px;
+            font-size: 1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #post-form button:hover {
+            background-color: #45a049;
+        }
+        #posts-list .post-card {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .post-card .post-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .post-card .post-header img.profile-pic {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            object-fit: cover;
+        }
+        .post-card .post-header .user-info {
+            flex-grow: 1;
+        }
+        .post-card .post-header .user-info .username {
+            font-weight: bold;
+            color: #3f51b5;
+        }
+        .post-card .post-header .user-info .timestamp {
+            font-size: 0.8em;
+            color: #777;
+        }
+        .post-card .post-content {
+            margin-bottom: 10px;
+            white-space: pre-wrap; /* Para preservar quebras de linha da mensagem formatada */
+        }
+        .post-card .post-community-project {
+            font-size: 0.9em;
+            color: #888;
+            margin-top: 5px;
+        }
+        .loading-message {
+            text-align: center;
+            padding: 20px;
+            color: #555;
+        }
+        .no-posts-message {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+        #user-not-logged-in-message {
+            text-align: center;
+            padding: 20px;
+            color: #e65100;
+            font-weight: bold;
+        }
+        .mdl-textfield__input:disabled {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+        }
+
+        /* MDL Selectfield Basic Styling */
+        .mdl-selectfield {
+            position: relative;
+        }
+        .mdl-selectfield select {
+            width: 100%;
+            padding: 8px 0;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,.12);
+            background-color: transparent;
+            font-size: 16px;
+            appearance: none; /* Remove default browser arrow */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            cursor: pointer;
+        }
+        .mdl-selectfield label {
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: rgba(0,0,0,.26);
+            transition: all 0.2s ease-out;
+            font-size: 16px;
+        }
+        .mdl-selectfield select:focus + label,
+        .mdl-selectfield select:not([value=""]):valid + label { /* or :not([value=""]) for selected option */
+            top: -20px;
+            font-size: 12px;
+            color: #3f51b5;
+        }
+        .mdl-selectfield .mdl-selectfield__label-floating {
+            top: -20px;
+            font-size: 12px;
+            color: #3f51b5;
+        }
+        .mdl-selectfield::after {
+            content: "\25BC"; /* Down arrow character */
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: rgba(0,0,0,.54);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Feed de Postagens</h2>
+
+        <div id="post-form">
+            <h3>Criar Nova Postagem</h3>
+            <div id="auth-status-message">Por favor, faça login para criar postagens.</div>
+
+            <div class="mdl-textfield mdl-js-textfield" id="post-message-container" style="display:none;">
+                <textarea class="mdl-textfield__input" type="text" rows="3" id="post-message" placeholder="No que você está pensando?"></textarea>
+                <label class="mdl-textfield__label" for="post-message">Sua mensagem</label>
+            </div>
+
+            <div class="mdl-selectfield" id="community-select-container" style="display:none;">
+                <select id="community-select" class="mdl-textfield__input">
+                    <option value="">Nenhum (Postagem Pública)</option>
+                </select>
+                <label class="mdl-textfield__label" for="community-select">Postar em Comunidade:</label>
+            </div>
+
+            <div class="mdl-selectfield" id="project-select-container" style="display:none;">
+                <select id="project-select" class="mdl-textfield__input">
+                    <option value="">Nenhum (Postagem Pública)</option>
+                </select>
+                <label class="mdl-textfield__label" for="project-select">Postar em Projeto:</label>
+            </div>
+
+            <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--colored" id="submit-post" style="display:none;">
+                Publicar
+            </button>
+        </div>
+
+        <div id="posts-list">
+            <p class="loading-message">Carregando postagens...</p>
+        </div>
+    </div>
+
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script>
+        // Inicialização do Firebase (MESMA CONFIGURAÇÃO DO INDEX.HTML/PÁGINA PRINCIPAL)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+
+        let currentUser = null; // Variável global para o usuário logado
+
+        // --- Elementos do DOM ---
+        const authStatusMessage = document.getElementById('auth-status-message');
+        const postMessageContainer = document.getElementById('post-message-container');
+        const postMessageInput = document.getElementById('post-message');
+        const communitySelectContainer = document.getElementById('community-select-container');
+        const communitySelect = document.getElementById('community-select');
+        const projectSelectContainer = document.getElementById('project-select-container');
+        const projectSelect = document.getElementById('project-select');
+        const submitPostButton = document.getElementById('submit-post');
+        const postsList = document.getElementById('posts-list');
+
+        // --- Funções Auxiliares ---
+
+        // Função para formatar o timestamp
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'Data desconhecida';
+            let date;
+            if (timestamp.toDate) { // Se for um objeto Timestamp do Firebase
+                date = timestamp.toDate();
+            } else if (typeof timestamp === 'number') { // Se for um número (milissegundos)
+                date = new Date(timestamp);
+            } else {
+                return 'Data inválida';
+            }
+
+            const options = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return date.toLocaleString('pt-BR', options);
+        }
+
+        // Carrega as comunidades que o usuário participa
+        async function loadUserCommunities(userId) {
+            communitySelect.innerHTML = '<option value="">Nenhum (Postagem Pública)</option>'; // Reset options
+            if (!userId) return;
+
+            try {
+                const userDocRef = firestore.collection('social').doc('users').collection(userId).doc(userId); // Caminho para o documento do usuário
+                const userDoc = await userDocRef.get();
+
+                if (userDoc.exists && userDoc.data() && userDoc.data().comunidadesParticipantes) {
+                    const communityIds = userDoc.data().comunidadesParticipantes;
+                    if (communityIds.length > 0) {
+                        for (const commId of communityIds) {
+                            const commDocRef = firestore.collection('social').doc('comunidades').collection(commId).doc(commId); // Caminho para o documento da comunidade
+                            const commDoc = await commDocRef.get();
+                            if (commDoc.exists && commDoc.data()) {
+                                const option = document.createElement('option');
+                                option.value = commId;
+                                option.textContent = commDoc.data().nomeComunidade;
+                                communitySelect.appendChild(option);
+                            }
+                        }
+                    }
+                }
+                // Refresh MDL selectfield
+                if (communitySelect.parentElement.MaterialTextfield) {
+                    communitySelect.parentElement.MaterialTextfield.change();
+                }
+            } catch (error) {
+                console.error("Erro ao carregar comunidades do usuário:", error);
+                // Mostrar mensagem de erro ao usuário, se desejar
+            }
+        }
+
+        // Carrega os projetos que o usuário participa
+        async function loadUserProjects(userId) {
+            projectSelect.innerHTML = '<option value="">Nenhum (Postagem Pública)</option>'; // Reset options
+            if (!userId) return;
+
+            try {
+                const userDocRef = firestore.collection('social').doc('users').collection(userId).doc(userId); // Caminho para o documento do usuário
+                const userDoc = await userDocRef.get();
+
+                if (userDoc.exists && userDoc.data() && userDoc.data().projetosParticipantes) {
+                    const projectIds = userDoc.data().projetosParticipantes;
+                    if (projectIds.length > 0) {
+                        for (const projId of projectIds) {
+                            const projDocRef = firestore.collection('social').doc('projetos').collection(projId).doc(projId); // Caminho para o documento do projeto
+                            const projDoc = await projDocRef.get();
+                            if (projDoc.exists && projDoc.data()) {
+                                const option = document.createElement('option');
+                                option.value = projId;
+                                option.textContent = projDoc.data().nomeProjeto;
+                                projectSelect.appendChild(option);
+                            }
+                        }
+                    }
+                }
+                // Refresh MDL selectfield
+                if (projectSelect.parentElement.MaterialTextfield) {
+                    projectSelect.parentElement.MaterialTextfield.change();
+                }
+            } catch (error) {
+                console.error("Erro ao carregar projetos do usuário:", error);
+                // Mostrar mensagem de erro ao usuário, se desejar
+            }
+        }
+
+
+        // Publica uma nova postagem
+        async function submitPost() {
+            const message = postMessageInput.value.trim();
+            const selectedCommunityId = communitySelect.value;
+            const selectedProjectId = projectSelect.value;
+
+            if (!currentUser) {
+                alert('Você precisa estar logado para fazer uma postagem.');
+                return;
+            }
+            if (!message) {
+                alert('A mensagem da postagem não pode estar vazia.');
+                return;
+            }
+
+            // Determinar o tipo da postagem
+            let postType = 'public';
+            if (selectedCommunityId) {
+                postType = 'comunidade';
+            } else if (selectedProjectId) {
+                postType = 'projeto';
+            }
+
+            try {
+                // Adiciona a postagem na subcoleção "postagens" do documento "social"
+                // O ID do documento da postagem será gerado automaticamente
+                await firestore.collection('social').doc('postagens').collection('posts').add({
+                    uidUsuario: currentUser.uid,
+                    uidComunidade: selectedCommunityId || null, // Null se não for uma postagem de comunidade
+                    uidProjeto: selectedProjectId || null, // Null se não for uma postagem de projeto
+                    mensagem: message,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(), // Firestore timestamp
+                    tipo: postType,
+                    // Adicione outros campos conforme necessário, como mediaUrl, likes, comments, etc.
+                });
+                postMessageInput.value = ''; // Limpa o campo de texto
+                communitySelect.value = ''; // Reseta a seleção da comunidade
+                projectSelect.value = ''; // Reseta a seleção do projeto
+                // Força o MDL a atualizar o selectfield (se necessário)
+                if (communitySelect.parentElement.MaterialTextfield) {
+                    communitySelect.parentElement.MaterialTextfield.change();
+                }
+                if (projectSelect.parentElement.MaterialTextfield) {
+                    projectSelect.parentElement.MaterialTextfield.change();
+                }
+                alert('Postagem publicada com sucesso!');
+            } catch (error) {
+                console.error('Erro ao publicar postagem:', error);
+                alert('Erro ao publicar postagem. Tente novamente.');
+            }
+        }
+
+        // Função para buscar o nome e foto de perfil de um usuário
+        const userProfileCache = {}; // Cache para evitar múltiplas leituras do mesmo usuário
+
+        async function getUserProfile(uid) {
+            if (userProfileCache[uid]) {
+                return userProfileCache[uid];
+            }
+            try {
+                const userDocRef = firestore.collection('social').doc('users').collection(uid).doc(uid); // Caminho para o documento do usuário
+                const userDoc = await userDocRef.get();
+                if (userDoc.exists && userDoc.data()) {
+                    const profile = {
+                        displayName: userDoc.data().displayName || 'Usuário Desconhecido',
+                        photoURL: userDoc.data().photoURL || 'https://via.placeholder.com/40' // Imagem padrão
+                    };
+                    userProfileCache[uid] = profile;
+                    return profile;
+                } else {
+                    return {
+                        displayName: 'Usuário (removido)',
+                        photoURL: 'https://via.placeholder.com/40'
+                    };
+                }
+            } catch (error) {
+                console.error("Erro ao buscar perfil do usuário:", uid, error);
+                return {
+                    displayName: 'Usuário (erro)',
+                    photoURL: 'https://via.placeholder.com/40'
+                };
+            }
+        }
+
+        // Função para buscar nome da comunidade/projeto
+        const communityProjectCache = {};
+
+        async function getCommunityProjectName(uid, type) {
+            if (communityProjectCache[uid]) {
+                return communityProjectCache[uid];
+            }
+            try {
+                let docRef;
+                if (type === 'comunidade') {
+                    docRef = firestore.collection('social').doc('comunidades').collection(uid).doc(uid);
+                } else if (type === 'projeto') {
+                    docRef = firestore.collection('social').doc('projetos').collection(uid).doc(uid);
+                } else {
+                    return null;
+                }
+                const doc = await docRef.get();
+                if (doc.exists && doc.data()) {
+                    const name = type === 'comunidade' ? doc.data().nomeComunidade : doc.data().nomeProjeto;
+                    communityProjectCache[uid] = name;
+                    return name;
+                }
+            } catch (error) {
+                console.error(`Erro ao buscar ${type}:`, uid, error);
+            }
+            return null;
+        }
+
+        // Função para renderizar uma postagem
+        async function renderPost(post) {
+            const postCard = document.createElement('div');
+            postCard.classList.add('post-card');
+
+            const userProfile = await getUserProfile(post.uidUsuario);
+            let communityProjectInfo = '';
+
+            if (post.tipo === 'comunidade' && post.uidComunidade) {
+                const commName = await getCommunityProjectName(post.uidComunidade, 'comunidade');
+                if (commName) {
+                    communityProjectInfo = `<div class="post-community-project">Em: Comunidade "${commName}"</div>`;
+                }
+            } else if (post.tipo === 'projeto' && post.uidProjeto) {
+                const projName = await getCommunityProjectName(post.uidProjeto, 'projeto');
+                if (projName) {
+                    communityProjectInfo = `<div class="post-community-project">Em: Projeto "${projName}"</div>`;
+                }
+            }
+
+            postCard.innerHTML = `
+                <div class="post-header">
+                    <img class="profile-pic" src="${userProfile.photoURL}" alt="${userProfile.displayName}">
+                    <div class="user-info">
+                        <div class="username">${userProfile.displayName}</div>
+                        <div class="timestamp">${formatTimestamp(post.createdAt)}</div>
+                    </div>
+                </div>
+                <div class="post-content">
+                    ${post.mensagem}
+                </div>
+                ${communityProjectInfo}
+            `;
+            return postCard;
+        }
+
+        // Função principal para carregar as postagens
+        async function loadPosts() {
+            postsList.innerHTML = '<p class="loading-message">Carregando postagens...</p>';
+            try {
+                const postsSnapshot = await firestore.collection('social').doc('postagens').collection('posts')
+                    .orderBy('createdAt', 'desc') // Ordena pelas mais recentes
+                    .limit(20) // Limita para um número razoável de posts iniciais
+                    .get();
+
+                if (postsSnapshot.empty) {
+                    postsList.innerHTML = '<p class="no-posts-message">Nenhuma postagem encontrada ainda.</p>';
+                    return;
+                }
+
+                postsList.innerHTML = ''; // Limpa o "Carregando..."
+                for (const doc of postsSnapshot.docs) {
+                    const postData = doc.data();
+                    const postElement = await renderPost(postData);
+                    postsList.appendChild(postElement);
+                }
+            } catch (error) {
+                console.error("Erro ao carregar postagens:", error);
+                postsList.innerHTML = '<p class="loading-message" style="color: red;">Erro ao carregar postagens. Tente novamente mais tarde.</p>';
+            }
+        }
+
+        // --- Event Listeners e Gerenciamento de Autenticação ---
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user; // Atualiza o usuário logado
+
+            if (user) {
+                authStatusMessage.style.display = 'none';
+                postMessageContainer.style.display = 'block';
+                communitySelectContainer.style.display = 'block';
+                projectSelectContainer.style.display = 'block';
+                submitPostButton.style.display = 'block';
+                loadUserCommunities(user.uid); // Carrega as comunidades do usuário
+                loadUserProjects(user.uid); // Carrega os projetos do usuário
+
+                // Inicializa o Material Design Lite para os selects
+                if (componentHandler) {
+                    componentHandler.upgradeElement(communitySelectContainer);
+                    componentHandler.upgradeElement(projectSelectContainer);
+                }
+
+            } else {
+                authStatusMessage.style.display = 'block';
+                postMessageContainer.style.display = 'none';
+                communitySelectContainer.style.display = 'none';
+                projectSelectContainer.style.display = 'none';
+                submitPostButton.style.display = 'none';
+                communitySelect.innerHTML = '<option value="">Nenhum (Postagem Pública)</option>';
+                projectSelect.innerHTML = '<option value="">Nenhum (Postagem Pública)</option>';
+            }
+
+            // Independentemente do login, carrega as postagens públicas e outras visíveis
+            loadPosts();
+
+            // Atualiza o MDL DOM para os novos elementos/estados
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
+
+        // Adiciona o listener para o botão de publicar
+        submitPostButton.addEventListener('click', submitPost);
+
+        // Inicializa o MDL para os elementos estáticos (como o textarea)
+        document.addEventListener('DOMContentLoaded', () => {
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+            // Chama loadPosts uma vez para exibir algo inicialmente, antes do onAuthStateChanged,
+            // ou se o onAuthStateChanged não for acionado imediatamente.
+            // O onAuthStateChanged irá chamar novamente loadPosts após a verificação de login.
+            loadPosts();
+        });
+
+        // Event listener para garantir que apenas um dos selects seja ativo por vez
+        communitySelect.addEventListener('change', () => {
+            if (communitySelect.value !== '') {
+                projectSelect.value = ''; // Limpa a seleção do projeto se uma comunidade for selecionada
+                if (projectSelect.parentElement.MaterialTextfield) {
+                    projectSelect.parentElement.MaterialTextfield.change();
+                }
+            }
+        });
+
+        projectSelect.addEventListener('change', () => {
+            if (projectSelect.value !== '') {
+                communitySelect.value = ''; // Limpa a seleção da comunidade se um projeto for selecionado
+                if (communitySelect.parentElement.MaterialTextfield) {
+                    communitySelect.parentElement.MaterialTextfield.change();
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
