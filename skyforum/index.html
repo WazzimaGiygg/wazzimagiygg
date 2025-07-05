@@ -1,1 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Fórum Firebase</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #0056b3;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #forum-list, #posts-list {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .forum-item, .post-item {
+            padding: 10px 0;
+            border-bottom: 1px dashed #eee;
+            cursor: pointer;
+        }
+        .forum-item:last-child, .post-item:last-child {
+            border-bottom: none;
+        }
+        .forum-item:hover, .post-item:hover {
+            background-color: #e9e9e9;
+        }
+        .forum-item span {
+            font-weight: bold;
+            color: #333;
+        }
+        .post-item strong {
+            color: #007bff;
+        }
+        #new-post-form {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        #new-post-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        #new-post-form input[type="text"],
+        #new-post-form textarea {
+            width: calc(100% - 22px); /* Adjust for padding and border */
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        #current-forum-title {
+            font-style: italic;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema de Fórum Firebase</h1>
 
+        <button id="create-forum-btn">Criar Novo Fórum</button>
+
+        <h2>Fóruns Disponíveis</h2>
+        <div id="forum-list">
+            <p>Carregando fóruns...</p>
+        </div>
+
+        <hr>
+
+        <h2>Posts do Fórum: <span id="current-forum-title">Nenhum fórum selecionado</span></h2>
+        <div id="posts-list">
+            <p>Selecione um fórum acima para ver os posts.</p>
+        </div>
+
+        <div id="new-post-form" style="display: none;">
+            <h3>Adicionar Novo Post</h3>
+            <label for="post-creator">Criador (UID ou Nome):</label>
+            <input type="text" id="post-creator" placeholder="Seu UID ou nome" value="Usuário Teste">
+            <label for="post-title">Título do Comentário:</label>
+            <input type="text" id="post-title" placeholder="Título do seu post">
+            <label for="post-comment">Comentário (Formato de Código):</label>
+            <textarea id="post-comment" rows="8" placeholder="Escreva seu comentário aqui, usando marcações para formatação. Ex: [b]texto em negrito[/b], [img]url_da_imagem.jpg[/img], [p]parágrafo[/p]"></textarea>
+            <button id="add-post-btn">Adicionar Post</button>
+        </div>
+    </div>
+
+    <script>
+        // Suas configurações do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicialize o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentForumId = null;
+
+        // Função para listar todos os fóruns
+        async function listForums() {
+            const forumListDiv = document.getElementById('forum-list');
+            forumListDiv.innerHTML = '<p>Carregando fóruns...</p>';
+            try {
+                const snapshot = await db.collection('forum').get();
+                if (snapshot.empty) {
+                    forumListDiv.innerHTML = '<p>Nenhum fórum encontrado. Crie um novo!</p>';
+                    return;
+                }
+                forumListDiv.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const forumItem = document.createElement('div');
+                    forumItem.classList.add('forum-item');
+                    forumItem.innerHTML = `<span>ID do Fórum:</span> ${doc.id}`;
+                    forumItem.dataset.forumId = doc.id;
+                    forumItem.addEventListener('click', () => {
+                        selectForum(doc.id);
+                    });
+                    forumListDiv.appendChild(forumItem);
+                });
+            } catch (error) {
+                console.error("Erro ao listar fóruns:", error);
+                forumListDiv.innerHTML = '<p style="color: red;">Erro ao carregar fóruns.</p>';
+            }
+        }
+
+        // Função para selecionar um fórum e listar seus posts
+        async function selectForum(forumId) {
+            currentForumId = forumId;
+            document.getElementById('current-forum-title').textContent = forumId;
+            document.getElementById('new-post-form').style.display = 'block';
+            listPosts(forumId);
+        }
+
+        // Função para listar posts de um fórum específico
+        async function listPosts(forumId) {
+            const postsListDiv = document.getElementById('posts-list');
+            postsListDiv.innerHTML = '<p>Carregando posts...</p>';
+            try {
+                const snapshot = await db.collection('forum').doc(forumId).collection('posts').orderBy('timestamp', 'desc').get();
+                if (snapshot.empty) {
+                    postsListDiv.innerHTML = '<p>Nenhum post neste fórum. Seja o primeiro a comentar!</p>';
+                    return;
+                }
+                postsListDiv.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const post = doc.data();
+                    const postItem = document.createElement('div');
+                    postItem.classList.add('post-item');
+                    postItem.innerHTML = `
+                        <strong>${post.titulo}</strong> por ${post.criador}<br>
+                        ${renderComment(post.comentario)}
+                    `;
+                    postsListDiv.appendChild(postItem);
+                });
+            } catch (error) {
+                console.error("Erro ao listar posts:", error);
+                postsListDiv.innerHTML = '<p style="color: red;">Erro ao carregar posts.</p>';
+            }
+        }
+
+        // Função para criar um novo fórum
+        document.getElementById('create-forum-btn').addEventListener('click', async () => {
+            try {
+                // Adiciona um documento vazio com um ID gerado automaticamente
+                const newForumRef = await db.collection('forum').add({});
+                alert(`Novo fórum criado com ID: ${newForumRef.id}`);
+                listForums(); // Atualiza a lista de fóruns
+            } catch (error) {
+                console.error("Erro ao criar novo fórum:", error);
+                alert("Erro ao criar novo fórum. Verifique o console.");
+            }
+        });
+
+        // Função para adicionar um novo post
+        document.getElementById('add-post-btn').addEventListener('click', async () => {
+            if (!currentForumId) {
+                alert("Por favor, selecione um fórum primeiro.");
+                return;
+            }
+
+            const criador = document.getElementById('post-creator').value.trim();
+            const titulo = document.getElementById('post-title').value.trim();
+            const comentario = document.getElementById('post-comment').value.trim();
+
+            if (!criador || !titulo || !comentario) {
+                alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            try {
+                await db.collection('forum').doc(currentForumId).collection('posts').add({
+                    criador: criador,
+                    titulo: titulo,
+                    comentario: comentario,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp() // Para ordenar por data
+                });
+                alert("Post adicionado com sucesso!");
+                document.getElementById('post-title').value = '';
+                document.getElementById('post-comment').value = '';
+                listPosts(currentForumId); // Atualiza a lista de posts
+            } catch (error) {
+                console.error("Erro ao adicionar post:", error);
+                alert("Erro ao adicionar post. Verifique o console.");
+            }
+        });
+
+        // Função para renderizar o comentário salvo como "código"
+        // Esta função precisa ser mais robusta para lidar com todos os seus formatos.
+        // É um exemplo básico.
+        function renderComment(commentText) {
+            let renderedHtml = commentText;
+
+            // Exemplo de como você pode compilar o "código"
+            // Substitui [b]texto[/b] por <strong>texto</strong>
+            renderedHtml = renderedHtml.replace(/\[b\](.*?)\[\/b\]/g, '<strong>$1</strong>');
+            // Substitui [i]texto[/i] por <em>texto</em>
+            renderedHtml = renderedHtml.replace(/\[i\](.*?)\[\/i\]/g, '<em>$1</em>');
+            // Substitui [img]url[/img] por <img src="url">
+            renderedHtml = renderedHtml.replace(/\[img\](.*?)\[\/img\]/g, '<img src="$1" style="max-width:100%; height:auto;">');
+            // Substitui [p]texto[/p] por <p>texto</p>
+            renderedHtml = renderedHtml.replace(/\[p\](.*?)\[\/p\]/g, '<p>$1</p>');
+            // Quebra de linha simples, se desejar
+            renderedHtml = renderedHtml.replace(/\n/g, '<br>');
+
+
+            // Cuidado: Ao inserir HTML dinamicamente, sempre saneie a entrada
+            // para evitar ataques XSS (Cross-Site Scripting).
+            // Para este exemplo simples, estamos assumindo que o input é confiável,
+            // mas em um ambiente de produção, use uma biblioteca de sanitização.
+            return renderedHtml;
+        }
+
+        // Inicializar a lista de fóruns quando a página carregar
+        document.addEventListener('DOMContentLoaded', listForums);
+    </script>
+</body>
+</html>
