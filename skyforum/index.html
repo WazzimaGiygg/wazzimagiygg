@@ -84,14 +84,11 @@
     </style>
 </head>
 <body>
-    <!-- SDKs do Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
-    <!-- Material Design Lite (MDL) JS -->
     <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <!-- Quill Rich Text Editor JS (para renderizar conteúdo) -->
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
     <div class="container">
@@ -149,8 +146,8 @@
             try {
                 // Consulta a coleção 'forum' ordenada por 'createdAt' (mais recente primeiro)
                 const querySnapshot = await firestore.collection('forum')
-                                                .orderBy('createdAt', 'desc')
-                                                .get();
+                                                    .orderBy('createdAt', 'desc')
+                                                    .get();
 
                 if (querySnapshot.empty) {
                     postsListDiv.innerHTML = '<p class="no-posts-message">Nenhum post encontrado no fórum.</p>';
@@ -179,6 +176,9 @@
                         </p>
                         <div id="post-content-${postId}" class="post-content"></div>
                         <div class="post-actions">
+                            <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--primary view-post-btn" data-id="${postId}">
+                                Ver Post
+                            </button>
                             <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent edit-post-btn" data-id="${postId}">
                                 Editar
                             </button>
@@ -209,7 +209,18 @@
                     }
                 });
 
-                // Adiciona listeners para os botões de Editar e Excluir
+                // Adiciona listeners para os botões de Editar, Excluir e AGORA O "Ver Post"
+                document.querySelectorAll('.view-post-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const postId = event.target.dataset.id;
+                        if (window.parent !== window && window.parent.postMessage) {
+                            window.parent.postMessage({ type: 'navigateIframe', url: `./detalhes-do-post.html?id=${postId}` }, window.location.origin);
+                        } else {
+                            window.location.href = `./detalhes-do-post.html?id=${postId}`;
+                        }
+                    });
+                });
+
                 document.querySelectorAll('.edit-post-btn').forEach(button => {
                     button.addEventListener('click', (event) => {
                         const postId = event.target.dataset.id;
@@ -254,15 +265,17 @@
             currentUser = user;
             if (user) {
                 console.log("Usuário logado:", currentUser.uid);
-                // O botão de adicionar novo post pode ser visível apenas para usuários logados
-                addNewPostBtn.style.display = 'block';
+                addNewPostBtn.style.display = 'block'; // Mostra o botão de adicionar novo post
                 loadForumPosts(); // Carrega os posts quando o usuário está logado
             } else {
                 console.warn("Nenhum usuário logado.");
                 addNewPostBtn.style.display = 'none'; // Esconde o botão se não houver usuário logado
-                postsListDiv.innerHTML = '<p class="no-posts-message">Faça login para ver os posts do fórum.</p>';
-                // Se o acesso de leitura for público (como nas suas regras), você pode chamar loadForumPosts() aqui também.
-                // Mas, para fins de exemplo, vamos mantê-lo carregando apenas se logado.
+                postsListDiv.innerHTML = '<p class="no-posts-message">Faça login para gerenciar os posts do fórum.</p>';
+                // Se o acesso de leitura for público (como nas suas regras do Firebase), você PODE
+                // chamar loadForumPosts() aqui também para que não logados vejam os posts.
+                // Atualmente, ele só carrega para usuários logados.
+                // Se quiser que não logados vejam os posts (mas não editem/excluam), chame:
+                // loadForumPosts();
             }
         });
 
@@ -276,8 +289,7 @@
                 }
             });
 
-            // O carregamento inicial dos posts agora é feito dentro de onAuthStateChanged
-            // para garantir que o estado de autenticação seja conhecido.
+            // O carregamento inicial dos posts é tratado por onAuthStateChanged
         });
     </script>
 </body>
