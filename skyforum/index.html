@@ -27,7 +27,8 @@
             margin-bottom: 25px;
             text-align: center;
         }
-        .mdl-button {
+        /* Estilo para o botão "Adicionar Novo Post" */
+        #add-new-post-btn {
             margin-bottom: 20px;
             width: 100%;
         }
@@ -57,10 +58,36 @@
             text-align: right;
             margin-top: 15px;
         }
-        .post-actions .mdl-button {
+        /* Estilos para links que se parecem com botões */
+        .post-actions .mdl-button,
+        .post-actions .mdl-button--link { /* Adicionado estilo para links simulando botões */
             margin-left: 10px;
-            width: auto; /* Override 100% width for action buttons */
+            width: auto;
+            text-decoration: none; /* Remover sublinhado padrão do link */
+            display: inline-block; /* Para que margin e padding funcionem como em um botão */
+            padding: 0 16px; /* Padding padrão do MDL button */
+            line-height: 36px; /* Altura da linha padrão do MDL button */
+            height: 36px; /* Altura padrão do MDL button */
+            border-radius: 2px; /* Arredondamento padrão do MDL button */
+            cursor: pointer;
+            text-align: center;
+            white-space: nowrap;
+            /* Cores específicas para os links-botões */
+            color: #fff; /* Cor do texto padrão para botões coloridos */
         }
+
+        /* Cores específicas para o link "Ver Post" */
+        .post-actions .mdl-button--primary {
+            background-color: #3f51b5; /* Cor primária do MDL */
+        }
+        .post-actions .mdl-button--accent {
+            background-color: #ff4081; /* Cor de destaque do MDL (editar) */
+        }
+        .post-actions .mdl-button--colored {
+            background-color: #f44336; /* Cor genérica para o botão "Excluir" */
+        }
+
+
         .loading-message, .no-posts-message, .error-message {
             text-align: center;
             padding: 20px;
@@ -75,11 +102,11 @@
         }
         /* Quill Bubble Theme adjustments for display */
         .ql-bubble.ql-editor {
-            padding: 0; /* Remove default padding for cleaner display */
-            border: none; /* Remove border */
+            padding: 0;
+            border: none;
         }
         .ql-bubble.ql-editor.ql-blank::before {
-            left: 0; /* Adjust placeholder position */
+            left: 0;
         }
     </style>
 </head>
@@ -144,7 +171,6 @@
             errorDisplay.style.display = 'none';
 
             try {
-                // Consulta a coleção 'forum' ordenada por 'createdAt' (mais recente primeiro)
                 const querySnapshot = await firestore.collection('forum')
                                                     .orderBy('createdAt', 'desc')
                                                     .get();
@@ -169,6 +195,7 @@
                         hour: '2-digit', minute: '2-digit'
                     });
 
+                    // Modificação aqui: Usando <a> para o "Ver Post"
                     postCard.innerHTML = `
                         <h3>${post.title || 'Sem Título'}</h3>
                         <p class="post-meta">
@@ -176,9 +203,9 @@
                         </p>
                         <div id="post-content-${postId}" class="post-content"></div>
                         <div class="post-actions">
-                            <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--primary view-post-btn" data-id="${postId}">
+                            <a href="#" class="mdl-button mdl-js-button mdl-button--raised mdl-button--primary view-post-link" data-id="${postId}">
                                 Ver Post
-                            </button>
+                            </a>
                             <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent edit-post-btn" data-id="${postId}">
                                 Editar
                             </button>
@@ -189,14 +216,13 @@
                     `;
                     postsListDiv.appendChild(postCard);
 
-                    // Recompila e exibe o conteúdo formatado usando Quill (read-only)
                     const contentDiv = document.getElementById(`post-content-${postId}`);
                     if (post.formattedContent && contentDiv) {
                         try {
                             const quillDisplay = new Quill(contentDiv, {
-                                theme: 'bubble', // Um tema mais leve para exibição
+                                theme: 'bubble',
                                 readOnly: true,
-                                modules: { toolbar: false } // Sem barra de ferramentas para edição
+                                modules: { toolbar: false }
                             });
                             const delta = JSON.parse(post.formattedContent);
                             quillDisplay.setContents(delta);
@@ -209,22 +235,25 @@
                     }
                 });
 
-                // Adiciona listeners para os botões de Editar, Excluir e AGORA O "Ver Post"
-                document.querySelectorAll('.view-post-btn').forEach(button => {
-                    button.addEventListener('click', (event) => {
+                // Adiciona listeners para os links "Ver Post"
+                document.querySelectorAll('.view-post-link').forEach(link => {
+                    link.addEventListener('click', (event) => {
+                        event.preventDefault(); // Impede o comportamento padrão do link (navegação direta)
                         const postId = event.target.dataset.id;
+                        const urlToNavigate = `./detalhes-do-post.html?id=${postId}`;
+
                         if (window.parent !== window && window.parent.postMessage) {
-                            window.parent.postMessage({ type: 'navigateIframe', url: `./detalhes-do-post.html?id=${postId}` }, window.location.origin);
+                            window.parent.postMessage({ type: 'navigateIframe', url: urlToNavigate }, window.location.origin);
                         } else {
-                            window.location.href = `./detalhes-do-post.html?id=${postId}`;
+                            window.location.href = urlToNavigate;
                         }
                     });
                 });
 
+                // Listeners existentes para Editar e Excluir permanecem os mesmos
                 document.querySelectorAll('.edit-post-btn').forEach(button => {
                     button.addEventListener('click', (event) => {
                         const postId = event.target.dataset.id;
-                        // Redireciona para a página de edição, passando o ID do post
                         if (window.parent !== window && window.parent.postMessage) {
                             window.parent.postMessage({ type: 'navigateIframe', url: `./adicionar-editar-post.html?id=${postId}` }, window.location.origin);
                         } else {
@@ -240,7 +269,7 @@
                             try {
                                 await firestore.collection('forum').doc(postId).delete();
                                 alert('Post excluído com sucesso!');
-                                loadForumPosts(); // Recarrega a lista após a exclusão
+                                loadForumPosts();
                             } catch (error) {
                                 console.error("Erro ao excluir post:", error);
                                 displayError("Erro ao excluir post: " + error.message);
@@ -249,7 +278,6 @@
                     });
                 });
 
-                // Atualiza os componentes MDL após o carregamento dinâmico
                 if (window.componentHandler) {
                     window.componentHandler.upgradeDom();
                 }
@@ -260,26 +288,19 @@
             }
         }
 
-        // --- Gerenciamento de Estado de Autenticação ---
         auth.onAuthStateChanged(user => {
             currentUser = user;
             if (user) {
                 console.log("Usuário logado:", currentUser.uid);
-                addNewPostBtn.style.display = 'block'; // Mostra o botão de adicionar novo post
-                loadForumPosts(); // Carrega os posts quando o usuário está logado
+                addNewPostBtn.style.display = 'block';
+                loadForumPosts();
             } else {
                 console.warn("Nenhum usuário logado.");
-                addNewPostBtn.style.display = 'none'; // Esconde o botão se não houver usuário logado
+                addNewPostBtn.style.display = 'none';
                 postsListDiv.innerHTML = '<p class="no-posts-message">Faça login para gerenciar os posts do fórum.</p>';
-                // Se o acesso de leitura for público (como nas suas regras do Firebase), você PODE
-                // chamar loadForumPosts() aqui também para que não logados vejam os posts.
-                // Atualmente, ele só carrega para usuários logados.
-                // Se quiser que não logados vejam os posts (mas não editem/excluam), chame:
-                // loadForumPosts();
             }
         });
 
-        // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', () => {
             addNewPostBtn.addEventListener('click', () => {
                 if (window.parent !== window && window.parent.postMessage) {
@@ -288,8 +309,6 @@
                     window.location.href = './adicionar-editar-post.html';
                 }
             });
-
-            // O carregamento inicial dos posts é tratado por onAuthStateChanged
         });
     </script>
 </body>
