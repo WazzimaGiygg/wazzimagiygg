@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posts do Fórum - Wiki Zone Zero Mod</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.bubble.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .mdl-button {
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .post-card {
+            background-color: #fff;
+            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        .post-card h3 {
+            color: #3f51b5;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .post-meta {
+            font-size: 0.9em;
+            color: #757575;
+            margin-bottom: 15px;
+        }
+        .post-content {
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+        .post-actions {
+            text-align: right;
+            margin-top: 15px;
+        }
+        .post-actions .mdl-button {
+            margin-left: 10px;
+            width: auto; /* Override 100% width for action buttons */
+        }
+        .loading-message, .no-posts-message, .error-message {
+            text-align: center;
+            padding: 20px;
+            color: #757575;
+        }
+        .error-message {
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        /* Quill Bubble Theme adjustments for display */
+        .ql-bubble.ql-editor {
+            padding: 0; /* Remove default padding for cleaner display */
+            border: none; /* Remove border */
+        }
+        .ql-bubble.ql-editor.ql-blank::before {
+            left: 0; /* Adjust placeholder position */
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+    <div class="container">
+        <h1>Posts do Fórum</h1>
+
+        <button id="add-new-post-btn"
+                class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+            <i class="material-icons">add</i> Adicionar Novo Post
+        </button>
+
+        <div id="posts-list">
+            <p class="loading-message">Carregando posts do fórum...</p>
+        </div>
+
+        <div id="error-display" class="error-message" style="display:none;"></div>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth();
+
+        let currentUser = null; // Para armazenar o usuário logado
+
+        const postsListDiv = document.getElementById('posts-list');
+        const errorDisplay = document.getElementById('error-display');
+        const addNewPostBtn = document.getElementById('add-new-post-btn');
+
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+        }
+
+        // --- Função para carregar e exibir os posts do fórum ---
+        async function loadForumPosts() {
+            postsListDiv.innerHTML = '<p class="loading-message">Carregando posts do fórum...</p>';
+            errorDisplay.style.display = 'none';
+
+            try {
+                // Consulta a coleção 'forum' ordenada por 'createdAt' (mais recente primeiro)
+                const querySnapshot = await firestore.collection('forum')
+                                                    .orderBy('createdAt', 'desc')
+                                                    .get();
+
+                if (querySnapshot.empty) {
+                    postsListDiv.innerHTML = '<p class="no-posts-message">Nenhum post encontrado no fórum.</p>';
+                    return;
+                }
+
+                postsListDiv.innerHTML = ''; // Limpa a mensagem de carregamento
+
+                querySnapshot.forEach(doc => {
+                    const post = doc.data();
+                    const postId = doc.id;
+
+                    const postCard = document.createElement('div');
+                    postCard.classList.add('post-card');
+
+                    const createdAtDate = post.createdAt ? post.createdAt.toDate() : new Date();
+                    const formattedDate = createdAtDate.toLocaleString('pt-BR', {
+                        year: 'numeric', month: 'long', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+
+                    postCard.innerHTML = `
+                        <h3>${post.title || 'Sem Título'}</h3>
+                        <p class="post-meta">
+                            Por: ${post.userName || 'Desconhecido'} em ${formattedDate}
+                        </p>
+                        <div id="post-content-${postId}" class="post-content"></div>
+                        <div class="post-actions">
+                            <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--primary view-post-btn" data-id="${postId}">
+                                Ver Post
+                            </button>
+                            <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent edit-post-btn" data-id="${postId}">
+                                Editar
+                            </button>
+                            <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored delete-post-btn" data-id="${postId}">
+                                Excluir
+                            </button>
+                        </div>
+                    `;
+                    postsListDiv.appendChild(postCard);
+
+                    // Recompila e exibe o conteúdo formatado usando Quill (read-only)
+                    const contentDiv = document.getElementById(`post-content-${postId}`);
+                    if (post.formattedContent && contentDiv) {
+                        try {
+                            const quillDisplay = new Quill(contentDiv, {
+                                theme: 'bubble', // Um tema mais leve para exibição
+                                readOnly: true,
+                                modules: { toolbar: false } // Sem barra de ferramentas para edição
+                            });
+                            const delta = JSON.parse(post.formattedContent);
+                            quillDisplay.setContents(delta);
+                        } catch (parseError) {
+                            console.error("Erro ao parsear conteúdo formatado do Quill:", parseError);
+                            contentDiv.innerHTML = `<p style="color:red;">Erro ao carregar conteúdo formatado.</p><pre>${post.formattedContent}</pre>`;
+                        }
+                    } else if (contentDiv) {
+                        contentDiv.innerHTML = '<p>Nenhum conteúdo disponível.</p>';
+                    }
+                });
+
+                // Adiciona listeners para os botões de Editar, Excluir e AGORA O "Ver Post"
+                document.querySelectorAll('.view-post-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const postId = event.target.dataset.id;
+                        if (window.parent !== window && window.parent.postMessage) {
+                            window.parent.postMessage({ type: 'navigateIframe', url: `./detalhes-do-post.html?id=${postId}` }, window.location.origin);
+                        } else {
+                            window.location.href = `./detalhes-do-post.html?id=${postId}`;
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.edit-post-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const postId = event.target.dataset.id;
+                        // Redireciona para a página de edição, passando o ID do post
+                        if (window.parent !== window && window.parent.postMessage) {
+                            window.parent.postMessage({ type: 'navigateIframe', url: `./adicionar-editar-post.html?id=${postId}` }, window.location.origin);
+                        } else {
+                            window.location.href = `./adicionar-editar-post.html?id=${postId}`;
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.delete-post-btn').forEach(button => {
+                    button.addEventListener('click', async (event) => {
+                        const postId = event.target.dataset.id;
+                        if (confirm('Tem certeza que deseja excluir este post?')) {
+                            try {
+                                await firestore.collection('forum').doc(postId).delete();
+                                alert('Post excluído com sucesso!');
+                                loadForumPosts(); // Recarrega a lista após a exclusão
+                            } catch (error) {
+                                console.error("Erro ao excluir post:", error);
+                                displayError("Erro ao excluir post: " + error.message);
+                            }
+                        }
+                    });
+                });
+
+                // Atualiza os componentes MDL após o carregamento dinâmico
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeDom();
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar posts do fórum:", error);
+                displayError("Erro ao carregar posts do fórum: " + error.message);
+            }
+        }
+
+        // --- Gerenciamento de Estado de Autenticação ---
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            if (user) {
+                console.log("Usuário logado:", currentUser.uid);
+                addNewPostBtn.style.display = 'block'; // Mostra o botão de adicionar novo post
+                loadForumPosts(); // Carrega os posts quando o usuário está logado
+            } else {
+                console.warn("Nenhum usuário logado.");
+                addNewPostBtn.style.display = 'none'; // Esconde o botão se não houver usuário logado
+                postsListDiv.innerHTML = '<p class="no-posts-message">Faça login para gerenciar os posts do fórum.</p>';
+                // Se o acesso de leitura for público (como nas suas regras do Firebase), você PODE
+                // chamar loadForumPosts() aqui também para que não logados vejam os posts.
+                // Atualmente, ele só carrega para usuários logados.
+                // Se quiser que não logados vejam os posts (mas não editem/excluam), chame:
+                // loadForumPosts();
+            }
+        });
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            addNewPostBtn.addEventListener('click', () => {
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'navigateIframe', url: './adicionar-editar-post.html' }, window.location.origin);
+                } else {
+                    window.location.href = './adicionar-editar-post.html';
+                }
+            });
+
+            // O carregamento inicial dos posts é tratado por onAuthStateChanged
+        });
+    </script>
+</body>
+</html>
