@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lista de Fóruns - WZZM</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #f5f7fb;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .search-bar {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px 0 0 4px;
+      font-size: 16px;
+    }
+    .search-bar button {
+      padding: 10px 20px;
+      background: #3f51b5;
+      color: white;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+    }
+    .forum-list {
+      list-style: none;
+      padding: 0;
+    }
+    .forum-item {
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.2s ease;
+    }
+    .forum-item:hover {
+      background: #f0f4ff;
+    }
+    .forum-title {
+      font-weight: bold;
+      font-size: 18px;
+      color: #3f51b5;
+      margin-bottom: 5px;
+      cursor: pointer;
+    }
+    .forum-meta {
+      font-size: 14px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Fóruns da Comunidade</h1>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Buscar por tópico ou categoria">
+      <button onclick="buscarForuns()">Buscar</button>
+    </div>
+    <ul class="forum-list" id="forumList">
+      <li class="forum-item">Carregando fóruns...</li>
+    </ul>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+      authDomain: "wzzm-ce3fc.firebaseapp.com",
+      projectId: "wzzm-ce3fc",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const forumList = document.getElementById('forumList');
+    const searchInput = document.getElementById('searchInput');
+
+    async function carregarForuns(filtro = "") {
+      forumList.innerHTML = '<li class="forum-item">Carregando...</li>';
+      const querySnapshot = await db.collection("Fórum").get();
+
+      let resultados = [];
+      for (const doc of querySnapshot.docs) {
+        const subcol = await doc.ref.collection(doc.id).get();
+        let forumData = {};
+        subcol.forEach(fieldDoc => {
+          forumData = { ...forumData, ...fieldDoc.data() };
+        });
+        forumData.id = doc.id;
+        resultados.push(forumData);
+      }
+
+      const filtrados = filtro
+        ? resultados.filter(f => f.Topico && f.Topico.toLowerCase().includes(filtro.toLowerCase()))
+        : resultados;
+
+      if (filtrados.length === 0) {
+        forumList.innerHTML = '<li class="forum-item">Nenhum fórum encontrado.</li>';
+        return;
+      }
+
+      forumList.innerHTML = '';
+      filtrados.forEach(forum => {
+        const li = document.createElement('li');
+        li.className = 'forum-item';
+        li.innerHTML = `
+          <div class="forum-title" onclick="window.location.href='forum.html?id=${forum.id}'">${forum.Titulo || 'Sem título'}</div>
+          <div class="forum-meta">Criado por ${forum.Autor || 'Desconhecido'} | Tópico: ${forum.Topico || 'Nenhum'} | Status: ${forum.Status || 'Indefinido'}</div>
+        `;
+        forumList.appendChild(li);
+      });
+    }
+
+    function buscarForuns() {
+      const termo = searchInput.value.trim();
+      carregarForuns(termo);
+    }
+
+    window.onload = () => carregarForuns();
+  </script>
+</body>
+</html>
