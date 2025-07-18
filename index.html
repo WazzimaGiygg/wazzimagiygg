@@ -1,4 +1,4 @@
-
+	
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -302,6 +302,7 @@
     </style>
 </head>
 <body>
+
     <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
         <header class="mdl-layout__header">
             <div class="mdl-layout__header-row">
@@ -309,7 +310,14 @@
 		        <a href="https://wikizero.wzzm.org/" id="./wikinotpedia/"> 
                 <img src="https://wzzm.org/wnp.png" alt="Logo Wiki Zone Zero Mod" style="height: 32px; vertical-align: middle; margin-right: 8px;"></a> <div class="mdl-layout-spacer"></div>
                 <nav class="mdl-navigation">
+		<button class="mdl-button mdl-js-button mdl-button--icon" id="error-log-button" title="Ver Erros">
+ 		 <i class="material-icons">bug_report</i>
+		</button>
                     <a class="mdl-navigation__link" href="#" onclick="loadPage('recepcao.html', false)">Procurar Artigos</a>
+			<button class="mdl-button mdl-js-button mdl-button--icon" id="error-log-button" title="Ver Erros">
+			  <i class="material-icons">bug_report</i>
+			</button>
+			
                     <div style="position: relative; display: flex; align-items: center;">
                         <button class="mdl-button mdl-js-button mdl-button--icon" id="news-button" style="display: none;">
                             <i class="material-icons">article</i>
@@ -980,6 +988,69 @@ function loadPage(src, requiresAuth = false) {
     // Exemplo: se quiser impedir múltiplas janelas iguais, faça uma busca aqui
     createFloatingWindow(src, src.split('/').pop());
 }
+// ========== CAPTURA E EXIBE ERROS DO CONSOLE ==========
+
+// Array para armazenar os erros capturados
+window._wzzmErrorLog = [];
+
+// Captura erros globais de JavaScript
+window.addEventListener('error', function(e) {
+  window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] ${e.message} (${e.filename}:${e.lineno})`);
+});
+
+// Captura rejeições de Promise não tratadas
+window.addEventListener('unhandledrejection', function(e) {
+  window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] Unhandled Promise: ${e.reason}`);
+});
+
+// Intercepta console.error e armazena as mensagens
+(function() {
+  const originalError = console.error;
+  console.error = function(...args) {
+    window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] console.error: ${args.join(' ')}`);
+    originalError.apply(console, args);
+  };
+})();
+
+// Mostra o popup com a lista de erros ao clicar no botão
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.getElementById('error-log-button');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    var logList = document.getElementById('error-log-list');
+    logList.innerHTML = '';
+    if (window._wzzmErrorLog.length === 0) {
+      logList.innerHTML = '<li style="color:green;">Nenhum erro registrado nesta sessão.</li>';
+    } else {
+      window._wzzmErrorLog.slice(-100).forEach(function(msg) {
+        var li = document.createElement('li');
+        li.textContent = msg;
+        logList.appendChild(li);
+      });
+    }
+    document.getElementById('error-log-popup').style.display = 'block';
+  });
+});
     </script>
+<div id="error-log-popup" style="
+  display: none;
+  position: fixed;
+  top: 60px;
+  right: 30px;
+  width: 400px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #fff;
+  border: 2px solid #e53935;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  z-index: 2000;
+  padding: 16px;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-weight: bold; color: #e53935;">Erros do Console</span>
+    <button onclick="document.getElementById('error-log-popup').style.display='none'" style="background:none;border:none;font-size:22px;color:#e53935;cursor:pointer;">×</button>
+  </div>
+  <ul id="error-log-list" style="margin-top: 12px; color: #b71c1c; font-size: 0.97em;"></ul>
+</div>
 </body>
 </html>
