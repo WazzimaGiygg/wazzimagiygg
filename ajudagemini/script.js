@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendButton = document.getElementById('sendButton');
     const responseDiv = document.getElementById('response');
 
-    // Substitua 'SUA_CHAVE_DE_API_DO_GEMINI' pela sua chave real da API.
+    // Substitua 'AIzaSyClm0p4HeiZteCYJiKbJbop3dQYYZcWzhg' pela sua chave real da API.
     // ATENÇÃO: Em um ambiente de produção, NUNCA exponha sua chave API no frontend.
     // Use um backend para intermediar as chamadas.
     const GEMINI_API_KEY = 'SUA_CHAVE_DE_API_DO_GEMINI'; // <<<<<<< IMPORTANTE
