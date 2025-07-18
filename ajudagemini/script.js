@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Substitua 'AIzaSyClm0p4HeiZteCYJiKbJbop3dQYYZcWzhg' pela sua chave real da API.
     // ATENÇÃO: Em um ambiente de produção, NUNCA exponha sua chave API no frontend.
     // Use um backend para intermediar as chamadas.
-    const GEMINI_API_KEY = 'AIzaSyClm0p4HeiZteCYJiKbJbop3dQYYZcWzhg'; // <<<<<<< IMPORTANTE
+    const GEMINI_API_KEY = 'AIzaSyClm0p4HeiZteCYJiKbJbop3dQYYZcWzhg'; // <-- Cole a chave aqui
 
     // URL do endpoint da API do Gemini
     const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
