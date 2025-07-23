@@ -298,6 +298,30 @@
             width: 100%;
             height: 100%;
         }
+
+	        #user-shortcuts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .shortcut-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: background 0.2s;
+        }
+        .shortcut-btn:hover {
+            background: #e3e3e3;
+        }
     </style>
 </head>
 <body>
@@ -312,7 +336,7 @@
 		            <button class="mdl-button mdl-js-button mdl-button--icon" id="error-log-button" title="Ver Erros">
  		                <i class="material-icons">bug_report</i>
 		            </button>
-                    <a class="mdl-navigation__link" href="#" onclick="loadPage('recepcao.html', false)">Procurar Artigos</a>
+                    
 
 			
                     <div style="position: relative; display: flex; align-items: center;">
@@ -354,23 +378,22 @@
                 </nav> 
             </div>
         </header>
-        <div class="mdl-layout__drawer">
+  <div class="mdl-layout__drawer">
             <span class="mdl-layout-title">Navegação</span>
             <nav class="mdl-navigation" id="drawer-menu">
-	
+                <!-- Os links do menu drawer não devem ter onclick="loadPage(...)" -->
             </nav>
         </div>
+        <!-- Área de atalhos personalizados -->
+        <div id="user-shortcuts"></div>
         <div id="window-container"></div>
-            <div id="access-denied-message" style="display:none;">
-                <p>Acesso negado. Por favor, faça login para ver este conteúdo.</p> 
-            </div>
-            <div id="banned-message" style="display:none;">
-                <p>Sua conta foi banida. Você não pode acessar o conteúdo.</p> 
-                <p>Para mais informações, contate o suporte.</p>
-            </div>
-            
-        </main>
-    </div>
+        <div id="access-denied-message" style="display:none;">
+            <p>Acesso negado. Por favor, faça login para ver este conteúdo.</p>
+        </div>
+        <div id="banned-message" style="display:none;">
+            <p>Sua conta foi banida. Você não pode acessar o conteúdo.</p>
+            <p>Para mais informações, contate o suporte.</p>
+        </div>
 
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -419,28 +442,18 @@
         }
 
         // Função para criar/atualizar o documento do perfil do usuário no Firestore
-        async function createUserProfileDocument(user) {
-            if (!user) return; /* cite: 172 */
-            const userRef = firestore.doc(`users/${user.uid}`); /* cite: 173 */
-            const snapshot = await userRef.get(); /* cite: 174 */
-
-            if (!snapshot.exists) {
-                const { displayName, email, photoURL } = user; /* cite: 175 */
-                const createdAt = new Date(); /* cite: 176 */
-
-                try {
-                    await userRef.set({
-                        displayName,
-                        email,
-                        photoURL, /* cite: 177 */
-                        createdAt, /* cite: 177 */
-                        isAdmin: false, // Define como false por padrão
-                        isBan: false // Define como false por padrão /* cite: 178 */
-                    }); /* cite: 179 */
-                    console.log("Perfil do usuário criado no Firestore."); /* cite: 180 */
-                } catch (error) {
-                    console.error("Erro ao criar perfil do usuário:", error); /* cite: 181 */
-                }
+         async function loadUserShortcuts(uid) {
+            const shortcutsDiv = document.getElementById('user-shortcuts');
+            shortcutsDiv.innerHTML = '';
+            const doc = await firestore.collection('cliente').doc(uid).get();
+            if (doc.exists && doc.data().shortcuts) {
+                doc.data().shortcuts.forEach(shortcut => {
+                    const btn = document.createElement('button');
+                    btn.className = 'shortcut-btn';
+                    btn.innerHTML = `<i class="material-icons">${shortcut.icon || 'star'}</i><span>${shortcut.title}</span>`;
+                    btn.onclick = () => createFloatingWindow(shortcut.url, shortcut.title);
+                    shortcutsDiv.appendChild(btn);
+                });
             }
         }
 
@@ -804,24 +817,23 @@
             }
 
             // Listener global para fechar popups ao clicar fora (ajustado)
-            document.addEventListener('click', (event) => {
-                // Fecha o popup de apps se clicar fora dele
-                if (googleAppsPopup && googleAppsPopup.style.display === 'block' &&
-                    !googleAppsButton.contains(event.target) && /* cite: 325 */
-                    !googleAppsPopup.contains(event.target)) {
-                    googleAppsPopup.style.display = 'none';
-                }
+        // ... [configuração e funções Firebase, auth, etc] ...
 
-                // Removida lógica para fechar popup de notificações
-                // Removida lógica para fechar popup do chat /* cite: 326 */
-
-                // Fecha o popup de notícias se clicar fora dele (mantido)
-                if (newsCenterPopup && newsCenterPopup.style.display === 'flex' &&
-                    !newsButton.contains(event.target) && /* cite: 327 */
-                    !newsCenterPopup.contains(event.target)) { /* cite: 327 */
-                    newsCenterPopup.style.display = 'none'; /* cite: 328 */
-                }
-            }); /* cite: 329 */
+        // [1] Remova qualquer chamada a loadPage() do HTML.
+        // [2] Garanta que os links de menu só disparem a navegação via JS:
+        document.addEventListener('DOMContentLoaded', () => {
+            // ... [código existente] ...
+            // Adiciona event listener para links de navegação no drawer
+            document.querySelectorAll('.mdl-navigation__link').forEach(link => {
+                link.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    const pageSrc = this.getAttribute('href');
+                    if (pageSrc && pageSrc !== '#') {
+                        createFloatingWindow(pageSrc, null, false); // Ajuste de acordo com sua lógica
+                    }
+                });
+            });
+            // .
 
             // Adiciona event listener para links de navegação no drawer (ajustado)
             navLinks.forEach(link => {
