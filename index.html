@@ -1172,6 +1172,68 @@
             console.error('Erro ao carregar menu.json:', err);
         });
 });
+
+	    async function loadUserShortcuts(uid) {
+    const shortcutsDiv = document.getElementById('user-shortcuts');
+    shortcutsDiv.innerHTML = ''; // limpa atalhos antigos
+    const doc = await firestore.collection('cliente').doc(uid).get();
+    if (doc.exists && doc.data().shortcuts) {
+        doc.data().shortcuts.forEach(shortcut => {
+            const btn = document.createElement('button');
+            btn.className = 'shortcut-btn';
+            btn.innerHTML = `<i class="material-icons">${shortcut.icon}</i><span>${shortcut.title}</span>`;
+            btn.onclick = () => createFloatingWindow(shortcut.url, shortcut.title);
+            shortcutsDiv.appendChild(btn);
+        });
+    }
+}
+
+document.addEventListener('contextmenu', function(event) {
+    // Exemplo: só ativa se for em link do menu, pode adaptar com classes específicas
+    if (event.target.classList.contains('mdl-navigation__link')) {
+        event.preventDefault();
+        const title = event.target.innerText;
+        const url = /* extrair url do menu */;
+        const icon = /* definir ícone padrão ou personalizado */;
+        // Mostrar popup customizado para confirmação
+        if (confirm(`Adicionar "${title}" aos seus atalhos?`)) {
+            addShortcut(currentUser.uid, { title, url, icon });
+        }
+    }
+});
+
+async function addShortcut(uid, shortcut) {
+    const userDocRef = firestore.collection('cliente').doc(uid);
+    await firestore.runTransaction(async (transaction) => {
+        const doc = await transaction.get(userDocRef);
+        const shortcuts = doc.exists && doc.data().shortcuts ? doc.data().shortcuts : [];
+        // Verifica se já existe
+        if (!shortcuts.some(s => s.url === shortcut.url)) {
+            shortcuts.push(shortcut);
+            transaction.set(userDocRef, { shortcuts }, { merge: true });
+        }
+    });
+    loadUserShortcuts(uid); // Atualiza na tela
+}
+
+// Exemplo de remoção
+btn.oncontextmenu = (ev) => {
+    ev.preventDefault();
+    if (confirm('Remover este atalho?')) {
+        removeShortcut(currentUser.uid, shortcut.url);
+    }
+};
+
+async function removeShortcut(uid, url) {
+    const userDocRef = firestore.collection('cliente').doc(uid);
+    await firestore.runTransaction(async (transaction) => {
+        const doc = await transaction.get(userDocRef);
+        let shortcuts = doc.exists && doc.data().shortcuts ? doc.data().shortcuts : [];
+        shortcuts = shortcuts.filter(s => s.url !== url);
+        transaction.set(userDocRef, { shortcuts }, { merge: true });
+    });
+    loadUserShortcuts(uid);
+}
     </script>
     <div id="error-log-popup" style="
         display: none;
