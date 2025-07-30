@@ -1127,40 +1127,53 @@ console.error('Erro ao carregar menu.json:', err);
 });
 });
 
-// NOVO SCRIPT PARA CARREGAR info-general.json E APLICAR AS MUDANÇAS
+// NOVO SCRIPT PARA CARREGAR info-general.json DO FIREBASE E APLICAR AS MUDANÇAS
 document.addEventListener('DOMContentLoaded', () => {
-fetch('infogeneral.json')
-.then(response => {
-if (!response.ok) {
-throw new Error('infogeneral.json não encontrado ou erro de rede');
-}
-return response.json();
-})
-.then(data => {
-// Altera o título da página
-document.title = data.nomeCompletoWiki || 'Wiki';
+    const configDocRef = firestore.collection('configuracoes').doc('wikiConfig');
 
-// Altera o nome da página no cabeçalho
-const wikiPageName = document.getElementById('wiki-page-name');
-if (wikiPageName) {
-wikiPageName.textContent = data.nomeCompletoWiki || 'Wiki';
-}
-// Altera o nome da página no drawer
-const drawerTitle = document.getElementById('drawer-title');
-if (drawerTitle) {
-drawerTitle.textContent = data.nomePaginaDrawer || 'Navegação';
-}
+    // Listener em tempo real para mudanças no documento (opcional, mas bom para configurações)
+    configDocRef.onSnapshot(docSnapshot => {
+        if (docSnapshot.exists) {
+            const data = docSnapshot.data();
+            applyConfigData(data);
+            console.log("Configurações carregadas do Firebase (em tempo real):", data);
+        } else {
+            console.warn("Documento 'wikiConfig' não encontrado na coleção 'configuracoes'. Usando valores padrão.");
+            // Aplica valores padrão se o documento não existir
+            applyConfigData({});
+        }
+    }, error => {
+        console.error("Erro ao carregar configurações do Firebase:", error);
+        // Em caso de erro, tenta aplicar valores padrão
+        applyConfigData({});
+    });
 
-// Altera o texto do link de "Procurar Artigos"
-const searchArticlesLink = document.getElementById('search-articles-link');
-if (searchArticlesLink) {
-searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
-}
+    // Função para aplicar os dados da configuração aos elementos da página
+    function applyConfigData(data) {
+        // Altera o título da página
+        document.title = data.nomeCompletoWiki || 'Wiki';
 
-// Aplica a cor personalizada
-const customThemeStyle = document.getElementById('custom-theme-color');
-if (customThemeStyle) {
-const css = `
+        // Altera o nome da página no cabeçalho
+        const wikiPageName = document.getElementById('wiki-page-name');
+        if (wikiPageName) {
+            wikiPageName.textContent = data.nomeCompletoWiki || 'Wiki';
+        }
+        // Altera o nome da página no drawer
+        const drawerTitle = document.getElementById('drawer-title');
+        if (drawerTitle) {
+            drawerTitle.textContent = data.nomePaginaDrawer || 'Navegação';
+        }
+
+        // Altera o texto do link de "Procurar Artigos"
+        const searchArticlesLink = document.getElementById('search-articles-link');
+        if (searchArticlesLink) {
+            searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
+        }
+
+        // Aplica a cor personalizada
+        const customThemeStyle = document.getElementById('custom-theme-color');
+        if (customThemeStyle) {
+            const css = `
 .mdl-layout__header, .mdl-layout__drawer, #news-popup-header {
 background-color: ${data.corSite || '#3f51b5'} !important;
 }
@@ -1171,12 +1184,9 @@ border-color: ${data.corSite || '#3f51b5'} !important;
 background: ${data.corSite || '#3f51b5'} !important;
 }
 `;
-customThemeStyle.innerHTML = css;
-}
-})
-.catch(err => {
-console.error('Erro ao carregar infogeneral.json:', err);
-});
+            customThemeStyle.innerHTML = css;
+        }
+    }
 });
 </script>
 <div id="error-log-popup" style="
