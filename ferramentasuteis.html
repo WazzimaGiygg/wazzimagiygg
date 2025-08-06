@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Artigos Recentes</title>
+    <title>Painel Administrativo - WZZM</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,9 +11,93 @@
             padding: 0;
             background-color: #f4f7f6;
         }
+        
+        /* Estilos do formulário de login */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #e9ecef;
+        }
+        .login-form {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 350px;
+        }
+        .login-form h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+        }
+        .login-form label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: bold;
+        }
+        .login-form input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .login-form button:hover {
+            background-color: #0056b3;
+        }
+        .login-message {
+            margin-top: 15px;
+            text-align: center;
+            color: #dc3545;
+        }
+
+        /* Estilos do cabeçalho de usuário logado */
+        .header-logged-in {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background-color: #343a40;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .header-logged-in h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header-logged-in button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .header-logged-in button:hover {
+            background-color: #c82333;
+        }
+
+        /* Estilos da janela dividida */
         .container-split {
             display: flex;
-            height: 100vh;
+            height: calc(100vh - 70px); /* Ajuste para o header */
         }
         .lista-recente {
             width: 30%;
@@ -90,21 +174,43 @@
 </head>
 <body>
 
-<div class="container-split">
-    <div class="lista-recente">
-        <h2>Artigos Recentes</h2>
-        <div id="artigos-list">
-            <p style="text-align: center; color: #666;">Carregando...</p>
-        </div>
+<div class="login-container" id="login-section">
+    <div class="login-form">
+        <h2>Entrar</h2>
+        <form id="login-form">
+            <label for="email">E-mail</label>
+            <input type="email" id="email" required>
+            <label for="password">Senha</label>
+            <input type="password" id="password" required>
+            <button type="submit">Entrar</button>
+            <p class="login-message" id="login-message"></p>
+        </form>
     </div>
-    
-    <div class="detalhes-artigo" id="detalhes-artigo">
-        <p style="text-align: center; color: #888;">Selecione um artigo na lista para ver os detalhes.</p>
+</div>
+
+<div id="content-section" style="display: none;">
+    <div class="header-logged-in">
+        <h1>Painel Administrativo WZZM</h1>
+        <button id="logout-button">Sair</button>
+    </div>
+    <div class="container-split">
+        <div class="lista-recente">
+            <h2>Artigos Recentes</h2>
+            <div id="artigos-list">
+                <p style="text-align: center; color: #666;">Carregando...</p>
+            </div>
+        </div>
+        
+        <div class="detalhes-artigo" id="detalhes-artigo">
+            <p style="text-align: center; color: #888;">Selecione um artigo na lista para ver os detalhes.</p>
+        </div>
     </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
 <script>
 // --- Configuração do Firebase ---
 const firebaseConfig = {
@@ -120,33 +226,80 @@ const firebaseConfig = {
 // Inicialize o Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 
 // Elementos da interface
+const loginSection = document.getElementById('login-section');
+const contentSection = document.getElementById('content-section');
+const loginForm = document.getElementById('login-form');
+const loginMessage = document.getElementById('login-message');
+const logoutButton = document.getElementById('logout-button');
 const artigosList = document.getElementById('artigos-list');
 const detalhesArtigo = document.getElementById('detalhes-artigo');
 let artigoSelecionado = null;
 
-// Função para buscar os 10 artigos mais recentes
+// --- Lógica de Autenticação ---
+
+// Listener para o estado de autenticação
+auth.onAuthStateChanged(user => {
+    if (user) {
+        // Usuário logado
+        console.log("Usuário logado:", user.email);
+        loginSection.style.display = 'none';
+        contentSection.style.display = 'block';
+        buscarArtigosRecentes(); // Busca os artigos somente se o usuário estiver logado
+    } else {
+        // Usuário não logado
+        console.log("Nenhum usuário logado.");
+        loginSection.style.display = 'flex';
+        contentSection.style.display = 'none';
+        artigosList.innerHTML = ''; // Limpa a lista se o usuário sair
+        detalhesArtigo.innerHTML = '<p style="text-align: center; color: #888;">Selecione um artigo na lista para ver os detalhes.</p>';
+    }
+});
+
+// Evento de envio do formulário de login
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = loginForm.email.value;
+    const password = loginForm.password.value;
+    
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        loginMessage.textContent = ''; // Limpa a mensagem de erro
+    } catch (error) {
+        loginMessage.textContent = 'Erro no login: ' + error.message;
+        console.error("Erro no login:", error);
+    }
+});
+
+// Evento do botão de logout
+logoutButton.addEventListener('click', () => {
+    auth.signOut();
+});
+
+
+// --- Lógica de busca e exibição dos artigos (inalterada) ---
+
 async function buscarArtigosRecentes() {
     try {
         const querySnapshot = await db.collection('materias')
                                       .orderBy('createdAt', 'desc')
-                                      .limit(10) // Pega os 10 mais recentes
+                                      .limit(10)
                                       .get();
         
-        artigosList.innerHTML = ''; // Limpa o carregando...
+        artigosList.innerHTML = '';
         
         if (querySnapshot.empty) {
             artigosList.innerHTML = '<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>';
             return;
         }
         
-        // Renderiza a lista de artigos recentes
         querySnapshot.forEach(doc => {
             const materia = doc.data();
             const artigoItem = document.createElement('div');
             artigoItem.className = 'artigo-item';
-            artigoItem.setAttribute('data-id', doc.id); // Adiciona o ID do documento como um atributo
+            artigoItem.setAttribute('data-id', doc.id);
             
             artigoItem.innerHTML = `
                 <h3>${materia.titulo}</h3>
@@ -156,7 +309,6 @@ async function buscarArtigosRecentes() {
             artigoItem.addEventListener('click', () => {
                 carregarDetalhesArtigo(doc.id, materia);
                 
-                // Remove a classe 'ativo' de todos os itens e adiciona ao item clicado
                 if (artigoSelecionado) {
                     artigoSelecionado.classList.remove('ativo');
                 }
@@ -169,11 +321,11 @@ async function buscarArtigosRecentes() {
         
     } catch (error) {
         console.error("Erro ao buscar artigos recentes: ", error);
-        artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro ao carregar a lista.</p>';
+        // Exibe o erro de permissão no painel da lista
+        artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
     }
 }
 
-// Função para carregar e exibir os detalhes de um artigo
 function carregarDetalhesArtigo(id, materia) {
     let fontesHtml = '';
     if (materia.fontes && materia.fontes.length > 0) {
@@ -202,8 +354,6 @@ function carregarDetalhesArtigo(id, materia) {
     `;
 }
 
-// Inicia o carregamento da lista de artigos recentes
-document.addEventListener('DOMContentLoaded', buscarArtigosRecentes);
 </script>
 
 </body>
