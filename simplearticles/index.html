@@ -64,6 +64,32 @@
         .materia-card .fontes-container a:hover {
             text-decoration: underline;
         }
+        .paginacao {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .paginacao button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: 1px solid #007bff;
+            background-color: #ffffff;
+            color: #007bff;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .paginacao button:hover:not(:disabled) {
+            background-color: #007bff;
+            color: #ffffff;
+        }
+        .paginacao button:disabled {
+            border-color: #ccc;
+            color: #ccc;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -74,6 +100,13 @@
     <div id="materiasList">
         <p>Carregando matérias...</p>
     </div>
+
+    <div class="paginacao">
+        <button id="btnAnterior" disabled>Anterior</button>
+        <span id="paginaAtual">Página 1</span>
+        <button id="btnProximo">Próximo</button>
+    </div>
+
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -96,77 +129,139 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// Função para buscar e exibir os dados
-async function listarMaterias() {
-    const materiasList = document.getElementById('materiasList');
-    materiasList.innerHTML = ''; // Limpa a mensagem de carregamento
+// Variáveis de controle para a paginação
+const itensPorPagina = 5;
+let ultimoDoc = null;
+let primeiroDoc = null;
+let paginaAtual = 1;
+let historicoPaginas = [null]; // Armazena o último documento de cada página anterior
 
-    try {
-        const querySnapshot = await db.collection('materias').get();
+const materiasList = document.getElementById('materiasList');
+const btnAnterior = document.getElementById('btnAnterior');
+const btnProximo = document.getElementById('btnProximo');
+const paginaAtualSpan = document.getElementById('paginaAtual');
+
+// Função para renderizar a lista de matérias
+function renderizarMaterias(snapshot) {
+    materiasList.innerHTML = '';
+    if (snapshot.empty) {
+        materiasList.innerHTML = paginaAtual === 1 ? '<p>Nenhuma matéria cadastrada ainda.</p>' : '<p>Não há mais matérias.</p>';
+        btnProximo.disabled = true;
+        return;
+    }
+
+    primeiroDoc = snapshot.docs[0];
+    ultimoDoc = snapshot.docs[snapshot.docs.length - 1];
+
+    snapshot.forEach((doc) => {
+        const materia = doc.data();
+        const card = document.createElement('div');
+        card.className = 'materia-card';
         
-        if (querySnapshot.empty) {
-            materiasList.innerHTML = '<p>Nenhuma matéria cadastrada ainda.</p>';
-            return;
+        const titulo = document.createElement('h2');
+        titulo.textContent = materia.titulo;
+        card.appendChild(titulo);
+        
+        const descricaoContainer = document.createElement('div');
+        descricaoContainer.className = 'descricao-container';
+        descricaoContainer.innerHTML = materia.descricao;
+        card.appendChild(descricaoContainer);
+        
+        if (materia.fontes && materia.fontes.length > 0) {
+            const fontesContainer = document.createElement('div');
+            fontesContainer.className = 'fontes-container';
+            fontesContainer.innerHTML = '<p>Fontes:</p>';
+            
+            const ul = document.createElement('ul');
+            materia.fontes.forEach(fonte => {
+                const li = document.createElement('li');
+                const isUrl = fonte.startsWith('http://') || fonte.startsWith('https://');
+                if (isUrl) {
+                    const a = document.createElement('a');
+                    a.href = fonte;
+                    a.textContent = fonte;
+                    a.target = '_blank';
+                    li.appendChild(a);
+                } else {
+                    li.textContent = fonte;
+                }
+                ul.appendChild(li);
+            });
+            fontesContainer.appendChild(ul);
+            card.appendChild(fontesContainer);
         }
         
-        querySnapshot.forEach((doc) => {
-            const materia = doc.data();
-            
-            // Cria um elemento para cada matéria
-            const card = document.createElement('div');
-            card.className = 'materia-card';
-            
-            // Adiciona o título
-            const titulo = document.createElement('h2');
-            titulo.textContent = materia.titulo;
-            card.appendChild(titulo);
-            
-            // Adiciona a descrição formatada (o HTML do Quill)
-            const descricaoContainer = document.createElement('div');
-            descricaoContainer.className = 'descricao-container';
-            descricaoContainer.innerHTML = materia.descricao;
-            card.appendChild(descricaoContainer);
-            
-            // Adiciona as fontes como links
-            if (materia.fontes && materia.fontes.length > 0) {
-                const fontesContainer = document.createElement('div');
-                fontesContainer.className = 'fontes-container';
-                fontesContainer.innerHTML = '<p>Fontes:</p>';
-                
-                const ul = document.createElement('ul');
-                materia.fontes.forEach(fonte => {
-                    const li = document.createElement('li');
-                    
-                    // Verifica se a fonte é uma URL válida para criar um link
-                    const isUrl = fonte.startsWith('http://') || fonte.startsWith('https://');
-                    
-                    if (isUrl) {
-                        const a = document.createElement('a');
-                        a.href = fonte;
-                        a.textContent = fonte;
-                        a.target = '_blank'; // Abre o link em uma nova aba
-                        li.appendChild(a);
-                    } else {
-                        li.textContent = fonte; // Exibe como texto normal se não for um URL
-                    }
-                    ul.appendChild(li);
-                });
-                fontesContainer.appendChild(ul);
-                card.appendChild(fontesContainer);
-            }
-            
-            // Adiciona o card completo à lista
-            materiasList.appendChild(card);
-        });
+        materiasList.appendChild(card);
+    });
 
+    // Atualiza os controles de paginação
+    btnAnterior.disabled = (paginaAtual === 1);
+    btnProximo.disabled = (snapshot.docs.length < itensPorPagina);
+    paginaAtualSpan.textContent = `Página ${paginaAtual}`;
+}
+
+// Função para buscar os dados da primeira página
+async function buscarPrimeiraPagina() {
+    try {
+        const query = db.collection('materias').orderBy('createdAt', 'desc').limit(itensPorPagina);
+        const snapshot = await query.get();
+        renderizarMaterias(snapshot);
     } catch (error) {
-        console.error("Erro ao buscar as matérias: ", error);
-        materiasList.innerHTML = '<p>Ocorreu um erro ao carregar as matérias.</p>';
+        console.error("Erro ao buscar a primeira página: ", error);
     }
 }
 
-// Chama a função para listar as matérias quando a página carrega
-document.addEventListener('DOMContentLoaded', listarMaterias);
+// Função para buscar a próxima página
+async function buscarProximaPagina() {
+    if (!ultimoDoc) return;
+    try {
+        const query = db.collection('materias')
+                          .orderBy('createdAt', 'desc')
+                          .startAfter(ultimoDoc)
+                          .limit(itensPorPagina);
+        const snapshot = await query.get();
+        
+        if (!snapshot.empty) {
+            paginaAtual++;
+            historicoPaginas.push(ultimoDoc);
+            renderizarMaterias(snapshot);
+        } else {
+            btnProximo.disabled = true;
+        }
+    } catch (error) {
+        console.error("Erro ao buscar a próxima página: ", error);
+    }
+}
+
+// Função para buscar a página anterior
+async function buscarPaginaAnterior() {
+    if (paginaAtual === 1) return;
+    
+    // Obtém o documento de referência da página anterior
+    const startBeforeDoc = historicoPaginas.pop();
+    
+    try {
+        const query = db.collection('materias')
+                          .orderBy('createdAt', 'desc')
+                          .endBefore(startBeforeDoc)
+                          .limitToLast(itensPorPagina); // Busca os últimos X documentos da página anterior
+        const snapshot = await query.get();
+        
+        if (!snapshot.empty) {
+            paginaAtual--;
+            renderizarMaterias(snapshot);
+        }
+    } catch (error) {
+        console.error("Erro ao buscar a página anterior: ", error);
+    }
+}
+
+// Adiciona os event listeners aos botões
+btnProximo.addEventListener('click', buscarProximaPagina);
+btnAnterior.addEventListener('click', buscarPaginaAnterior);
+
+// Carrega a primeira página ao iniciar
+document.addEventListener('DOMContentLoaded', buscarPrimeiraPagina);
 </script>
 
 </body>
