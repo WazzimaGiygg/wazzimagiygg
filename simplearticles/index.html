@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Matérias</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .materia-card {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .materia-card h2 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .materia-card .descricao-container {
+            margin-top: 10px;
+            line-height: 1.6;
+        }
+        .materia-card .fontes-container {
+            margin-top: 15px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .materia-card .fontes-container p {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+        .materia-card .fontes-container ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .materia-card .fontes-container li {
+            margin-bottom: 5px;
+        }
+        .materia-card .fontes-container a {
+            color: #28a745;
+            text-decoration: none;
+        }
+        .materia-card .fontes-container a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Matérias Cadastradas</h1>
+    
+    <div id="materiasList">
+        <p>Carregando matérias...</p>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
+<script>
+// --- Configuração do Firebase ---
+const firebaseConfig = {
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
+    authDomain: "wzzm-ce3fc.firebaseapp.com",
+    projectId: "wzzm-ce3fc",
+    storageBucket: "wzzm-ce3fc.appspot.com",
+    messagingSenderId: "249427877153",
+    appId: "1:249427877153:web:0e4297294794a5aadeb260",
+    measurementId: "G-PLKNZNFCQ8"
+};
+
+// Inicialize o Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Função para buscar e exibir os dados
+async function listarMaterias() {
+    const materiasList = document.getElementById('materiasList');
+    materiasList.innerHTML = ''; // Limpa a mensagem de carregamento
+
+    try {
+        const querySnapshot = await db.collection('materias').get();
+        
+        if (querySnapshot.empty) {
+            materiasList.innerHTML = '<p>Nenhuma matéria cadastrada ainda.</p>';
+            return;
+        }
+        
+        querySnapshot.forEach((doc) => {
+            const materia = doc.data();
+            
+            // Cria um elemento para cada matéria
+            const card = document.createElement('div');
+            card.className = 'materia-card';
+            
+            // Adiciona o título
+            const titulo = document.createElement('h2');
+            titulo.textContent = materia.titulo;
+            card.appendChild(titulo);
+            
+            // Adiciona a descrição formatada (o HTML do Quill)
+            const descricaoContainer = document.createElement('div');
+            descricaoContainer.className = 'descricao-container';
+            descricaoContainer.innerHTML = materia.descricao;
+            card.appendChild(descricaoContainer);
+            
+            // Adiciona as fontes como links
+            if (materia.fontes && materia.fontes.length > 0) {
+                const fontesContainer = document.createElement('div');
+                fontesContainer.className = 'fontes-container';
+                fontesContainer.innerHTML = '<p>Fontes:</p>';
+                
+                const ul = document.createElement('ul');
+                materia.fontes.forEach(fonte => {
+                    const li = document.createElement('li');
+                    
+                    // Verifica se a fonte é uma URL válida para criar um link
+                    const isUrl = fonte.startsWith('http://') || fonte.startsWith('https://');
+                    
+                    if (isUrl) {
+                        const a = document.createElement('a');
+                        a.href = fonte;
+                        a.textContent = fonte;
+                        a.target = '_blank'; // Abre o link em uma nova aba
+                        li.appendChild(a);
+                    } else {
+                        li.textContent = fonte; // Exibe como texto normal se não for um URL
+                    }
+                    ul.appendChild(li);
+                });
+                fontesContainer.appendChild(ul);
+                card.appendChild(fontesContainer);
+            }
+            
+            // Adiciona o card completo à lista
+            materiasList.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Erro ao buscar as matérias: ", error);
+        materiasList.innerHTML = '<p>Ocorreu um erro ao carregar as matérias.</p>';
+    }
+}
+
+// Chama a função para listar as matérias quando a página carrega
+document.addEventListener('DOMContentLoaded', listarMaterias);
+</script>
+
+</body>
+</html>
