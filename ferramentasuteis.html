@@ -230,8 +230,20 @@
                 <li><a href="#" data-category="Matemática">Matemática</a></li>
                 <li><a href="#" data-category="Sociedade">Sociedade</a></li>
                 <li><a href="#" data-category="Tecnologia">Tecnologia</a></li>
-                <li style="margin-top: 1em; border-top: 1px solid #a2a9b1;"><a href="#" data-category="all" class="active">Todos os Artigos</a></li>
+                <li style="margin-top: 1em; border-top: 1px solid #a2a9b1;">
+                    <a href="#" data-category="all" class="active">Todos os Artigos</a>
+                </li>
             </ul>
+
+            <div style="padding: 0 1em; margin-top: 1.5em;">
+                <h2>Idioma</h2>
+                <select id="armario-filter" style="width: 100%; padding: 8px; font-size: 1em; border: 1px solid #a2a9b1; border-radius: 4px;">
+                    <option value="all">Todos os Idiomas</option>
+                    <option value="Português" selected>Português</option>
+                    <option value="Inglês">Inglês</option>
+                    <option value="Espanhol">Espanhol</option>
+                </select>
+            </div>
         </div>
 
         <div class="content-main">
@@ -281,8 +293,10 @@ const artigosList = document.getElementById('artigos-list');
 const detalhesArtigo = document.getElementById('detalhes-artigo');
 const artigosTitle = document.getElementById('artigos-title');
 const categoryList = document.getElementById('category-list');
+const armarioFilter = document.getElementById('armario-filter');
 let artigoSelecionado = null;
 let currentCategory = 'all';
+let currentArmario = 'Português';
 
 // --- Lógica de Autenticação ---
 auth.onAuthStateChanged(user => {
@@ -291,7 +305,7 @@ auth.onAuthStateChanged(user => {
         loginSection.style.display = 'none';
         loggedInHeader.style.display = 'flex';
         mainContainer.style.display = 'flex';
-        buscarArtigos(currentCategory);
+        buscarArtigos(currentCategory, currentArmario);
     } else {
         console.log("Nenhum usuário logado.");
         loginSection.style.display = 'flex';
@@ -323,18 +337,22 @@ logoutButton.addEventListener('click', () => {
 });
 
 // --- Lógica de busca e exibição dos artigos ---
-async function buscarArtigos(categoria) {
+async function buscarArtigos(categoria, armario) {
     artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
     detalhesArtigo.innerHTML = '<p style="text-align: center; color: #888;">Selecione um artigo na lista para ver os detalhes.</p>';
     
     let query = db.collection('materias').orderBy('createdAt', 'desc').limit(10);
     
-    // Se uma categoria específica foi selecionada, adiciona o filtro
+    // Constrói a query com base nos filtros
     if (categoria && categoria !== 'all') {
+        query = query.where('setor', '==', categoria);
         artigosTitle.textContent = `Artigos de ${categoria}`;
-        query = db.collection('materias').where('setor', '==', categoria).orderBy('createdAt', 'desc').limit(10);
     } else {
         artigosTitle.textContent = `Todos os Artigos`;
+    }
+
+    if (armario && armario !== 'all') {
+        query = query.where('armario', '==', armario);
     }
     
     try {
@@ -342,7 +360,7 @@ async function buscarArtigos(categoria) {
         artigosList.innerHTML = '';
         
         if (querySnapshot.empty) {
-            artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado para a categoria "${categoria}".</p>`;
+            artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>`;
             return;
         }
         
@@ -395,12 +413,10 @@ function carregarDetalhesArtigo(id, materia) {
         `;
     }
     
-    // Adiciona os novos campos 'Setor', 'Arquivo' e 'Armário'
     let infoHtml = ``;
     if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
     if (materia.arquivo) infoHtml += `<p><strong>Arquivo:</strong> ${materia.arquivo}</p>`;
     if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
-
 
     detalhesArtigo.innerHTML = `
         <div class="article-header">
@@ -418,7 +434,7 @@ function carregarDetalhesArtigo(id, materia) {
     `;
 }
 
-// --- Event Listeners para as categorias ---
+// --- Event Listeners para as categorias e o filtro de idioma ---
 categoryList.addEventListener('click', (e) => {
     e.preventDefault();
     const link = e.target.closest('a');
@@ -426,7 +442,6 @@ categoryList.addEventListener('click', (e) => {
     
     const categoria = link.getAttribute('data-category');
     if (categoria) {
-        // Remove a classe 'active' do item anterior e adiciona ao novo
         const currentActive = categoryList.querySelector('a.active');
         if (currentActive) {
             currentActive.classList.remove('active');
@@ -434,11 +449,16 @@ categoryList.addEventListener('click', (e) => {
         link.classList.add('active');
         
         currentCategory = categoria;
-        buscarArtigos(categoria);
+        buscarArtigos(currentCategory, currentArmario);
     }
 });
 
-</script>
+// Novo Event Listener para o filtro de idiomas
+armarioFilter.addEventListener('change', (e) => {
+    currentArmario = e.target.value;
+    buscarArtigos(currentCategory, currentArmario);
+});
 
+</script>
 </body>
 </html>
