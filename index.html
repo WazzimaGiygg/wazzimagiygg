@@ -1129,89 +1129,104 @@ console.error('Erro ao carregar menu.json:', err);
 
 // NOVO SCRIPT PARA CARREGAR info-general.json DO FIREBASE E APLICAR AS MUDANÇAS
 document.addEventListener('DOMContentLoaded', () => {
-// 1. Determina o ID do documento com base no hostname
-let docId = window.location.hostname;
+    // 1. Determina o ID do documento com base no hostname
+    let docId = window.location.hostname;
 
-// Remove "www." se presente
-if (docId.startsWith('www.')) {
-docId = docId.substring(4);
+    // Remove "www." se presente
+    if (docId.startsWith('www.')) {
+        docId = docId.substring(4);
+    }
+
+    // Define um fallback para ambiente local (ex: localhost, 127.0.0.1)
+    // Se você estiver desenvolvendo localmente, ele usará 'defaultConfig'
+    // Certifique-se de ter um documento 'defaultConfig' ou 'wikiConfig' na sua coleção 'configuracoes'
+    if (docId === 'localhost' || docId === '127.0.0.1' || docId.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+        docId = 'wikiConfig'; // Ou um ID padrão que você prefira para ambiente local
+    }
+
+    console.log(`Tentando carregar configuração para o site: ${docId}`);
+
+    const configDocRef = firestore.collection('configuracoes').doc(docId);
+
+    // Listener em tempo real para mudanças no documento
+    configDocRef.onSnapshot(docSnapshot => {
+        if (docSnapshot.exists) {
+            const data = docSnapshot.data();
+            applyConfigData(data);
+            console.log("Configurações carregadas do Firebase (em tempo real):", data);
+        } else {
+            console.warn(`Documento de configuração '${docId}' não encontrado na coleção 'configuracoes'. Usando valores padrão.`);
+            // Se o documento específico do site não existir, você pode carregar um fallback
+            // Por exemplo, um documento 'default' ou 'global'
+            // Para simplicidade, aqui ele usará os valores padrão definidos em applyConfigData.
+            applyConfigData({});
+        }
+    }, error => {
+        console.error("Erro ao carregar configurações do Firebase:", error);
+        // Em caso de erro, tenta aplicar valores padrão
+        applyConfigData({});
+    });
+
+    // Função para aplicar os dados da configuração aos elementos da página
+    function applyConfigData(data) {
+        // Altera o título da página
+        document.title = data.nomeCompletoWiki || 'Wiki';
+
+        // Altera o nome da página no cabeçalho
+        const wikiPageName = document.getElementById('wiki-page-name');
+        if (wikiPageName) {
+            wikiPageName.textContent = data.nomeCompletoWiki || 'Wiki';
+        }
+        // Altera o nome da página no drawer
+        const drawerTitle = document.getElementById('drawer-title');
+        if (drawerTitle) {
+            drawerTitle.textContent = data.nomePaginaDrawer || 'Navegação';
+        }
+
+        // Altera o texto do link de "Procurar Artigos"
+        const searchArticlesLink = document.getElementById('search-articles-link');
+        if (searchArticlesLink) {
+            searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
+        }
+
+        // Aplica a cor personalizada
+        const customThemeStyle = document.getElementById('custom-theme-color');
+        if (customThemeStyle) {
+            const css = `
+.mdl-layout__header, .mdl-layout__drawer, #news-popup-header {
+background-color: ${data.corSite || '#3f51b5'} !important;
 }
-
-// Define um fallback para ambiente local (ex: localhost, 127.0.0.1)
-// Se você estiver desenvolvendo localmente, ele usará 'defaultConfig'
-// Certifique-se de ter um documento 'defaultConfig' ou 'wikiConfig' na sua coleção 'configuracoes'
-if (docId === 'localhost' || docId === '127.0.0.1' || docId.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
-docId = 'wikiConfig'; // Ou um ID padrão que você prefira para ambiente local
+.floating-window {
+border-color: ${data.corSite || '#3f51b5'} !important;
 }
-
-console.log(`Tentando carregar configuração para o site: ${docId}`);
-
-const configDocRef = firestore.collection('configuracoes').doc(docId);
-
-// Listener em tempo real para mudanças no documento
-configDocRef.onSnapshot(docSnapshot => {
-if (docSnapshot.exists) {
-const data = docSnapshot.data();
-applyConfigData(data);
-console.log("Configurações carregadas do Firebase (em tempo real):", data);
-} else {
-console.warn(`Documento de configuração '${docId}' não encontrado na coleção 'configuracoes'. Usando valores padrão.`);
-// Se o documento específico do site não existir, você pode carregar um fallback
-// Por exemplo, um documento 'default' ou 'global'
-// Para simplicidade, aqui ele usará os valores padrão definidos em applyConfigData.
-applyConfigData({});
-}
-}, error => {
-console.error("Erro ao carregar configurações do Firebase:", error);
-// Em caso de erro, tenta aplicar valores padrão
-applyConfigData({});
-});
-
-// Função para aplicar os dados da configuração aos elementos da página
-function applyConfigData(data) {
-// Altera o título da página
-document.title = data.nomeCompletoWiki || 'Wiki';
-
-// Altera o nome da página no cabeçalho
-const wikiPageName = document.getElementById('wiki-page-name');
-if (wikiPageName) {
-wikiPageName.textContent = data.nomeCompletoWiki || 'Wiki';
-}
-// Altera o nome da página no drawer
-const drawerTitle = document.getElementById('drawer-title');
-if (drawerTitle) {
-drawerTitle.textContent = data.nomePaginaDrawer || 'Navegação';
-}
-
-// Altera o texto do link de "Procurar Artigos"
-const searchArticlesLink = document.getElementById('search-articles-link');
-if (searchArticlesLink) {
-searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
-}
-
-// Aplica a cor personalizada
-const customThemeStyle = document.getElementById('custom-theme-color');
-if (customThemeStyle) {
-if (data.corPrimaria) {
-customThemeStyle.innerHTML += `
-.mdl-layout__header, .mdl-layout__drawer-button, .mdl-navigation__link:hover, .mdl-button--colored, .mdl-fab--colored {
-background-color: ${data.corPrimaria} !important;
-}
-.mdl-layout-title {
-color: white;
+.window-header {
+background: ${data.corSite || '#3f51b5'} !important;
 }
 `;
-}
-if (data.corSecundaria) {
-customThemeStyle.innerHTML += `
-.mdl-color--accent {
-background-color: ${data.corSecundaria} !important;
-}
-`;
-}
-}
-}
+            customThemeStyle.innerHTML = css;
+        }
+    }
 });
 </script>
+<div id="error-log-popup" style="
+display: none;
+position: fixed;
+top: 60px;
+right: 30px;
+width: 400px;
+max-height: 60vh;
+overflow-y: auto;
+background: #fff;
+border: 2px solid #e53935;
+border-radius: 8px;
+box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+z-index: 2000;
+padding: 16px;">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<span style="font-weight: bold; color: #e53935;">Erros do Console</span>
+<button onclick="document.getElementById('error-log-popup').style.display='none'" style="background:none;border:none;font-size:22px;color:#e53935;cursor:pointer;">×</button>
+</div>
+<ul id="error-log-list" style="margin-top: 12px; color: #b71c1c; font-size: 0.97em;"></ul>
+</div>
 </body>
 </html>
