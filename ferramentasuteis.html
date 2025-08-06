@@ -14,7 +14,7 @@
         
         /* Estilos do formulário de login */
         .login-container {
-            display: flex;
+            display: none; /* Inicia oculto e só é mostrado se não houver usuário logado */
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -69,7 +69,7 @@
 
         /* Estilos do cabeçalho de usuário logado */
         .header-logged-in {
-            display: flex;
+            display: none; /* Inicia oculto e só é mostrado se o usuário estiver logado */
             justify-content: space-between;
             align-items: center;
             padding: 15px 30px;
@@ -96,7 +96,8 @@
 
         /* Estilos da janela dividida */
         .container-split {
-            display: flex;
+            display: none; /* Inicia oculto e só é mostrado se o usuário estiver logado */
+            flex-direction: row;
             height: calc(100vh - 70px); /* Ajuste para o header */
         }
         .lista-recente {
@@ -177,7 +178,7 @@
 <div class="login-container" id="login-section">
     <div class="login-form">
         <h2>Entrar</h2>
-        <form id="login-form">
+        <form id="login-form-element">
             <label for="email">E-mail</label>
             <input type="email" id="email" required>
             <label for="password">Senha</label>
@@ -188,19 +189,18 @@
     </div>
 </div>
 
-<div id="content-section" style="display: none;">
-    <div class="header-logged-in">
+<div id="logged-in-container">
+    <div class="header-logged-in" id="header-logged-in">
         <h1>Painel Administrativo WZZM</h1>
         <button id="logout-button">Sair</button>
     </div>
-    <div class="container-split">
+    <div class="container-split" id="content-split">
         <div class="lista-recente">
             <h2>Artigos Recentes</h2>
             <div id="artigos-list">
                 <p style="text-align: center; color: #666;">Carregando...</p>
             </div>
         </div>
-        
         <div class="detalhes-artigo" id="detalhes-artigo">
             <p style="text-align: center; color: #888;">Selecione um artigo na lista para ver os detalhes.</p>
         </div>
@@ -230,8 +230,9 @@ const auth = firebase.auth();
 
 // Elementos da interface
 const loginSection = document.getElementById('login-section');
-const contentSection = document.getElementById('content-section');
-const loginForm = document.getElementById('login-form');
+const loggedInHeader = document.getElementById('header-logged-in');
+const contentSplit = document.getElementById('content-split');
+const loginFormElement = document.getElementById('login-form-element');
 const loginMessage = document.getElementById('login-message');
 const logoutButton = document.getElementById('logout-button');
 const artigosList = document.getElementById('artigos-list');
@@ -243,26 +244,29 @@ let artigoSelecionado = null;
 // Listener para o estado de autenticação
 auth.onAuthStateChanged(user => {
     if (user) {
-        // Usuário logado
+        // Usuário logado: mostra o painel e esconde o login
         console.log("Usuário logado:", user.email);
         loginSection.style.display = 'none';
-        contentSection.style.display = 'block';
-        buscarArtigosRecentes(); // Busca os artigos somente se o usuário estiver logado
+        loggedInHeader.style.display = 'flex';
+        contentSplit.style.display = 'flex';
+        buscarArtigosRecentes();
     } else {
-        // Usuário não logado
+        // Usuário não logado: mostra o formulário de login e esconde o painel
         console.log("Nenhum usuário logado.");
         loginSection.style.display = 'flex';
-        contentSection.style.display = 'none';
-        artigosList.innerHTML = ''; // Limpa a lista se o usuário sair
+        loggedInHeader.style.display = 'none';
+        contentSplit.style.display = 'none';
+        
+        artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
         detalhesArtigo.innerHTML = '<p style="text-align: center; color: #888;">Selecione um artigo na lista para ver os detalhes.</p>';
     }
 });
 
 // Evento de envio do formulário de login
-loginForm.addEventListener('submit', async (e) => {
+loginFormElement.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = loginForm.email.value;
-    const password = loginForm.password.value;
+    const email = loginFormElement.email.value;
+    const password = loginFormElement.password.value;
     
     try {
         await auth.signInWithEmailAndPassword(email, password);
@@ -278,9 +282,7 @@ logoutButton.addEventListener('click', () => {
     auth.signOut();
 });
 
-
-// --- Lógica de busca e exibição dos artigos (inalterada) ---
-
+// --- Lógica de busca e exibição dos artigos ---
 async function buscarArtigosRecentes() {
     try {
         const querySnapshot = await db.collection('materias')
@@ -321,7 +323,6 @@ async function buscarArtigosRecentes() {
         
     } catch (error) {
         console.error("Erro ao buscar artigos recentes: ", error);
-        // Exibe o erro de permissão no painel da lista
         artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
     }
 }
@@ -355,5 +356,6 @@ function carregarDetalhesArtigo(id, materia) {
 }
 
 </script>
+
 </body>
 </html>
