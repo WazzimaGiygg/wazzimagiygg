@@ -312,18 +312,6 @@
 
         <div class="content-main">
             <div class="lista-artigos-pane">
-                <div style="margin-bottom: 1em; border-bottom: 1px solid #ccc; padding-bottom: 1em;">
-    <h3 style="margin-top: 0;">Busca Avançada</h3>
-    <input type="text" id="busca-uid" placeholder="Buscar por UID" style="width: 100%; padding: 6px; margin-bottom: 5px;">
-    <input type="text" id="busca-titulo" placeholder="Buscar por Título" style="width: 100%; padding: 6px; margin-bottom: 5px;">
-    <select id="busca-idioma" style="width: 100%; padding: 6px; margin-bottom: 5px;">
-        <option value="">Todos os Idiomas</option>
-        <option value="Português">Português</option>
-        <option value="Inglês">Inglês</option>
-        <option value="Espanhol">Espanhol</option>
-    </select>
-    <button id="botao-buscar-avancado" style="width: 100%; padding: 8px; background-color: #2a6f8b; color: white; border: none; cursor: pointer;">Buscar</button>
-</div>
                 <h2 id="artigos-title">Artigos Recentes</h2>
                 <div id="artigos-list">
                     <p style="text-align: center; color: #666;">Carregando...</p>
@@ -2241,81 +2229,6 @@ armarioFilter.addEventListener('change', (e) => {
     currentArmario = e.target.value;
     buscarArtigos(currentCategory, currentArmario);
 });
-
-    // --- Busca Avançada ---
-document.getElementById('botao-buscar-avancado').addEventListener('click', async () => {
-    const uid = document.getElementById('busca-uid').value.trim();
-    const titulo = document.getElementById('busca-titulo').value.trim().toLowerCase();
-    const idioma = document.getElementById('busca-idioma').value;
-
-    artigosList.innerHTML = '<p style="text-align: center; color: #666;">Buscando...</p>';
-
-    try {
-        // Busca por UID diretamente
-        if (uid) {
-            const doc = await db.collection('materias').doc(uid).get();
-            artigosList.innerHTML = '';
-            if (doc.exists) {
-                const materia = doc.data();
-                const artigoItem = document.createElement('div');
-                artigoItem.className = 'artigo-item';
-                artigoItem.setAttribute('data-id', doc.id);
-                artigoItem.innerHTML = `<h3>${materia.titulo}</h3><p>ID: ${doc.id}</p>`;
-                artigoItem.addEventListener('click', () => {
-                    carregarDetalhesArtigo(doc.id, materia);
-                    if (artigoSelecionado) artigoSelecionado.classList.remove('ativo');
-                    artigoItem.classList.add('ativo');
-                    artigoSelecionado = artigoItem;
-                });
-                artigosList.appendChild(artigoItem);
-            } else {
-                artigosList.innerHTML = '<p style="text-align: center; color: #888;">Nenhum artigo encontrado com esse UID.</p>';
-            }
-            return;
-        }
-
-        // Busca por título/idioma
-        let query = db.collection('materias');
-
-        if (idioma) {
-            query = query.where('armario', '==', idioma);
-        }
-
-        if (titulo) {
-            // Requer campo 'tituloLower' nos documentos
-            query = query.orderBy('tituloLower').startAt(titulo).endAt(titulo + '\uf8ff');
-        } else {
-            query = query.orderBy('createdAt', 'desc');
-        }
-
-        const snapshot = await query.get();
-        artigosList.innerHTML = '';
-
-        if (snapshot.empty) {
-            artigosList.innerHTML = '<p style="text-align: center; color: #888;">Nenhum artigo encontrado.</p>';
-            return;
-        }
-
-        snapshot.forEach(doc => {
-            const materia = doc.data();
-            const artigoItem = document.createElement('div');
-            artigoItem.className = 'artigo-item';
-            artigoItem.setAttribute('data-id', doc.id);
-            artigoItem.innerHTML = `<h3>${materia.titulo}</h3><p>ID: ${doc.id}</p>`;
-            artigoItem.addEventListener('click', () => {
-                carregarDetalhesArtigo(doc.id, materia);
-                if (artigoSelecionado) artigoSelecionado.classList.remove('ativo');
-                artigoItem.classList.add('ativo');
-                artigoSelecionado = artigoItem;
-            });
-            artigosList.appendChild(artigoItem);
-        });
-    } catch (error) {
-        console.error("Erro na busca avançada:", error);
-        artigosList.innerHTML = `<p style="text-align: center; color: #e74c3c;">Erro: ${error.message}</p>`;
-    }
-});
-    
 </script>
 </body>
 </html>
