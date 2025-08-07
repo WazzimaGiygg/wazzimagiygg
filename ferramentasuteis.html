@@ -571,34 +571,37 @@ formEdicaoArtigo.addEventListener('submit', async (e) => {
         return;
     }
 
-    // Cria o documento de histórico antes de atualizar o artigo principal
-    const historicoData = {
-        idArtigo: id,
-        titulo: materiaOriginal.titulo,
-        descricao: materiaOriginal.descricao,
+    // Dados da nova versão do artigo
+    const novaVersaoArtigo = {
+        titulo: editTitulo.value,
+        descricao: editDescricao.value,
+        setor: materiaOriginal.setor, // Mantém os campos que não estão sendo editados
+        armario: materiaOriginal.armario,
+        arquivo: materiaOriginal.arquivo,
+        fontes: materiaOriginal.fontes,
+        createdAt: materiaOriginal.createdAt,
+        ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp(),
         editorId: user.uid,
-        editorEmail: user.email,
-        dataEdicao: firebase.firestore.FieldValue.serverTimestamp(),
+        editorEmail: user.email
+    };
+    
+    const historicoData = {
+        ...novaVersaoArtigo, // Inclui todos os dados da nova versão
+        idArtigo: id,
+        dataEdicao: novaVersaoArtigo.ultimaEdicao,
         sumarioEdicao: editSumario.value || 'Edição sem resumo.'
     };
 
     try {
-        // 1. Adiciona um novo documento à coleção de histórico
+        // 1. Adiciona um novo documento à coleção de histórico com a nova versão
         await db.collection('historicoEdicoes').add(historicoData);
         
-        // 2. Atualiza o documento principal na coleção 'materias'
-        await db.collection('materias').doc(id).update({
-            titulo: editTitulo.value,
-            descricao: editDescricao.value,
-            ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp(),
-            editorId: user.uid,
-            editorEmail: user.email
-        });
+        // 2. Atualiza o documento principal na coleção 'materias' com a nova versão
+        await db.collection('materias').doc(id).update(novaVersaoArtigo);
 
         alert("Artigo atualizado com sucesso!");
         // Recarrega os detalhes do artigo com os novos dados
-        const materiaAtualizada = { ...materiaOriginal, titulo: editTitulo.value, descricao: editDescricao.value };
-        carregarDetalhesArtigo(id, materiaAtualizada);
+        carregarDetalhesArtigo(id, novaVersaoArtigo);
         buscarArtigos(currentCategory, currentArmario); // Recarrega a lista para mostrar a mudança
     } catch (error) {
         console.error("Erro ao salvar a edição:", error);
@@ -621,7 +624,7 @@ async function abrirHistorico(id) {
             .get();
 
         if (querySnapshot.empty) {
-            listaHistorico.innerHTML = '<p style="text-align: center; color: #888;">Nenhuma edição anterior encontrada.</p>';
+            listaHistorico.innerHTML = '<p style="text-align: center; color: #888;">Nenhuma edição encontrada.</p>';
             return;
         }
 
@@ -629,13 +632,14 @@ async function abrirHistorico(id) {
         querySnapshot.forEach(doc => {
             const edicao = doc.data();
             const dataFormatada = edicao.dataEdicao ? new Date(edicao.dataEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
+            const tituloDaEdicao = edicao.titulo || 'Título não disponível';
 
             html += `
                 <div style="border-bottom: 1px solid #eaecf0; padding: 1em 0; margin-bottom: 1em;">
                     <p><strong>Editor:</strong> ${edicao.editorEmail || 'Desconhecido'}</p>
                     <p><strong>Data da Edição:</strong> ${dataFormatada}</p>
-                    <p><strong>Título Anterior:</strong> ${edicao.titulo}</p>
-                    <p><strong>Resumo:</strong> ${edicao.sumarioEdicao}</p>
+                    <p><strong>Título:</strong> ${tituloDaEdicao}</p>
+                    <p><strong>Resumo:</strong> ${edicao.sumarioEdicao || 'Nenhum'}</p>
                 </div>
             `;
         });
