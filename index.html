@@ -26,7 +26,7 @@ background-color: #f5f5f5;
 .mdl-layout__content {
 flex-grow: 1;
 display: flex;
-flex-direction: column;
+position: relative; /* Adicionado para posicionamento absoluto */
 padding: 0;
 }
 .page-content {
@@ -42,11 +42,82 @@ color: #9e9e9e;
 pointer-events: none;
 }
 /* Estilo para o novo iframe de conteúdo em tela cheia */
-#content-frame {
+#main-content-frame {
 flex-grow: 1;
 border: none;
 width: 100%;
 height: 100%;
+position: absolute;
+top: 0;
+left: 0;
+z-index: 0; /* z-index para ficar no fundo */
+}
+/* Estilo para o contêiner das janelas flutuantes */
+#window-container {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+z-index: 1000; /* Garante que as janelas fiquem por cima */
+pointer-events: none; /* Permite cliques passarem para o iframe de fundo */
+}
+#window-container > .floating-window {
+pointer-events: auto; /* Reativa os cliques para as janelas */
+}
+/* Estilo para as janelas flutuantes */
+.floating-window {
+display: flex;
+flex-direction: column;
+position: absolute;
+min-width: 300px;
+min-height: 200px;
+background-color: white;
+box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+border-radius: 8px;
+overflow: hidden;
+resize: both;
+transition: transform 0.2s ease-out;
+border: 1px solid #ccc;
+top: 50px;
+left: 50px;
+z-index: 1000;
+}
+.window-header {
+cursor: grab;
+padding: 8px 12px;
+background-color: #f5f5f5;
+border-bottom: 1px solid #ddd;
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+.window-header:active {
+cursor: grabbing;
+}
+.window-header span {
+font-weight: bold;
+}
+.window-controls button {
+border: none;
+background: none;
+font-size: 24px;
+cursor: pointer;
+color: #666;
+line-height: 1;
+padding: 0 8px;
+}
+.window-controls button:hover {
+color: #333;
+}
+.window-body {
+flex-grow: 1;
+overflow: hidden;
+}
+.window-body iframe {
+width: 100%;
+height: 100%;
+border: none;
 }
 .mdl-layout__header-row {
 padding: 0 16px;
@@ -216,13 +287,6 @@ height: auto;
 margin-top: 10px;
 border-radius: 4px;
 }
-/*
-* O código abaixo, que gerenciava as janelas flutuantes,
-* foi removido para implementar a página em tela cheia.
-*/
-.floating-window {
-display: none;
-}
 </style>
 <script>
 // Script de redirecionamento para mobile
@@ -246,7 +310,7 @@ window.location.href = './mobile/index.html';
 <button class="mdl-button mdl-js-button mdl-button--icon" id="error-log-button" title="Ver Erros">
 <i class="material-icons">bug_report</i>
 </button>
-<a class="mdl-navigation__link" href="#" id="search-articles-link" onclick="loadPage('ferramentasuteis.html', false)">Procurar Artigos</a>
+<a class="mdl-navigation__link" href="#" id="search-articles-link" onclick="createFloatingWindow('ferramentasuteis.html', null, false)">Procurar Artigos</a>
 <div style="position: relative; display: flex; align-items: center;">
 <button class="mdl-button mdl-js-button mdl-button--icon" id="news-button" style="display: none;">
 <i class="material-icons">article</i>
@@ -290,7 +354,8 @@ Ver todas as Notícias
 </nav>
 </div>
 <main class="mdl-layout__content">
-<iframe id="content-frame" src="wnpx.html" frameborder="0"></iframe>
+<iframe id="main-content-frame" src="wnpx.html" frameborder="0"></iframe>
+<div id="window-container"></div>
 </main>
 <div id="access-denied-message" style="display:none;">
 <p>Acesso negado. Por favor, faça login para ver este conteúdo.</p>
@@ -298,6 +363,14 @@ Ver todas as Notícias
 <div id="banned-message" style="display:none;">
 <p>Sua conta foi banida. Você não pode acessar o conteúdo.</p>
 <p>Para mais informações, contate o suporte.</p>
+</div>
+<div id="error-log-popup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 600px; height: 80%; max-height: 400px; background: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 1002; flex-direction: column;">
+<div style="padding: 16px; background-color: #f5f5f5; border-bottom: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center;">
+<h4 style="margin: 0;">Log de Erros do Console</h4>
+<button onclick="document.getElementById('error-log-popup').style.display='none';" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+</div>
+<ul id="error-log-list" style="list-style-type: none; margin: 0; padding: 16px; flex-grow: 1; overflow-y: auto;">
+</ul>
 </div>
 </div>
 
@@ -497,7 +570,7 @@ const googleAppsButton = document.getElementById('google-apps-button');
 const userInfoContainer = document.getElementById('user-info-container');
 const googleAppsPopup = document.getElementById('google-apps-popup');
 const customAppCssStyleTag = document.getElementById('custom-app-css');
-const contentFrame = document.getElementById('content-frame');
+const contentFrame = document.getElementById('main-content-frame');
 const accessDeniedMessage = document.getElementById('access-denied-message');
 const bannedMessage = document.getElementById('banned-message');
 const newsButton = document.getElementById('news-button');
@@ -646,8 +719,8 @@ const wzzmServices = [
 { name: 'Escolar WZZM', url: 'https://escolar.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
 { name: 'Minha Persona WZZM', url: 'https://minhapersona.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
 { name: 'Wiki Zero', url: 'https://wikizero.wzzm.org/', iconUrl: 'https://wzzm.org/iconmagic.png' },
-{ name: 'UWG Wikidot', url: 'https://uwg.wikidot.com', iconUrl: 'https://wzzm.org/iconmagic.png' },
-{ name: 'Wiki Metro SP', url: 'https://wikimetrosp.miraheze.org', iconUrl: 'https://wzzm.org/wikimetrosp.png' }
+{ name: 'UWG Wikidot', url: 'https://uwg.wikidot.com', iconUrl: 'https://uwg.wikidot.png' },
+{ name: 'Wiki Metro SP', url: 'https://wikimetrosp.miraheze.org', iconUrl: 'https://wikimetrosp.miraheze.org/logo.png' }
 ];
 wzzmServices.forEach(app => {
 const appItem = document.createElement('div');
@@ -1109,42 +1182,8 @@ const searchArticlesLink = document.getElementById('search-articles-link');
 if (searchArticlesLink) {
 searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
 }
-
-// Remove o código de gerenciamento de janelas, já que não será mais usado
-function closeWindow(winId) {
-const win = document.querySelector(`.floating-window[data-winid="${winId}"]`);
-if (win) {
-win.remove();
-}
-}
-function createFloatingWindow(src, customTitle = null, requiresAuth = false) {
-console.warn("A função createFloatingWindow não é mais usada. Use a função loadPage.");
-loadPage(src);
-}
-// Agora a função loadPage apenas altera o src do iframe principal
-function loadPage(src, requiresAuth = false) {
-const contentFrame = document.getElementById('content-frame');
-const accessDeniedMessage = document.getElementById('access-denied-message');
-const bannedMessage = document.getElementById('banned-message');
-
-if (isCurrentUserBanned) {
-bannedMessage.style.display = 'block';
-return;
-}
-if (requiresAuth && !currentUser) {
-accessDeniedMessage.style.display = 'block';
-return;
-}
-
-if (contentFrame) {
-contentFrame.src = src;
-}
-bannedMessage.style.display = 'none';
-accessDeniedMessage.style.display = 'none';
-}
 }
 });
 </script>
-
 </body>
 </html>
