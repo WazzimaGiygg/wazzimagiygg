@@ -1,4 +1,24 @@
-  // A coleção onde os logs serão armazenados
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+        authDomain: "wzzm-ce3fc.firebaseapp.com",
+        projectId: "wzzm-ce3fc",
+        storageBucket: "wzzm-ce3fc.appspot.com",
+        messagingSenderId: "249427877153",
+        appId: "1:249427877153:web:0e4297294794a5aadeb260",
+        measurementId: "G-PLKNZNFCQ8"
+    };
+
+    // Inicialize o Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const firestore = firebase.firestore();
+
+// A coleção onde os logs serão armazenados
 const logCollection = firestore.collection('logeral');
 let capturedErrors = [];
 
