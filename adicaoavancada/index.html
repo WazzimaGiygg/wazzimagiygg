@@ -1,0 +1,208 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Matéria</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], .fonte-input-group, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        textarea {
+            height: 200px;
+            resize: vertical;
+        }
+        .fonte-input-group {
+            display: flex;
+            align-items: center;
+        }
+        .fonte-input-group input {
+            flex-grow: 1;
+            margin-bottom: 0;
+        }
+        .fonte-input-group button {
+            margin-left: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .fonte-input-group button:hover {
+            background-color: #c82333;
+        }
+        #addFonte, button[type="submit"] {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        #addFonte:hover, button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        #addFonte {
+            background-color: #28a745;
+            margin-top: 10px;
+        }
+        #addFonte:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Criar Nova Matéria</h1>
+    <form id="materiaForm">
+        <label for="titulo">Título:</label>
+        <input type="text" id="titulo" name="titulo" required>
+
+        <label for="setor">(Matéria) Setor:</label>
+        <input type="text" id="setor" name="setor" required>
+
+        <label for="arquivo">(Tipo de informação) Arquivo:</label>
+        <input type="text" id="arquivo" name="arquivo" required>
+
+        <label for="armario">(Idioma) Armário:</label>
+        <input type="text" id="armario" name="armario" required>
+
+        <label for="descricaoHtml">Código HTML da Descrição:</label>
+        <textarea id="descricaoHtml" name="descricao" placeholder="Colar o código HTML importado de outro editor aqui..." required></textarea>
+
+        <label>Fontes:</label>
+        <div id="fontesContainer">
+            <input type="text" class="fonteInput" name="fontes[]">
+        </div>
+        <button type="button" id="addFonte">Adicionar Mais Fontes</button><br><br>
+
+        <button type="submit">Salvar Matéria</button>
+    </form>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
+<script>
+// --- Configuração do Firebase ---
+const firebaseConfig = {
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+    authDomain: "wzzm-ce3fc.firebaseapp.com",
+    projectId: "wzzm-ce3fc",
+    storageBucket: "wzzm-ce3fc.appspot.com",
+    messagingSenderId: "249427877153",
+    appId: "1:249427877153:web:0e4297294794a5aadeb260",
+    measurementId: "G-PLKNZNFCQ8"
+};
+
+// Inicialize o Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// --- Lógica para adicionar campos de fonte ---
+document.getElementById('addFonte').addEventListener('click', () => {
+    const fontesContainer = document.getElementById('fontesContainer');
+    const novoInput = document.createElement('input');
+    novoInput.type = 'text';
+    novoInput.className = 'fonteInput';
+    novoInput.name = 'fontes[]';
+    novoInput.placeholder = 'Digite a URL ou o nome da fonte';
+    
+    fontesContainer.appendChild(novoInput);
+});
+
+// --- Lógica para salvar os dados no Firestore ---
+document.getElementById('materiaForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Obtenha os valores dos campos
+    const titulo = document.getElementById('titulo').value;
+    const setor = document.getElementById('setor').value;
+    const arquivo = document.getElementById('arquivo').value;
+    const armario = document.getElementById('armario').value;
+    // Pega o valor diretamente da nova textarea
+    const descricao = document.getElementById('descricaoHtml').value;
+    
+    const fontes = Array.from(document.getElementsByClassName('fonteInput'))
+                      .map(input => input.value.trim())
+                      .filter(fonte => fonte !== '');
+
+    if (!titulo || !descricao || !setor || !arquivo || !armario) {
+        alert('Por favor, preencha todos os campos obrigatórios: Título, Descrição, Setor, Arquivo e Armário.');
+        return;
+    }
+
+    try {
+        await db.collection('materias').add({
+            titulo: titulo,
+            descricao: descricao,
+            setor: setor,
+            arquivo: arquivo,
+            armario: armario,
+            fontes: fontes,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert('Matéria criada com sucesso!');
+        document.getElementById('materiaForm').reset();
+        
+        // Limpa os campos de fonte, deixando apenas um
+        const fontesContainer = document.getElementById('fontesContainer');
+        while (fontesContainer.firstChild) {
+            fontesContainer.removeChild(fontesContainer.firstChild);
+        }
+        const primeiroInput = document.createElement('input');
+        primeiroInput.type = 'text';
+        primeiroInput.className = 'fonteInput';
+        primeiroInput.name = 'fontes[]';
+        fontesContainer.appendChild(primeiroInput);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar a matéria: ', error);
+        alert('Erro ao criar a matéria. Tente novamente.');
+    }
+});
+</script>
+</body>
+</html>
