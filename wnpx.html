@@ -575,58 +575,57 @@ artigoItem.addEventListener('click', async () => {
 
 
         // --- Lógica de busca e exibição dos artigos ---
-        async function buscarArtigos(categoria, armario) {
-            artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
-            detalhesArtigo.style.display = 'none';
-            editorArtigo.style.display = 'none';
-            historicoArtigo.style.display = 'none';
-            paginaUsuarioSection.style.display = 'none';
-            conteudoDinamico.style.display = 'none';
+       async function buscarArtigos(categoria, armario) {
+    artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
+    detalhesArtigo.style.display = 'none';
+    editorArtigo.style.display = 'none';
+    historicoArtigo.style.display = 'none';
+    paginaUsuarioSection.style.display = 'none';
+    conteudoDinamico.style.display = 'none';
 
-            let query = db.collection('materias').orderBy('createdAt', 'desc').limit(10);
-            if (categoria && categoria !== 'all') {
-                query = query.where('setor', '==', categoria);
-                artigosTitle.textContent = `Artigos de ${categoria}`;
-            } else {
-                artigosTitle.textContent = `Todos os Artigos`;
-            }
-            if (armario && armario !== 'all') {
-                query = query.where('armario', '==', armario);
-            }
-            try {
-                const querySnapshot = await query.get();
-                artigosList.innerHTML = '';
-                if (querySnapshot.empty) {
-                    artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>`;
-                    return;
+    let query = db.collection('materias').orderBy('createdAt', 'desc').limit(10);
+    if (categoria && categoria !== 'all') {
+        query = query.where('setor', '==', categoria);
+        artigosTitle.textContent = `Artigos de ${categoria}`;
+    } else {
+        artigosTitle.textContent = `Todos os Artigos`;
+    }
+    if (armario && armario !== 'all') {
+        query = query.where('armario', '==', armario);
+    }
+    try {
+        const querySnapshot = await query.get();
+        artigosList.innerHTML = '';
+        if (querySnapshot.empty) {
+            artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>`;
+            return;
+        }
+        querySnapshot.forEach(doc => {
+            const materia = doc.data();
+            const artigoItem = document.createElement('div');
+            artigoItem.className = 'artigo-item';
+            artigoItem.setAttribute('data-id', doc.id);
+            artigoItem.innerHTML = `
+                <h3>${materia.titulo}</h3>
+                <p>ID: ${doc.id}</p>
+            `;
+            artigoItem.addEventListener('click', async () => {
+                abrirArtigoEmIframe(doc.id, materia);
+                if (artigoSelecionado) {
+                    artigoSelecionado.classList.remove('ativo');
                 }
-                querySnapshot.forEach(doc => {
-    const materia = doc.data();
-    const artigoItem = document.createElement('div');
-    artigoItem.className = 'artigo-item';
-    artigoItem.setAttribute('data-id', doc.id);
-    artigoItem.innerHTML = `
-        <h3>${materia.titulo}</h3>
-        <p>ID: ${doc.id}</p>
-    `;
-    artigoItem.addEventListener('click', async () => {
-        abrirArtigoEmIframe(doc.id, materia);
-        if (artigoSelecionado) {
-            artigoSelecionado.classList.remove('ativo');
-        }
-        artigoItem.classList.add('ativo');
-        artigoSelecionado = artigoItem;
-        await registrarInteracaoManagerUID('clique_artigo', doc.id);
-    });
-    artigosList.appendChild(artigoItem);
-});
-                    artigosList.appendChild(artigoItem);
-                });
-            } catch (error) {
-                console.error("Erro ao buscar artigos: ", error);
-                artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-            }
-        }
+                artigoItem.classList.add('ativo');
+                artigoSelecionado = artigoItem;
+                // Rastreamento
+                await registrarInteracaoManagerUID('clique_artigo', doc.id);
+            });
+            artigosList.appendChild(artigoItem);
+        });
+    } catch (error) {
+        console.error("Erro ao buscar artigos: ", error);
+        artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
+    }
+}
 
 
     // Troque a função de clique do artigo!
