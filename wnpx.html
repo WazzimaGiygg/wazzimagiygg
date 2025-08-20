@@ -665,7 +665,11 @@
                 return;
             }
 
-            // Lógica de busca com filtros, caso não haja UID
+            // Lógica de busca com filtros de texto (agora simulada)
+            artigosTitle.textContent = `Artigos Recentes`;
+            const tituloBusca = filtros.titulo ? filtros.titulo.toLowerCase() : '';
+            const descricaoBusca = filtros.descricao ? filtros.descricao.toLowerCase() : '';
+
             let query = db.collection('materias');
 
             if (filtros.categoria && filtros.categoria !== 'all') {
@@ -679,34 +683,45 @@
                 query = query.where('armario', '==', filtros.armario);
             }
 
-            if (filtros.titulo) {
-                query = query.where('titulo', '==', filtros.titulo);
-            }
+            // Nota sobre a busca "semelhante":
+            // O Firestore não suporta busca por substring.
+            // A solução abaixo é buscar todos os documentos (limitados a 100) e filtrar no cliente.
+            // Para grandes bancos de dados, uma solução de busca externa (como Algolia ou ElasticSearch) seria mais eficiente.
+            query = query.limit(100);
 
-            if (filtros.descricao) {
-                query = query.where('descricao', '==', filtros.descricao);
-            }
-
-            query = query.orderBy('createdAt', 'desc').limit(10);
-            
             try {
                 const querySnapshot = await query.get();
                 artigosList.innerHTML = '';
-                if (querySnapshot.empty) {
+                let resultadosFiltrados = [];
+                querySnapshot.forEach(doc => {
+                    const materia = doc.data();
+                    const titulo = materia.titulo ? materia.titulo.toLowerCase() : '';
+                    const descricao = materia.descricao ? materia.descricao.toLowerCase() : '';
+                    
+                    const matchTitulo = tituloBusca ? titulo.includes(tituloBusca) : true;
+                    const matchDescricao = descricaoBusca ? descricao.includes(descricaoBusca) : true;
+                    
+                    if (matchTitulo && matchDescricao) {
+                        resultadosFiltrados.push({ id: doc.id, data: materia });
+                    }
+                });
+                
+                if (resultadosFiltrados.length === 0) {
                     artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>`;
                     return;
                 }
-                querySnapshot.forEach(doc => {
-                    const materia = doc.data();
+                
+                // Limita a exibição a 10 resultados filtrados, para manter a consistência com a busca inicial
+                resultadosFiltrados.slice(0, 10).forEach(resultado => {
                     const artigoItem = document.createElement('div');
                     artigoItem.className = 'artigo-item';
-                    artigoItem.setAttribute('data-id', doc.id);
+                    artigoItem.setAttribute('data-id', resultado.id);
                     artigoItem.innerHTML = `
-                        <h3>${materia.titulo}</h3>
-                        <p>ID: ${doc.id}</p>
+                        <h3>${resultado.data.titulo}</h3>
+                        <p>ID: ${resultado.id}</p>
                     `;
                     artigoItem.addEventListener('click', () => {
-                        abrirArtigoEmIframe(doc.id, materia);
+                        abrirArtigoEmIframe(resultado.id, resultado.data);
                         if (artigoSelecionado) {
                             artigoSelecionado.classList.remove('ativo');
                         }
