@@ -255,6 +255,16 @@
                 display: none !important;
             }
         }
+
+        /* Estilos para a Busca Avançada */
+        #busca-avancada-form {
+            display: none;
+            padding: 1em;
+            border: 1px solid #a2a9b1;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+            margin-top: 1em;
+        }
     </style>
 </head>
 <body>
@@ -301,7 +311,7 @@
                     <li><a href="#" data-category="Avisos de Emergência">Avisos de Emergência</a></li>
                     <li><a href="#" data-category="Previsão do Tempo">Previsão do Tempo</a></li>
                     <li style="margin-top: 1em; border-top: 1px solid #a2a9b1;">
-                        <a href="#" data-category="all" class="active">Todos os Artigos</a> 
+                        <a href="#" data-category="all" class="active">Todos os Artigos</a>
                     </li>
                 </ul>
 
@@ -309,22 +319,38 @@
                     <h2>Idioma</h2>
                     <select id="armario-filter" style="width: 100%; padding: 8px; font-size: 1em; border: 1px solid #a2a9b1; border-radius: 4px;">
                         <option value="all">Todos os Idiomas</option>
-<option value="Português" selected>Português</option>
-<option value="Inglês">English</option>
-<option value="Espanhol">Español</option>
-<option value="Francês">Français</option>
-<option value="Alemão">Deutsch</option>
-<option value="Italiano">Italiano</option>
-<option value="Chinês">中文</option>
-<option value="Japonês">日本語</option>
-<option value="Russo">Русский</option>
-<option value="Árabe">العربية</option>
-<option value="Coreano">한국어</option>
-<option value="Hindi">हिन्दी</option>
-<option value="Holandês">Nederlands</option>
-<option value="Sueco">Svenska</option>
-<option value="Turco">Türkçe</option>
+                        <option value="Português" selected>Português</option>
+                        <option value="Inglês">English</option>
+                        <option value="Espanhol">Español</option>
+                        <option value="Francês">Français</option>
+                        <option value="Alemão">Deutsch</option>
+                        <option value="Italiano">Italiano</option>
+                        <option value="Chinês">中文</option>
+                        <option value="Japonês">日本語</option>
+                        <option value="Russo">Русский</option>
+                        <option value="Árabe">العربية</option>
+                        <option value="Coreano">한국어</option>
+                        <option value="Hindi">हिन्दी</option>
+                        <option value="Holandês">Nederlands</option>
+                        <option value="Sueco">Svenska</option>
+                        <option value="Turco">Türkçe</option>
                     </select>
+                </div>
+                
+                <div style="padding: 0 1em; margin-top: 1.5em;">
+                    <h2>Busca Avançada</h2>
+                    <button id="toggle-busca-avancada" style="width: 100%; padding: 8px; background-color: #54595d; color: white; border: none; cursor: pointer;">Exibir Busca</button>
+                    <form id="busca-avancada-form">
+                        <div style="margin-bottom: 10px;">
+                            <label for="busca-titulo" style="font-weight: normal; font-size: 0.9em;">Título:</label>
+                            <input type="text" id="busca-titulo" style="width: 100%; padding: 6px;">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="busca-descricao" style="font-weight: normal; font-size: 0.9em;">Descrição:</label>
+                            <input type="text" id="busca-descricao" style="width: 100%; padding: 6px;">
+                        </div>
+                        <button type="submit" style="width: 100%; padding: 8px; background-color: #2a6f8b; color: white; border: none; cursor: pointer;">Buscar</button>
+                    </form>
                 </div>
             </div>
 
@@ -531,35 +557,37 @@
         const listaMinhasContribuicoes = document.getElementById('lista-minhas-contribuicoes');
         const listaMensagens = document.getElementById('lista-mensagens');
         const tabButtons = document.querySelectorAll('.tab-button');
-
+        
+        // Elementos de busca avançada
+        const toggleBuscaAvancadaBtn = document.getElementById('toggle-busca-avancada');
+        const buscaAvancadaForm = document.getElementById('busca-avancada-form');
+        const buscaTituloInput = document.getElementById('busca-titulo');
+        const buscaDescricaoInput = document.getElementById('busca-descricao');
 
         let artigoSelecionado = null;
         let currentCategory = 'all';
         let currentArmario = 'Português';
-        let currentUserRole = 'guest'; // Novo: Variável para armazenar o papel do usuário
+        let currentUserRole = 'guest';
 
         // --- Lógica de Autenticação ---
         const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-        auth.onAuthStateChanged(async user => { // Torne a função assíncrona
+        auth.onAuthStateChanged(async user => {
             if (user) {
                 console.log("Usuário logado:", user.email, "UID:", user.uid);
-                // Novo: Obter o papel do usuário
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists && userDoc.data().role) {
                     currentUserRole = userDoc.data().role;
                 } else {
-                    currentUserRole = 'user'; // Atribui um papel padrão se não existir
-                    // Opcional: Criar o documento do usuário com um papel padrão se ele não existir
-                    // await db.collection('users').doc(user.uid).set({ role: 'user', email: user.email }, { merge: true });
+                    currentUserRole = 'user';
                 }
-                
+
                 loginSection.style.display = 'none';
                 loggedInHeader.style.display = 'flex';
                 mainContainer.style.display = 'flex';
                 userDisplayName.textContent = user.displayName || user.email;
                 conteudoDinamico.style.display = 'none';
-                buscarArtigos(currentCategory, currentArmario);
+                buscarArtigos({ categoria: currentCategory, armario: currentArmario });
             } else {
                 console.log("Nenhum usuário logado.");
                 loginSection.style.display = 'flex';
@@ -574,6 +602,7 @@
                 currentUserRole = 'guest';
             }
         });
+
         googleLoginBtn.addEventListener('click', async () => {
             try {
                 await auth.signInWithPopup(googleProvider);
@@ -582,12 +611,13 @@
                 alert("Erro no login com Google: " + error.message);
             }
         });
+
         logoutButton.addEventListener('click', () => {
             auth.signOut();
         });
-
-        // --- Lógica de busca e exibição dos artigos ---
-        async function buscarArtigos(categoria, armario) {
+        
+        // --- Lógica de busca e exibição dos artigos (ATUALIZADA) ---
+        async function buscarArtigos(filtros) {
             artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
             detalhesArtigo.style.display = 'none';
             editorArtigo.style.display = 'none';
@@ -595,16 +625,33 @@
             paginaUsuarioSection.style.display = 'none';
             conteudoDinamico.style.display = 'none';
 
-            let query = db.collection('materias').orderBy('createdAt', 'desc').limit(10);
-            if (categoria && categoria !== 'all') {
-                query = query.where('setor', '==', categoria);
-                artigosTitle.textContent = `Artigos de ${categoria}`;
+            let query = db.collection('materias');
+
+            if (filtros.categoria && filtros.categoria !== 'all') {
+                query = query.where('setor', '==', filtros.categoria);
+                artigosTitle.textContent = `Artigos de ${filtros.categoria}`;
             } else {
                 artigosTitle.textContent = `Todos os Artigos`;
             }
-            if (armario && armario !== 'all') {
-                query = query.where('armario', '==', armario);
+
+            if (filtros.armario && filtros.armario !== 'all') {
+                query = query.where('armario', '==', filtros.armario);
             }
+
+            // NOVO: Adiciona filtros de busca avançada
+            if (filtros.titulo) {
+                query = query.where('titulo', '==', filtros.titulo);
+            }
+
+            if (filtros.descricao) {
+                // Para busca de texto completo, você precisaria de um serviço de busca como Algolia.
+                // Como não temos isso, faremos uma busca de igualdade exata na descrição.
+                // Para algo mais robusto, seria necessário um índice de busca ou uma lógica diferente.
+                query = query.where('descricao', '==', filtros.descricao);
+            }
+
+            query = query.orderBy('createdAt', 'desc').limit(10);
+            
             try {
                 const querySnapshot = await query.get();
                 artigosList.innerHTML = '';
@@ -621,14 +668,14 @@
                         <h3>${materia.titulo}</h3>
                         <p>ID: ${doc.id}</p>
                     `;
-                   artigoItem.addEventListener('click', () => {
-    abrirArtigoEmIframe(doc.id, materia);
-    if (artigoSelecionado) {
-        artigoSelecionado.classList.remove('ativo');
-    }
-    artigoItem.classList.add('ativo');
-    artigoSelecionado = artigoItem;
-});
+                    artigoItem.addEventListener('click', () => {
+                        abrirArtigoEmIframe(doc.id, materia);
+                        if (artigoSelecionado) {
+                            artigoSelecionado.classList.remove('ativo');
+                        }
+                        artigoItem.classList.add('ativo');
+                        artigoSelecionado = artigoItem;
+                    });
                     artigosList.appendChild(artigoItem);
                 });
             } catch (error) {
@@ -637,58 +684,28 @@
             }
         }
 
-
-    // Troque a função de clique do artigo!
-    async function buscarArtigos(categoria, armario) {
-        artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
-        detalhesArtigo.style.display = 'none';
-        editorArtigo.style.display = 'none';
-        historicoArtigo.style.display = 'none';
-        paginaUsuarioSection.style.display = 'none';
-        conteudoDinamico.style.display = 'none';
-
-        let query = db.collection('materias').orderBy('createdAt', 'desc').limit(10);
-        if (categoria && categoria !== 'all') {
-            query = query.where('setor', '==', categoria);
-            artigosTitle.textContent = `Artigos de ${categoria}`;
-        } else {
-            artigosTitle.textContent = `Todos os Artigos`;
-        }
-        if (armario && armario !== 'all') {
-            query = query.where('armario', '==', armario);
-        }
-        try {
-            const querySnapshot = await query.get();
-            artigosList.innerHTML = '';
-            if (querySnapshot.empty) {
-                artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>`;
-                return;
+        // Event listener para a busca avançada
+        toggleBuscaAvancadaBtn.addEventListener('click', () => {
+            if (buscaAvancadaForm.style.display === 'block') {
+                buscaAvancadaForm.style.display = 'none';
+                toggleBuscaAvancadaBtn.textContent = 'Exibir Busca';
+            } else {
+                buscaAvancadaForm.style.display = 'block';
+                toggleBuscaAvancadaBtn.textContent = 'Ocultar Busca';
             }
-            querySnapshot.forEach(doc => {
-                const materia = doc.data();
-                const artigoItem = document.createElement('div');
-                artigoItem.className = 'artigo-item';
-                artigoItem.setAttribute('data-id', doc.id);
-                artigoItem.innerHTML = `
-                    <h3>${materia.titulo}</h3>
-                    <p>ID: ${doc.id}</p>
-                `;
-                // Alteração: agora abre em iframe
-                artigoItem.addEventListener('click', () => {
-                    abrirArtigoEmIframe(doc.id, materia);
-                    if (artigoSelecionado) {
-                        artigoSelecionado.classList.remove('ativo');
-                    }
-                    artigoItem.classList.add('ativo');
-                    artigoSelecionado = artigoItem;
-                });
-                artigosList.appendChild(artigoItem);
-            });
-        } catch (error) {
-            console.error("Erro ao buscar artigos: ", error);
-            artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-        }
-    }
+        });
+
+        buscaAvancadaForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const filtros = {
+                categoria: currentCategory,
+                armario: currentArmario,
+                titulo: buscaTituloInput.value.trim(),
+                descricao: buscaDescricaoInput.value.trim()
+            };
+            buscarArtigos(filtros);
+        });
+
         function carregarDetalhesArtigo(id, materia) {
             editorArtigo.style.display = 'none';
             historicoArtigo.style.display = 'none';
@@ -723,7 +740,6 @@
                 <button id="btn-ver-historico" data-id="${id}" style="padding: 8px 15px; background-color: #36c; color: white; border: none; cursor: pointer;">Histórico</button>
                 <button id="btn-imprimir-artigo" style="padding: 8px 15px; background-color: #555; color: white; border: none; cursor: pointer; margin-left: 10px;">Imprimir</button>
             `;
-            // NOVO: Adiciona o botão de remoção se o usuário for admin
             if (currentUserRole === 'admin') {
                 botoesHtml += `<button id="btn-remover-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; cursor: pointer; margin-left: 10px;">Remover Artigo</button>`;
             }
@@ -792,12 +808,13 @@
                     })
                 });
                 alert("Artigo atualizado com sucesso!");
-                buscarArtigos(currentCategory, currentArmario);
+                buscarArtigos({ categoria: currentCategory, armario: currentArmario });
             } catch (error) {
                 console.error("Erro ao atualizar artigo: ", error);
                 alert("Erro ao atualizar artigo: " + error.message);
             }
         });
+
         cancelarEdicaoBtn.addEventListener('click', () => {
             if (artigoSelecionado) {
                 const docId = artigoSelecionado.getAttribute('data-id');
@@ -805,7 +822,7 @@
                     carregarDetalhesArtigo(docId, doc.data());
                 });
             } else {
-                buscarArtigos(currentCategory, currentArmario);
+                buscarArtigos({ categoria: currentCategory, armario: currentArmario });
             }
         });
 
@@ -859,32 +876,32 @@
         }
 
         // --- Funções de Impressão ---
-function imprimirArtigo() {
-    const detalhes = document.querySelector('.detalhes-artigo');
-    if (!detalhes || detalhes.style.display === 'none') {
-        alert("Nenhum artigo para imprimir.");
-        return;
-    }
-    
-    const conteudo = detalhes.innerHTML;
-    const win = window.open('', '', 'width=800,height=600');
-    win.document.write(`
-        <html>
-        <head>
-            <title>Imprimir Artigo</title>
-            <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
-            <style>
-                body { font-family: 'Noto Sans', sans-serif; padding: 20px; }
-            </style>
-        </head>
-        <body>${conteudo}</body>
-        </html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
-    win.close();
-}
+        function imprimirArtigo() {
+            const detalhes = document.querySelector('.detalhes-artigo');
+            if (!detalhes || detalhes.style.display === 'none') {
+                alert("Nenhum artigo para imprimir.");
+                return;
+            }
+
+            const conteudo = detalhes.innerHTML;
+            const win = window.open('', '', 'width=800,height=600');
+            win.document.write(`
+                <html>
+                <head>
+                    <title>Imprimir Artigo</title>
+                    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+                    <style>
+                        body { font-family: 'Noto Sans', sans-serif; padding: 20px; }
+                    </style>
+                </head>
+                <body>${conteudo}</body>
+                </html>
+            `);
+            win.document.close();
+            win.focus();
+            win.print();
+            win.close();
+        }
 
 
         // --- NOVO: Função de remoção de artigo ---
@@ -899,14 +916,14 @@ function imprimirArtigo() {
                 try {
                     await db.collection('materias').doc(id).delete();
                     alert("Artigo removido com sucesso!");
-                    buscarArtigos(currentCategory, currentArmario);
+                    buscarArtigos({ categoria: currentCategory, armario: currentArmario });
                 } catch (error) {
                     console.error("Erro ao remover artigo: ", error);
                     alert("Erro ao remover artigo: " + error.message);
                 }
             }
         }
-        
+
         // --- Lógica de navegação na barra lateral ---
         categoryList.addEventListener('click', (e) => {
             if (e.target.tagName === 'A') {
@@ -917,13 +934,13 @@ function imprimirArtigo() {
                     link.classList.remove('active');
                 });
                 e.target.classList.add('active');
-                buscarArtigos(currentCategory, currentArmario);
+                buscarArtigos({ categoria: currentCategory, armario: currentArmario });
             }
         });
 
         armarioFilter.addEventListener('change', (e) => {
             currentArmario = e.target.value;
-            buscarArtigos(currentCategory, currentArmario);
+            buscarArtigos({ categoria: currentCategory, armario: currentArmario });
         });
 
 
@@ -999,7 +1016,7 @@ function imprimirArtigo() {
                 if (paginaDoc.exists) {
                     const content = paginaDoc.data().content || '';
                     paginaPessoalTextarea.value = content;
-                    paginaPessoalContent.innerHTML = content; // Exibir o conteúdo também
+                    paginaPessoalContent.innerHTML = content;
                 } else {
                     paginaPessoalTextarea.value = '';
                     paginaPessoalContent.innerHTML = '<p style="font-style: italic; color: #888;">Nenhuma página pessoal encontrada.</p>';
@@ -1008,6 +1025,7 @@ function imprimirArtigo() {
                 console.error("Erro ao carregar página pessoal: ", error);
             }
         }
+
         salvarPaginaPessoalBtn.addEventListener('click', async () => {
             const user = auth.currentUser;
             if (!user) return;
@@ -1024,15 +1042,15 @@ function imprimirArtigo() {
                 alert("Erro ao salvar página pessoal: " + error.message);
             }
         });
+
         cancelarPaginaPessoalBtn.addEventListener('click', () => {
             carregarPaginaPessoal(auth.currentUser.uid);
         });
 
         voltarAoPainelPerfilBtn.addEventListener('click', () => {
-            buscarArtigos(currentCategory, currentArmario);
+            buscarArtigos({ categoria: currentCategory, armario: currentArmario });
         });
 
-        // --- NOVO CÓDIGO PARA IMPORTAR HTML ---
         async function importarConteudoHtml(caminhoDoArquivo) {
             try {
                 const response = await fetch(caminhoDoArquivo);
@@ -1055,72 +1073,77 @@ function imprimirArtigo() {
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Alterar o caminho conforme a localização do seu arquivo HTML externo
             //importarConteudoHtml('meu-conteudo.html');
         });
-
-        function abrirArtigoEmIframe(id, materia) {
-    const artigoHtml = `
-        <html>
-        <head>
-            <title>${materia.titulo}</title>
-            <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
-            <style>
-                body { font-family: 'Noto Sans', sans-serif; background: #fff; padding: 22px; color: #202122;}
-                h1 { color: #0645ad; }
-                .info { margin-bottom: 1em; font-size: 0.9em; color: #72777d;}
-                .descricao { margin-top: 1em; }
-                .fontes-container { margin-top:2em; padding-top:1em; border-top:1px solid #a2a9b1;}
-                .fontes-container ul { list-style-type: disc; padding-left: 1.5em;}
-            </style>
-        </head>
-        <body>
-            <h1>${materia.titulo}</h1>
-            <div class="info">
-                <strong>Categoria:</strong> ${materia.setor || ""} |
-                <strong>Idioma:</strong> ${materia.armario || ""} |
-                <strong>UID:</strong> ${id}
-            </div>
-            <div class="descricao">${materia.descricao}</div>
-            ${
-                materia.fontes && materia.fontes.length > 0
-                ? `<div class="fontes-container"><b>Fontes:</b><ul>${materia.fontes.map(fonte =>
-                    (fonte.startsWith('http://') || fonte.startsWith('https://'))
-                    ? `<li><a href="${fonte}" target="_blank">${fonte}</a></li>`
-                    : `<li>${fonte}</li>`).join('')
-                }</ul></div>`
-                : ""
-            }
-        </body>
-        </html>
-    `;
-    detalhesArtigo.style.display = 'none';
-    editorArtigo.style.display = 'none';
-    historicoArtigo.style.display = 'none';
-    paginaUsuarioSection.style.display = 'none';
-    conteudoDinamico.style.display = 'block';
-
-    conteudoDinamico.innerHTML = `
-        <button onclick="document.getElementById('conteudo-dinamico').style.display='none';detalhesArtigo.style.display='block';" style="margin-bottom:8px;padding:8px 16px;background:#0645ad;color:white;border:none;cursor:pointer;">Voltar</button>
-        <button onclick="imprimirArtigoPopup()" style="margin-bottom:8px;margin-left:10px;padding:8px 16px;background:#36c;color:white;border:none;cursor:pointer;">Imprimir</button>
-        <iframe id="artigo-iframe" src="data:text/html;charset=utf-8,${encodeURIComponent(artigoHtml)}"
-            style="width:100%;height:70vh;border:1px solid #a2a9b1;background:#fff;"></iframe>
-    `;
-
-    window._ultimoArtigoHtmlParaImpressao = artigoHtml; // Salva para impressão
-}
-
-// Função para imprimir o artigo do iframe (abre popup e imprime)
-function imprimirArtigoPopup() {
-    if (window._ultimoArtigoHtmlParaImpressao) {
-        const printWindow = window.open('', '', 'width=800,height=600');
-        printWindow.document.write(window._ultimoArtigoHtmlParaImpressao);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-    }
-}
         
+        function abrirArtigoEmIframe(id, materia) {
+            const artigoHtml = `
+                <html>
+                <head>
+                    <title>${materia.titulo}</title>
+                    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+                    <style>
+                        body { font-family: 'Noto Sans', sans-serif; background: #fff; padding: 22px; color: #202122;}
+                        h1 { color: #0645ad; }
+                        .info { margin-bottom: 1em; font-size: 0.9em; color: #72777d;}
+                        .descricao { margin-top: 1em; }
+                        .fontes-container { margin-top:2em; padding-top:1em; border-top:1px solid #a2a9b1;}
+                        .fontes-container ul { list-style-type: disc; padding-left: 1.5em;}
+                    </style>
+                </head>
+                <body>
+                    <h1>${materia.titulo}</h1>
+                    <div class="info">
+                        ${materia.setor ? `<p><strong>Setor:</strong> ${materia.setor}</p>` : ""}
+                        ${materia.arquivo ? `<p><strong>Arquivo:</strong> ${materia.arquivo}</p>` : ""}
+                        ${materia.armario ? `<p><strong>Armário:</strong> ${materia.armario}</p>` : ""}
+                    </div>
+                    <div class="descricao">${materia.descricao || ""}</div>
+                    ${materia.fontes && materia.fontes.length > 0
+                        ? `
+                            <div class="fontes-container">
+                                <h2>Fontes</h2>
+                                <ul>
+                                    ${materia.fontes.map(f => `<li><a href="${f}" target="_blank">${f}</a></li>`).join('')}
+                                </ul>
+                            </div>
+                        `
+                        : ""
+                    }
+                </body>
+                </html>
+            `;
+            detalhesArtigo.style.display = 'none';
+            editorArtigo.style.display = 'none';
+            historicoArtigo.style.display = 'none';
+            paginaUsuarioSection.style.display = 'none';
+            conteudoDinamico.style.display = 'block';
+
+            conteudoDinamico.innerHTML = `
+                <button onclick="document.getElementById('conteudo-dinamico').style.display='none';detalhesArtigo.style.display='block';" style="margin-bottom:8px;padding:8px 16px;background:#0645ad;color:white;border:none;cursor:pointer;">Voltar</button>
+                <button onclick="imprimirArtigoPopup()" style="margin-bottom:8px;margin-left:10px;padding:8px 16px;background:#36c;color:white;border:none;cursor:pointer;">Imprimir</button>
+                <iframe id="artigo-iframe" src="data:text/html;charset=utf-8,${encodeURIComponent(artigoHtml)}"
+                    style="width:100%;height:70vh;border:1px solid #a2a9b1;background:#fff;"></iframe>
+            `;
+
+            window._ultimoArtigoHtmlParaImpressao = artigoHtml;
+        }
+
+        function imprimirArtigoPopup() {
+            if (window._ultimoArtigoHtmlParaImpressao) {
+                const printWindow = window.open('', '', 'width=800,height=600');
+                printWindow.document.open();
+                printWindow.document.write(window._ultimoArtigoHtmlParaImpressao);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => {
+                    printWindow.print();
+                    printWindow.close();
+                }, 500);
+            } else {
+                alert("Nenhum artigo para imprimir.");
+            }
+        }
     </script>
 </body>
 </html>
