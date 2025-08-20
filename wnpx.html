@@ -349,6 +349,10 @@
                             <label for="busca-descricao" style="font-weight: normal; font-size: 0.9em;">Descrição:</label>
                             <input type="text" id="busca-descricao" style="width: 100%; padding: 6px;">
                         </div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="busca-uid" style="font-weight: normal; font-size: 0.9em;">UID do Documento:</label>
+                            <input type="text" id="busca-uid" style="width: 100%; padding: 6px;">
+                        </div>
                         <button type="submit" style="width: 100%; padding: 8px; background-color: #2a6f8b; color: white; border: none; cursor: pointer;">Buscar</button>
                     </form>
                 </div>
@@ -563,6 +567,7 @@
         const buscaAvancadaForm = document.getElementById('busca-avancada-form');
         const buscaTituloInput = document.getElementById('busca-titulo');
         const buscaDescricaoInput = document.getElementById('busca-descricao');
+        const buscaUidInput = document.getElementById('busca-uid');
 
         let artigoSelecionado = null;
         let currentCategory = 'all';
@@ -625,6 +630,42 @@
             paginaUsuarioSection.style.display = 'none';
             conteudoDinamico.style.display = 'none';
 
+            // NOVO: Lógica para buscar por UID do documento
+            const uid = filtros.uid ? filtros.uid.trim() : '';
+            if (uid) {
+                artigosTitle.textContent = 'Resultado da busca por UID';
+                try {
+                    const doc = await db.collection('materias').doc(uid).get();
+                    artigosList.innerHTML = '';
+                    if (doc.exists) {
+                        const materia = doc.data();
+                        const artigoItem = document.createElement('div');
+                        artigoItem.className = 'artigo-item';
+                        artigoItem.setAttribute('data-id', doc.id);
+                        artigoItem.innerHTML = `
+                            <h3>${materia.titulo}</h3>
+                            <p>ID: ${doc.id}</p>
+                        `;
+                        artigoItem.addEventListener('click', () => {
+                            abrirArtigoEmIframe(doc.id, materia);
+                            if (artigoSelecionado) {
+                                artigoSelecionado.classList.remove('ativo');
+                            }
+                            artigoItem.classList.add('ativo');
+                            artigoSelecionado = artigoItem;
+                        });
+                        artigosList.appendChild(artigoItem);
+                    } else {
+                        artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com esse UID.</p>`;
+                    }
+                } catch (error) {
+                    console.error("Erro ao buscar artigo por UID: ", error);
+                    artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
+                }
+                return;
+            }
+
+            // Lógica de busca com filtros, caso não haja UID
             let query = db.collection('materias');
 
             if (filtros.categoria && filtros.categoria !== 'all') {
@@ -638,15 +679,11 @@
                 query = query.where('armario', '==', filtros.armario);
             }
 
-            // NOVO: Adiciona filtros de busca avançada
             if (filtros.titulo) {
                 query = query.where('titulo', '==', filtros.titulo);
             }
 
             if (filtros.descricao) {
-                // Para busca de texto completo, você precisaria de um serviço de busca como Algolia.
-                // Como não temos isso, faremos uma busca de igualdade exata na descrição.
-                // Para algo mais robusto, seria necessário um índice de busca ou uma lógica diferente.
                 query = query.where('descricao', '==', filtros.descricao);
             }
 
@@ -701,7 +738,8 @@
                 categoria: currentCategory,
                 armario: currentArmario,
                 titulo: buscaTituloInput.value.trim(),
-                descricao: buscaDescricaoInput.value.trim()
+                descricao: buscaDescricaoInput.value.trim(),
+                uid: buscaUidInput.value.trim()
             };
             buscarArtigos(filtros);
         });
