@@ -80,6 +80,83 @@
             margin-top: 1em;
             font-weight: bold;
         }
+
+        /* Estilo para o formulário */
+        .form-group {
+            text-align: left;
+            margin-bottom: 1em;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        button[type="button"] {
+            background-color: #3498db;
+            margin-top: 10px;
+        }
+        button[type="button"]:hover {
+            background-color: #2980b9;
+        }
+        /* Estilo para o Pop-up (Modal) */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+            text-align: left;
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover, .close-button:focus {
+            color: #000;
+            text-decoration: none;
+        }
+        .modal h2 {
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        #accept-rules {
+            background-color: #27ae60;
+            margin-top: 20px;
+            width: 100%;
+            display: block;
+        }
+        #accept-rules:hover {
+            background-color: #229954;
+        }
     </style>
 </head>
 <body>
@@ -94,11 +171,73 @@
         </div>
 
         <div class="main-content" id="main-content">
-            <p>Selecione um arquivo PDF para convertê-lo em código Base64 e salvar no Firestore.</p>
+            <p>Selecione um arquivo PDF e preencha os dados do documento para salvar no Firestore.</p>
             <input type="file" id="pdfInput" accept="application/pdf">
             <div id="pdf-name-preview"></div>
-            <button onclick="uploadPdf()">Converter e Salvar</button>
+            
+            <hr style="margin: 1.5em 0; border: 0; border-top: 1px solid #a2a9b1;">
+
+            <div class="form-group">
+                <label for="descriptionInput">Descrição:</label>
+                <textarea id="descriptionInput" rows="4" placeholder="Descreva o conteúdo do PDF"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="sourceInput">Fonte (se houver):</label>
+                <input type="text" id="sourceInput" placeholder="Ex: Nome do site, revista, etc.">
+            </div>
+
+            <div class="form-group">
+                <label for="doiInput">DOI (se houver):</label>
+                <input type="text" id="doiInput" placeholder="Ex: 10.1000/182">
+            </div>
+
+            <div class="form-group">
+                <label>Origem:</label>
+                <div>
+                    <input type="checkbox" id="wikiCheckbox">
+                    <label for="wikiCheckbox">Wikipédia</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="scieloCheckbox">
+                    <label for="scieloCheckbox">SciELO</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="googleScholarCheckbox">
+                    <label for="googleScholarCheckbox">Google Acadêmico</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Autor(es):</label>
+                <div id="authors-container">
+                    <input type="text" class="author-input" placeholder="Nome do Autor">
+                </div>
+                <button type="button" onclick="addAuthorField()">➕ Adicionar Outro Autor</button>
+            </div>
+
+            <div class="form-group">
+                <input type="checkbox" id="consentCheckbox">
+                <label for="consentCheckbox">Eu concordo que o conteúdo não viola direitos autorais ou plágio.</label>
+            </div>
+
+            <button onclick="showPlagiarismRules()">Converter e Salvar</button>
             <div id="status"></div>
+        </div>
+    </div>
+
+    <div id="rules-popup" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closePopup()">❌</span>
+            <h2>Regras de Plágio e Direitos Autorais</h2>
+            <p>Ao enviar este documento, você concorda que:</p>
+            <ul>
+                <li>O conteúdo não viola direitos autorais de terceiros.</li>
+                <li>Qualquer informação utilizada de outras fontes foi devidamente citada.</li>
+                <li>Você é o autor do conteúdo ou tem permissão legal para distribuí-lo.</li>
+                <li>Conteúdo plagiado será removido e o usuário poderá ser penalizado.</li>
+            </ul>
+            <button id="accept-rules" onclick="uploadPdf()">Aceitar e Salvar</button>
         </div>
     </div>
 
@@ -126,6 +265,17 @@
         const loginButton = document.getElementById('login-button');
         const userStatus = document.getElementById('user-status');
         const mainContent = document.getElementById('main-content');
+        
+        // Novas variáveis para os campos de formulário
+        const descriptionInput = document.getElementById('descriptionInput');
+        const sourceInput = document.getElementById('sourceInput');
+        const doiInput = document.getElementById('doiInput');
+        const wikiCheckbox = document.getElementById('wikiCheckbox');
+        const scieloCheckbox = document.getElementById('scieloCheckbox');
+        const googleScholarCheckbox = document.getElementById('googleScholarCheckbox');
+        const consentCheckbox = document.getElementById('consentCheckbox');
+        const authorsContainer = document.getElementById('authors-container');
+        const rulesPopup = document.getElementById('rules-popup');
 
         // Event listener para o botão de login
         loginButton.addEventListener('click', async () => {
@@ -162,7 +312,28 @@
             }
         });
 
+        // Função para adicionar dinamicamente campos de autor
+        function addAuthorField() {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'author-input';
+            input.placeholder = 'Nome do Autor';
+            authorsContainer.appendChild(input);
+        }
+
+        // Função para mostrar o pop-up de regras
+        function showPlagiarismRules() {
+            rulesPopup.style.display = 'block';
+        }
+
+        // Função para fechar o pop-up
+        function closePopup() {
+            rulesPopup.style.display = 'none';
+        }
+
         async function uploadPdf() {
+            closePopup(); // Fecha o pop-up antes de continuar
+
             const file = pdfInput.files[0];
             const user = auth.currentUser;
 
@@ -178,20 +349,43 @@
                 return;
             }
 
+            // Coleta dos novos dados do formulário
+            const description = descriptionInput.value;
+            const source = sourceInput.value;
+            const doi = doiInput.value;
+            const isWikipedia = wikiCheckbox.checked;
+            const isScielo = scieloCheckbox.checked;
+            const isGoogleScholar = googleScholarCheckbox.checked;
+            const hasConsent = consentCheckbox.checked;
+
+            // Coleta dos nomes dos autores
+            const authors = [];
+            document.querySelectorAll('.author-input').forEach(input => {
+                if (input.value.trim() !== '') {
+                    authors.push(input.value.trim());
+                }
+            });
+
+            // Validação do consentimento
+            if (!hasConsent) {
+                statusDiv.innerText = "Você precisa consentir com os termos de direitos autorais para salvar o arquivo.";
+                statusDiv.style.color = '#e74c3c';
+                return;
+            }
+
             statusDiv.innerText = "Verificando arquivo...";
             statusDiv.style.color = '#3498db';
 
             const fileName = file.name;
 
             try {
-                // **PASSO 1: Verificar se o documento já existe**
                 const docRef = db.collection('pdfcode').doc(fileName);
                 const doc = await docRef.get();
 
                 if (doc.exists) {
                     statusDiv.innerText = `Erro: Um arquivo com o nome "${fileName}" já existe. Não é permitido sobrescrever.`;
                     statusDiv.style.color = '#e74c3c';
-                    return; // Interrompe a função se o arquivo já existir
+                    return;
                 }
 
                 statusDiv.innerText = "Convertendo e salvando PDF...";
@@ -202,16 +396,38 @@
                     const base64String = reader.result;
                     
                     try {
-                        // **PASSO 2: Salvar o novo documento, já que ele não existe**
+                        // **SALVA O NOVO DOCUMENTO COM TODOS OS DADOS ADICIONAIS**
                         await docRef.set({
                             file_name: fileName,
                             base64_code: base64String,
-                            uploadedBy: user.uid,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            uid: user.uid, // UID do usuário
+                            uploaded_by_name: user.displayName, // Nome do usuário
+                            uploaded_at: firebase.firestore.FieldValue.serverTimestamp(),
+                            description: description,
+                            source: source,
+                            doi: doi,
+                            authors: authors,
+                            is_wikipedia: isWikipedia,
+                            is_scielo: isScielo,
+                            is_google_scholar: isGoogleScholar,
+                            consent_copyright: hasConsent // Consentimento
                         });
                         
                         statusDiv.innerText = `PDF salvo com sucesso! Documento criado com o nome: ${fileName}`;
                         statusDiv.style.color = '#4CAF50';
+
+                        // Limpar os campos do formulário após o upload
+                        descriptionInput.value = '';
+                        sourceInput.value = '';
+                        doiInput.value = '';
+                        wikiCheckbox.checked = false;
+                        scieloCheckbox.checked = false;
+                        googleScholarCheckbox.checked = false;
+                        consentCheckbox.checked = false;
+                        pdfInput.value = null;
+                        pdfNamePreview.innerText = '';
+                        authorsContainer.innerHTML = '<input type="text" class="author-input" placeholder="Nome do Autor">';
+                        
                     } catch (error) {
                         console.error("Erro ao salvar o PDF:", error);
                         statusDiv.innerText = `Erro ao salvar o PDF: ${error.message}`;
