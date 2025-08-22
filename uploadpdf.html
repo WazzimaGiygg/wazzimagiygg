@@ -178,35 +178,54 @@
                 return;
             }
 
-            statusDiv.innerText = "Convertendo e salvando PDF...";
+            statusDiv.innerText = "Verificando arquivo...";
             statusDiv.style.color = '#3498db';
 
-            const reader = new FileReader();
-            reader.onloadend = async function() {
-                const base64String = reader.result;
-                const fileName = file.name;
-                
-                try {
-                    const newDocRef = db.collection('pdfcode').doc(fileName);
-                    
-                    await newDocRef.set({
-                        file_name: fileName,
-                        base64_code: base64String,
-                        uploadedBy: user.uid,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    statusDiv.innerText = `PDF salvo com sucesso! Documento criado com o nome: ${fileName}`;
-                    statusDiv.style.color = '#4CAF50';
-                } catch (error) {
-                    console.error("Erro ao salvar o PDF:", error);
-                    statusDiv.innerText = `Erro ao salvar o PDF: ${error.message}`;
+            const fileName = file.name;
+
+            try {
+                // **PASSO 1: Verificar se o documento já existe**
+                const docRef = db.collection('pdfcode').doc(fileName);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    statusDiv.innerText = `Erro: Um arquivo com o nome "${fileName}" já existe. Não é permitido sobrescrever.`;
                     statusDiv.style.color = '#e74c3c';
+                    return; // Interrompe a função se o arquivo já existir
                 }
-            };
-            
-            // Lê o arquivo como uma URL de dados (Base64)
-            reader.readAsDataURL(file);
+
+                statusDiv.innerText = "Convertendo e salvando PDF...";
+                statusDiv.style.color = '#3498db';
+
+                const reader = new FileReader();
+                reader.onloadend = async function() {
+                    const base64String = reader.result;
+                    
+                    try {
+                        // **PASSO 2: Salvar o novo documento, já que ele não existe**
+                        await docRef.set({
+                            file_name: fileName,
+                            base64_code: base64String,
+                            uploadedBy: user.uid,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        
+                        statusDiv.innerText = `PDF salvo com sucesso! Documento criado com o nome: ${fileName}`;
+                        statusDiv.style.color = '#4CAF50';
+                    } catch (error) {
+                        console.error("Erro ao salvar o PDF:", error);
+                        statusDiv.innerText = `Erro ao salvar o PDF: ${error.message}`;
+                        statusDiv.style.color = '#e74c3c';
+                    }
+                };
+                
+                reader.readAsDataURL(file);
+
+            } catch (error) {
+                console.error("Erro ao verificar o documento:", error);
+                statusDiv.innerText = `Erro ao verificar o arquivo: ${error.message}`;
+                statusDiv.style.color = '#e74c3c';
+            }
         }
     </script>
 </body>
