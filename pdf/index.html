@@ -36,7 +36,7 @@
         }
         .pdf-frame {
             width: 100%;
-            height: 800px; /* Aumente ou diminua conforme necessário */
+            height: 800px;
             border: 1px solid #ddd;
             margin-top: 1em;
         }
@@ -56,6 +56,91 @@
                 padding: 0;
             }
         }
+
+        /* Estilo para os novos elementos de metadados */
+        .metadata-container {
+            text-align: left;
+            margin-top: 1em;
+            padding: 1.5em;
+            background-color: #f1f3f5;
+            border-radius: 6px;
+            margin-bottom: 2em;
+        }
+        .metadata-group {
+            margin-bottom: 0.5em;
+            word-wrap: break-word;
+        }
+        .metadata-group strong {
+            color: #444;
+        }
+
+        /* Botões de Ação */
+        .action-buttons {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #downloadButton {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        #downloadButton:hover {
+            background-color: #2980b9;
+        }
+        
+        /* Estilo para o Pop-up (Modal) de Aviso */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+            text-align: left;
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover, .close-button:focus {
+            color: #000;
+            text-decoration: none;
+        }
+        .modal h2 {
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        #confirmDownload {
+            background-color: #27ae60;
+            margin-top: 20px;
+            width: 100%;
+            display: block;
+        }
+        #confirmDownload:hover {
+            background-color: #229954;
+        }
     </style>
 </head>
 <body>
@@ -65,6 +150,16 @@
         </div>
         <div id="pdf-container">
             <p style="text-align: center; color: #666;">Carregando PDF...</p>
+        </div>
+    </div>
+
+    <div id="download-alert-popup" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeDownloadAlert()">❌</span>
+            <h2>Aviso sobre Direitos Autorais e Plágio</h2>
+            <p>Ao fazer o download deste arquivo, você concorda em utilizá-lo apenas para fins educativos e de referência. A reprodução ou distribuição sem a devida permissão do autor ou fonte é estritamente proibida.</p>
+            <p>Certifique-se de citar corretamente o autor e a fonte (se aplicável) em qualquer trabalho acadêmico ou pesquisa para evitar plágio.</p>
+            <button id="confirmDownload">Estou ciente, fazer o download</button>
         </div>
     </div>
 
@@ -84,6 +179,17 @@
         const db = firebase.firestore();
 
         const pdfContainer = document.getElementById('pdf-container');
+        const downloadButton = document.getElementById('downloadButton');
+        const downloadAlertPopup = document.getElementById('download-alert-popup');
+        const confirmDownloadButton = document.getElementById('confirmDownload');
+        
+        // Elementos para exibir metadados
+        let metadataContainer; // Variável para o container
+        let metadataDescription, metadataAuthors, metadataDoi, metadataSource, metadataOrigin, metadataUid;
+
+        function closeDownloadAlert() {
+            downloadAlertPopup.style.display = 'none';
+        }
 
         async function buscarEExibirPdf() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -100,12 +206,87 @@
                 if (!querySnapshot.empty) {
                     const doc = querySnapshot.docs[0];
                     const pdfData = doc.data();
-
+                    
+                    // Constrói o HTML dinamicamente para garantir a ordem correta
                     pdfContainer.innerHTML = `
                         <h1>${pdfData.file_name}</h1>
                         <p class="file-name-display">Nome do Arquivo: ${pdfData.file_name}</p>
+                        
+                        <hr style="margin: 1.5em 0; border: 0; border-top: 1px solid #a2a9b1;">
+
+                        <div class="metadata-container">
+                            <div class="metadata-group">
+                                <strong>Descrição:</strong>
+                                <span id="metadata-description"></span>
+                            </div>
+                            <div class="metadata-group">
+                                <strong>Autores:</strong>
+                                <span id="metadata-authors"></span>
+                            </div>
+                            <div class="metadata-group">
+                                <strong>DOI:</strong>
+                                <span id="metadata-doi"></span>
+                            </div>
+                            <div class="metadata-group">
+                                <strong>Fonte:</strong>
+                                <span id="metadata-source"></span>
+                            </div>
+                            <div class="metadata-group">
+                                <strong>Origem:</strong>
+                                <span id="metadata-origin"></span>
+                            </div>
+                            <div class="metadata-group">
+                                <strong>UID do Usuário:</strong>
+                                <span id="metadata-uid"></span>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button id="downloadButton">📥 Fazer Download</button>
+                        </div>
+
                         <iframe class="pdf-frame" src="${pdfData.base64_code}"></iframe>
                     `;
+                    
+                    // Associa os elementos depois que eles são criados
+                    const metadataDescription = document.getElementById('metadata-description');
+                    const metadataAuthors = document.getElementById('metadata-authors');
+                    const metadataDoi = document.getElementById('metadata-doi');
+                    const metadataSource = document.getElementById('metadata-source');
+                    const metadataOrigin = document.getElementById('metadata-origin');
+                    const metadataUid = document.getElementById('metadata-uid');
+                    const newDownloadButton = document.getElementById('downloadButton');
+
+                    // Preenche os metadados
+                    metadataDescription.innerText = pdfData.description || 'Não especificado';
+                    metadataAuthors.innerText = (pdfData.authors && pdfData.authors.length > 0) ? pdfData.authors.join(', ') : 'Não especificado';
+                    metadataDoi.innerText = pdfData.doi || 'Não especificado';
+                    metadataSource.innerText = pdfData.source || 'Não especificado';
+                    
+                    const origins = [];
+                    if (pdfData.is_wikipedia) origins.push('Wikipédia');
+                    if (pdfData.is_scielo) origins.push('SciELO');
+                    if (pdfData.is_google_scholar) origins.push('Google Acadêmico');
+                    metadataOrigin.innerText = origins.length > 0 ? origins.join(', ') : 'Não especificado';
+                    
+                    metadataUid.innerText = pdfData.uid || 'Não especificado';
+
+                    // Adiciona o event listener para o botão de download
+                    newDownloadButton.addEventListener('click', () => {
+                        showDownloadAlert();
+                    });
+
+                    // Adiciona o event listener para o botão de confirmação de download
+                    confirmDownloadButton.onclick = () => {
+                        const link = document.createElement('a');
+                        link.href = pdfData.base64_code;
+                        link.download = pdfData.file_name;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        closeDownloadAlert();
+                    };
+
                 } else {
                     pdfContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">PDF não encontrado.</p>';
                 }
