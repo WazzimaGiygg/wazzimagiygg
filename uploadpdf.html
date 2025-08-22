@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Converter PDF para Código Firebase</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+    <style>
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            line-height: 1.6;
+            margin: 2em;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background-color: #fff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #000;
+            font-size: 2em;
+            border-bottom: 1px solid #a2a9b1;
+            padding-bottom: 0.5em;
+            margin-bottom: 1em;
+        }
+        .auth-container {
+            margin-bottom: 2em;
+        }
+        .user-status {
+            font-size: 1em;
+            color: #555;
+        }
+        #login-button {
+            background-color: #4285F4;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #login-button img {
+            margin-right: 8px;
+        }
+        #login-button:hover {
+            background-color: #357ae8;
+        }
+        .main-content {
+            display: none; /* Hidden by default */
+        }
+        input[type="file"] {
+            margin-bottom: 1em;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #pdf-name-preview {
+            margin-top: 1em;
+            font-weight: bold;
+        }
+        #status {
+            margin-top: 1em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Converter PDF para Código Firebase</h1>
+        <div class="auth-container">
+            <span class="user-status" id="user-status"></span>
+            <button id="login-button">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo" style="width: 18px; height: 18px;">
+                Fazer Login com Google
+            </button>
+        </div>
+
+        <div class="main-content" id="main-content">
+            <p>Selecione um arquivo PDF para convertê-lo em código Base64 e salvar no Firestore.</p>
+            <input type="file" id="pdfInput" accept="application/pdf">
+            <div id="pdf-name-preview"></div>
+            <button onclick="uploadPdf()">Converter e Salvar</button>
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const pdfInput = document.getElementById('pdfInput');
+        const pdfNamePreview = document.getElementById('pdf-name-preview');
+        const statusDiv = document.getElementById('status');
+        const loginButton = document.getElementById('login-button');
+        const userStatus = document.getElementById('user-status');
+        const mainContent = document.getElementById('main-content');
+
+        // Event listener para o botão de login
+        loginButton.addEventListener('click', async () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error("Erro ao fazer login:", error);
+                statusDiv.innerText = `Erro ao fazer login: ${error.message}`;
+                statusDiv.style.color = '#e74c3c';
+            }
+        });
+
+        // Monitora o estado da autenticação
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                userStatus.innerText = `Bem-vindo, ${user.displayName}!`;
+                loginButton.style.display = 'none';
+                mainContent.style.display = 'block';
+            } else {
+                userStatus.innerText = 'Por favor, faça login para continuar.';
+                loginButton.style.display = 'block';
+                mainContent.style.display = 'none';
+            }
+        });
+
+        // Event listener para exibir o nome do arquivo selecionado
+        pdfInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                pdfNamePreview.innerText = `Arquivo selecionado: ${file.name}`;
+            } else {
+                pdfNamePreview.innerText = '';
+            }
+        });
+
+        async function uploadPdf() {
+            const file = pdfInput.files[0];
+            const user = auth.currentUser;
+
+            if (!user) {
+                statusDiv.innerText = "Você precisa estar logado para salvar o PDF.";
+                statusDiv.style.color = '#e74c3c';
+                return;
+            }
+
+            if (!file) {
+                statusDiv.innerText = "Por favor, selecione um arquivo PDF.";
+                statusDiv.style.color = '#e74c3c';
+                return;
+            }
+
+            statusDiv.innerText = "Convertendo e salvando PDF...";
+            statusDiv.style.color = '#3498db';
+
+            const reader = new FileReader();
+            reader.onloadend = async function() {
+                const base64String = reader.result;
+                const fileName = file.name;
+                
+                try {
+                    const newDocRef = db.collection('pdfcode').doc(fileName);
+                    
+                    await newDocRef.set({
+                        file_name: fileName,
+                        base64_code: base64String,
+                        uploadedBy: user.uid,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    statusDiv.innerText = `PDF salvo com sucesso! Documento criado com o nome: ${fileName}`;
+                    statusDiv.style.color = '#4CAF50';
+                } catch (error) {
+                    console.error("Erro ao salvar o PDF:", error);
+                    statusDiv.innerText = `Erro ao salvar o PDF: ${error.message}`;
+                    statusDiv.style.color = '#e74c3c';
+                }
+            };
+            
+            // Lê o arquivo como uma URL de dados (Base64)
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>
