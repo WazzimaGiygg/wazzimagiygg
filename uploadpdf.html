@@ -174,7 +174,7 @@
             <p>Selecione um arquivo PDF e preencha os dados do documento para salvar no Firestore.</p>
             <input type="file" id="pdfInput" accept="application/pdf">
             <div id="pdf-name-preview"></div>
-            
+
             <hr style="margin: 1.5em 0; border: 0; border-top: 1px solid #a2a9b1;">
 
             <div class="form-group">
@@ -215,7 +215,7 @@
                 </div>
                 <button type="button" onclick="addAuthorField()">➕ Adicionar Outro Autor</button>
             </div>
-
+            
             <div class="form-group">
                 <input type="checkbox" id="consentCheckbox">
                 <label for="consentCheckbox">Eu concordo que o conteúdo não viola direitos autorais ou plágio.</label>
@@ -244,6 +244,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
 
     <script>
         const firebaseConfig = {
@@ -258,6 +259,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        const storage = firebase.storage(); // Referência ao Storage
 
         const pdfInput = document.getElementById('pdfInput');
         const pdfNamePreview = document.getElementById('pdf-name-preview');
@@ -265,8 +267,7 @@
         const loginButton = document.getElementById('login-button');
         const userStatus = document.getElementById('user-status');
         const mainContent = document.getElementById('main-content');
-        
-        // Novas variáveis para os campos de formulário
+
         const descriptionInput = document.getElementById('descriptionInput');
         const sourceInput = document.getElementById('sourceInput');
         const doiInput = document.getElementById('doiInput');
@@ -277,7 +278,6 @@
         const authorsContainer = document.getElementById('authors-container');
         const rulesPopup = document.getElementById('rules-popup');
 
-        // Event listener para o botão de login
         loginButton.addEventListener('click', async () => {
             const provider = new firebase.auth.GoogleAuthProvider();
             try {
@@ -289,7 +289,6 @@
             }
         });
 
-        // Monitora o estado da autenticação
         auth.onAuthStateChanged((user) => {
             if (user) {
                 userStatus.innerText = `Bem-vindo, ${user.displayName}!`;
@@ -302,7 +301,6 @@
             }
         });
 
-        // Event listener para exibir o nome do arquivo selecionado
         pdfInput.addEventListener('change', function() {
             const file = this.files[0];
             if (file) {
@@ -312,7 +310,6 @@
             }
         });
 
-        // Função para adicionar dinamicamente campos de autor
         function addAuthorField() {
             const input = document.createElement('input');
             input.type = 'text';
@@ -321,19 +318,16 @@
             authorsContainer.appendChild(input);
         }
 
-        // Função para mostrar o pop-up de regras
         function showPlagiarismRules() {
             rulesPopup.style.display = 'block';
         }
 
-        // Função para fechar o pop-up
         function closePopup() {
             rulesPopup.style.display = 'none';
         }
 
         async function uploadPdf() {
-            closePopup(); // Fecha o pop-up antes de continuar
-
+            closePopup(); 
             const file = pdfInput.files[0];
             const user = auth.currentUser;
 
@@ -349,7 +343,6 @@
                 return;
             }
 
-            // Coleta dos novos dados do formulário
             const description = descriptionInput.value;
             const source = sourceInput.value;
             const doi = doiInput.value;
@@ -358,7 +351,6 @@
             const isGoogleScholar = googleScholarCheckbox.checked;
             const hasConsent = consentCheckbox.checked;
 
-            // Coleta dos nomes dos autores
             const authors = [];
             document.querySelectorAll('.author-input').forEach(input => {
                 if (input.value.trim() !== '') {
@@ -366,80 +358,60 @@
                 }
             });
 
-            // Validação do consentimento
             if (!hasConsent) {
                 statusDiv.innerText = "Você precisa consentir com os termos de direitos autorais para salvar o arquivo.";
                 statusDiv.style.color = '#e74c3c';
                 return;
             }
 
-            statusDiv.innerText = "Verificando arquivo...";
+            statusDiv.innerText = "Iniciando upload...";
             statusDiv.style.color = '#3498db';
 
             const fileName = file.name;
+            const storageRef = storage.ref(`pdfs/${fileName}`); // Cria uma referência no Storage
 
             try {
-                const docRef = db.collection('pdfcode').doc(fileName);
-                const doc = await docRef.get();
-
-                if (doc.exists) {
-                    statusDiv.innerText = `Erro: Um arquivo com o nome "${fileName}" já existe. Não é permitido sobrescrever.`;
-                    statusDiv.style.color = '#e74c3c';
-                    return;
-                }
-
-                statusDiv.innerText = "Convertendo e salvando PDF...";
-                statusDiv.style.color = '#3498db';
-
-                const reader = new FileReader();
-                reader.onloadend = async function() {
-                    const base64String = reader.result;
-                    
-                    try {
-                        // **SALVA O NOVO DOCUMENTO COM TODOS OS DADOS ADICIONAIS**
-                        await docRef.set({
-                            file_name: fileName,
-                            base64_code: base64String,
-                            uid: user.uid, // UID do usuário
-                            uploaded_by_name: user.displayName, // Nome do usuário
-                            uploaded_at: firebase.firestore.FieldValue.serverTimestamp(),
-                            description: description,
-                            source: source,
-                            doi: doi,
-                            authors: authors,
-                            is_wikipedia: isWikipedia,
-                            is_scielo: isScielo,
-                            is_google_scholar: isGoogleScholar,
-                            consent_copyright: hasConsent // Consentimento
-                        });
-                        
-                        statusDiv.innerText = `PDF salvo com sucesso! Documento criado com o nome: ${fileName}`;
-                        statusDiv.style.color = '#4CAF50';
-
-                        // Limpar os campos do formulário após o upload
-                        descriptionInput.value = '';
-                        sourceInput.value = '';
-                        doiInput.value = '';
-                        wikiCheckbox.checked = false;
-                        scieloCheckbox.checked = false;
-                        googleScholarCheckbox.checked = false;
-                        consentCheckbox.checked = false;
-                        pdfInput.value = null;
-                        pdfNamePreview.innerText = '';
-                        authorsContainer.innerHTML = '<input type="text" class="author-input" placeholder="Nome do Autor">';
-                        
-                    } catch (error) {
-                        console.error("Erro ao salvar o PDF:", error);
-                        statusDiv.innerText = `Erro ao salvar o PDF: ${error.message}`;
-                        statusDiv.style.color = '#e74c3c';
-                    }
-                };
+                // Upload do arquivo para o Storage
+                const snapshot = await storageRef.put(file);
                 
-                reader.readAsDataURL(file);
+                // Obtém a URL de download
+                const downloadURL = await snapshot.ref.getDownloadURL();
+
+                // Salva os metadados no Firestore
+                const docRef = db.collection('pdfcode').doc(fileName);
+                await docRef.set({
+                    file_name: fileName,
+                    download_url: downloadURL, // Salva a URL do arquivo no Firestore
+                    uid: user.uid,
+                    uploaded_by_name: user.displayName,
+                    uploaded_at: firebase.firestore.FieldValue.serverTimestamp(),
+                    description: description,
+                    source: source,
+                    doi: doi,
+                    authors: authors,
+                    is_wikipedia: isWikipedia,
+                    is_scielo: isScielo,
+                    is_google_scholar: isGoogleScholar,
+                    consent_copyright: hasConsent
+                });
+
+                statusDiv.innerText = `PDF salvo com sucesso! Documento criado com o nome: ${fileName}`;
+                statusDiv.style.color = '#4CAF50';
+
+                descriptionInput.value = '';
+                sourceInput.value = '';
+                doiInput.value = '';
+                wikiCheckbox.checked = false;
+                scieloCheckbox.checked = false;
+                googleScholarCheckbox.checked = false;
+                consentCheckbox.checked = false;
+                pdfInput.value = null;
+                pdfNamePreview.innerText = '';
+                authorsContainer.innerHTML = '<input type="text" class="author-input" placeholder="Nome do Autor">';
 
             } catch (error) {
-                console.error("Erro ao verificar o documento:", error);
-                statusDiv.innerText = `Erro ao verificar o arquivo: ${error.message}`;
+                console.error("Erro no upload ou salvamento:", error);
+                statusDiv.innerText = `Erro: ${error.message}`;
                 statusDiv.style.color = '#e74c3c';
             }
         }
