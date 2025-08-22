@@ -145,12 +145,10 @@
         // Monitora o estado da autenticação
         auth.onAuthStateChanged((user) => {
             if (user) {
-                // Usuário logado
                 userStatus.innerText = `Bem-vindo, ${user.displayName}!`;
                 loginButton.style.display = 'none';
                 mainContent.style.display = 'block';
             } else {
-                // Usuário não logado
                 userStatus.innerText = 'Por favor, faça login para continuar.';
                 loginButton.style.display = 'block';
                 mainContent.style.display = 'none';
@@ -187,35 +185,54 @@
                 return;
             }
 
-            statusDiv.innerText = "Convertendo e salvando imagem...";
+            statusDiv.innerText = "Verificando arquivo...";
             statusDiv.style.color = '#3498db';
 
-            const reader = new FileReader();
-            reader.onloadend = async function() {
-                const base64String = reader.result;
-                const fileName = file.name;
-                
-                try {
-                    // **ALTERAÇÃO AQUI: USANDO O NOME DO ARQUIVO COMO ID DO DOCUMENTO**
-                    const newDocRef = db.collection('imagenscode').doc(fileName);
-                    
-                    await newDocRef.set({
-                        file_name: fileName,
-                        base64_code: base64String,
-                        uploadedBy: user.uid,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    statusDiv.innerText = `Imagem salva com sucesso! O documento foi criado com o nome: ${fileName}`;
-                    statusDiv.style.color = '#4CAF50';
-                } catch (error) {
-                    console.error("Erro ao salvar a imagem:", error);
-                    statusDiv.innerText = `Erro ao salvar a imagem: ${error.message}`;
+            const fileName = file.name;
+
+            try {
+                // **PASSO 1: Verificar se o documento já existe**
+                const docRef = db.collection('imagenscode').doc(fileName);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    statusDiv.innerText = `Erro: Um arquivo com o nome "${fileName}" já existe. Não é permitido sobrescrever.`;
                     statusDiv.style.color = '#e74c3c';
+                    return; // Interrompe a função se o arquivo já existir
                 }
-            };
-            
-            reader.readAsDataURL(file);
+                
+                statusDiv.innerText = "Convertendo e salvando imagem...";
+                statusDiv.style.color = '#3498db';
+
+                const reader = new FileReader();
+                reader.onloadend = async function() {
+                    const base64String = reader.result;
+                    
+                    try {
+                        // **PASSO 2: Salvar o novo documento, já que ele não existe**
+                        await docRef.set({
+                            file_name: fileName,
+                            base64_code: base64String,
+                            uploadedBy: user.uid,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        
+                        statusDiv.innerText = `Imagem salva com sucesso! O documento foi criado com o nome: ${fileName}`;
+                        statusDiv.style.color = '#4CAF50';
+                    } catch (error) {
+                        console.error("Erro ao salvar a imagem:", error);
+                        statusDiv.innerText = `Erro ao salvar a imagem: ${error.message}`;
+                        statusDiv.style.color = '#e74c3c';
+                    }
+                };
+                
+                reader.readAsDataURL(file);
+
+            } catch (error) {
+                console.error("Erro ao verificar o documento:", error);
+                statusDiv.innerText = `Erro ao verificar o arquivo: ${error.message}`;
+                statusDiv.style.color = '#e74c3c';
+            }
         }
     </script>
 </body>
