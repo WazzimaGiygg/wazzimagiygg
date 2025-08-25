@@ -142,6 +142,7 @@
 
 <script>
 // --- Configuração do Firebase ---
+// --- Configuração do Firebase ---
 const firebaseConfig = {
     apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
     authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -156,6 +157,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// --- Lógica para obter a UID da URL e preencher o campo oculto ---
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const uidFromUrl = params.get('uid');
+    if (uidFromUrl) {
+        document.getElementById('uidPadrao').value = uidFromUrl;
+        console.log("UID do artigo não encontrado preenchida:", uidFromUrl);
+    }
+});
+
 // --- Lógica para adicionar campos de fonte ---
 document.getElementById('addFonte').addEventListener('click', () => {
     const fontesContainer = document.getElementById('fontesContainer');
@@ -164,7 +175,6 @@ document.getElementById('addFonte').addEventListener('click', () => {
     novoInput.className = 'fonteInput';
     novoInput.name = 'fontes[]';
     novoInput.placeholder = 'Digite a URL ou o nome da fonte';
-    
     fontesContainer.appendChild(novoInput);
 });
 
@@ -172,14 +182,13 @@ document.getElementById('addFonte').addEventListener('click', () => {
 document.getElementById('materiaForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // Obtenha os valores dos campos
+    const uid = document.getElementById('uidPadrao').value;
     const titulo = document.getElementById('titulo').value;
     const setor = document.getElementById('setor').value;
     const arquivo = document.getElementById('arquivo').value;
     const armario = document.getElementById('armario').value;
-    // Pega o valor diretamente da nova textarea
     const descricao = document.getElementById('descricaoHtml').value;
-    
+
     const fontes = Array.from(document.getElementsByClassName('fonteInput'))
                       .map(input => input.value.trim())
                       .filter(fonte => fonte !== '');
@@ -190,20 +199,33 @@ document.getElementById('materiaForm').addEventListener('submit', async (e) => {
     }
 
     try {
-        await db.collection('materias').add({
-            titulo: titulo,
-            descricao: descricao,
-            setor: setor,
-            arquivo: arquivo,
-            armario: armario,
-            fontes: fontes,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
+        // Use db.collection('materias').doc(uid).set() para usar a UID pré-definida
+        if (uid) {
+            await db.collection('materias').doc(uid).set({
+                titulo: titulo,
+                descricao: descricao,
+                setor: setor,
+                arquivo: arquivo,
+                armario: armario,
+                fontes: fontes,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            // Caso não haja uma UID na URL, adicione um novo documento
+            await db.collection('materias').add({
+                titulo: titulo,
+                descricao: descricao,
+                setor: setor,
+                arquivo: arquivo,
+                armario: armario,
+                fontes: fontes,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
         alert('Matéria criada com sucesso!');
         document.getElementById('materiaForm').reset();
         
-        // Limpa os campos de fonte, deixando apenas um
         const fontesContainer = document.getElementById('fontesContainer');
         while (fontesContainer.firstChild) {
             fontesContainer.removeChild(fontesContainer.firstChild);
@@ -213,7 +235,7 @@ document.getElementById('materiaForm').addEventListener('submit', async (e) => {
         primeiroInput.className = 'fonteInput';
         primeiroInput.name = 'fontes[]';
         fontesContainer.appendChild(primeiroInput);
-        
+            
     } catch (error) {
         console.error('Erro ao adicionar a matéria: ', error);
         alert('Erro ao criar a matéria. Tente novamente.');
