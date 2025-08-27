@@ -1094,59 +1094,61 @@
         buscarArtigos({ categoria: currentCategory, armario: currentArmario });
     });
 
-    async function carregarMinhasContribuicoes() {
-        const user = auth.currentUser;
-        if (!user) return;
+    // A função 'carregarMinhasContribuicoes' ajustada para a nova coleção 'historicogeral'.
+async function carregarMinhasContribuicoes() {
+    const contribuicoesList = document.getElementById('contribuicoes-list');
+    contribuicoesList.innerHTML = ''; // Limpa a lista antes de carregar
 
-        listaMinhasContribuicoes.innerHTML = '<p style="text-align: center; color: #888;">Carregando suas contribuições...</p>';
-
-        try {
-            const querySnapshot = await db.collection('historico')
-                .where('editorId', '==', user.uid)
-                .orderBy('dataEdicao', 'desc')
-                .get();
-
-            if (querySnapshot.empty) {
-                listaMinhasContribuicoes.innerHTML = '<p style="text-align: center; color: #888;">Nenhuma contribuição encontrada.</p>';
-                return;
-            }
-
-            let contribuicoesHtml = '';
-            querySnapshot.forEach(doc => {
-                const contribuicao = doc.data();
-                const data = contribuicao.dataEdicao ? new Date(contribuicao.dataEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
-                contribuicoesHtml += `
-                    <div class="contribuicao-item" data-artigo-id="${contribuicao.artigoId}">
-                        <h3>Edição em "${contribuicao.titulo}"</h3>
-                        <p><strong>Resumo:</strong> ${contribuicao.sumario}</p>
-                        <p><strong>Data:</strong> ${data}</p>
-                    </div>
-                `;
-            });
-            listaMinhasContribuicoes.innerHTML = contribuicoesHtml;
-
-            document.querySelectorAll('.contribuicao-item').forEach(item => {
-                item.addEventListener('click', async (e) => {
-                    const artigoId = e.currentTarget.dataset.artigoId;
-                    try {
-                        const doc = await db.collection('materias').doc(artigoId).get();
-                        if (doc.exists) {
-                            carregarDetalhesArtigo(doc.id, doc.data());
-                        } else {
-                            alert('Artigo não encontrado.');
-                        }
-                    } catch (error) {
-                        console.error("Erro ao carregar artigo da contribuição: ", error);
-                        alert("Erro ao carregar artigo da contribuição: " + error.message);
-                    }
-                });
-            });
-
-        } catch (error) {
-            console.error("Erro ao carregar contribuições: ", error);
-            listaMinhasContribuicoes.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-        }
+    // Garante que a busca só seja feita se o usuário estiver logado
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        contribuicoesList.innerHTML = '<li>Por favor, faça login para ver suas contribuições.</li>';
+        return;
     }
+
+    try {
+        const contribuicoesRef = db.collection('historicogeral');
+        const querySnapshot = await contribuicoesRef
+            .where('UID usuário', '==', user.uid)
+            .orderBy('Data', 'desc')
+            .orderBy('Hora', 'desc')
+            .get();
+
+        if (querySnapshot.empty) {
+            contribuicoesList.innerHTML = '<li>Nenhuma contribuição encontrada.</li>';
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const data = doc.data();
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <strong>Coleção Associada:</strong> ${data['Coleção associada']}<br>
+                <strong>Data:</strong> ${data.Data} - <strong>Hora:</strong> ${data.Hora}<br>
+                <strong>Descrição:</strong> ${data.Descrição}<br>
+                <strong>Navegador:</strong> ${data.Navegador}<br>
+                <strong>UID do Usuário:</strong> ${data['UID usuário']}
+            `;
+            contribuicoesList.appendChild(li);
+        });
+
+    } catch (error) {
+        console.error("Erro ao carregar contribuições: ", error);
+        contribuicoesList.innerHTML = `<li>Erro ao carregar contribuições: ${error.message}</li>`;
+    }
+}
+
+// Chame a função quando o estado de autenticação for alterado
+firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+        // Usuário logado, pode carregar as contribuições
+        carregarMinhasContribuicoes();
+    } else {
+        // Usuário deslogado, limpa a lista
+        const contribuicoesList = document.getElementById('contribuicoes-list');
+        contribuicoesList.innerHTML = '<li>Você precisa estar logado para ver suas contribuições.</li>';
+    }
+});
 
     // --- Lógica de Seleção de Categoria e Idioma ---
     categoryList.addEventListener('click', (e) => {
