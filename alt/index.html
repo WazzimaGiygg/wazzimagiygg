@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Matérias - Painel Administrativo</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+    <style>
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 900px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #login-status {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #555;
+        }
+        
+        #logout-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #uidSearch {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #searchButton, #resetButton {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+        }
+
+        #searchButton {
+            background-color: #007bff;
+        }
+
+        #resetButton {
+            background-color: #6c757d;
+        }
+
+        .article-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .article-item {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+        }
+        
+        .article-item.removed {
+            background-color: #fcebeb;
+            border-color: #dc3545;
+            opacity: 0.8;
+        }
+
+        .article-item h3 {
+            margin: 0 0 5px 0;
+            color: #007bff;
+        }
+        
+        .article-item p {
+            margin: 0 0 5px 0;
+        }
+
+        .article-item .actions {
+            margin-top: 10px;
+        }
+        
+        .article-item .actions button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .edit-button {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        /* Estilo para o pop-up (Modal) de edição e remoção */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding-top: 50px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            position: relative;
+        }
+        
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+        }
+
+        .edit-form-group {
+            margin-bottom: 15px;
+        }
+
+        .edit-form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        #editForm textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            height: 150px;
+        }
+
+        #editForm button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gerenciamento de Matérias</h1>
+        <div id="login-status">
+            <p>Faça login para gerenciar o conteúdo.</p>
+            <button id="google-login-button">Login com Google</button>
+        </div>
+        
+        <div id="management-panel" style="display: none;">
+            <p id="user-display"></p>
+            <button id="logout-button">Sair</button>
+            <hr>
+            <h2>Artigos na Base de Dados</h2>
+            <div class="search-container">
+                <input type="text" id="uidSearch" placeholder="Buscar por UID do Autor">
+                <button id="searchButton">Buscar</button>
+                <button id="resetButton">Limpar Busca</button>
+            </div>
+            <ul id="article-list" class="article-list">
+                <p style="text-align: center;">Carregando artigos...</p>
+            </ul>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Editar Matéria</h2>
+            <form id="editForm">
+                <input type="hidden" id="editArticleId">
+                <div class="edit-form-group">
+                    <label for="editTitulo">Título:</label>
+                    <input type="text" id="editTitulo" required>
+                </div>
+                <div class="edit-form-group">
+                    <label for="editSetor">Setor:</label>
+                    <input type="text" id="editSetor" required>
+                </div>
+                <div class="edit-form-group">
+                    <label for="editArmario">Armário:</label>
+                    <select id="editArmario" required>
+                        <option value="Português">Português</option>
+                        <option value="Inglês">English</option>
+                        <option value="Espanhol">Español</option>
+                        <option value="Francês">Français</option>
+                        <option value="Alemão">Deutsch</option>
+                        <option value="Italiano">Italiano</option>
+                        <option value="Chinês">中文</option>
+                        <option value="Japonês">日本語</option>
+                        <option value="Russo">Русский</option>
+                        <option value="Árabe">العربية</option>
+                        <option value="Coreano">한국어</option>
+                        <option value="Hindi">हिन्दी</option>
+                        <option value="Holandês">Nederlands</option>
+                        <option value="Sueco">Svenska</option>
+                        <option value="Turco">Türkçe</option>
+                        <option value="removido">removido (Somente Admin)</option>
+                    </select>
+                </div>
+                <div class="edit-form-group">
+                    <label for="editDescricao">Código HTML da Descrição:</label>
+                    <textarea id="editDescricao" required></textarea>
+                </div>
+                <button type="submit" style="background-color: #007bff; color: white;">Salvar Alterações</button>
+                <button type="button" class="close-button-alt" style="background-color: #ccc;">Cancelar</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="removeModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Remover Matéria</h2>
+            <p>Por favor, confirme a remoção e insira o motivo. A matéria não será excluída, mas marcada como 'removida'.</p>
+            <div class="edit-form-group">
+                <label for="removeReason">Motivo da remoção:</label>
+                <textarea id="removeReason" required></textarea>
+            </div>
+            <button id="confirmRemoveButton" style="background-color: #dc3545; color: white;">Confirmar Remoção</button>
+            <button class="close-button-alt" style="background-color: #ccc;">Cancelar</button>
+        </div>
+    </div>
+
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // --- Elementos do DOM ---
+        const loginStatusDiv = document.getElementById('login-status');
+        const googleLoginButton = document.getElementById('google-login-button');
+        const managementPanel = document.getElementById('management-panel');
+        const userDisplay = document.getElementById('user-display');
+        const logoutButton = document.getElementById('logout-button');
+        const articleList = document.getElementById('article-list');
+        const uidSearchInput = document.getElementById('uidSearch');
+        const searchButton = document.getElementById('searchButton');
+        const resetButton = document.getElementById('resetButton');
+
+        // Modais e formulários
+        const editModal = document.getElementById('editModal');
+        const removeModal = document.getElementById('removeModal');
+        const editForm = document.getElementById('editForm');
+        const editArticleId = document.getElementById('editArticleId');
+        const editTitulo = document.getElementById('editTitulo');
+        const editSetor = document.getElementById('editSetor');
+        const editArmario = document.getElementById('editArmario');
+        const editDescricao = document.getElementById('editDescricao');
+        const confirmRemoveButton = document.getElementById('confirmRemoveButton');
+        const removeReasonInput = document.getElementById('removeReason');
+
+        // --- Variáveis de estado ---
+        let isUserAdmin = false;
+        let articlesCache = [];
+
+        // --- Funções de Ajuda ---
+        const checkAdminStatus = async (uid) => {
+            try {
+                const userDoc = await db.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    isUserAdmin = !!userDoc.data().isAdmin;
+                } else {
+                    isUserAdmin = false;
+                }
+            } catch (error) {
+                console.error("Erro ao verificar status de admin:", error);
+                isUserAdmin = false;
+            }
+            return isUserAdmin;
+        };
+
+        const fetchArticles = async (uid = null) => {
+            articleList.innerHTML = '<p style="text-align: center;">Carregando artigos...</p>';
+            try {
+                let query = db.collection('materias');
+                if (uid) {
+                    query = query.where('uidUsuario', '==', uid);
+                }
+                const snapshot = await query.get();
+                articlesCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderArticles(articlesCache);
+            } catch (error) {
+                console.error("Erro ao buscar artigos:", error);
+                articleList.innerHTML = '<p style="color: #dc3545; text-align: center;">Erro ao carregar os artigos.</p>';
+            }
+        };
+
+        const renderArticles = (articles) => {
+            if (articles.length === 0) {
+                articleList.innerHTML = '<p style="text-align: center;">Nenhum artigo encontrado.</p>';
+                return;
+            }
+            articleList.innerHTML = articles.map(article => {
+                const isRemoved = article.armario === 'removido';
+                const removedMessage = isRemoved ? `<p style="color: #dc3545; font-weight: bold;">Removido por: ${article.motivoRemocao || 'Motivo não especificado'}</p>` : '';
+                const articleClass = isRemoved ? 'article-item removed' : 'article-item';
+                const deleteButtonHtml = isUserAdmin && !isRemoved ? `<button class="delete-button" data-id="${article.id}" data-title="${article.titulo}">Remover</button>` : '';
+
+                return `
+                    <li class="${articleClass}">
+                        <h3>${article.titulo}</h3>
+                        <p><strong>Setor:</strong> ${article.setor}</p>
+                        <p><strong>Armário:</strong> ${article.armario}</p>
+                        <p><strong>UID do Autor:</strong> ${article.uidUsuario}</p>
+                        ${removedMessage}
+                        <div class="actions">
+                            <button class="edit-button" data-id="${article.id}">Editar</button>
+                            ${deleteButtonHtml}
+                        </div>
+                    </li>
+                `;
+            }).join('');
+
+            // Adiciona listeners aos botões
+            document.querySelectorAll('.edit-button').forEach(button => {
+                button.addEventListener('click', (e) => showEditModal(e.target.dataset.id));
+            });
+            document.querySelectorAll('.delete-button').forEach(button => {
+                button.addEventListener('click', (e) => showRemoveModal(e.target.dataset.id, e.target.dataset.title));
+            });
+        };
+
+        // --- Funções de autenticação e UI ---
+        googleLoginButton.addEventListener('click', async () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                alert("Erro ao fazer login: " + error.message);
+                console.error(error);
+            }
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            await auth.signOut();
+        });
+
+        auth.onAuthStateChanged(async user => {
+            if (user) {
+                loginStatusDiv.style.display = 'none';
+                managementPanel.style.display = 'block';
+                userDisplay.textContent = `Logado como: ${user.displayName} (${user.email})`;
+                isUserAdmin = await checkAdminStatus(user.uid);
+                fetchArticles();
+            } else {
+                loginStatusDiv.style.display = 'block';
+                managementPanel.style.display = 'none';
+                articleList.innerHTML = '';
+            }
+        });
+
+        // --- Funções de busca ---
+        searchButton.addEventListener('click', () => {
+            const uid = uidSearchInput.value.trim();
+            fetchArticles(uid);
+        });
+
+        resetButton.addEventListener('click', () => {
+            uidSearchInput.value = '';
+            fetchArticles();
+        });
+        
+        // --- Funções dos Modais ---
+        const showEditModal = (articleId) => {
+            const article = articlesCache.find(a => a.id === articleId);
+            if (!article) return;
+            
+            editArticleId.value = article.id;
+            editTitulo.value = article.titulo;
+            editSetor.value = article.setor;
+            editArmario.value = article.armario;
+            editDescricao.value = article.descricao;
+
+            editModal.style.display = 'block';
+        };
+        
+        const showRemoveModal = (articleId, articleTitle) => {
+            removeModal.dataset.id = articleId;
+            removeReasonInput.value = '';
+            removeModal.style.display = 'block';
+        };
+
+        document.querySelectorAll('.modal .close-button, .modal .close-button-alt').forEach(button => {
+            button.addEventListener('click', () => {
+                editModal.style.display = 'none';
+                removeModal.style.display = 'none';
+            });
+        });
+
+        window.onclick = (e) => {
+            if (e.target === editModal) {
+                editModal.style.display = 'none';
+            }
+            if (e.target === removeModal) {
+                removeModal.style.display = 'none';
+            }
+        };
+
+        // --- Lógica de Edição e Remoção ---
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const articleId = editArticleId.value;
+            const updatedData = {
+                titulo: editTitulo.value,
+                setor: editSetor.value,
+                armario: editArmario.value,
+                descricao: editDescricao.value
+            };
+            
+            try {
+                await db.collection('materias').doc(articleId).update(updatedData);
+                alert('Artigo atualizado com sucesso!');
+                editModal.style.display = 'none';
+                fetchArticles(); // Recarrega a lista
+            } catch (error) {
+                console.error("Erro ao atualizar artigo:", error);
+                alert("Erro ao atualizar o artigo. Tente novamente.");
+            }
+        });
+
+        confirmRemoveButton.addEventListener('click', async () => {
+            const articleId = removeModal.dataset.id;
+            const removeReason = removeReasonInput.value.trim();
+            if (!removeReason) {
+                alert("Por favor, forneça um motivo para a remoção.");
+                return;
+            }
+
+            if (confirm("Tem certeza que deseja marcar este artigo como removido?")) {
+                try {
+                    await db.collection('materias').doc(articleId).update({
+                        armario: 'removido',
+                        arquivo: 'removido',
+                        motivoRemocao: removeReason,
+                        status: 'removido'
+                    });
+                    alert('Artigo marcado como removido com sucesso!');
+                    removeModal.style.display = 'none';
+                    fetchArticles(); // Recarrega a lista
+                } catch (error) {
+                    console.error("Erro ao remover artigo:", error);
+                    alert("Erro ao remover o artigo. Tente novamente.");
+                }
+            }
+        });
+    </script>
+</body>
+</html>
