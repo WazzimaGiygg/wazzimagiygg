@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar Imagem - WZZM</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: 'Noto Sans', sans-serif;
+            background-color: #000;
+        }
+
+        #image-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #image-display {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain; /* ou "cover" se quiser preencher cortando a imagem */
+        }
+
+        .print-buttons {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+
+        @media print {
+            .print-buttons {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-buttons">
+        <button onclick="window.print()">Imprimir</button>
+    </div>
+
+    <div id="image-container">
+        <p style="color: white;">Carregando imagem...</p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const imageContainer = document.getElementById('image-container');
+
+        async function buscarEExibirImagem() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const fileName = urlParams.get('uid');
+
+            if (!fileName) {
+                imageContainer.innerHTML = '<p style="color: red;">Nome do arquivo não fornecido na URL.</p>';
+                return;
+            }
+
+            try {
+                const querySnapshot = await db.collection('imagenscode').where('file_name', '==', fileName).limit(1).get();
+
+                if (!querySnapshot.empty) {
+                    const doc = querySnapshot.docs[0];
+                    const imageData = doc.data();
+
+                    imageContainer.innerHTML = `
+                        <img id="image-display" src="${imageData.base64_code}" alt="Imagem carregada">
+                    `;
+                } else {
+                    imageContainer.innerHTML = '<p style="color: red;">Imagem não encontrada.</p>';
+                }
+            } catch (error) {
+                console.error("Erro ao buscar imagem:", error);
+                imageContainer.innerHTML = '<p style="color: red;">Erro ao carregar a imagem: ' + error.message + '</p>';
+            }
+        }
+
+        window.onload = buscarEExibirImagem;
+    </script>
+</body>
+</html>
