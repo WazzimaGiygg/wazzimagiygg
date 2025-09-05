@@ -160,7 +160,7 @@
         }
 
         /* Estilos dos outros painéis */
-        #detalhes-artigo, #editor-artigo, #historico-artigo, #novo-artigo, #pagina-usuario, #busca-avancada-pane {
+        #detalhes-artigo, #editor-artigo, #historico-artigo, #novo-artigo, #pagina-usuario, #busca-avancada-pane, #minhas-contribuicoes {
             width: 100%;
             height: 100%;
         }
@@ -246,6 +246,7 @@
             <button id="artigos-btn" class="active">Artigos Recentes</button>
             <button id="criar-artigo-btn">Criar Novo Artigo</button>
             <button id="perfil-button">Meu Perfil</button>
+            <button id="minhas-contribuicoes-btn">Minhas Contribuições</button>
             <button id="busca-avancada-btn">Busca Avançada</button>
         </div>
         <div>
@@ -366,10 +367,10 @@
                 </div>
 
                 <div id="contribuicoes-tab" class="tab-content" style="display: block;">
-                    <h3 style="margin-top: 0;">Últimas Edições</h3>
-                    <div id="contribuicoes-list">
+                    <h3 style="margin-top: 0;">Últimas Contribuições</h3>
+                    <ul id="contribuicoesLista">
                         <p style="text-align: center; color: #888;">Carregando contribuições...</p>
-                    </div>
+                    </ul>
                 </div>
 
                 <div id="pagina-pessoal-tab" class="tab-content" style="display: none;">
@@ -389,6 +390,14 @@
                 </div>
                 <button type="button" id="voltar-ao-painel-perfil" style="margin-top: 2em; padding: 10px 20px; background-color: #a2a9b1; color: white; border: none; cursor: pointer;">Voltar ao Painel</button>
             </div>
+
+            <div id="minhas-contribuicoes" class="content-pane" style="display: none;">
+                <h2>Minhas Contribuições</h2>
+                <ul id="contribuicoesListaPrincipal">
+                    <p style="text-align: center; color: #888;">Carregando contribuições...</p>
+                </ul>
+            </div>
+
         </div>
     </div>
 </div>
@@ -425,6 +434,7 @@
     const artigosBtn = document.getElementById('artigos-btn');
     const criarArtigoBtn = document.getElementById('criar-artigo-btn');
     const perfilButton = document.getElementById('perfil-button');
+    const minhasContribuicoesBtn = document.getElementById('minhas-contribuicoes-btn');
     const buscaAvancadaBtn = document.getElementById('busca-avancada-btn');
 
     const artigosPane = document.getElementById('artigos-pane');
@@ -435,6 +445,8 @@
     const novoArtigoPane = document.getElementById('novo-artigo');
     const paginaUsuarioSection = document.getElementById('pagina-usuario');
     const conteudoPrincipal = document.getElementById('conteudo-principal');
+    const minhasContribuicoesPane = document.getElementById('minhas-contribuicoes');
+    const contribuicoesListaPrincipal = document.getElementById('contribuicoesListaPrincipal');
 
     const artigosList = document.getElementById('artigos-list');
     const artigosTitle = document.getElementById('artigos-title');
@@ -523,7 +535,10 @@
             pane.style.display = 'none';
         });
         // Exibe o painel solicitado
-        document.getElementById(painelId).style.display = 'block';
+        const painel = document.getElementById(painelId);
+        if (painel) {
+            painel.style.display = 'block';
+        }
 
         // Remove a classe 'active' de todos os botões de navegação
         document.querySelectorAll('.nav-buttons button').forEach(btn => {
@@ -566,6 +581,12 @@
         contribuicoesTab.style.display = 'block';
         paginaPessoalTab.style.display = 'none';
         discussaoTab.style.display = 'none';
+        // A função carregarMinhasContribuicoes já é chamada pelo evento de clique na aba
+    });
+
+    // NOVO EVENTO DE CLIQUE PARA O BOTÃO 'MINHAS CONTRIBUIÇÕES'
+    minhasContribuicoesBtn.addEventListener('click', () => {
+        exibirPainel('minhas-contribuicoes');
         carregarMinhasContribuicoes();
     });
 
@@ -677,133 +698,131 @@
             descricao: buscaDescricaoInput.value,
             uid: buscaUidInput.value
         };
-  editorArtigo.dataset.docId = id;
-  editorArtigo.dataset.tituloOriginal = materia.titulo;
-  editorArtigo.dataset.descricaoOriginal = materia.descricao;
-  exibirPainel('detalhes-artigo');
+        exibirPainel('detalhes-artigo');
         exibirPainel('artigos-pane');
         buscarArtigos(filtros);
     });
 
     // --- Funções para Detalhes do Artigo ---
     function carregarDetalhesArtigo(id, materia) {
-    exibirPainel('detalhes-artigo');
+        exibirPainel('detalhes-artigo');
 
-    // ADICIONE ESTAS DUAS LINHAS:
-    editorArtigo.dataset.tituloOriginal = materia.titulo;
-    editorArtigo.dataset.descricaoOriginal = materia.descricao;
+        // Corrige o problema do histórico
+        editorArtigo.dataset.docId = id;
+        editorArtigo.dataset.tituloOriginal = materia.titulo;
+        editorArtigo.dataset.descricaoOriginal = materia.descricao;
 
-    const dataCriacao = materia.dataCriacao ? new Date(materia.dataCriacao.seconds * 1000).toLocaleString() : 'Data desconhecida';
-    const ultimaEdicao = materia.ultimaEdicao ? new Date(materia.ultimaEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
+        const dataCriacao = materia.dataCriacao ? new Date(materia.dataCriacao.seconds * 1000).toLocaleString() : 'Data desconhecida';
+        const ultimaEdicao = materia.ultimaEdicao ? new Date(materia.ultimaEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
 
-    let infoHtml = '';
-    if (materia.criadorEmail) infoHtml += `<p><strong>Criado por:</strong> ${materia.criadorEmail}</p>`;
-    if (materia.dataCriacao) infoHtml += `<p><strong>Data de Criação:</strong> ${dataCriacao}</p>`;
-    if (materia.ultimaEdicao) infoHtml += `<p><strong>Última Edição:</strong> ${ultimaEdicao}</p>`;
-    if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
-    if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
+        let infoHtml = '';
+        if (materia.criadorEmail) infoHtml += `<p><strong>Criado por:</strong> ${materia.criadorEmail}</p>`;
+        if (materia.dataCriacao) infoHtml += `<p><strong>Data de Criação:</strong> ${dataCriacao}</p>`;
+        if (materia.ultimaEdicao) infoHtml += `<p><strong>Última Edição:</strong> ${ultimaEdicao}</p>`;
+        if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
+        if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
 
-    let fontesHtml = '';
-    if (materia.fontes && materia.fontes.length > 0) {
-        fontesHtml = `
-            <div class="fontes-container">
-                <p>Fontes</p>
-                <ul>
-                    ${materia.fontes.map(fonte => `<li>${fonte}</li>`).join('')}
-                </ul>
-            </div>
-        `;
-    }
-
-    let botoesHtml = `
-        <button id="btn-editar-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #0645ad; color: white; border: none; cursor: pointer; margin-right: 10px;">Editar</button>
-        <button id="btn-ver-historico" data-id="${id}" style="padding: 8px 15px; background-color: #36c; color: white; border: none; cursor: pointer;">Histórico</button>
-        <button id="btn-imprimir-artigo" style="padding: 8px 15px; background-color: #555; color: white; border: none; cursor: pointer; margin-left: 10px;">Imprimir</button>
-    `;
-    if (currentUserRole === 'admin') {
-        botoesHtml += `<button id="btn-remover-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; cursor: pointer; margin-left: 10px;">Remover Artigo</button>`;
-    }
-
-    detalhesArtigo.innerHTML = `
-        <div class="article-header">
-            <h1>${materia.titulo}</h1>
-            <p class="uid-display">UID do Documento: <a href="uid/?uid=${id}">${id}</a></p>
-        </div>
-        <div style="margin-bottom: 1em;" class="botoes-artigo-imprimivel">
-            ${botoesHtml}
-        </div>
-        <h2>Informações Adicionais</h2>
-        <div class="descricao-container">${infoHtml}</div>
-        <h2>Descrição</h2>
-        <div class="descricao-container">${materia.descricao}</div>
-        ${fontesHtml}
-    `;
-
-    document.getElementById('btn-editar-artigo').addEventListener('click', () => abrirEditor(id, materia));
-    document.getElementById('btn-ver-historico').addEventListener('click', () => abrirHistorico(id));
-    document.getElementById('btn-imprimir-artigo').addEventListener('click', imprimirArtigo);
-    if (currentUserRole === 'admin') {
-        document.getElementById('btn-remover-artigo').addEventListener('click', () => removerArtigo(id));
-    }
-}
-document.getElementById('btn-minhas-contribuicoes').addEventListener('click', carregarMinhasContribuicoes);
-    // --- Funções de Edição ---
-function abrirEditor(id, materia) {
-  exibirPainel('editor-artigo');
-  editTitulo.value = materia.titulo;
-  editDescricao.value = materia.descricao;
-  editSumario.value = '';
-  editorArtigo.dataset.docId = id;
-}
-
-    formEdicaoArtigo.addEventListener('submit', async (e) => {
-    e.preventDefault(); // Impede o envio do formulário e o recarregamento da página
-
-    const docId = editorArtigo.dataset.docId;
-    if (!docId) return;
-
-    const user = auth.currentUser;
-    if (!user) {
-        alert('Você precisa estar logado para editar artigos.');
-        return;
-    }
-
-    const titulo = editTitulo.value;
-    const descricao = editDescricao.value;
-    const sumario = editSumario.value;
-
-    try {
-        // 1. Atualiza o documento em 'materias'
-        await db.collection('materias').doc(docId).update({
-            titulo,
-            descricao,
-            ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // 2. Salva o histórico da edição
-        await db.collection('historico').add({
-            docId,
-            editorId: user.uid,
-            editorEmail: user.email,
-            dataEdicao: firebase.firestore.FieldValue.serverTimestamp(),
-            sumario,
-            tituloAnterior: editorArtigo.dataset.tituloOriginal,
-            descricaoAnterior: editorArtigo.dataset.descricaoOriginal
-        });
-
-        alert('Artigo editado e histórico salvo com sucesso!');
-        
-        // 3. Atualiza os detalhes do artigo na interface
-        const doc = await db.collection('materias').doc(docId).get();
-        if (doc.exists) {
-            carregarDetalhesArtigo(doc.id, doc.data());
+        let fontesHtml = '';
+        if (materia.fontes && materia.fontes.length > 0) {
+            fontesHtml = `
+                <div class="fontes-container">
+                    <p>Fontes</p>
+                    <ul>
+                        ${materia.fontes.map(fonte => `<li>${fonte}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
         }
 
-    } catch (error) {
-        console.error("Erro ao salvar edição: ", error);
-        alert("Erro ao salvar edição: " + error.message);
+        let botoesHtml = `
+            <button id="btn-editar-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #0645ad; color: white; border: none; cursor: pointer; margin-right: 10px;">Editar</button>
+            <button id="btn-ver-historico" data-id="${id}" style="padding: 8px 15px; background-color: #36c; color: white; border: none; cursor: pointer;">Histórico</button>
+            <button id="btn-imprimir-artigo" style="padding: 8px 15px; background-color: #555; color: white; border: none; cursor: pointer; margin-left: 10px;">Imprimir</button>
+        `;
+        if (currentUserRole === 'admin') {
+            botoesHtml += `<button id="btn-remover-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; cursor: pointer; margin-left: 10px;">Remover Artigo</button>`;
+        }
+
+        detalhesArtigo.innerHTML = `
+            <div class="article-header">
+                <h1>${materia.titulo}</h1>
+                <p class="uid-display">UID do Documento: <a href="uid/?uid=${id}">${id}</a></p>
+            </div>
+            <div style="margin-bottom: 1em;" class="botoes-artigo-imprimivel">
+                ${botoesHtml}
+            </div>
+            <h2>Informações Adicionais</h2>
+            <div class="descricao-container">${infoHtml}</div>
+            <h2>Descrição</h2>
+            <div class="descricao-container">${materia.descricao}</div>
+            ${fontesHtml}
+        `;
+
+        document.getElementById('btn-editar-artigo').addEventListener('click', () => abrirEditor(id, materia));
+        document.getElementById('btn-ver-historico').addEventListener('click', () => abrirHistorico(id));
+        document.getElementById('btn-imprimir-artigo').addEventListener('click', imprimirArtigo);
+        if (currentUserRole === 'admin') {
+            document.getElementById('btn-remover-artigo').addEventListener('click', () => removerArtigo(id));
+        }
     }
-});
+
+    // --- Funções de Edição ---
+    function abrirEditor(id, materia) {
+        exibirPainel('editor-artigo');
+        editTitulo.value = materia.titulo;
+        editDescricao.value = materia.descricao;
+        editSumario.value = '';
+        editorArtigo.dataset.docId = id;
+    }
+
+    formEdicaoArtigo.addEventListener('submit', async (e) => {
+        e.preventDefault(); // Impede o envio do formulário e o recarregamento da página
+
+        const docId = editorArtigo.dataset.docId;
+        if (!docId) return;
+
+        const user = auth.currentUser;
+        if (!user) {
+            alert('Você precisa estar logado para editar artigos.');
+            return;
+        }
+
+        const titulo = editTitulo.value;
+        const descricao = editDescricao.value;
+        const sumario = editSumario.value;
+
+        try {
+            // 1. Atualiza o documento em 'materias'
+            await db.collection('materias').doc(docId).update({
+                titulo,
+                descricao,
+                ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // 2. Salva o histórico da edição
+            await db.collection('historico').add({
+                docId,
+                editorId: user.uid,
+                editorEmail: user.email,
+                dataEdicao: firebase.firestore.FieldValue.serverTimestamp(),
+                sumario,
+                tituloAnterior: editorArtigo.dataset.tituloOriginal,
+                descricaoAnterior: editorArtigo.dataset.descricaoOriginal
+            });
+
+            alert('Artigo editado e histórico salvo com sucesso!');
+
+            // 3. Atualiza os detalhes do artigo na interface
+            const doc = await db.collection('materias').doc(docId).get();
+            if (doc.exists) {
+                carregarDetalhesArtigo(doc.id, doc.data());
+            }
+
+        } catch (error) {
+            console.error("Erro ao salvar edição: ", error);
+            alert("Erro ao salvar edição: " + error.message);
+        }
+    });
 
     cancelarEdicaoBtn.addEventListener('click', async () => {
         const docId = editorArtigo.dataset.docId;
@@ -959,93 +978,87 @@ function abrirEditor(id, materia) {
         buscarArtigos();
     });
 
+    // Função para carregar todas as contribuições do usuário
     async function carregarMinhasContribuicoes() {
-    const user = auth.currentUser;
-    if (!user) {
-        alert('Você precisa estar logado para ver suas contribuições.');
-        return;
-    }
-
-    exibirPainel('minhas-contribuicoes'); // Um novo painel para exibir os resultados
-    contribuicoesLista.innerHTML = '<li>Carregando...</li>';
-
-    const userId = user.uid;
-
-    try {
-        // Busca 1: Artigos criados pelo usuário
-        const queryCriacoes = db.collection('materias').where('criadorId', '==', userId);
-        const criacoesSnapshot = await queryCriacoes.get();
-        
-        // Busca 2: Edições feitas pelo usuário
-        const queryEdicoes = db.collection('historico').where('editorId', '==', userId);
-        const edicoesSnapshot = await queryEdicoes.get();
-
-        const contribuicoes = [];
-        
-        // Adiciona as criações à lista de contribuições
-        criacoesSnapshot.forEach(doc => {
-            const data = doc.data();
-            contribuicoes.push({
-                tipo: 'Criação de Artigo',
-                titulo: data.titulo,
-                data: data.dataCriacao.toDate(),
-                docId: doc.id
-            });
-        });
-
-        // Adiciona as edições à lista de contribuições
-        edicoesSnapshot.forEach(doc => {
-            const data = doc.data();
-            contribuicoes.push({
-                tipo: 'Edição de Artigo',
-                titulo: data.tituloAnterior, // ou o título atual se preferir
-                data: data.dataEdicao.toDate(),
-                docId: data.docId
-            });
-        });
-
-        // Ordena as contribuições por data (da mais recente para a mais antiga)
-        contribuicoes.sort((a, b) => b.data - a.data);
-
-        // Exibe os resultados na tela
-        if (contribuicoes.length > 0) {
-            contribuicoesLista.innerHTML = '';
-            contribuicoes.forEach(contrib => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <strong>${contrib.tipo}:</strong> <a href="#" data-id="${contrib.docId}">${contrib.titulo}</a>
-                    <span style="float: right;">${contrib.data.toLocaleString()}</span>
-                `;
-                contribuicoesLista.appendChild(li);
-
-                li.querySelector('a').addEventListener('click', () => {
-                    // Clicar no item leva para a página do artigo
-                    db.collection('materias').doc(contrib.docId).get().then(doc => {
-                        if (doc.exists) {
-                            carregarDetalhesArtigo(doc.id, doc.data());
-                        }
-                    });
-                });
-            });
-        } else {
-            contribuicoesLista.innerHTML = '<li>Nenhuma contribuição encontrada.</li>';
+        const contribuicoesLista = document.getElementById('contribuicoesListaPrincipal');
+        if (!contribuicoesLista) {
+            console.error("Elemento 'contribuicoesListaPrincipal' não encontrado.");
+            return;
         }
 
-    } catch (error) {
-        console.error("Erro ao carregar contribuições: ", error);
-        contribuicoesLista.innerHTML = '<li>Erro ao carregar as contribuições.</li>';
+        contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Você precisa estar logado para ver suas contribuições.</p>';
+            return;
+        }
+        const userId = user.uid;
+
+        try {
+            // Busca 1: Artigos criados pelo usuário
+            const queryCriacoes = db.collection('materias').where('criadorId', '==', userId).get();
+
+            // Busca 2: Edições feitas pelo usuário
+            const queryEdicoes = db.collection('historico').where('editorId', '==', userId).get();
+
+            const [criacoesSnapshot, edicoesSnapshot] = await Promise.all([queryCriacoes, queryEdicoes]);
+            const contribuicoes = [];
+            
+            criacoesSnapshot.forEach(doc => {
+                const data = doc.data();
+                contribuicoes.push({
+                    tipo: 'Criação de Artigo',
+                    titulo: data.titulo,
+                    data: data.dataCriacao ? data.dataCriacao.toDate() : new Date(),
+                    docId: doc.id
+                });
+            });
+
+            edicoesSnapshot.forEach(doc => {
+                const data = doc.data();
+                contribuicoes.push({
+                    tipo: 'Edição de Artigo',
+                    titulo: data.tituloAnterior || 'Título não disponível',
+                    data: data.dataEdicao ? data.dataEdicao.toDate() : new Date(),
+                    docId: data.docId
+                });
+            });
+
+            contribuicoes.sort((a, b) => b.data - a.data);
+
+            if (contribuicoes.length > 0) {
+                contribuicoesLista.innerHTML = '';
+                contribuicoes.forEach(contrib => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <strong>${contrib.tipo}:</strong> <a href="#" data-id="${contrib.docId}">${contrib.titulo}</a>
+                        <span style="float: right;">${contrib.data.toLocaleString()}</span>
+                    `;
+                    contribuicoesLista.appendChild(li);
+
+                    li.querySelector('a').addEventListener('click', () => {
+                        db.collection('materias').doc(contrib.docId).get().then(doc => {
+                            if (doc.exists) {
+                                carregarDetalhesArtigo(doc.id, doc.data());
+                            }
+                        });
+                    });
+                });
+            } else {
+                contribuicoesLista.innerHTML = '<li>Nenhuma contribuição encontrada.</li>';
+            }
+        } catch (error) {
+            console.error("Erro ao carregar contribuições: ", error);
+            contribuicoesLista.innerHTML = '<li>Erro ao carregar as contribuições.</li>';
+        }
     }
-}
 
     // --- Funções de Impressão ---
     function imprimirArtigo() {
         const printWindow = window.open('', '', 'height=600,width=800');
 
-        // Captura o conteúdo do artigo, incluindo o iframe
         const content = document.getElementById('detalhes-artigo').innerHTML;
 
-        // Constrói a janela de impressão
-        
         printWindow.document.write('<html><head><title>Impressão do Artigo</title>');
         printWindow.document.write('<style>body{font-family: \'Noto Sans\', sans-serif; line-height: 1.6;} .botoes-artigo-imprimivel { display: none; }</style>');
         printWindow.document.write('</head><body>');
@@ -1053,7 +1066,6 @@ function abrirEditor(id, materia) {
         printWindow.document.write('</body></html>');
         printWindow.document.close();
 
-        // Aguarda o iframe carregar antes de imprimir
         const iframeElement = printWindow.document.querySelector('iframe');
 
         if (iframeElement) {
@@ -1065,7 +1077,6 @@ function abrirEditor(id, materia) {
                 }, 10000); // Pequeno atraso para garantir o carregamento
             };
         } else {
-            // Se não houver iframe, imprime diretamente
             printWindow.focus();
             printWindow.print();
             printWindow.close();
