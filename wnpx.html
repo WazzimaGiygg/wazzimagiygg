@@ -746,7 +746,7 @@
         document.getElementById('btn-remover-artigo').addEventListener('click', () => removerArtigo(id));
     }
 }
-
+document.getElementById('btn-minhas-contribuicoes').addEventListener('click', carregarMinhasContribuicoes);
     // --- Funções de Edição ---
 function abrirEditor(id, materia) {
   exibirPainel('editor-artigo');
@@ -960,38 +960,82 @@ function abrirEditor(id, materia) {
     });
 
     async function carregarMinhasContribuicoes() {
-        const contribuicoesList = document.getElementById('contribuicoes-list');
-        contribuicoesList.innerHTML = '';
-        const user = firebase.auth().currentUser;
-        if (!user) {
-            contribuicoesList.innerHTML = '<li>Você precisa estar logado para ver suas contribuições.</li>';
-            return;
-        }
-
-        try {
-            const querySnapshot = await db.collection('historicogeral').where('editorId', '==', user.uid).orderBy('dataEdicao', 'desc').get();
-            if (querySnapshot.empty) {
-                contribuicoesList.innerHTML = '<p style="text-align: center; color: #666;">Nenhuma contribuição encontrada.</p>';
-                return;
-            }
-
-            querySnapshot.forEach(doc => {
-                const contribuicao = doc.data();
-                const data = contribuicao.dataEdicao ? new Date(contribuicao.dataEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
-                const contribuicaoItem = document.createElement('div');
-                contribuicaoItem.className = 'contribuicao-item';
-                contribuicaoItem.innerHTML = `
-                    <p><strong>Documento:</strong> ${contribuicao.docTitulo || 'Título não disponível'}</p>
-                    <p><strong>Resumo:</strong> ${contribuicao.sumario}</p>
-                    <p><strong>Data:</strong> ${data}</p>
-                `;
-                contribuicoesList.appendChild(contribuicaoItem);
-            });
-        } catch (error) {
-            console.error("Erro ao carregar contribuições: ", error);
-            contribuicoesList.innerHTML = `<p style="text-align: center; color: #e74c3c;">Erro ao carregar contribuições: ${error.message}</p>`;
-        }
+    const user = auth.currentUser;
+    if (!user) {
+        alert('Você precisa estar logado para ver suas contribuições.');
+        return;
     }
+
+    exibirPainel('minhas-contribuicoes'); // Um novo painel para exibir os resultados
+    contribuicoesLista.innerHTML = '<li>Carregando...</li>';
+
+    const userId = user.uid;
+
+    try {
+        // Busca 1: Artigos criados pelo usuário
+        const queryCriacoes = db.collection('materias').where('criadorId', '==', userId);
+        const criacoesSnapshot = await queryCriacoes.get();
+        
+        // Busca 2: Edições feitas pelo usuário
+        const queryEdicoes = db.collection('historico').where('editorId', '==', userId);
+        const edicoesSnapshot = await queryEdicoes.get();
+
+        const contribuicoes = [];
+        
+        // Adiciona as criações à lista de contribuições
+        criacoesSnapshot.forEach(doc => {
+            const data = doc.data();
+            contribuicoes.push({
+                tipo: 'Criação de Artigo',
+                titulo: data.titulo,
+                data: data.dataCriacao.toDate(),
+                docId: doc.id
+            });
+        });
+
+        // Adiciona as edições à lista de contribuições
+        edicoesSnapshot.forEach(doc => {
+            const data = doc.data();
+            contribuicoes.push({
+                tipo: 'Edição de Artigo',
+                titulo: data.tituloAnterior, // ou o título atual se preferir
+                data: data.dataEdicao.toDate(),
+                docId: data.docId
+            });
+        });
+
+        // Ordena as contribuições por data (da mais recente para a mais antiga)
+        contribuicoes.sort((a, b) => b.data - a.data);
+
+        // Exibe os resultados na tela
+        if (contribuicoes.length > 0) {
+            contribuicoesLista.innerHTML = '';
+            contribuicoes.forEach(contrib => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${contrib.tipo}:</strong> <a href="#" data-id="${contrib.docId}">${contrib.titulo}</a>
+                    <span style="float: right;">${contrib.data.toLocaleString()}</span>
+                `;
+                contribuicoesLista.appendChild(li);
+
+                li.querySelector('a').addEventListener('click', () => {
+                    // Clicar no item leva para a página do artigo
+                    db.collection('materias').doc(contrib.docId).get().then(doc => {
+                        if (doc.exists) {
+                            carregarDetalhesArtigo(doc.id, doc.data());
+                        }
+                    });
+                });
+            });
+        } else {
+            contribuicoesLista.innerHTML = '<li>Nenhuma contribuição encontrada.</li>';
+        }
+
+    } catch (error) {
+        console.error("Erro ao carregar contribuições: ", error);
+        contribuicoesLista.innerHTML = '<li>Erro ao carregar as contribuições.</li>';
+    }
+}
 
     // --- Funções de Impressão ---
     function imprimirArtigo() {
@@ -1001,6 +1045,7 @@ function abrirEditor(id, materia) {
         const content = document.getElementById('detalhes-artigo').innerHTML;
 
         // Constrói a janela de impressão
+        
         printWindow.document.write('<html><head><title>Impressão do Artigo</title>');
         printWindow.document.write('<style>body{font-family: \'Noto Sans\', sans-serif; line-height: 1.6;} .botoes-artigo-imprimivel { display: none; }</style>');
         printWindow.document.write('</head><body>');
