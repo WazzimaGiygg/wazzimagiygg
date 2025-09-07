@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar Álbum - WZZM</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+    <style>
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            line-height: 1.6;
+            margin: 2em;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background-color: #fff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #000;
+            font-size: 2.5em;
+            border-bottom: 1px solid #a2a9b1;
+            padding-bottom: 0.5em;
+        }
+        #album-details {
+            margin-bottom: 2em;
+        }
+        #album-details p {
+            color: #555;
+            font-style: italic;
+        }
+        #album-image-display {
+            max-width: 100%;
+            max-height: 600px;
+            width: auto;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        #image-description {
+            margin-top: 1em;
+            font-size: 1.1em;
+            color: #333;
+        }
+        .navigation-buttons {
+            margin-top: 1.5em;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .navigation-buttons button {
+            background-color: #007bff;
+            color: white;
+            padding: 0.8em 2em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .navigation-buttons button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .navigation-buttons button:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+        .loading-text, .error-text {
+            color: #666;
+            text-align: center;
+            padding: 2em;
+        }
+        .error-text {
+            color: #e74c3c;
+        }
+        .legal-notice {
+            margin-top: 2em;
+            padding: 1em;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: #666;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loading-message" class="loading-text">Carregando álbum...</div>
+    <div id="album-content" style="display: none;">
+        <h1 id="album-title"></h1>
+        <div id="album-details">
+            <p id="copyright-info"></p>
+        </div>
+        <div>
+            <img id="album-image-display" src="" alt="Imagem do álbum">
+            <p id="image-description"></p>
+        </div>
+        <div class="navigation-buttons">
+            <button id="prev-btn" disabled>&laquo; Recuar</button>
+            <button id="next-btn" disabled>Avançar &raquo;</button>
+        </div>
+        <div class="legal-notice">
+            <p><strong>Aviso de Conteúdo:</strong> Ao navegar neste álbum, você confirma que tem idade legal (18 anos ou mais) para visualizar o conteúdo, se aplicável, e que entende que as imagens são regidas pela licença de direitos autorais especificada.</p>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script>
+    const firebaseConfig = {
+        // Substitua com as suas configurações do Firebase
+        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+        authDomain: "wzzm-ce3fc.firebaseapp.com",
+        projectId: "wzzm-ce3fc",
+        storageBucket: "wzzm-ce3fc.appspot.com",
+        messagingSenderId: "249427877153",
+        appId: "1:249427877153:web:0e4297294794a5aadeb260",
+        measurementId: "G-PLKNZNFCQ8"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const albumUid = urlParams.get('albumId'); // Usa um parâmetro na URL para buscar o álbum
+
+    const loadingMessage = document.getElementById('loading-message');
+    const albumContent = document.getElementById('album-content');
+    const albumTitle = document.getElementById('album-title');
+    const copyrightInfo = document.getElementById('copyright-info');
+    const albumImageDisplay = document.getElementById('album-image-display');
+    const imageDescription = document.getElementById('image-description');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+
+    let imagesData = [];
+    let currentImageIndex = 0;
+
+    // Função para buscar e exibir o álbum
+    async function fetchAlbumAndImages() {
+        if (!albumUid) {
+            loadingMessage.textContent = 'UID do álbum não fornecido na URL.';
+            loadingMessage.classList.remove('loading-text');
+            loadingMessage.classList.add('error-text');
+            return;
+        }
+
+        try {
+            // Busca o documento do álbum na coleção 'albumimagens'
+            const albumDoc = await db.collection('albumimagens').doc(albumUid).get();
+
+            if (!albumDoc.exists) {
+                loadingMessage.textContent = 'Álbum não encontrado.';
+                loadingMessage.classList.remove('loading-text');
+                loadingMessage.classList.add('error-text');
+                return;
+            }
+
+            const albumData = albumDoc.data();
+            albumTitle.textContent = albumData.albumName;
+            copyrightInfo.textContent = `Licença: ${albumData.copyrightLicense}`;
+            imagesData = albumData.images;
+
+            if (imagesData.length === 0) {
+                loadingMessage.textContent = 'Este álbum não possui imagens.';
+                return;
+            }
+
+            // Busca os dados da primeira imagem
+            await fetchAndDisplayImage(0);
+
+            loadingMessage.style.display = 'none';
+            albumContent.style.display = 'block';
+
+        } catch (error) {
+            console.error("Erro ao carregar o álbum:", error);
+            loadingMessage.textContent = 'Erro ao carregar o álbum. Tente novamente mais tarde.';
+            loadingMessage.classList.remove('loading-text');
+            loadingMessage.classList.add('error-text');
+        }
+    }
+
+    // Função para buscar e exibir uma imagem específica
+    async function fetchAndDisplayImage(index) {
+        if (index < 0 || index >= imagesData.length) {
+            return; // Garante que o índice é válido
+        }
+
+        const currentImage = imagesData[index];
+        const imageUid = currentImage.uid;
+
+        try {
+            // Busca a imagem na coleção 'imagenscode' usando o UID
+            const imageQuery = await db.collection('imagenscode').where('file_name', '==', imageUid).limit(1).get();
+            if (!imageQuery.empty) {
+                const imageData = imageQuery.docs[0].data();
+                albumImageDisplay.src = imageData.base64_code;
+                imageDescription.textContent = currentImage.description;
+            } else {
+                albumImageDisplay.src = ''; // Limpa a imagem
+                imageDescription.textContent = "Imagem não encontrada. UID: " + imageUid;
+            }
+            currentImageIndex = index;
+            updateButtons();
+
+        } catch (error) {
+            console.error("Erro ao buscar a imagem:", error);
+            imageDescription.textContent = 'Erro ao carregar esta imagem.';
+        }
+    }
+
+    // Função para atualizar o estado dos botões de navegação
+    function updateButtons() {
+        prevBtn.disabled = currentImageIndex === 0;
+        nextBtn.disabled = currentImageIndex === imagesData.length - 1;
+    }
+
+    // Event listeners para os botões de navegação
+    prevBtn.addEventListener('click', () => {
+        fetchAndDisplayImage(currentImageIndex - 1);
+    });
+
+    nextBtn.addEventListener('click', () => {
+        fetchAndDisplayImage(currentImageIndex + 1);
+    });
+
+    // Inicia o processo de carregamento do álbum
+    window.onload = fetchAlbumAndImages;
+</script>
+
+</body>
+</html>
