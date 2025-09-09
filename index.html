@@ -392,7 +392,7 @@ Ver todas as Notícias
 <script>
     // --- Configuração do Firebase ---
     const firebaseConfig = {
-        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
         authDomain: "wzzm-ce3fc.firebaseapp.com",
         projectId: "wzzm-ce3fc",
         storageBucket: "wzzm-ce3fc.appspot.com",
@@ -400,17 +400,15 @@ Ver todas as Notícias
         appId: "1:249427877153:web:0e4297294794a5aadeb260",
         measurementId: "G-PLKNZNFCQ8"
     };
-    // Inicialize Firebase
     const app = firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const firestore = firebase.firestore();
     firebase.analytics();
 
-    // Variáveis globais para estado do usuário
     let currentUser = null;
     let isCurrentUserBanned = false;
 
-    // --- Nova função para carregar a página no iframe principal ---
+    // --- Funções principais ---
     function loadInMainFrame(src) {
         const contentFrame = document.getElementById('main-content-frame');
         if (contentFrame) {
@@ -418,13 +416,12 @@ Ver todas as Notícias
         }
     }
 
-    // --- Funções Auxiliares ---
     function setNavLinksEnabled(enabled) {
         const navLinks = document.querySelectorAll('.mdl-navigation__link[data-requires-auth="true"]');
         navLinks.forEach(link => {
             if (enabled) {
                 link.style.pointerEvents = 'auto';
-                link.style.color = '#424242'; // Cor padrão
+                link.style.color = '#424242';
             } else {
                 link.style.pointerEvents = 'none';
                 link.style.color = '#9e9e9e';
@@ -432,54 +429,39 @@ Ver todas as Notícias
         });
     }
 
-    async function createUserProfileDocument(user) {
-        if (!user) return;
-        const userRef = firestore.doc(`users/${user.uid}`);
-        const snapshot = await userRef.get();
-
-        if (!snapshot.exists) {
-            const { displayName, email, photoURL } = user;
-            const createdAt = new Date();
-
-            try {
-                await userRef.set({
-                    displayName,
-                    email,
-                    photoURL,
-                    createdAt,
-                    isAdmin: false,
-                    isBan: false
-                });
-                console.log("Perfil do usuário criado no Firestore.");
-            } catch (error) {
-                console.error("Erro ao criar perfil do usuário:", error);
+    function loadPage(src, requiresAuth = false) {
+        const contentFrame = document.getElementById('main-content-frame');
+        const accessDeniedMessage = document.getElementById('access-denied-message');
+        const bannedMessage = document.getElementById('banned-message');
+        if (contentFrame) {
+            if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
+            if (bannedMessage) bannedMessage.style.display = 'none';
+            if (requiresAuth && !currentUser) {
+                if (accessDeniedMessage) accessDeniedMessage.style.display = 'block';
+                return;
             }
+            if (isCurrentUserBanned) {
+                if (bannedMessage) bannedMessage.style.display = 'block';
+                return;
+            }
+            contentFrame.src = src;
+            contentFrame.style.display = 'block';
         }
     }
 
-    async function loadAndApplyUserAppsCSS(userId) {
-        const customAppCssStyleTag = document.getElementById('custom-app-css');
-        if (!customAppCssStyleTag) return;
-
-        try {
-            const userAppsSnapshot = await firestore.collection('userApps').doc(userId).get();
-            if (userAppsSnapshot.exists) {
-                const appData = userAppsSnapshot.data();
-                let cssContent = '';
-                if (appData && appData.apps) {
-                    appData.apps.forEach(app => {
-                        if (app.css) {
-                            cssContent += app.css + '\n';
-                        }
-                    });
-                }
-                customAppCssStyleTag.innerHTML = cssContent;
-            } else {
-                customAppCssStyleTag.innerHTML = '';
-            }
-        } catch (error) {
-            console.error("Erro ao carregar CSS de aplicativos do usuário:", error);
-            customAppCssStyleTag.innerHTML = '';
+    function applyConfigData(data) {
+        document.title = data.nomeCompletoWiki || 'Wiki';
+        const wikiPageName = document.getElementById('wiki-page-name');
+        if (wikiPageName) {
+            wikiPageName.textContent = data.nomeCompletoWiki || 'Wiki';
+        }
+        const drawerTitle = document.getElementById('drawer-title');
+        if (drawerTitle) {
+            drawerTitle.textContent = data.nomePaginaDrawer || 'Navegação';
+        }
+        const searchArticlesLink = document.getElementById('search-articles-link');
+        if (searchArticlesLink) {
+            searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
         }
     }
 
@@ -497,7 +479,7 @@ Ver todas as Notícias
             newsCenterPopup.style.display = 'none';
         }
     }
-
+    
     async function fetchLatestNews() {
         const newsPopupContent = document.getElementById('news-popup-content');
         newsPopupContent.innerHTML = '<p>Carregando últimas notícias...</p>';
@@ -535,33 +517,72 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
         }
     }
 
+    async function createUserProfileDocument(user) {
+        if (!user) return;
+        const userRef = firestore.doc(`users/${user.uid}`);
+        const snapshot = await userRef.get();
+        if (!snapshot.exists) {
+            const { displayName, email, photoURL } = user;
+            const createdAt = new Date();
+            try {
+                await userRef.set({
+                    displayName,
+                    email,
+                    photoURL,
+                    createdAt,
+                    isAdmin: false,
+                    isBan: false
+                });
+                console.log("Perfil do usuário criado no Firestore.");
+            } catch (error) {
+                console.error("Erro ao criar perfil do usuário:", error);
+            }
+        }
+    }
+
+    async function loadAndApplyUserAppsCSS(userId) {
+        const customAppCssStyleTag = document.getElementById('custom-app-css');
+        if (!customAppCssStyleTag) return;
+        try {
+            const userAppsSnapshot = await firestore.collection('userApps').doc(userId).get();
+            if (userAppsSnapshot.exists) {
+                const appData = userAppsSnapshot.data();
+                let cssContent = '';
+                if (appData && appData.apps) {
+                    appData.apps.forEach(app => {
+                        if (app.css) {
+                            cssContent += app.css + '\n';
+                        }
+                    });
+                }
+                customAppCssStyleTag.innerHTML = cssContent;
+            } else {
+                customAppCssStyleTag.innerHTML = '';
+            }
+        } catch (error) {
+            console.error("Erro ao carregar CSS de aplicativos do usuário:", error);
+            customAppCssStyleTag.innerHTML = '';
+        }
+    }
+
     const providerGoogle = new firebase.auth.GoogleAuthProvider();
     const providerGitHub = new firebase.auth.GithubAuthProvider();
 
     document.getElementById('login-google').addEventListener('click', () => {
-        auth.signInWithPopup(providerGoogle)
-            .catch(error => {
-                console.error("Erro no login com Google:", error);
-            });
+        auth.signInWithPopup(providerGoogle).catch(error => { console.error("Erro no login com Google:", error); });
     });
     document.getElementById('login-github').addEventListener('click', () => {
-        auth.signInWithPopup(providerGitHub)
-            .catch(error => {
-                console.error("Erro no login com GitHub:", error);
-            });
+        auth.signInWithPopup(providerGitHub).catch(error => { console.error("Erro no login com GitHub:", error); });
     });
     function handleLogout() {
-        auth.signOut().then(() => {
-            console.log("Usuário deslogado.");
-        }).catch((error) => {
-            console.error("Erro ao deslogar:", error);
-        });
+        auth.signOut().then(() => { console.log("Usuário deslogado."); }).catch((error) => { console.error("Erro ao deslogar:", error); });
     }
     const logoutButton = document.getElementById('logout-button');
     if (logoutButton) {
         logoutButton.addEventListener('click', handleLogout);
     }
 
+    // --- Gerenciamento de Estado de Autenticação ---
     auth.onAuthStateChanged(async (user) => {
         currentUser = user;
         const userInfo = document.getElementById('user-info');
@@ -578,8 +599,6 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
         const bannedMessage = document.getElementById('banned-message');
         const newsButton = document.getElementById('news-button');
         const newsCenterPopup = document.getElementById('news-center-popup');
-
-
         if (user) {
             if (userInfo) userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
             if (loginGoogleButton) loginGoogleButton.style.display = 'none';
@@ -594,14 +613,11 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
             }
             if (googleAppsButton) googleAppsButton.style.display = 'inline-block';
             if (userInfoContainer) userInfoContainer.style.display = 'flex';
-
             await createUserProfileDocument(user);
-
             let isUserBanned = false;
             try {
                 const userProfileRef = firestore.collection('users').doc(user.uid);
                 const doc = await userProfileRef.get();
-
                 if (doc.exists && doc.data()) {
                     isUserBanned = doc.data().isBan || false;
                 }
@@ -609,7 +625,6 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
                 console.error("Erro ao verificar perfil de usuário ou status de banimento:", error);
                 isUserBanned = false;
             }
-
             isCurrentUserBanned = isUserBanned;
             if (isUserBanned) {
                 console.warn(`Usuário ${user.uid} está banido.`);
@@ -623,7 +638,6 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
                 }
                 if (bannedMessage) bannedMessage.style.display = 'block';
                 if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
-
                 if (googleAppsButton) {
                     googleAppsButton.style.pointerEvents = 'none';
                     googleAppsButton.style.opacity = '0.6';
@@ -636,13 +650,11 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
                 setNavLinksEnabled(true);
                 if (bannedMessage) bannedMessage.style.display = 'none';
                 if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
-
                 if (googleAppsButton) {
                     googleAppsButton.style.pointerEvents = 'auto';
                     googleAppsButton.style.opacity = '1';
                 }
                 if (newsButton) newsButton.style.display = 'inline-block';
-
                 await loadAndApplyUserAppsCSS(user.uid);
             }
         } else {
@@ -654,10 +666,8 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
             isCurrentUserBanned = false;
             if (bannedMessage) bannedMessage.style.display = 'none';
             setNavLinksEnabled(false);
-
             if (contentFrame) contentFrame.style.display = 'none';
             if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
-
             if (userProfilePic) {
                 userProfilePic.style.display = 'none';
                 userProfilePic.src = '';
@@ -676,163 +686,10 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
         }
     });
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const googleAppsButton = document.getElementById('google-apps-button');
-        const googleAppsPopup = document.getElementById('google-apps-popup');
-        const navLinks = document.querySelectorAll('.mdl-navigation__link');
-        const newsButton = document.getElementById('news-button');
-        const newsCenterPopup = document.getElementById('news-center-popup');
-        const closeNewsPopupButton = document.getElementById('close-news-popup-button');
-        const viewAllNewsButton = document.getElementById('view-all-news-button');
-
-        if (googleAppsButton) {
-            googleAppsButton.addEventListener('click', (event) => {
-                event.stopPropagation();
-                if (googleAppsPopup.style.display === 'block') {
-                    googleAppsPopup.style.display = 'none';
-                } else {
-                    googleAppsPopup.style.display = 'block';
-                    const appGrid = document.getElementById('app-grid');
-                    appGrid.innerHTML = '';
-
-                    const wzzmServices = [
-                        { name: 'Office WZZM', url: 'https://office.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                        { name: 'Escolar WZZM', url: 'https://escolar.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                        { name: 'Minha Persona WZZM', url: 'https://minhapersona.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                        { name: 'Wiki Zero', url: 'https://wikizero.wzzm.org/', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                        { name: 'UWG Wikidot', url: 'https://uwg.wikidot.com', iconUrl: 'https://uwg.wikidot.png' },
-                        { name: 'Wiki Metro SP', url: 'https://wikimetrosp.miraheze.org', iconUrl: 'https://wikimetrosp.miraheze.org/logo.png' }
-                    ];
-                    wzzmServices.forEach(app => {
-                        const appItem = document.createElement('div');
-                        appItem.classList.add('app-item');
-                        appItem.innerHTML = `
-                            <img src="${app.iconUrl}" alt="${app.name}"> <span>${app.name}</span>
-                        `;
-                        appItem.addEventListener('click', () => {
-                            loadInMainFrame(app.url);
-                            googleAppsPopup.style.display = 'none';
-                        });
-                        appGrid.appendChild(appItem);
-                    });
-                }
-            });
-        }
-
-        if (newsButton) {
-            newsButton.addEventListener('click', (event) => {
-                event.stopPropagation();
-                if (newsCenterPopup.style.display === 'flex') {
-                    hideNewsPopup();
-                } else {
-                    showNewsPopup();
-                }
-            });
-        }
-
-        if (closeNewsPopupButton) {
-            closeNewsPopupButton.addEventListener('click', () => {
-                hideNewsPopup();
-            });
-        }
-
-        if (viewAllNewsButton) {
-            viewAllNewsButton.addEventListener('click', () => {
-                loadInMainFrame('visualizarnoticias.html');
-                hideNewsPopup();
-            });
-        }
-
-        document.addEventListener('click', (event) => {
-            if (googleAppsPopup && googleAppsPopup.style.display === 'block' &&
-                !googleAppsButton.contains(event.target) &&
-                !googleAppsPopup.contains(event.target)) {
-                googleAppsPopup.style.display = 'none';
-            }
-            if (newsCenterPopup && newsCenterPopup.style.display === 'flex' &&
-                !newsButton.contains(event.target) &&
-                !newsCenterPopup.contains(event.target)) {
-                newsCenterPopup.style.display = 'none';
-            }
-        });
-
-        navLinks.forEach(link => {
-            link.addEventListener('click', function(event) {
-                const pageSrc = this.getAttribute('onclick');
-                let actualPageSrc = '';
-                let requiresAuth = false;
-
-                if (pageSrc && pageSrc.includes("loadPage(")) {
-                    const match = pageSrc.match(/loadPage\('([^']*)', (true|false)\)/);
-                    if (match) {
-                        actualPageSrc = match[1];
-                        requiresAuth = match[2] === 'true';
-                    }
-                }
-
-                if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                    event.preventDefault();
-                    return;
-                }
-
-                if (this.classList.contains('disabled') && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                    event.preventDefault();
-                    return;
-                }
-
-                if (actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                    window.open(actualPageSrc, '_blank');
-                    event.preventDefault();
-                    return;
-                }
-
-                event.preventDefault();
-                loadInMainFrame(actualPageSrc);
-                if (document.querySelector('.mdl-layout__drawer.is-visible')) {
-                    document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
-                    document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
-                }
-            });
-        });
-        if (componentHandler) {
-            componentHandler.upgradeDom();
-        }
-    });
-
-    function uniqueID() {
-        return 'win_' + Math.random().toString(36).substr(2, 9);
-    }
-
-    function loadPage(src, requiresAuth = false) {
-        const contentFrame = document.getElementById('main-content-frame');
-        const accessDeniedMessage = document.getElementById('access-denied-message');
-        const bannedMessage = document.getElementById('banned-message');
-
-        if (contentFrame) {
-            if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
-            if (bannedMessage) bannedMessage.style.display = 'none';
-
-            if (requiresAuth && !currentUser) {
-                if (accessDeniedMessage) accessDeniedMessage.style.display = 'block';
-                return;
-            }
-            if (isCurrentUserBanned) {
-                if (bannedMessage) bannedMessage.style.display = 'block';
-                return;
-            }
-
-            contentFrame.src = src;
-            contentFrame.style.display = 'block';
-        }
-    }
-
+    // --- Captura e exibe erros do console ---
     window._wzzmErrorLog = [];
-    window.addEventListener('error', function(e) {
-        window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] ${e.message} (${e.filename}:${e.lineno})`);
-    });
-    window.addEventListener('unhandledrejection', function(e) {
-        window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] Unhandled Promise: ${e.reason}`);
-    });
+    window.addEventListener('error', function(e) { window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] ${e.message} (${e.filename}:${e.lineno})`); });
+    window.addEventListener('unhandledrejection', function(e) { window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] Unhandled Promise: ${e.reason}`); });
     (function() {
         const originalError = console.error;
         console.error = function(...args) {
@@ -840,43 +697,8 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
             originalError.apply(console, args);
         };
     })();
-    document.addEventListener('DOMContentLoaded', function() {
-        var btn = document.getElementById('error-log-button');
-        if (!btn) return;
-        btn.addEventListener('click', function() {
-            var logList = document.getElementById('error-log-list');
-            logList.innerHTML = '';
-            if (window._wzzmErrorLog.length === 0) {
-                logList.innerHTML = '<li style="color:green;">Nenhum erro registrado nesta sessão.</li>';
-            } else {
-                window._wzzmErrorLog.slice(-100).forEach(function(msg) {
-                    var li = document.createElement('li');
-                    li.textContent = msg;
-                    logList.appendChild(li);
-                });
-            }
-            document.getElementById('error-log-popup').style.display = 'block';
-        });
-    });
 
-    // --- CÓDIGO RESTAURADO PARA CARREGAMENTO DE CONFIGURAÇÕES E MENU ---
-    // Funções para carregar e aplicar dados
-    function applyConfigData(data) {
-        document.title = data.nomeCompletoWiki || 'Wiki';
-        const wikiPageName = document.getElementById('wiki-page-name');
-        if (wikiPageName) {
-            wikiPageName.textContent = data.nomeCompletoWiki || 'Wiki';
-        }
-        const drawerTitle = document.getElementById('drawer-title');
-        if (drawerTitle) {
-            drawerTitle.textContent = data.nomePaginaDrawer || 'Navegação';
-        }
-        const searchArticlesLink = document.getElementById('search-articles-link');
-        if (searchArticlesLink) {
-            searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
-        }
-    }
-
+    // --- Event Listeners e Carregamento de dados ---
     document.addEventListener('DOMContentLoaded', () => {
         // Carrega configurações do Firebase em tempo real
         const docId = 'configuracoes';
@@ -886,7 +708,7 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
                 applyConfigData(data);
                 console.log("Configurações carregadas do Firebase (em tempo real):", data);
             } else {
-                console.warn(`Documento de configuração '${docId}' não encontrado na coleção 'configuracoes'. Usando valores padrão.`);
+                console.warn(`Documento de configuração '${docId}' não encontrado. Usando valores padrão.`);
                 applyConfigData({});
             }
         }, error => {
@@ -896,7 +718,12 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
 
         // Carrega o menu do arquivo JSON
         fetch('menu.json')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(menuItems => {
                 const drawerMenu = document.getElementById('drawer-menu');
                 if (!drawerMenu) return;
@@ -920,6 +747,126 @@ ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}
             .catch(error => {
                 console.error('Erro ao carregar menu.json:', error);
             });
+
+        // Adiciona event listeners para botões e popups
+        const googleAppsButton = document.getElementById('google-apps-button');
+        const googleAppsPopup = document.getElementById('google-apps-popup');
+        const navLinks = document.querySelectorAll('.mdl-navigation__link');
+        const newsButton = document.getElementById('news-button');
+        const newsCenterPopup = document.getElementById('news-center-popup');
+        const closeNewsPopupButton = document.getElementById('close-news-popup-button');
+        const viewAllNewsButton = document.getElementById('view-all-news-button');
+
+        if (googleAppsButton) {
+            googleAppsButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (googleAppsPopup.style.display === 'block') {
+                    googleAppsPopup.style.display = 'none';
+                } else {
+                    googleAppsPopup.style.display = 'block';
+                    const appGrid = document.getElementById('app-grid');
+                    appGrid.innerHTML = '';
+                    const wzzmServices = [
+                        { name: 'Office WZZM', url: 'https://office.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'Escolar WZZM', url: 'https://escolar.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'Minha Persona WZZM', url: 'https://minhapersona.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'Wiki Zero', url: 'https://wikizero.wzzm.org/', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'UWG Wikidot', url: 'https://uwg.wikidot.com', iconUrl: 'https://uwg.wikidot.png' },
+                        { name: 'Wiki Metro SP', url: 'https://wikimetrosp.miraheze.org', iconUrl: 'https://wikimetrosp.miraheze.org/logo.png' }
+                    ];
+                    wzzmServices.forEach(app => {
+                        const appItem = document.createElement('div');
+                        appItem.classList.add('app-item');
+                        appItem.innerHTML = `<img src="${app.iconUrl}" alt="${app.name}"> <span>${app.name}</span>`;
+                        appItem.addEventListener('click', () => {
+                            loadInMainFrame(app.url);
+                            googleAppsPopup.style.display = 'none';
+                        });
+                        appGrid.appendChild(appItem);
+                    });
+                }
+            });
+        }
+        if (newsButton) {
+            newsButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (newsCenterPopup.style.display === 'flex') {
+                    hideNewsPopup();
+                } else {
+                    showNewsPopup();
+                }
+            });
+        }
+        if (closeNewsPopupButton) {
+            closeNewsPopupButton.addEventListener('click', () => { hideNewsPopup(); });
+        }
+        if (viewAllNewsButton) {
+            viewAllNewsButton.addEventListener('click', () => {
+                loadInMainFrame('visualizarnoticias.html');
+                hideNewsPopup();
+            });
+        }
+        document.addEventListener('click', (event) => {
+            if (googleAppsPopup && googleAppsPopup.style.display === 'block' && !googleAppsButton.contains(event.target) && !googleAppsPopup.contains(event.target)) {
+                googleAppsPopup.style.display = 'none';
+            }
+            if (newsCenterPopup && newsCenterPopup.style.display === 'flex' && !newsButton.contains(event.target) && !newsCenterPopup.contains(event.target)) {
+                newsCenterPopup.style.display = 'none';
+            }
+        });
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(event) {
+                const pageSrc = this.getAttribute('onclick');
+                let actualPageSrc = '';
+                let requiresAuth = false;
+                if (pageSrc && pageSrc.includes("loadPage(")) {
+                    const match = pageSrc.match(/loadPage\('([^']*)', (true|false)\)/);
+                    if (match) {
+                        actualPageSrc = match[1];
+                        requiresAuth = match[2] === 'true';
+                    }
+                }
+                if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    event.preventDefault();
+                    return;
+                }
+                if (this.classList.contains('disabled') && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    event.preventDefault();
+                    return;
+                }
+                if (actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    window.open(actualPageSrc, '_blank');
+                    event.preventDefault();
+                    return;
+                }
+                event.preventDefault();
+                loadInMainFrame(actualPageSrc);
+                if (document.querySelector('.mdl-layout__drawer.is-visible')) {
+                    document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
+                    document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
+                }
+            });
+        });
+        if (componentHandler) {
+            componentHandler.upgradeDom();
+        }
+
+        var btn = document.getElementById('error-log-button');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            var logList = document.getElementById('error-log-list');
+            logList.innerHTML = '';
+            if (window._wzzmErrorLog.length === 0) {
+                logList.innerHTML = '<li style="color:green;">Nenhum erro registrado nesta sessão.</li>';
+            } else {
+                window._wzzmErrorLog.slice(-100).forEach(function(msg) {
+                    var li = document.createElement('li');
+                    li.textContent = msg;
+                    logList.appendChild(li);
+                });
+            }
+            document.getElementById('error-log-popup').style.display = 'block';
+        });
     });
 </script>
 </body>
