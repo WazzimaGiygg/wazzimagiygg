@@ -794,914 +794,366 @@
     </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- Configuração do Firebase ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
+    // --- Configuração do Firebase ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+        authDomain: "wzzm-ce3fc.firebaseapp.com",
+        projectId: "wzzm-ce3fc",
+        storageBucket: "wzzm-ce3fc.appspot.com",
+        messagingSenderId: "249427877153",
+        appId: "1:249427877153:web:0e4297294794a5aadeb260",
+        measurementId: "G-PLKNZNFCQ8"
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const firestore = firebase.firestore();
+    firebase.analytics();
 
-        // Inicialize o Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const googleProvider = new firebase.auth.GoogleAuthProvider();
+    let currentUser = null;
+    let isCurrentUserBanned = false;
 
-        // Elementos da interface
-        const loginSection = document.getElementById('login-section');
-        const loggedInHeader = document.getElementById('header-logged-in');
-        const mainContainer = document.getElementById('content-split');
+    // --- Funções principais (movidas para o escopo global) ---
+    function loadInMainFrame(src) {
+        const contentFrame = document.getElementById('main-content-frame');
+        if (contentFrame) {
+            contentFrame.src = src;
+        }
+    }
+
+    function loadPage(src, requiresAuth = false) {
+        const contentFrame = document.getElementById('main-content-frame');
+        const accessDeniedMessage = document.getElementById('access-denied-message');
+        const bannedMessage = document.getElementById('banned-message');
+        if (contentFrame) {
+            if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
+            if (bannedMessage) bannedMessage.style.display = 'none';
+            if (requiresAuth && !currentUser) {
+                if (accessDeniedMessage) accessDeniedMessage.style.display = 'block';
+                return;
+            }
+            if (isCurrentUserBanned) {
+                if (bannedMessage) bannedMessage.style.display = 'block';
+                return;
+            }
+            contentFrame.src = src;
+            contentFrame.style.display = 'block';
+        }
+    }
+
+    // --- Funções auxiliares ---
+    function setNavLinksEnabled(enabled) {
+        const navLinks = document.querySelectorAll('.mdl-navigation__link[data-requires-auth="true"]');
+        navLinks.forEach(link => {
+            if (enabled) {
+                link.style.pointerEvents = 'auto';
+                link.style.color = '#424242';
+            } else {
+                link.style.pointerEvents = 'none';
+                link.style.color = '#9e9e9e';
+            }
+        });
+    }
+
+    function applyConfigData(data) {
+        document.title = data.nomeCompletoWiki || 'Wiki';
+        const wikiPageName = document.getElementById('wiki-page-name');
+        if (wikiPageName) {
+            wikiPageName.textContent = data.nomeCompletoWiki || 'Wiki';
+        }
+        const drawerTitle = document.getElementById('drawer-title');
+        if (drawerTitle) {
+            drawerTitle.textContent = data.nomePaginaDrawer || 'Navegação';
+        }
+        const searchArticlesLink = document.getElementById('search-articles-link');
+        if (searchArticlesLink) {
+            searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
+        }
+    }
+
+    function showNewsPopup() {
+        const newsCenterPopup = document.getElementById('news-center-popup');
+        if (newsCenterPopup) {
+            newsCenterPopup.style.display = 'flex';
+            fetchLatestNews();
+        }
+    }
+
+    function hideNewsPopup() {
+        const newsCenterPopup = document.getElementById('news-center-popup');
+        if (newsCenterPopup) {
+            newsCenterPopup.style.display = 'none';
+        }
+    }
+
+    async function fetchLatestNews() {
+        const newsPopupContent = document.getElementById('news-popup-content');
+        newsPopupContent.innerHTML = '<p>Carregando últimas notícias...</p>';
+        try {
+            const newsSnapshot = await firestore.collection('news').orderBy('createdAt', 'desc').limit(5).get();
+            if (newsSnapshot.empty) {
+                newsPopupContent.innerHTML = '<p>Nenhuma notícia encontrada.</p>';
+                return;
+            }
+            newsPopupContent.innerHTML = '';
+            newsSnapshot.forEach(doc => {
+                const news = doc.data();
+                const newsItem = document.createElement('div');
+                newsItem.classList.add('news-popup-item');
+                const timestampDate = news.createdAt ? news.createdAt.toDate() : new Date();
+                const timeString = timestampDate.toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                newsItem.innerHTML = `<h3>${news.title}</h3><p>${news.description}</p><small>Categoria: ${news.category}</small><br> ${news.tags && news.tags.length > 0 ? `<small>Tags: ${news.tags.join(', ')}</small><br>` : ''}<small>Publicado em: ${timeString}</small>${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''}`;
+                newsPopupContent.appendChild(newsItem);
+            });
+        } catch (error) {
+            console.error("Erro ao buscar últimas notícias para o popup:", error);
+            newsPopupContent.innerHTML = `<p style="color: red;">Erro ao carregar notícias: ${error.message}</p>`;
+        }
+    }
+
+    async function createUserProfileDocument(user) {
+        if (!user) return;
+        const userRef = firestore.doc(`users/${user.uid}`);
+        const snapshot = await userRef.get();
+        if (!snapshot.exists) {
+            const { displayName, email, photoURL } = user;
+            const createdAt = new Date();
+            try {
+                await userRef.set({ displayName, email, photoURL, createdAt, isAdmin: false, isBan: false });
+                console.log("Perfil do usuário criado no Firestore.");
+            } catch (error) {
+                console.error("Erro ao criar perfil do usuário:", error);
+            }
+        }
+    }
+
+    async function loadAndApplyUserAppsCSS(userId) {
+        const customAppCssStyleTag = document.getElementById('custom-app-css');
+        if (!customAppCssStyleTag) return;
+        try {
+            const userAppsSnapshot = await firestore.collection('userApps').doc(userId).get();
+            if (userAppsSnapshot.exists) {
+                const appData = userAppsSnapshot.data();
+                let cssContent = '';
+                if (appData && appData.apps) {
+                    appData.apps.forEach(app => { if (app.css) { cssContent += app.css + '\n'; } });
+                }
+                customAppCssStyleTag.innerHTML = cssContent;
+            } else {
+                customAppCssStyleTag.innerHTML = '';
+            }
+        } catch (error) {
+            console.error("Erro ao carregar CSS de aplicativos do usuário:", error);
+            customAppCssStyleTag.innerHTML = '';
+        }
+    }
+
+    const providerGoogle = new firebase.auth.GoogleAuthProvider();
+    const providerGitHub = new firebase.auth.GithubAuthProvider();
+
+    document.getElementById('login-google').addEventListener('click', () => { auth.signInWithPopup(providerGoogle).catch(error => { console.error("Erro no login com Google:", error); }); });
+    document.getElementById('login-github').addEventListener('click', () => { auth.signInWithPopup(providerGitHub).catch(error => { console.error("Erro no login com GitHub:", error); }); });
+    function handleLogout() {
+        auth.signOut().then(() => { console.log("Usuário deslogado."); }).catch((error) => { console.error("Erro ao deslogar:", error); });
+    }
+    const logoutButton = document.getElementById('logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', handleLogout);
+    }
+
+    // --- Gerenciamento de Estado de Autenticação ---
+    auth.onAuthStateChanged(async (user) => {
+        currentUser = user;
+        const userInfo = document.getElementById('user-info');
+        const loginGoogleButton = document.getElementById('login-google');
+        const loginGitHubButton = document.getElementById('login-github');
         const logoutButton = document.getElementById('logout-button');
-        const googleLoginBtn = document.getElementById('google-login-btn');
-        const artigosBtn = document.getElementById('artigos-btn');
-        const criarArtigoBtn = document.getElementById('criar-artigo-btn');
-        const minhasContribuicoesBtn = document.getElementById('minhas-contribuicoes-btn');
-        const buscaAvancadaBtn = document.getElementById('busca-avancada-btn');
-        
-        // NOVO CÓDIGO - Botão e painel da página de busca
-        const buscarArtigosBtn = document.getElementById('buscar-artigos-btn');
-        const buscarArtigosPane = document.getElementById('buscar-artigos-pane');
-        const escolarBtn = document.getElementById('escolar-btn');
-        const escolarPane = document.getElementById('escolar-pane');
-        
-        const artigosPane = document.getElementById('artigos-pane');
-        const buscaAvancadaPane = document.getElementById('busca-avancada-pane');
-        const detalhesArtigo = document.getElementById('detalhes-artigo');
-        const editorArtigo = document.getElementById('editor-artigo');
-        const historicoArtigo = document.getElementById('historico-artigo');
-        const novoArtigoPane = document.getElementById('novo-artigo');
-        const paginaUsuarioSection = document.getElementById('pagina-usuario');
-        const conteudoPrincipal = document.getElementById('conteudo-principal');
-        const minhasContribuicoesPane = document.getElementById('minhas-contribuicoes');
-        const contribuicoesListaPrincipal = document.getElementById('contribuicoesListaPrincipal');
-
-        const artigosList = document.getElementById('artigos-list');
-        const artigosTitle = document.getElementById('artigos-title');
-
-        // Elementos de busca avançada
-        const buscaAvancadaForm = document.getElementById('busca-avancada-form');
-        const buscaTituloInput = document.getElementById('busca-titulo');
-        const buscaDescricaoInput = document.getElementById('busca-descricao');
-        const buscaUidInput = document.getElementById('busca-uid');
-
-        // Elementos de edição e histórico
-        const formEdicaoArtigo = document.getElementById('form-edicao-artigo');
-        const editTitulo = document.getElementById('edit-titulo');
-        const editDescricao = document.getElementById('edit-descricao');
-        const editSumario = document.getElementById('edit-sumario');
-        const cancelarEdicaoBtn = document.getElementById('cancelar-edicao');
-        const voltarDetalhesBtn = document.getElementById('voltar-detalhes');
-        const listaHistorico = document.getElementById('lista-historico');
-
-        // Elementos de criação de artigo
-        const formNovoArtigo = document.getElementById('form-novo-artigo');
-        const newTitulo = document.getElementById('new-titulo');
-        const newSetor = document.getElementById('new-setor');
-        const newArmario = document.getElementById('new-armario');
-        const newDescricao = document.getElementById('new-descricao');
-        const cancelarNovoArtigoBtn = document.getElementById('cancelar-novo-artigo');
-
-        // Elementos da página do usuário
-        const userDisplayName = document.getElementById('user-display-name');
-        const userRole = document.getElementById('user-role');
-        const tabButtons = document.querySelectorAll('.user-tabs .tab-button');
-        const contribuicoesTab = document.getElementById('contribuicoes-tab');
-        const paginaPessoalTab = document.getElementById('pagina-pessoal-tab');
-        const discussaoTab = document.getElementById('discussao-tab');
-        const paginaPessoalTextarea = document.getElementById('pagina-pessoal-textarea');
-        const salvarPaginaPessoalBtn = document.getElementById('salvar-pagina-pessoal');
-        const cancelarPaginaPessoalBtn = document.getElementById('cancelar-pagina-pessoal');
-        const voltarAoPainelPerfilBtn = document.getElementById('voltar-ao-painel-perfil');
-
-        let currentUserRole = 'guest';
-        let artigoSelecionado = null;
-
-        // --- Lógica de Autenticação ---
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                console.log("Usuário logado:", user.email);
-                const userDoc = await db.collection('users').doc(user.uid).get();
-                if (userDoc.exists && userDoc.data().role) {
-                    currentUserRole = userDoc.data().role;
-                } else {
-                    currentUserRole = 'user';
-                }
-                loginSection.style.display = 'none';
-                loggedInHeader.style.display = 'flex';
-                mainContainer.style.display = 'grid'; // Usa grid para o novo layout
-                userDisplayName.textContent = user.displayName || user.email;
-                userRole.textContent = `Cargo: ${currentUserRole}`;
-                exibirPainel('detalhes-artigo'); // Mostra a tela de 'Selecione um artigo' por padrão
-                buscarArtigos();
+        const userProfilePic = document.getElementById('user-profile-pic');
+        const googleAppsButton = document.getElementById('google-apps-button');
+        const userInfoContainer = document.getElementById('user-info-container');
+        const googleAppsPopup = document.getElementById('google-apps-popup');
+        const customAppCssStyleTag = document.getElementById('custom-app-css');
+        const contentFrame = document.getElementById('main-content-frame');
+        const accessDeniedMessage = document.getElementById('access-denied-message');
+        const bannedMessage = document.getElementById('banned-message');
+        const newsButton = document.getElementById('news-button');
+        const newsCenterPopup = document.getElementById('news-center-popup');
+        if (user) {
+            if (userInfo) userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
+            if (loginGoogleButton) loginGoogleButton.style.display = 'none';
+            if (loginGitHubButton) loginGitHubButton.style.display = 'none';
+            if (user.photoURL) { if (userProfilePic) { userProfilePic.src = user.photoURL; userProfilePic.style.display = 'inline-block'; } } else { if (userProfilePic) userProfilePic.style.display = 'none'; }
+            if (googleAppsButton) googleAppsButton.style.display = 'inline-block';
+            if (userInfoContainer) userInfoContainer.style.display = 'flex';
+            await createUserProfileDocument(user);
+            let isUserBanned = false;
+            try {
+                const userProfileRef = firestore.collection('users').doc(user.uid);
+                const doc = await userProfileRef.get();
+                if (doc.exists && doc.data()) { isUserBanned = doc.data().isBan || false; }
+            } catch (error) { console.error("Erro ao verificar perfil de usuário ou status de banimento:", error); isUserBanned = false; }
+            isCurrentUserBanned = isUserBanned;
+            if (isUserBanned) {
+                console.warn(`Usuário ${user.uid} está banido.`);
+                setNavLinksEnabled(false);
+                if (logoutButton) { logoutButton.style.display = 'none'; logoutButton.removeEventListener('click', handleLogout); }
+                if (contentFrame) { contentFrame.style.display = 'none'; }
+                if (bannedMessage) bannedMessage.style.display = 'block';
+                if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
+                if (googleAppsButton) { googleAppsButton.style.pointerEvents = 'none'; googleAppsButton.style.opacity = '0.6'; }
+                if (googleAppsPopup) googleAppsPopup.style.display = 'none';
+                if (newsButton) newsButton.style.display = 'none';
+                if (newsCenterPopup) newsCenterPopup.style.display = 'none';
             } else {
-                console.log("Nenhum usuário logado.");
-                loginSection.style.display = 'flex';
-                loggedInHeader.style.display = 'none';
-                mainContainer.style.display = 'none';
-                currentUserRole = 'guest';
+                if (logoutButton) logoutButton.style.display = 'inline-block';
+                setNavLinksEnabled(true);
+                if (bannedMessage) bannedMessage.style.display = 'none';
+                if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
+                if (googleAppsButton) { googleAppsButton.style.pointerEvents = 'auto'; googleAppsButton.style.opacity = '1'; }
+                if (newsButton) newsButton.style.display = 'inline-block';
+                await loadAndApplyUserAppsCSS(user.uid);
             }
-        });
-
-        googleLoginBtn.addEventListener('click', async () => {
-            try {
-                await auth.signInWithPopup(googleProvider);
-            } catch (error) {
-                console.error("Erro no login com Google:", error);
-                alert("Erro no login com Google: " + error.message);
-            }
-        });
-
-        logoutButton.addEventListener('click', () => {
-            auth.signOut();
-        });
-
-        // --- Funções de Navegação e Exibição de Painéis ---
-        function exibirPainel(painelId) {
-            // Oculta todos os painéis dentro da seção de conteúdo principal
-            document.querySelectorAll('#conteudo-principal > .content-pane').forEach(pane => {
-                pane.style.display = 'none';
-            });
-            // Exibe o painel solicitado
-            const painel = document.getElementById(painelId);
-            if (painel) {
-                painel.style.display = 'block';
-            }
-
-            // Remove a classe 'active' de todos os botões de navegação
-            document.querySelectorAll('.nav-buttons button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-
-            // Adiciona a classe 'active' ao botão correspondente, se houver
-            const activeBtn = document.getElementById(painelId.replace('-pane', '-btn')) || document.getElementById('artigos-btn');
-            if (activeBtn) {
-                activeBtn.classList.add('active');
-            }
+        } else {
+            currentUser = null;
+            if (userInfo) userInfo.textContent = '';
+            if (loginGoogleButton) loginGoogleButton.style.display = 'inline-block';
+            if (loginGitHubButton) loginGitHubButton.style.display = 'inline-block';
+            if (logoutButton) logoutButton.style.display = 'none';
+            isCurrentUserBanned = false;
+            if (bannedMessage) bannedMessage.style.display = 'none';
+            setNavLinksEnabled(false);
+            if (contentFrame) contentFrame.style.display = 'none';
+            if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
+            if (userProfilePic) { userProfilePic.style.display = 'none'; userProfilePic.src = ''; }
+            if (googleAppsButton) googleAppsButton.style.display = 'none';
+            if (userInfoContainer) userInfoContainer.style.display = 'none';
+            if (googleAppsPopup) googleAppsPopup.style.display = 'none';
+            if (customAppCssStyleTag) customAppCssStyleTag.innerHTML = '';
+            if (contentFrame) contentFrame.style.display = 'block';
+            if (newsButton) newsButton.style.display = 'none';
+            if (newsCenterPopup) newsCenterPopup.style.display = 'none';
+            hideNewsPopup();
         }
+        if (componentHandler) { componentHandler.upgradeDom(); }
+    });
 
-        artigosBtn.addEventListener('click', () => {
-            exibirPainel('detalhes-artigo'); // Mantém o painel de artigos visível e mostra a tela de detalhes vazia
-            artigosTitle.textContent = 'Artigos Recentes';
-            buscarArtigos();
-        });
+    // --- Captura e exibe erros do console ---
+    window._wzzmErrorLog = [];
+    window.addEventListener('error', function(e) { window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] ${e.message} (${e.filename}:${e.lineno})`); });
+    window.addEventListener('unhandledrejection', function(e) { window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] Unhandled Promise: ${e.reason}`); });
+    (function() {
+        const originalError = console.error;
+        console.error = function(...args) {
+            window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] console.error: ${args.join(' ')}`);
+            originalError.apply(console, args);
+        };
+    })();
 
-        criarArtigoBtn.addEventListener('click', () => {
-            exibirPainel('novo-artigo');
-            formNovoArtigo.reset();
-        });
-
-
-        // NOVO EVENTO DE CLIQUE PARA O BOTÃO 'MINHAS CONTRIBUIÇÕES'
-        minhasContribuicoesBtn.addEventListener('click', () => {
-            exibirPainel('minhas-contribuicoes');
-            carregarMinhasContribuicoes();
-        });
-
-        buscaAvancadaBtn.addEventListener('click', () => {
-            exibirPainel('busca-avancada-pane');
-        });
-
-        // NOVO CÓDIGO - Evento de clique para o botão "Buscar Artigos"
-        buscarArtigosBtn.addEventListener('click', () => {
-            exibirPainel('buscar-artigos-pane');
-            // Inicializa a busca com valores padrão
-            loadArticles();
-        });
-
-        escolarBtn.addEventListener('click', () => {
-            loadInMainFrame('escolar.html');
-        });
-
-        // --- Lógica de busca e exibição dos artigos ---
-        async function buscarArtigos(filtros = {}) {
-            artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
-            detalhesArtigo.style.display = 'none';
-            editorArtigo.style.display = 'none';
-            historicoArtigo.style.display = 'none';
-
-            const uid = filtros.uid ? filtros.uid.trim() : '';
-            const tituloBusca = filtros.titulo ? filtros.titulo.toLowerCase() : '';
-            const descricaoBusca = filtros.descricao ? filtros.descricao.toLowerCase() : '';
-            const setorBusca = filtros.setor ? filtros.setor : '';
-
-            if (uid) {
-                artigosTitle.textContent = 'Resultado da busca por UID';
-                try {
-                    const doc = await db.collection('materias').doc(uid).get();
-                    artigosList.innerHTML = '';
-                    if (doc.exists) {
-                        const materia = doc.data();
-                        const artigoItem = document.createElement('div');
-                        artigoItem.className = 'artigo-item';
-                        artigoItem.setAttribute('data-id', doc.id);
-                        artigoItem.innerHTML = `
-                            <h3>${materia.titulo}</h3>
-                            <p>ID: ${doc.id}</p>
-                        `;
-                        artigoItem.addEventListener('click', () => {
-                            carregarDetalhesArtigo(doc.id, materia);
-                            let infoHtml = '';
-                            if (materia.criadorEmail) {
-                                infoHtml += `<p><strong>Criado por:</strong> <span class="link-perfil" data-uid="${materia.criadorId}">${materia.criadorEmail}</span></p>`;
-                            }
-                            if (artigoSelecionado) {
-                                artigoSelecionado.classList.remove('ativo');
-                            }
-                            artigoItem.classList.add('ativo');
-                            artigoSelecionado = artigoItem;
-                        });
-                        artigosList.appendChild(artigoItem);
-                    } else {
-                        artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com este UID.</p>`;
-                    }
-                } catch (error) {
-                    console.error("Erro ao buscar artigo por UID: ", error);
-                    artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-                }
-                return;
-            }
-
-            let query = db.collection('materias');
-
-            // Aplica o filtro de setor se estiver presente
-            if (setorBusca) {
-                query = query.where('setor', '==', setorBusca);
-            }
-
-            try {
-                const querySnapshot = await query.orderBy('ultimaEdicao', 'desc').limit(100).get();
-                artigosList.innerHTML = '';
-                let resultadosFiltrados = [];
-                querySnapshot.forEach(doc => {
-                    const materia = doc.data();
-                    const titulo = materia.titulo ? materia.titulo.toLowerCase() : '';
-                    const descricao = materia.descricao ? materia.descricao.toLowerCase() : '';
-                    const matchTitulo = tituloBusca ? titulo.includes(tituloBusca) : true;
-                    const matchDescricao = descricaoBusca ? descricao.includes(descricaoBusca) : true;
-                    if (matchTitulo && matchDescricao) {
-                        resultadosFiltrados.push({ id: doc.id, data: materia });
-                    }
-                });
-
-                if (resultadosFiltrados.length === 0) {
-                    artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>`;
-                    return;
-                }
-
-                resultadosFiltrados.forEach(resultado => {
-                    const artigoItem = document.createElement('div');
-                    artigoItem.className = 'artigo-item';
-                    artigoItem.setAttribute('data-id', resultado.id);
-                    artigoItem.innerHTML = `
-                        <h3>${resultado.data.titulo}</h3>
-                        <p>ID: ${resultado.id}</p>
-                    `;
-                    artigoItem.addEventListener('click', () => {
-                        carregarDetalhesArtigo(resultado.id, resultado.data);
-                        if (artigoSelecionado) {
-                            artigoSelecionado.classList.remove('ativo');
-                        }
-                        artigoItem.classList.add('ativo');
-                        artigoSelecionado = artigoItem;
-                    });
-                    artigosList.appendChild(artigoItem);
-                });
-            } catch (error) {
-                console.error("Erro ao buscar artigos: ", error);
-                artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-            }
-        }
-
-        // Event listener para a busca avançada
-        buscaAvancadaForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const filtros = {
-                titulo: buscaTituloInput.value,
-                descricao: buscaDescricaoInput.value,
-                uid: buscaUidInput.value
-            };
-            exibirPainel('detalhes-artigo');
-            exibirPainel('artigos-pane');
-            buscarArtigos(filtros);
-        });
-
-        // --- Funções para Detalhes do Artigo ---
-        function carregarDetalhesArtigo(id, materia) {
-            exibirPainel('detalhes-artigo');
-
-            // Corrige o problema do histórico
-            editorArtigo.dataset.docId = id;
-            editorArtigo.dataset.tituloOriginal = materia.titulo;
-            editorArtigo.dataset.descricaoOriginal = materia.descricao;
-
-            const dataCriacao = materia.dataCriacao ? new Date(materia.dataCriacao.seconds * 1000).toLocaleString() : 'Data desconhecida';
-            const ultimaEdicao = materia.ultimaEdicao ? new Date(materia.ultimaEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
-
-            let infoHtml = '';
-            if (materia.criadorEmail) {
-                infoHtml += `<p><strong>Criado por:</strong> <span class="link-perfil" data-uid="${materia.criadorId}">${materia.criadorEmail}</span></p>`;
-            }
-            if (materia.dataCriacao) infoHtml += `<p><strong>Data de Criação:</strong> ${dataCriacao}</p>`;
-            if (materia.ultimaEdicao) infoHtml += `<p><strong>Última Edição:</strong> ${ultimaEdicao}</p>`;
-            if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
-            if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
-
-            let fontesHtml = '';
-            if (materia.fontes && materia.fontes.length > 0) {
-                fontesHtml = `
-                    <div class="fontes-container">
-                        <p>Fontes</p>
-                        <ul>
-                            ${materia.fontes.map(fonte => `<li>${fonte}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-            }
-
-            let botoesHtml = `
-                <button id="btn-editar-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #0645ad; color: white; border: none; cursor: pointer; margin-right: 10px;">Editar</button>
-                <button id="btn-ver-historico" data-id="${id}" style="padding: 8px 15px; background-color: #36c; color: white; border: none; cursor: pointer;">Histórico</button>
-                <button id="btn-imprimir-artigo" style="padding: 8px 15px; background-color: #555; color: white; border: none; cursor: pointer; margin-left: 10px;">Imprimir</button>
-            `;
-            if (currentUserRole === 'admin') {
-                botoesHtml += `<button id="btn-remover-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; cursor: pointer; margin-left: 10px;">Remover Artigo</button>`;
-            }
-
-            detalhesArtigo.innerHTML = `
-                <div class="article-header">
-                    <h1>${materia.titulo}</h1>
-                    <p class="uid-display">UID do Documento: <a href="uid/?uid=${id}">${id}</a></p>
-                </div>
-                <div style="margin-bottom: 1em;" class="botoes-artigo-imprimivel">
-                    ${botoesHtml}
-                </div>
-                <h2>Informações Adicionais</h2>
-                <div class="descricao-container">${infoHtml}</div>
-                <h2>Descrição</h2>
-                <div class="descricao-container">${materia.descricao}</div>
-                ${fontesHtml}
-            `;
-
-            document.getElementById('btn-editar-artigo').addEventListener('click', () => abrirEditor(id, materia));
-            document.getElementById('btn-ver-historico').addEventListener('click', () => abrirHistorico(id));
-            document.getElementById('btn-imprimir-artigo').addEventListener('click', imprimirArtigo);
-            if (currentUserRole === 'admin') {
-                document.getElementById('btn-remover-artigo').addEventListener('click', () => removerArtigo(id));
-            }
-            
-            document.getElementById('detalhes-artigo').addEventListener('click', (e) => {
-                // Verifica se o clique foi em um elemento com a classe 'link-perfil'
-                if (e.target.classList.contains('link-perfil')) {
-                    const userId = e.target.dataset.uid;
-                    if (userId) {
-                        abrirPerfilUsuario(userId);
-                    }
-                }
-            });
-        }
-
-        // --- Funções de Edição ---
-        function abrirEditor(id, materia) {
-            exibirPainel('editor-artigo');
-            editTitulo.value = materia.titulo;
-            editDescricao.value = materia.descricao;
-            editSumario.value = '';
-            editorArtigo.dataset.docId = id;
-        }
-
-        formEdicaoArtigo.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Impede o envio do formulário e o recarregamento da página
-
-            const docId = editorArtigo.dataset.docId;
-            if (!docId) return;
-
-            const user = auth.currentUser;
-            if (!user) {
-                alert('Você precisa estar logado para editar artigos.');
-                return;
-            }
-
-            const titulo = editTitulo.value;
-            const descricao = editDescricao.value;
-            const sumario = editSumario.value;
-
-            try {
-                // 1. Atualiza o documento em 'materias'
-                await db.collection('materias').doc(docId).update({
-                    titulo,
-                    descricao,
-                    ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                // 2. Salva o histórico da edição
-                await db.collection('historico').add({
-                    docId,
-                    editorId: user.uid,
-                    editorEmail: user.email,
-                    dataEdicao: firebase.firestore.FieldValue.serverTimestamp(),
-                    sumario,
-                    tituloAnterior: editorArtigo.dataset.tituloOriginal,
-                    descricaoAnterior: editorArtigo.dataset.descricaoOriginal
-                });
-
-                alert('Artigo editado e histórico salvo com sucesso!');
-
-                // 3. Atualiza os detalhes do artigo na interface
-                const doc = await db.collection('materias').doc(docId).get();
-                if (doc.exists) {
-                    carregarDetalhesArtigo(doc.id, doc.data());
-                }
-
-            } catch (error) {
-                console.error("Erro ao salvar edição: ", error);
-                alert("Erro ao salvar edição: " + error.message);
-            }
-        });
-
-        cancelarEdicaoBtn.addEventListener('click', async () => {
-            const docId = editorArtigo.dataset.docId;
-            if (!docId) return;
-            try {
-                const doc = await db.collection('materias').doc(docId).get();
-                if (doc.exists) {
-                    carregarDetalhesArtigo(doc.id, doc.data());
-                } else {
-                    exibirPainel('artigos-pane');
-                    buscarArtigos();
-                }
-            } catch (error) {
-                console.error("Erro ao carregar artigo: ", error);
-                alert("Erro ao carregar artigo: " + error.message);
-            }
-        });
-
-        // --- Funções de Histórico ---
-        async function abrirHistorico(id) {
-            exibirPainel('historico-artigo');
-            historicoArtigo.dataset.docId = id;
-            listaHistorico.innerHTML = '<p style="text-align: center; color: #666;">Carregando histórico...</p>';
-            try {
-                const querySnapshot = await db.collection('historico').where('docId', '==', id).orderBy('dataEdicao', 'desc').get();
-                let historicoHtml = '';
-                if (querySnapshot.empty) {
-                    historicoHtml = '<p style="text-align: center; color: #666;">Nenhuma edição anterior encontrada.</p>';
-                } else {
-                    querySnapshot.forEach(doc => {
-                        const edicao = doc.data();
-                        const data = edicao.dataEdicao ? new Date(edicao.dataEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
-                        historicoHtml += `
-                            <div style="border-bottom: 1px solid #ccc; padding: 10px 0;">
-                                <p><strong>Editor:</strong> ${edicao.editorEmail}</p>
-                                <p><strong>Data:</strong> ${data}</p>
-                                <p><strong>Resumo:</strong> ${edicao.sumario}</p>
-                            </div>
-                        `;
-                    });
-                }
-                listaHistorico.innerHTML = historicoHtml;
-            } catch (error) {
-                console.error("Erro ao buscar histórico: ", error);
-                listaHistorico.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-            }
-        }
-
-        voltarDetalhesBtn.addEventListener('click', async () => {
-            const docId = historicoArtigo.dataset.docId;
-            if (!docId) return;
-            try {
-                const doc = await db.collection('materias').doc(docId).get();
-                if (doc.exists) {
-                    carregarDetalhesArtigo(doc.id, doc.data());
-                } else {
-                    alert('Artigo não encontrado.');
-                    exibirPainel('detalhes-artigo');
-                    buscarArtigos();
-                }
-            } catch (error) {
-                console.error("Erro ao carregar artigo: ", error);
-                alert("Erro ao carregar artigo: " + error.message);
-            }
-        });
-
-        // --- Funções de Criação ---
-        formNovoArtigo.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const user = auth.currentUser;
-            if (!user) {
-                alert('Você precisa estar logado para criar artigos.');
-                return;
-            }
-
-            const titulo = newTitulo.value;
-            const setor = newSetor.value;
-            const armario = newArmario.value;
-            const descricao = newDescricao.value;
-
-            try {
-                await db.collection('materias').add({
-                    titulo,
-                    setor,
-                    armario,
-                    descricao,
-                    criadorId: user.uid,
-                    criadorEmail: user.email,
-                    dataCriacao: firebase.firestore.FieldValue.serverTimestamp(),
-                    ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp(),
-                    fontes: [] // Adiciona um array de fontes vazio por padrão
-                });
-
-                alert('Artigo criado com sucesso!');
-                formNovoArtigo.reset();
-                exibirPainel('detalhes-artigo');
-                buscarArtigos();
-            } catch (error) {
-                console.error("Erro ao criar artigo: ", error);
-                alert("Erro ao criar artigo: " + error.message);
-            }
-        });
-
-        cancelarNovoArtigoBtn.addEventListener('click', () => {
-            exibirPainel('detalhes-artigo');
-            buscarArtigos();
-        });
-
-        // --- Funções da Página do Usuário ---
-        tabButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                const tab = e.target.dataset.tab;
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.style.display = 'none';
-                });
-                tabButtons.forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                e.target.classList.add('active');
-                document.getElementById(tab + '-tab').style.display = 'block';
-                if (tab === 'contribuicoes') {
-                    carregarMinhasContribuicoes();
-                }
-            });
-        });
-
-        salvarPaginaPessoalBtn.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (!user) return;
-            const conteudo = paginaPessoalTextarea.value;
-            try {
-                await db.collection('users').doc(user.uid).set({ paginaPessoal: conteudo }, { merge: true });
-                alert('Página pessoal salva com sucesso!');
-            } catch (error) {
-                console.error("Erro ao salvar página pessoal: ", error);
-                alert("Erro ao salvar página pessoal: " + error.message);
-            }
-        });
-
-        cancelarPaginaPessoalBtn.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (!user) return;
-            const userDoc = await db.collection('users').doc(user.uid).get();
-            if (userDoc.exists && userDoc.data().paginaPessoal) {
-                paginaPessoalTextarea.value = userDoc.data().paginaPessoal;
+    // --- Event Listeners e Carregamento de dados ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const docId = 'configuracoes';
+        firestore.collection('configuracoes').doc(docId).onSnapshot(docSnapshot => {
+            if (docSnapshot.exists) {
+                const data = docSnapshot.data();
+                applyConfigData(data);
+                console.log("Configurações carregadas do Firebase (em tempo real):", data);
             } else {
-                paginaPessoalTextarea.value = '';
+                console.warn(`Documento de configuração '${docId}' não encontrado. Usando valores padrão.`);
+                applyConfigData({});
             }
+        }, error => {
+            console.error("Erro ao carregar configurações do Firebase:", error);
+            applyConfigData({});
         });
-
-        voltarAoPainelPerfilBtn.addEventListener('click', () => {
-            exibirPainel('detalhes-artigo');
-            buscarArtigos();
-        });
-
-        // Função para carregar todas as contribuições do usuário
-        async function carregarMinhasContribuicoes() {
-            const contribuicoesLista = document.getElementById('contribuicoesListaPrincipal');
-            if (!contribuicoesLista) {
-                console.error("Elemento 'contribuicoesListaPrincipal' não encontrado.");
-                return;
-            }
-
-            contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
-            const user = firebase.auth().currentUser;
-            if (!user) {
-                contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Você precisa estar logado para ver suas contribuições.</p>';
-                return;
-            }
-            const userId = user.uid;
-
-            try {
-                // Busca 1: Artigos criados pelo usuário
-                const queryCriacoes = db.collection('materias').where('criadorId', '==', userId).get();
-
-                // Busca 2: Edições feitas pelo usuário
-                const queryEdicoes = db.collection('historico').where('editorId', '==', userId).get();
-
-                const [criacoesSnapshot, edicoesSnapshot] = await Promise.all([queryCriacoes, queryEdicoes]);
-                const contribuicoes = [];
-                
-                criacoesSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    contribuicoes.push({
-                        tipo: 'Criação de Artigo',
-                        titulo: data.titulo,
-                        data: data.dataCriacao ? data.dataCriacao.toDate() : new Date(),
-                        docId: doc.id
-                    });
+        fetch('menu.json')
+            .then(response => { if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); } return response.json(); })
+            .then(menuItems => {
+                const drawerMenu = document.getElementById('drawer-menu');
+                if (!drawerMenu) return;
+                drawerMenu.innerHTML = '';
+                menuItems.forEach(item => {
+                    const a = document.createElement('a');
+                    a.className = 'mdl-navigation__link';
+                    a.href = '#';
+                    a.textContent = item.name;
+                    a.setAttribute('onclick', `loadPage('${item.url}', ${item.requiresAuth || false})`);
+                    if (item.requiresAuth) { a.setAttribute('data-requires-auth', 'true'); }
+                    drawerMenu.appendChild(a);
                 });
+                if (componentHandler) { componentHandler.upgradeDom(); }
+                setNavLinksEnabled(!!currentUser);
+            })
+            .catch(error => { console.error('Erro ao carregar menu.json:', error); });
+        const googleAppsButton = document.getElementById('google-apps-button');
+        const googleAppsPopup = document.getElementById('google-apps-popup');
+        const navLinks = document.querySelectorAll('.mdl-navigation__link');
+        const newsButton = document.getElementById('news-button');
+        const newsCenterPopup = document.getElementById('news-center-popup');
+        const closeNewsPopupButton = document.getElementById('close-news-popup-button');
+        const viewAllNewsButton = document.getElementById('view-all-news-button');
 
-                edicoesSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    contribuicoes.push({
-                        tipo: 'Edição de Artigo',
-                        titulo: data.tituloAnterior || 'Título não disponível',
-                        data: data.dataEdicao ? data.dataEdicao.toDate() : new Date(),
-                        docId: data.docId
+        if (googleAppsButton) {
+            googleAppsButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (googleAppsPopup.style.display === 'block') { googleAppsPopup.style.display = 'none'; } else {
+                    googleAppsPopup.style.display = 'block';
+                    const appGrid = document.getElementById('app-grid');
+                    appGrid.innerHTML = '';
+                    const wzzmServices = [
+                        { name: 'Office WZZM', url: 'https://office.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'Escolar WZZM', url: 'https://escolar.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'Minha Persona WZZM', url: 'https://minhapersona.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'Wiki Zero', url: 'https://wikizero.wzzm.org/', iconUrl: 'https://wzzm.org/iconmagic.png' },
+                        { name: 'UWG Wikidot', url: 'https://uwg.wikidot.com', iconUrl: 'https://uwg.wikidot.png' },
+                        { name: 'Wiki Metro SP', url: 'https://wikimetrosp.miraheze.org', iconUrl: 'https://wikimetrosp.miraheze.org/logo.png' }
+                    ];
+                    wzzmServices.forEach(app => {
+                        const appItem = document.createElement('div');
+                        appItem.classList.add('app-item');
+                        appItem.innerHTML = `<img src="${app.iconUrl}" alt="${app.name}"> <span>${app.name}</span>`;
+                        appItem.addEventListener('click', () => { loadInMainFrame(app.url); googleAppsPopup.style.display = 'none'; });
+                        appGrid.appendChild(appItem);
                     });
-                });
-
-                contribuicoes.sort((a, b) => b.data - a.data);
-
-                if (contribuicoes.length > 0) {
-                    contribuicoesLista.innerHTML = '';
-                    contribuicoes.forEach(contrib => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `
-                            <strong>${contrib.tipo}:</strong> <a href="#" data-id="${contrib.docId}">${contrib.titulo}</a>
-                            <span style="float: right;">${contrib.data.toLocaleString()}</span>
-                        `;
-                        contribuicoesLista.appendChild(li);
-
-                        li.querySelector('a').addEventListener('click', () => {
-                            db.collection('materias').doc(contrib.docId).get().then(doc => {
-                                if (doc.exists) {
-                                    carregarDetalhesArtigo(doc.id, doc.data());
-                                }
-                            });
-                        });
-                    });
-                } else {
-                    contribuicoesLista.innerHTML = '<li>Nenhuma contribuição encontrada.</li>';
-                }
-            } catch (error) {
-                console.error("Erro ao carregar contribuições: ", error);
-                contribuicoesLista.innerHTML = '<li>Erro ao carregar as contribuições.</li>';
-            }
-        }
-        
-        // NOVO CÓDIGO - Funções para a página de busca
-
-        // Função para escapar caracteres HTML (títulos, etc)
-        function escapeHtml(unsafe) {
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-        // Função para decodificar entidades HTML
-        function decodeHtmlEntities(html) {
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            return doc.documentElement.textContent;
-        }
-
-        const articlesListDiv = document.getElementById('articles-list');
-        const loadingMessage = document.getElementById('loading-message');
-        const errorDisplay = document.getElementById('error-display');
-        const searchTermInput = document.getElementById('search-term');
-        const searchTypeInput = document.getElementById('search-type');
-        const searchTypeDisplayInput = document.getElementById('search-type-display');
-        const searchTypeMenu = document.getElementById('search-type-menu');
-        const searchButton = document.getElementById('search-button');
-        const mainSearchButton = document.getElementById('main-search-button');
-        const clearSearchButton = document.getElementById('clear-search-button');
-        const scholarSearchBox = document.getElementById('scholar-search-box');
-        const filterLanguageSelect = document.getElementById('filter-language');
-        const filterArticleTypeSelect = document.getElementById('filter-article-type');
-        
-        function displayError(message) {
-            errorDisplay.textContent = `Erro: ${message}`;
-            errorDisplay.style.display = 'block';
-            loadingMessage.style.display = 'none';
-        }
-
-        // ATENÇÃO: A função de busca usa a coleção 'articlesdoc'
-        async function loadArticles(searchTerm = '', searchField = 'title', languageFilter = '', articleTypeFilter = '') {
-            articlesListDiv.innerHTML = '';
-            loadingMessage.style.display = 'block';
-            errorDisplay.style.display = 'none';
-            if (!searchTerm.trim() && !languageFilter && !articleTypeFilter) {
-                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`;
-                loadingMessage.style.display = 'none';
-                return;
-            }
-            try {
-                const trimmedSearchTerm = searchTerm.trim();
-                let snapshot;
-                if (searchField === 'id' && trimmedSearchTerm) {
-                    const doc = await db.collection('articlesdoc').doc(trimmedSearchTerm).get();
-                    if (doc.exists) {
-                        snapshot = {
-                            empty: false,
-                            forEach: (callback) => callback(doc)
-                        };
-                    } else {
-                        snapshot = {
-                            empty: true
-                        };
-                    }
-                } else {
-                    let articlesRef = db.collection('articlesdoc');
-                    if (trimmedSearchTerm && searchField) {
-                        articlesRef = articlesRef
-                            .where(searchField, '>=', trimmedSearchTerm)
-                            .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
-                    }
-                    if (languageFilter) {
-                        articlesRef = articlesRef.where('language', '==', languageFilter);
-                    }
-                    if (articleTypeFilter) {
-                        articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
-                    }
-                    if (trimmedSearchTerm && searchField && searchField !== 'id') {
-                        articlesRef = articlesRef.orderBy(searchField);
-                    } else if (languageFilter || articleTypeFilter) {
-                        articlesRef = articlesRef.orderBy('timestamp', 'desc');
-                    } else {
-                        articlesRef = articlesRef.orderBy('timestamp', 'desc');
-                    }
-                    snapshot = await articlesRef.get();
-                }
-                loadingMessage.style.display = 'none';
-                if (snapshot.empty) {
-                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ?
-                        `Nenhum artigo encontrado com os critérios de busca.` :
-                        'Nenhum artigo (articlesdoc) publicado ainda.';
-                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
-                    return;
-                }
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const id = doc.id;
-                    const title = data.title || 'Título Indisponível';
-                    const userId = data.userId || 'ID do Usuário Indisponível';
-                    const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
-                    const language = data.language || 'Não especificado';
-                    const articleType = data.articleType || 'Não especificado';
-                    const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
-                    const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : 'Data de Criação Indisponível';
-                    const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
-                    const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : 'Data de Modificação Indisponível';
-                    const formattedContentForCard = data.formattedContent || '';
-                    const decodedContent = formattedContentForCard ? decodeHtmlEntities(formattedContentForCard) : '';
-                    const abntPreviewHtml = decodedContent
-                        ? DOMPurify.sanitize(decodedContent)
-                        : '<p>Nenhum conteúdo de visualização rápida disponível. (campo "formattedContent" ausente ou vazio)</p>';
-                    const card = document.createElement('div');
-                    card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
-                    card.innerHTML = `
-                        <div class="mdl-card__title">
-                            <h2 class="mdl-card__title-text">${escapeHtml(title)}</h2>
-                        </div>
-                        <div class="mdl-card__supporting-text">
-                            <strong>ID do artigo:</strong> <p>${escapeHtml(id)}</p>
-                            <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
-                            <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
-                            <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
-                            <div class="abnt-preview">${abntPreviewHtml}</div>
-                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
-                            <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
-                            <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
-                        </div>
-                        <div class="mdl-card__actions mdl-card--border">
-                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo Completo</button>
-                        </div>
-                    `;
-                    articlesListDiv.appendChild(card);
-                });
-                if (window.componentHandler) {
-                    window.componentHandler.upgradeElements(articlesListDiv);
-                }
-            } catch (error) {
-                displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`);
-                console.error("Erro ao carregar artigos:", error);
-                if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
-                    console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
-                }
-            }
-        }
-        
-        async function viewArticleInNewWindow(articleId) {
-            const newWindow = window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
-            if (!newWindow) {
-                alert('Por favor, permita pop-ups para visualizar o artigo completo.');
-                return;
-            }
-        }
-        
-        mainSearchButton.addEventListener('click', () => {
-            const searchTerm = searchTermInput.value;
-            const searchField = searchTypeInput.value;
-            const languageFilter = filterLanguageSelect.value;
-            const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
-        });
-        searchButton.addEventListener('click', () => {
-            const searchTerm = searchTermInput.value;
-            const searchField = searchTypeInput.value;
-            const languageFilter = filterLanguageSelect.value;
-            const articleTypeFilter = filterArticleTypeSelect.value;
-            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
-        });
-        clearSearchButton.addEventListener('click', () => {
-            searchTermInput.value = '';
-            searchTypeInput.value = 'title';
-            searchTypeDisplayInput.value = 'Título';
-            filterLanguageSelect.value = '';
-            filterArticleTypeSelect.value = '';
-            const searchTypeMdlSelect = document.querySelector('.getmdl-select');
-            if (searchTypeMdlSelect && searchTypeMdlSelect.MaterialTextfield) {
-                searchTypeMdlSelect.MaterialTextfield.change(searchTypeDisplayInput.value);
-            }
-            const languageMdlSelect = filterLanguageSelect.closest('.mdl-textfield');
-            if (languageMdlSelect && languageMdlSelect.MaterialTextfield) {
-                languageMdlSelect.MaterialTextfield.change('');
-            }
-            const articleTypeMdlSelect = filterArticleTypeSelect.closest('.mdl-textfield');
-            if (articleTypeMdlSelect && articleTypeMdlSelect.MaterialTextfield) {
-                articleTypeMdlSelect.MaterialTextfield.change('');
-            }
-            loadArticles();
-        });
-        articlesListDiv.addEventListener('click', (event) => {
-            if (event.target.classList.contains('view-article-button')) {
-                const articleId = event.target.dataset.articleId;
-                if (articleId) {
-                    // Esta linha deve ser adaptada para o seu ambiente
-                    window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
-                }
-            }
-        });
-        searchTermInput.addEventListener('focus', () => {
-            scholarSearchBox.classList.add('is-focused');
-        });
-        searchTermInput.addEventListener('blur', () => {
-            scholarSearchBox.classList.remove('is-focused');
-        });
-        searchTypeMenu.addEventListener('click', (event) => {
-            const clickedItem = event.target.closest('.mdl-menu__item');
-            if (clickedItem) {
-                const value = clickedItem.dataset.val;
-                const text = clickedItem.textContent.trim();
-                searchTypeInput.value = value;
-                searchTypeDisplayInput.value = text;
-                const parentTextfield = searchTypeDisplayInput.closest('.mdl-textfield');
-                if (parentTextfield && parentTextfield.MaterialTextfield) {
-                    parentTextfield.MaterialTextfield.change(text);
-                }
-            }
-        });
-        
-        if (window.componentHandler) {
-            window.componentHandler.upgradeDom();
-            const selectField = document.querySelector('.getmdl-select');
-            if (selectField && selectField.MaterialTextfield) {
-                selectField.MaterialTextfield.change(searchTypeDisplayInput.value);
-            }
-        }
-        
-        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => {
-            selectElement.addEventListener('change', () => {
-                const parentTextfield = selectElement.closest('.mdl-textfield');
-                if (parentTextfield && parentTextfield.MaterialTextfield) {
-                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text);
                 }
             });
+        }
+        if (newsButton) { newsButton.addEventListener('click', (event) => { event.stopPropagation(); if (newsCenterPopup.style.display === 'flex') { hideNewsPopup(); } else { showNewsPopup(); } }); }
+        if (closeNewsPopupButton) { closeNewsPopupButton.addEventListener('click', () => { hideNewsPopup(); }); }
+        if (viewAllNewsButton) { viewAllNewsButton.addEventListener('click', () => { loadInMainFrame('visualizarnoticias.html'); hideNewsPopup(); }); }
+        document.addEventListener('click', (event) => {
+            if (googleAppsPopup && googleAppsPopup.style.display === 'block' && !googleAppsButton.contains(event.target) && !googleAppsPopup.contains(event.target)) { googleAppsPopup.style.display = 'none'; }
+            if (newsCenterPopup && newsCenterPopup.style.display === 'flex' && !newsButton.contains(event.target) && !newsCenterPopup.contains(event.target)) { newsCenterPopup.style.display = 'none'; }
+        });
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(event) {
+                const pageSrc = this.getAttribute('onclick');
+                let actualPageSrc = '';
+                let requiresAuth = false;
+                if (pageSrc && pageSrc.includes("loadPage(")) {
+                    const match = pageSrc.match(/loadPage\('([^']*)', (true|false)\)/);
+                    if (match) { actualPageSrc = match[1]; requiresAuth = match[2] === 'true'; }
+                }
+                if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { event.preventDefault(); return; }
+                if (this.classList.contains('disabled') && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { event.preventDefault(); return; }
+                if (actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) { window.open(actualPageSrc, '_blank'); event.preventDefault(); return; }
+                event.preventDefault();
+                loadInMainFrame(actualPageSrc);
+                if (document.querySelector('.mdl-layout__drawer.is-visible')) { document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible'); document.querySelector('.mdl-layout__drawer').classList.remove('is-visible'); }
+            });
+        });
+        if (componentHandler) { componentHandler.upgradeDom(); }
+        var btn = document.getElementById('error-log-button');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            var logList = document.getElementById('error-log-list');
+            logList.innerHTML = '';
+            if (window._wzzmErrorLog.length === 0) { logList.innerHTML = '<li style="color:green;">Nenhum erro registrado nesta sessão.</li>'; } else { window._wzzmErrorLog.slice(-100).forEach(function(msg) { var li = document.createElement('li'); li.textContent = msg; logList.appendChild(li); }); }
+            document.getElementById('error-log-popup').style.display = 'block';
         });
     });
 </script>
