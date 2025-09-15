@@ -793,6 +793,39 @@
     </div>
 </div>
 
+<div id="comentarios-secao" style="margin-top: 20px; padding: 20px; background-color: #f0f2f5; border-radius: 8px; display: none;">
+    <h3>Deixe seu comentário</h3>
+    <form id="form-comentarios">
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <input class="mdl-textfield__input" type="text" id="comentario-uid" required>
+            <label class="mdl-textfield__label" for="comentario-uid">Seu UID</label>
+        </div>
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <input class="mdl-textfield__input" type="text" id="comentario-titulo" required>
+            <label class="mdl-textfield__label" for="comentario-titulo">Título</label>
+        </div>
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <textarea class="mdl-textfield__input" type="text" rows="3" id="comentario-descricao" required></textarea>
+            <label class="mdl-textfield__label" for="comentario-descricao">Descrição</label>
+        </div>
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label getmdl-select getmdl-select__fix-height">
+            <input type="text" value="" class="mdl-textfield__input" id="comentario-tipo" readonly required>
+            <input type="hidden" value="" name="comentario-tipo">
+            <i class="mdl-icon-toggle__label material-icons">keyboard_arrow_down</i>
+            <label for="comentario-tipo" class="mdl-textfield__label">Tipo do comentário</label>
+            <ul for="comentario-tipo" class="mdl-menu mdl-menu--bottom-left mdl-js-menu">
+                <li class="mdl-menu__item" data-val="Correção">Correção</li>
+                <li class="mdl-menu__item" data-val="Informação">Informação</li>
+                <li class="mdl-menu__item" data-val="Jurídico">Jurídico</li>
+                <li class="mdl-menu__item" data-val="Denúncia">Denúncia</li>
+            </ul>
+        </div>
+        <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" type="submit" style="margin-top: 10px;">
+            Enviar Comentário
+        </button>
+    </form>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -1149,6 +1182,67 @@
                 ${fontesHtml}
             `;
 
+document.addEventListener('DOMContentLoaded', () => {
+    const formComentarios = document.getElementById('form-comentarios');
+    const secaoComentarios = document.getElementById('comentarios-secao');
+    const conteudoPrincipal = document.getElementById('conteudo-principal');
+
+    // Modifica a função loadContent para exibir a seção de comentários
+    const originalLoadContent = window.loadContent;
+    window.loadContent = async (file) => {
+        await originalLoadContent(file);
+        secaoComentarios.style.display = 'block';
+    };
+
+    formComentarios.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // 1. O usuário precisa ler e aceitar os termos.
+        const implicacoes = `
+            Lista de Implicações dos Comentários:
+            - Os comentários são públicos e podem ser lidos por qualquer pessoa.
+            - Você é responsável pelo conteúdo que publica.
+            - Comentários que violem as regras da comunidade (ofensas, spam, etc.) serão removidos.
+        `;
+
+        if (confirm(`Por favor, leia e confirme que você entende as implicações dos comentários:\n\n${implicacoes}`)) {
+            // 2. Se o usuário aceitar, colete os dados.
+            const uid = document.getElementById('comentario-uid').value;
+            const titulo = document.getElementById('comentario-titulo').value;
+            const descricao = document.getElementById('comentario-descricao').value;
+            const tipo = document.querySelector('input[name="comentario-tipo"]').value;
+            const artigoId = conteudoPrincipal.dataset.artigoId; // Usado para associar o comentário ao artigo
+
+            if (!artigoId) {
+                console.error('ID do artigo não encontrado. Não é possível enviar o comentário.');
+                alert('Erro: ID do artigo não encontrado.');
+                return;
+            }
+
+            const comentarioData = {
+                uid: uid,
+                titulo: titulo,
+                descricao: descricao,
+                tipo: tipo,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                artigo: artigoId
+            };
+
+            // 3. Envie os dados para a coleção 'wikizero' no Firebase.
+            try {
+                await db.collection("wikizero").doc("comentarios").collection("artigos").doc(artigoId).collection("comentarios").add(comentarioData);
+                alert('Comentário enviado com sucesso!');
+                formComentarios.reset();
+            } catch (error) {
+                console.error("Erro ao adicionar comentário: ", error);
+                alert('Ocorreu um erro ao enviar seu comentário.');
+            }
+        } else {
+            alert('Envio do comentário cancelado.');
+        }
+    });
+});
+            
             document.getElementById('btn-editar-artigo').addEventListener('click', () => abrirEditor(id, materia));
             document.getElementById('btn-ver-historico').addEventListener('click', () => abrirHistorico(id));
             document.getElementById('btn-imprimir-artigo').addEventListener('click', imprimirArtigo);
