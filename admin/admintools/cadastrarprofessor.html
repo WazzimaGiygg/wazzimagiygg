@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adicionar/Editar Professor - WZZM Admin</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px; /* Ajustado para os novos campos */
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .mdl-textfield {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .mdl-textfield__input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .mdl-button {
+            margin-right: 10px;
+        }
+        .actions {
+            text-align: right;
+            margin-top: 30px;
+        }
+        .error-message {
+            text-align: center;
+            padding: 15px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+    <div class="container">
+        <h1 id="form-title">Adicionar Novo Professor</h1>
+
+        <div id="error-display" class="error-message"></div>
+
+        <form id="teacher-form">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="teacher-first-name" required>
+                <label class="mdl-textfield__label" for="teacher-first-name">Nome *</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="teacher-last-name" required>
+                <label class="mdl-textfield__label" for="teacher-last-name">Sobrenome *</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="teacher-cpf" pattern="[0-9]{3}\.?[0-9]{3}\.?[0-9]{3}-?[0-9]{2}" required>
+                <label class="mdl-textfield__label" for="teacher-cpf">CPF *</label>
+                <span class="mdl-textfield__help">Formato: 000.000.000-00</span>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="teacher-rg" pattern="[0-9]{1,2}\.?[0-9]{3}\.?[0-9]{3}-?[0-9A-Za-z]{1,2}" required>
+                <label class="mdl-textfield__label" for="teacher-rg">RG *</label>
+                <span class="mdl-textfield__help">Ex: 12.345.678-9</span>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="teacher-google-uid-manual">
+                <label class="mdl-textfield__label" for="teacher-google-uid-manual">UID Google Manual (Opcional)</label>
+                <span class="mdl-textfield__help">Se preenchido, irá sobrescrever o UID do usuário logado.</span>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="password" id="teacher-sub-password" minlength="4" maxlength="6" required>
+                <label class="mdl-textfield__label" for="teacher-sub-password">Sub Senha (4 a 6 dígitos) *</label>
+                <span class="mdl-textfield__help">Usada para alterações administrativas.</span>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="save-teacher-btn"
+                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                    Salvar Professor
+                </button>
+                <button type="button" id="cancel-btn"
+                        class="mdl-button mdl-js-button mdl-button--raised">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase com suas chaves e dados originais ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth(); // Inicializa o Auth
+
+        let currentUser = null; // Para armazenar o usuário logado
+        let currentTeacherId = null; // Para armazenar o ID do professor em edição
+
+        const formTitle = document.getElementById('form-title');
+        const teacherForm = document.getElementById('teacher-form');
+        const errorDisplay = document.getElementById('error-display');
+        const saveTeacherBtn = document.getElementById('save-teacher-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        const teacherFirstNameInput = document.getElementById('teacher-first-name');
+        const teacherLastNameInput = document.getElementById('teacher-last-name');
+        const teacherCpfInput = document.getElementById('teacher-cpf');
+        const teacherRgInput = document.getElementById('teacher-rg');
+        const teacherSubPasswordInput = document.getElementById('teacher-sub-password');
+        const teacherGoogleUidManualInput = document.getElementById('teacher-google-uid-manual'); // Nova referência para o campo UID Manual
+
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+        }
+
+        // Listener para o estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                console.log("Usuário logado:", currentUser.uid, "Email:", currentUser.email); // Adicionado email para depuração
+                // Verifica se há um ID de professor na URL para modo de edição
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                if (id) {
+                    currentTeacherId = id;
+                    formTitle.textContent = 'Editar Professor';
+                    loadTeacherData(id); // Carrega os dados do professor para edição
+                }
+            } else {
+                currentUser = null;
+                console.warn("Nenhum usuário logado. Redirecionando para login?");
+                alert("Você precisa estar logado para adicionar ou editar professores.");
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'navigateIframe', url: './login.html' }, window.location.origin);
+                } else {
+                    window.location.href = './login.html';
+                }
+            }
+        });
+
+        // Carrega dados do professor para edição
+        async function loadTeacherData(teacherId) {
+            try {
+                const docRef = firestore.collection('userteatcher').doc(teacherId);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    teacherFirstNameInput.value = data.firstName || '';
+                    teacherLastNameInput.value = data.lastName || '';
+                    teacherCpfInput.value = data.cpf || '';
+                    teacherRgInput.value = data.rg || '';
+                    teacherGoogleUidManualInput.value = data.googleUid || ''; // Carrega a UID Google Manual se existir
+                    // A sub-senha não deve ser carregada por segurança.
+                    // O campo ficará em branco para ser preenchido novamente se necessário.
+
+                    // Atualiza o MDL para os campos pré-preenchidos
+                    if (window.componentHandler) {
+                        teacherForm.querySelectorAll('.mdl-textfield').forEach(textfield => {
+                            if (textfield.MaterialTextfield) {
+                                textfield.MaterialTextfield.checkDirty();
+                                textfield.MaterialTextfield.checkValidity();
+                            }
+                        });
+                    }
+                } else {
+                    displayError("Professor não encontrado.");
+                    console.error("Professor com ID", teacherId, "não encontrado na coleção 'userteatcher'.");
+                }
+            } catch (error) {
+                displayError("Erro ao carregar dados do professor: " + error.message);
+                console.error("Erro ao carregar dados do professor da coleção 'userteatcher':", error);
+            }
+        }
+
+        // Função para salvar (adicionar ou atualizar) o professor
+        async function saveTeacher(event) {
+            event.preventDefault(); // Impede o envio padrão do formulário
+
+            if (!currentUser) {
+                displayError("Você precisa estar logado para salvar professores.");
+                return;
+            }
+
+            // Validação básica
+            if (!teacherFirstNameInput.value.trim()) {
+                displayError("O Nome é obrigatório.");
+                teacherFirstNameInput.focus();
+                return;
+            }
+            if (!teacherLastNameInput.value.trim()) {
+                displayError("O Sobrenome é obrigatório.");
+                teacherLastNameInput.focus();
+                return;
+            }
+            if (!teacherCpfInput.value.trim()) {
+                displayError("O CPF é obrigatório.");
+                teacherCpfInput.focus();
+                return;
+            }
+            if (!teacherRgInput.value.trim()) {
+                displayError("O RG é obrigatório.");
+                teacherRgInput.focus();
+                return;
+            }
+            // A sub-senha é obrigatória na criação e se for alterada na edição
+            if (!teacherSubPasswordInput.value.trim() && !currentTeacherId) {
+                 displayError("A Sub Senha é obrigatória para cadastrar um novo professor.");
+                 teacherSubPasswordInput.focus();
+                 return;
+            }
+            if (teacherSubPasswordInput.value.trim().length < 4 || teacherSubPasswordInput.value.trim().length > 6) {
+                displayError("A Sub Senha deve ter entre 4 e 6 dígitos.");
+                teacherSubPasswordInput.focus();
+                return;
+            }
+
+            errorDisplay.style.display = 'none'; // Esconde erros anteriores
+            saveTeacherBtn.disabled = true; // Desabilita o botão para evitar cliques múltiplos
+
+            const teacherData = {
+                // UID do Firebase Authentication do usuário logado (Google)
+                // Será sobrescrito pela UID manual se preenchida
+                googleUid: currentUser.uid,
+                firstName: teacherFirstNameInput.value.trim(),
+                lastName: teacherLastNameInput.value.trim(),
+                cpf: teacherCpfInput.value.trim(),
+                rg: teacherRgInput.value.trim(),
+                // subPassword será adicionada/atualizada apenas se o campo for preenchido
+                lastModified: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            // Se o campo UID Google Manual for preenchido, usa este valor
+            if (teacherGoogleUidManualInput.value.trim()) {
+                teacherData.googleUid = teacherGoogleUidManualInput.value.trim();
+            }
+
+            // Adiciona a subPassword somente se for preenchida (para não sobrescrever na edição com valor vazio)
+            if (teacherSubPasswordInput.value.trim()) {
+                teacherData.subPassword = teacherSubPasswordInput.value.trim();
+            }
+
+            try {
+                const teachersCollectionRef = firestore.collection('userteatcher');
+
+                if (currentTeacherId) {
+                    // Atualizar professor existente
+                    await teachersCollectionRef.doc(currentTeacherId).update(teacherData);
+                    alert("Professor atualizado com sucesso!");
+                    console.log("Professor atualizado na coleção 'userteatcher':", currentTeacherId);
+                } else {
+                    // Criar novo professor
+                    teacherData.timestamp = firebase.firestore.FieldValue.serverTimestamp(); // Adiciona timestamp na criação
+                    const newDocRef = await teachersCollectionRef.add(teacherData);
+                    currentTeacherId = newDocRef.id; // Define o ID para futuras edições sem recarregar
+                    alert("Professor adicionado com sucesso! ID: " + newDocRef.id);
+                    console.log("Novo professor adicionado na coleção 'userteatcher' com ID:", newDocRef.id);
+                    formTitle.textContent = 'Editar Professor'; // Muda o título para edição
+                    teacherForm.reset(); // Limpa o formulário após adicionar um novo
+                    // Para garantir que o MDL "limpe" visualmente os campos resetados
+                    if (window.componentHandler) {
+                        teacherForm.querySelectorAll('.mdl-textfield').forEach(textfield => {
+                            if (textfield.MaterialTextfield) {
+                                textfield.MaterialTextfield.checkDirty(); // Marca como não preenchido
+                            }
+                        });
+                    }
+                }
+
+                // Redirecionar ou fechar o editor
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'refreshTeachersList' }, window.location.origin);
+                } else {
+                    alert("Professor salvo! (Em ambiente de desenvolvimento sem iframe)");
+                    // window.location.href = './gerenciar-professores.html'; // Ajuste o caminho se necessário
+                }
+
+            } catch (error) {
+                displayError("Erro ao salvar professor: " + error.message);
+                console.error("Erro ao salvar professor na coleção 'userteatcher':", error);
+            } finally {
+                saveTeacherBtn.disabled = false; // Reabilita o botão
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            teacherForm.addEventListener('submit', saveTeacher);
+
+            cancelBtn.addEventListener('click', () => {
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'refreshTeachersList' }, window.location.origin);
+                } else {
+                    window.history.back(); // Volta na história do navegador
+                }
+            });
+
+            // Garante que todos os componentes MDL na página sejam inicializados
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+            }
+        });
+    </script>
+</body>
+</html>

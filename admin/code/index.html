@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Adicionar Novo Artigo</title>
+    <!-- Carregue o SDK do Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], textarea, select { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; box-sizing: border-box; }
+        textarea { height: 150px; }
+        button { padding: 10px 15px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        #status { margin-top: 15px; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+    </style>
+</head>
+<body>
+
+    <h1>Adicionar Novo Artigo</h1>
+
+    <div id="auth-status">
+        <p>Verificando status de login...</p>
+    </div>
+
+    <div id="article-form" style="display: none;">
+        <label for="article-title">Título:</label>
+        <input type="text" id="article-title" required>
+
+        <label for="article-content">Conteúdo:</label>
+        <textarea id="article-content" required></textarea>
+
+        <label for="article-acesso">Acesso:</label>
+        <select id="article-acesso" required>
+            <option value="publico">Público</option>
+            <option value="restrito">Restrito</option>
+            <option value="nao listado">Não Listado</option>
+        </select>
+
+        <button id="save-article-button">Salvar Artigo</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Sua configuração do Firebase. Use as informações do seu projeto.
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Substitua por sua chave de API
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com", // Geralmente o mesmo que projectId + .appspot.com
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // Substitua pelo seu Sender ID
+            appId: "1:249427877153:web:0e4297294794a5aadeb260" // Substitua pelo seu App ID web
+        };
+
+        // Inicialize o Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Obtenha as instâncias do Auth e Firestore
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const authStatusDiv = document.getElementById('auth-status');
+        const articleFormDiv = document.getElementById('article-form');
+        const articleTitleInput = document.getElementById('article-title');
+        const articleContentTextarea = document.getElementById('article-content');
+        const articleAcessoSelect = document.getElementById('article-acesso');
+        const saveButton = document.getElementById('save-article-button');
+        const statusDiv = document.getElementById('status');
+
+        // Função para exibir mensagens de status
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type; // Adiciona classes para estilizar (success, error, warning)
+        }
+
+        // Monitorar o estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Usuário está logado
+                authStatusDiv.textContent = `Logado como: ${user.email} (UID: ${user.uid})`;
+                articleFormDiv.style.display = 'block'; // Mostrar o formulário
+            } else {
+                // Usuário não está logado
+                authStatusDiv.innerHTML = `Você precisa estar logado para adicionar artigos. <br> Por favor, faça login primeiro.`;
+                articleFormDiv.style.display = 'none'; // Esconder o formulário
+                showStatus('Por favor, faça login para adicionar artigos.', 'warning');
+            }
+        });
+
+        // Adicionar listener ao botão de salvar
+        saveButton.addEventListener('click', async () => {
+            const user = auth.currentUser;
+
+            if (!user) {
+                showStatus('Erro: Nenhum usuário logado.', 'error');
+                return;
+            }
+
+            const title = articleTitleInput.value.trim();
+            const content = articleContentTextarea.value.trim();
+            const acesso = articleAcessoSelect.value;
+            const userId = user.uid; // Obtenha o UID do usuário logado
+
+            // Validar campos básicos
+            if (!title || !content || !acesso) {
+                showStatus('Erro: Por favor, preencha todos os campos.', 'error');
+                return;
+            }
+
+            showStatus('Salvando artigo...', ''); // Limpa e mostra status de salvamento
+
+            try {
+                // Crie o objeto do artigo incluindo o user ID
+                const newArticleData = {
+                    title: title,
+                    content: content,
+                    acesso: acesso,
+                    userId: userId, // Vincula o artigo ao usuário logado
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp() // Opcional: adicione um timestamp
+                };
+
+                // Adicione o documento à coleção 'articles'
+                // As regras de segurança verificarão se o usuário logado é um admin.
+                await db.collection('articles').add(newArticleData);
+
+                showStatus('Artigo salvo com sucesso!', 'success');
+
+                // Limpar o formulário após salvar
+                articleTitleInput.value = '';
+                articleContentTextarea.value = '';
+                articleAcessoSelect.value = 'publico'; // Reset para o valor padrão
+
+            } catch (error) {
+                console.error("Erro ao salvar artigo:", error);
+                if (error.code === 'permission-denied') {
+                    showStatus('Erro: Permissão negada. Apenas administradores podem adicionar artigos.', 'error');
+                } else {
+                    showStatus(`Erro ao salvar artigo: ${error.message}`, 'error');
+                }
+            }
+        });
+
+    </script>
+
+</body>
+</html>

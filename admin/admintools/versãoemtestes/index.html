@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adicionar/Editar Artigo - WZZM Admin</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .mdl-textfield {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .mdl-textfield__input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        textarea.mdl-textfield__input {
+            height: 120px;
+            min-height: 80px;
+            resize: vertical;
+        }
+        .mdl-button {
+            margin-right: 10px;
+        }
+        .actions {
+            text-align: right;
+            margin-top: 30px;
+        }
+        .error-message {
+            text-align: center;
+            padding: 15px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        /* Estilos adicionais para o selectfield do MDL */
+        .mdl-selectfield {
+            position: relative;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .mdl-selectfield select {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,.12);
+            background: transparent;
+            font-size: 16px;
+            color: rgba(0,0,0,.87);
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+        .mdl-selectfield label {
+            color: rgba(0,0,0,.26);
+            font-size: 16px;
+            left: 0;
+            top: 10px;
+            position: absolute;
+            pointer-events: none;
+            transition: 0.2s ease all;
+            transform-origin: left top;
+        }
+        .mdl-selectfield select:focus + label,
+        .mdl-selectfield select:not([value=""]) + label {
+            color: #3f51b5;
+            top: -15px;
+            font-size: 12px;
+            transform: scale(0.75);
+        }
+        .mdl-selectfield .mdl-textfield__error {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            font-size: 12px;
+            color: #d32f2f;
+            display: none;
+        }
+        .mdl-selectfield select:invalid ~ .mdl-textfield__error {
+            display: block;
+        }
+
+        /* Estilos para seções dinâmicas (Introdução, Metodologia, Discussão, Conclusão) */
+        .dynamic-section {
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            background-color: #fcfcfc;
+        }
+        .dynamic-section-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px dashed #bdbdbd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .dynamic-section-item button {
+            float: right;
+            margin-left: 10px;
+        }
+        .add-section-item-btn {
+            margin-top: 10px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+    <div class="container">
+        <h1 id="form-title">Adicionar Novo Artigo</h1>
+
+        <div id="error-display" class="error-message"></div>
+
+        <form id="article-form">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="article-title" required>
+                <label class="mdl-textfield__label" for="article-title">Título do Artigo *</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="article-description">
+                <label class="mdl-textfield__label" for="article-description">Descrição Curta</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <textarea class="mdl-textfield__input" type="text" rows="3" id="article-summary"></textarea>
+                <label class="mdl-textfield__label" for="article-summary">Resumo (Max 250 palavras)</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <textarea class="mdl-textfield__input" type="text" rows="5" id="article-abstract"></textarea>
+                <label class="mdl-textfield__label" for="article-abstract">Abstract</label>
+            </div>
+
+            <div id="introduction-section" class="dynamic-section">
+                <h3>Introdução</h3>
+                <div id="introduction-items-container"></div>
+                <button type="button" class="mdl-button mdl-js-button mdl-button--raised add-section-item-btn" data-section="introduction">
+                    Adicionar Parágrafo/Subseção
+                </button>
+            </div>
+
+            <div id="methodology-section" class="dynamic-section">
+                <h3>Metodologia</h3>
+                <div id="methodology-items-container"></div>
+                <button type="button" class="mdl-button mdl-js-button mdl-button--raised add-section-item-btn" data-section="methodology">
+                    Adicionar Parágrafo/Subseção
+                </button>
+            </div>
+
+            <div id="discussion-section" class="dynamic-section">
+                <h3>Discussão</h3>
+                <div id="discussion-items-container"></div>
+                <button type="button" class="mdl-button mdl-js-button mdl-button--raised add-section-item-btn" data-section="discussion">
+                    Adicionar Parágrafo/Subseção
+                </button>
+            </div>
+
+            <div id="conclusion-section" class="dynamic-section">
+                <h3>Conclusão</h3>
+                <div id="conclusion-items-container"></div>
+                <button type="button" class="mdl-button mdl-js-button mdl-button--raised add-section-item-btn" data-section="conclusion">
+                    Adicionar Parágrafo/Subseção
+                </button>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="url" id="article-original-url">
+                <label class="mdl-textfield__label" for="article-original-url">URL do Artigo Original (PDF/HTML)</label>
+                <span class="mdl-textfield__help">Link para o artigo completo em PDF ou HTML externo.</span>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="article-sources">
+                <label class="mdl-textfield__label" for="article-sources">Fontes Gerais (separadas por vírgula)</label>
+                <span class="mdl-textfield__help">Ex: Livro X, Site Y (para fontes que não se encaixam em uma subseção específica).</span>
+            </div>
+
+            <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                <select id="article-language" class="mdl-textfield__input" required>
+                    <option value="" disabled selected>Selecione o Idioma</option>
+                    <option value="pt-BR">Português (Brasil)</option>
+                    <option value="en-US">English (United States)</option>
+                </select>
+                <label for="article-language" class="mdl-textfield__label">Idioma *</label>
+                <span class="mdl-textfield__error">Por favor, selecione um idioma.</span>
+            </div>
+
+            <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                <select id="article-type" class="mdl-textfield__input" required>
+                    <option value="" disabled selected>Selecione o Tipo de Artigo</option>
+                    <option value="cientifico">Científico</option>
+                    <option value="revisao">Revisão Bibliográfica</option>
+                    <option value="noticia">Notícia</option>
+                    <option value="editorial">Editorial</option>
+                    <option value="opiniao">Opinião</option>
+                    <option value="entrevista">Entrevista</option>
+                    <option value="tutorial">Tutorial</option>
+                </select>
+                <label for="article-type" class="mdl-textfield__label">Tipo de Artigo *</label>
+                <span class="mdl-textfield__error">Por favor, selecione um tipo de artigo.</span>
+            </div>
+
+            <hr style="margin-top: 30px; margin-bottom: 20px;">
+            <h3>Seção de Verificação (Apenas para uso interno WZZM)</h3>
+
+            <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                <select id="article-verification-status" class="mdl-textfield__input" required>
+                    <option value="pending" selected>Pendente</option>
+                    <option value="in_review">Em Revisão</option>
+                    <option value="needs_revision">Precisa de Revisão</option>
+                    <option value="verified">Verificado</option>
+                    <option value="rejected">Rejeitado</option>
+                </select>
+                <label for="article-verification-status" class="mdl-textfield__label">Status de Verificação *</label>
+                <span class="mdl-textfield__error">Por favor, selecione um status.</span>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <textarea class="mdl-textfield__input" type="text" rows="3" id="article-verification-notes"></textarea>
+                <label class="mdl-textfield__label" for="article-verification-notes">Notas do Verificador</label>
+                <span class="mdl-textfield__help">Comentários e feedback sobre a verificação do conteúdo.</span>
+            </div>
+
+            <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="plagiarism-check-confirmed">
+                <input type="checkbox" id="plagiarism-check-confirmed" class="mdl-checkbox__input">
+                <span class="mdl-checkbox__label">Confirmo que este artigo foi verificado quanto a plágio e conformidade.</span>
+            </label>
+            <br><br>
+
+            <div class="actions">
+                <button type="submit" id="save-article-btn"
+                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                    Salvar Artigo
+                </button>
+                <button type="button" id="cancel-btn"
+                        class="mdl-button mdl-js-button mdl-button--raised">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase com suas chaves e dados originais ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth(); // Inicializa o Auth
+
+        let currentUser = null; // Para armazenar o usuário logado
+        let currentArticleId = null; // Para armazenar o ID do artigo em edição
+
+        const formTitle = document.getElementById('form-title');
+        const articleForm = document.getElementById('article-form');
+        const errorDisplay = document.getElementById('error-display');
+        const saveArticleBtn = document.getElementById('save-article-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        // Campos existentes
+        const articleTitleInput = document.getElementById('article-title');
+        const articleDescriptionInput = document.getElementById('article-description');
+        const articleSummaryInput = document.getElementById('article-summary');
+        const articleAbstractInput = document.getElementById('article-abstract');
+        const articleOriginalUrlInput = document.getElementById('article-original-url');
+        const articleSourcesInput = document.getElementById('article-sources');
+        const articleLanguageSelect = document.getElementById('article-language');
+        const articleTypeSelect = document.getElementById('article-type');
+
+        // Novos campos de Verificação
+        const articleVerificationStatusSelect = document.getElementById('article-verification-status');
+        const articleVerificationNotesInput = document.getElementById('article-verification-notes');
+        const plagiarismCheckConfirmedCheckbox = document.getElementById('plagiarism-check-confirmed');
+
+        // Contêineres para as seções dinâmicas
+        const introductionItemsContainer = document.getElementById('introduction-items-container');
+        const methodologyItemsContainer = document.getElementById('methodology-items-container');
+        const discussionItemsContainer = document.getElementById('discussion-items-container');
+        const conclusionItemsContainer = document.getElementById('conclusion-items-container');
+
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+        }
+
+        // Função para criar um novo item de seção dinâmica (parágrafo/subseção)
+        function createDynamicSectionItem(sectionType, text = '', reference = '', referenceUrl = '') {
+            const container = document.getElementById(`${sectionType}-items-container`);
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'dynamic-section-item';
+
+            // Gerar IDs únicos para os campos dentro do item
+            const idPrefix = `${sectionType}-${Date.now()}`; // Garante unicidade mesmo com múltiplos itens
+
+            itemDiv.innerHTML = `
+                <button type="button" class="mdl-button mdl-js-button mdl-button--icon remove-section-item-btn" title="Remover Parágrafo">
+                    <i class="material-icons">delete</i>
+                </button>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: calc(100% - 40px);">
+                    <textarea class="mdl-textfield__input" type="text" rows="3" id="${idPrefix}-text" required>${text}</textarea>
+                    <label class="mdl-textfield__label" for="${idPrefix}-text">Texto do Parágrafo *</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: calc(100% - 40px);">
+                    <input class="mdl-textfield__input" type="text" id="${idPrefix}-reference" value="${reference}">
+                    <label class="mdl-textfield__label" for="${idPrefix}-reference">Referência (Ex: Autor, A. (Ano). Título.)</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: calc(100% - 40px);">
+                    <input class="mdl-textfield__input" type="url" id="${idPrefix}-reference-url" value="${referenceUrl}">
+                    <label class="mdl-textfield__label" for="${idPrefix}-reference-url">URL da Referência</label>
+                </div>
+            `;
+            container.appendChild(itemDiv);
+
+            // Atualiza os componentes MDL recém-adicionados
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElements(itemDiv);
+            }
+
+            // Adiciona listener para o botão de remover
+            itemDiv.querySelector('.remove-section-item-btn').addEventListener('click', () => {
+                itemDiv.remove();
+            });
+        }
+
+        // Adiciona listeners para os botões "Adicionar Parágrafo/Subseção"
+        document.querySelectorAll('.add-section-item-btn').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const sectionType = event.target.dataset.section;
+                createDynamicSectionItem(sectionType);
+            });
+        });
+
+        // Listener para o estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                console.log("Usuário logado:", currentUser.uid);
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                if (id) {
+                    currentArticleId = id;
+                    formTitle.textContent = 'Editar Artigo';
+                    loadArticleData(id); // Carrega os dados do artigo para edição
+                } else {
+                    // Para novos artigos, define o status inicial como "Pendente"
+                    articleVerificationStatusSelect.value = 'pending';
+                    if (window.componentHandler) {
+                        articleVerificationStatusSelect.closest('.mdl-selectfield').MaterialTextfield.checkDirty();
+                        articleVerificationStatusSelect.closest('.mdl-selectfield').MaterialTextfield.checkValidity();
+                    }
+                }
+            } else {
+                currentUser = null;
+                console.warn("Nenhum usuário logado. Redirecionando para login?");
+                alert("Você precisa estar logado para adicionar ou editar artigos.");
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'navigateIframe', url: './login.html' }, window.location.origin);
+                } else {
+                    window.location.href = './login.html';
+                }
+            }
+        });
+
+        // Carrega dados do artigo para edição
+        async function loadArticleData(articleId) {
+            try {
+                const docRef = firestore.collection('articlesdoc').doc(articleId);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    articleTitleInput.value = data.title || '';
+                    articleDescriptionInput.value = data.description || '';
+                    articleSummaryInput.value = data.summary || '';
+                    articleAbstractInput.value = data.abstract || '';
+
+                    // Carregar seções dinâmicas
+                    if (data.introductionSections && Array.isArray(data.introductionSections)) {
+                        data.introductionSections.forEach(item => createDynamicSectionItem('introduction', item.text, item.reference, item.referenceUrl));
+                    }
+                    if (data.methodologySections && Array.isArray(data.methodologySections)) {
+                        data.methodologySections.forEach(item => createDynamicSectionItem('methodology', item.text, item.reference, item.referenceUrl));
+                    }
+                    if (data.discussionSections && Array.isArray(data.discussionSections)) {
+                        data.discussionSections.forEach(item => createDynamicSectionItem('discussion', item.text, item.reference, item.referenceUrl));
+                    }
+                    if (data.conclusionSections && Array.isArray(data.conclusionSections)) {
+                        data.conclusionSections.forEach(item => createDynamicSectionItem('conclusion', item.text, item.reference, item.referenceUrl));
+                    }
+
+                    articleOriginalUrlInput.value = data.originalUrl || '';
+                    articleSourcesInput.value = (data.sources && Array.isArray(data.sources)) ? data.sources.join(', ') : '';
+                    articleLanguageSelect.value = data.language || '';
+                    articleTypeSelect.value = data.articleType || '';
+
+                    // Carregar campos de Verificação
+                    articleVerificationStatusSelect.value = data.verificationStatus || 'pending';
+                    articleVerificationNotesInput.value = data.verificationNotes || '';
+                    plagiarismCheckConfirmedCheckbox.checked = data.plagiarismCheckConfirmed || false;
+
+                    // Atualiza o MDL para os campos pré-preenchidos
+                    if (window.componentHandler) {
+                        articleForm.querySelectorAll('.mdl-textfield').forEach(textfield => {
+                            if (textfield.MaterialTextfield) {
+                                textfield.MaterialTextfield.checkDirty();
+                                textfield.MaterialTextfield.checkValidity();
+                            }
+                        });
+                        articleForm.querySelectorAll('.mdl-selectfield').forEach(selectfield => {
+                            if (selectfield.MaterialTextfield) {
+                                selectfield.MaterialTextfield.checkDirty();
+                                selectfield.MaterialTextfield.checkValidity();
+                            }
+                        });
+                         // Para o checkbox
+                        if (plagiarismCheckConfirmedCheckbox.parentElement.MaterialCheckbox) {
+                            plagiarismCheckConfirmedCheckbox.parentElement.MaterialCheckbox.checkToggleState();
+                        }
+                    }
+                } else {
+                    displayError("Artigo não encontrado.");
+                    console.error("Artigo com ID", articleId, "não encontrado na coleção 'articlesdoc'.");
+                }
+            } catch (error) {
+                displayError("Erro ao carregar dados do artigo: " + error.message);
+                console.error("Erro ao carregar dados do artigo da coleção 'articlesdoc':", error);
+            }
+        }
+
+        // Função para obter dados das seções dinâmicas
+        function getDynamicSectionData(containerId) {
+            const items = [];
+            const container = document.getElementById(containerId);
+            container.querySelectorAll('.dynamic-section-item').forEach(itemDiv => {
+                const text = itemDiv.querySelector('textarea[id$="-text"]').value.trim();
+                const reference = itemDiv.querySelector('input[id$="-reference"]').value.trim();
+                const referenceUrl = itemDiv.querySelector('input[id$="-reference-url"]').value.trim();
+                if (text) { // Só adiciona se houver texto
+                    items.push({
+                        text: text,
+                        reference: reference,
+                        referenceUrl: referenceUrl || null // Salva null se vazio
+                    });
+                }
+            });
+            return items;
+        }
+
+        // Função para salvar (adicionar ou atualizar) o artigo
+        async function saveArticle(event) {
+            event.preventDefault();
+
+            if (!currentUser) {
+                displayError("Você precisa estar logado para salvar artigos.");
+                return;
+            }
+
+            // Validação básica
+            if (!articleTitleInput.value.trim()) {
+                displayError("O Título do Artigo é obrigatório.");
+                articleTitleInput.focus();
+                return;
+            }
+            if (!articleLanguageSelect.value) {
+                displayError("O Idioma é obrigatório.");
+                articleLanguageSelect.focus();
+                return;
+            }
+            if (!articleTypeSelect.value) {
+                displayError("O Tipo de Artigo é obrigatório.");
+                articleTypeSelect.focus();
+                return;
+            }
+            if (!articleVerificationStatusSelect.value) {
+                displayError("O Status de Verificação é obrigatório.");
+                articleVerificationStatusSelect.focus();
+                return;
+            }
+
+            errorDisplay.style.display = 'none';
+            saveArticleBtn.disabled = true;
+
+            // Coleta dados das seções dinâmicas
+            const introductionSections = getDynamicSectionData('introduction-items-container');
+            const methodologySections = getDynamicSectionData('methodology-items-container');
+            const discussionSections = getDynamicSectionData('discussion-items-container');
+            const conclusionSections = getDynamicSectionData('conclusion-items-container');
+
+            const articleData = {
+                userId: currentUser.uid,
+                title: articleTitleInput.value.trim(),
+                description: articleDescriptionInput.value.trim(),
+                summary: articleSummaryInput.value.trim(),
+                abstract: articleAbstractInput.value.trim(),
+                originalUrl: articleOriginalUrlInput.value.trim() || null,
+                sources: articleSourcesInput.value.split(',').map(s => s.trim()).filter(s => s),
+                language: articleLanguageSelect.value,
+                articleType: articleTypeSelect.value,
+                lastModified: firebase.firestore.FieldValue.serverTimestamp(),
+
+                // Dados das seções dinâmicas
+                introductionSections: introductionSections,
+                methodologySections: methodologySections,
+                discussionSections: discussionSections,
+                conclusionSections: conclusionSections,
+
+                // Dados de Verificação
+                verificationStatus: articleVerificationStatusSelect.value,
+                verificationNotes: articleVerificationNotesInput.value.trim(),
+                plagiarismCheckConfirmed: plagiarismCheckConfirmedCheckbox.checked
+            };
+
+            // Se o status de verificação foi alterado para 'verified' ou 'in_review',
+            // registra quem verificou e a data.
+            const oldStatus = currentArticleId ? (await firestore.collection('articlesdoc').doc(currentArticleId).get()).data().verificationStatus : 'new';
+
+            if (articleData.verificationStatus === 'verified' && oldStatus !== 'verified') {
+                articleData.verifiedBy = currentUser.uid;
+                articleData.lastVerifiedDate = firebase.firestore.FieldValue.serverTimestamp();
+            } else if (articleData.verificationStatus === 'in_review' && oldStatus !== 'in_review') {
+                articleData.verifiedBy = currentUser.uid; // Marca quem começou a revisão
+                articleData.lastVerifiedDate = firebase.firestore.FieldValue.serverTimestamp();
+            } else if (currentArticleId) {
+                // Mantém o verifiedBy e lastVerifiedDate se não houver mudança para verified/in_review
+                const existingData = (await firestore.collection('articlesdoc').doc(currentArticleId).get()).data();
+                articleData.verifiedBy = existingData.verifiedBy || null;
+                articleData.lastVerifiedDate = existingData.lastVerifiedDate || null;
+            } else {
+                 articleData.verifiedBy = null; // Para artigos novos, começa sem verificador
+                 articleData.lastVerifiedDate = null;
+            }
+
+
+            try {
+                const articlesCollectionRef = firestore.collection('articlesdoc');
+
+                if (currentArticleId) {
+                    await articlesCollectionRef.doc(currentArticleId).update(articleData);
+                    alert("Artigo atualizado com sucesso!");
+                    console.log("Artigo atualizado na coleção 'articlesdoc':", currentArticleId);
+                } else {
+                    articleData.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+                    const newDocRef = await articlesCollectionRef.add(articleData);
+                    currentArticleId = newDocRef.id;
+                    alert("Artigo adicionado com sucesso! ID: " + newDocRef.id);
+                    console.log("Novo artigo adicionado na coleção 'articlesdoc' com ID:", newDocRef.id);
+                    formTitle.textContent = 'Editar Artigo';
+                    // Atualiza a URL no navegador para refletir o ID do artigo
+                    window.history.replaceState({}, '', `?id=${currentArticleId}`);
+                }
+
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'refreshArticlesList' }, window.location.origin);
+                } else {
+                    alert("Artigo salvo! (Em ambiente de desenvolvimento sem iframe)");
+                }
+
+            } catch (error) {
+                displayError("Erro ao salvar artigo: " + error.message);
+                console.error("Erro ao salvar artigo na coleção 'articlesdoc':", error);
+            } finally {
+                saveArticleBtn.disabled = false;
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            articleForm.addEventListener('submit', saveArticle);
+
+            cancelBtn.addEventListener('click', () => {
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'refreshArticlesList' }, window.location.origin);
+                } else {
+                    window.history.back();
+                }
+            });
+
+            // Inicializa componentes MDL se já não estiverem inicializados
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+            }
+        });
+    </script>
+</body>
+</html>

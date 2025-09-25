@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Conteúdo - Wazzimagiyggfemboyverse69</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .container { max-width: 800px; margin: auto; }
+        label { display: block; margin-top: 1em; font-weight: bold; }
+        input[type="text"], select, textarea { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        #content { height: 300px; }
+        #consent { margin-top: 1em; }
+        button { padding: 10px 15px; margin-top: 1em; cursor: pointer; }
+        #auth-status { margin-bottom: 1em; }
+        #loading { display: none; margin-top: 1em; color: blue; }
+        #result { margin-top: 1em; padding: 10px; background-color: #e9e9e9; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Inserir Novo Conteúdo</h1>
+        
+        <div id="auth-status">
+            <p>Faça login com sua conta Google para continuar.</p>
+            <button id="login-button">Login com Google</button>
+        </div>
+
+        <form id="content-form" style="display:none;">
+            <p>Logado como: <strong id="user-display"></strong></p>
+            <button id="logout-button">Sair</button>
+            <hr>
+
+            <label for="title">Título:</label>
+            <input type="text" id="title" required>
+
+            <label for="sector">Setor:</label>
+            <select id="sector" required>
+                <option value="">Selecione um setor</option>
+                <option value="Noticias">Noticias</option>
+                <option value="Produtos">Produtos</option>
+                <option value="Informações">Informações</option>
+
+            </select>
+
+            <label for="content">Conteúdo (insira o código HTML aqui):</label>
+            <textarea id="content" required></textarea>
+
+            <label for="image-upload">Upload de Imagem:</label>
+            <input type="file" id="image-upload" accept="image/*">
+
+            <div id="consent">
+                <input type="checkbox" id="terms-consent" required>
+                <label for="terms-consent">Concordo com os termos de publicação.</label>
+            </div>
+
+            <button type="submit">Publicar Conteúdo</button>
+        </form>
+
+        <p id="loading">Processando...</p>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const storage = firebase.storage();
+
+        const authStatus = document.getElementById('auth-status');
+        const contentForm = document.getElementById('content-form');
+        const loginButton = document.getElementById('login-button');
+        const logoutButton = document.getElementById('logout-button');
+        const userDisplay = document.getElementById('user-display');
+        const loading = document.getElementById('loading');
+        const resultDiv = document.getElementById('result');
+
+        // Monitora o estado da autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                authStatus.style.display = 'none';
+                contentForm.style.display = 'block';
+                userDisplay.textContent = user.uid;
+            } else {
+                authStatus.style.display = 'block';
+                contentForm.style.display = 'none';
+            }
+        });
+
+        // Login com Google
+        loginButton.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => {
+                    console.error("Erro no login: ", error);
+                    alert("Ocorreu um erro ao fazer login. Tente novamente.");
+                });
+        });
+
+        // Logout
+        logoutButton.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Função para converter imagem em base64 (string compilável)
+        const getBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Submissão do formulário
+        contentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            loading.style.display = 'block';
+            resultDiv.innerHTML = '';
+
+            const user = auth.currentUser;
+            if (!user) {
+                alert("Você precisa estar logado para publicar.");
+                loading.style.display = 'none';
+                return;
+            }
+
+            const title = document.getElementById('title').value;
+            const sector = document.getElementById('sector').value;
+            const content = document.getElementById('content').value;
+            const termsConsent = document.getElementById('terms-consent').checked;
+            const imageFile = document.getElementById('image-upload').files[0];
+
+            try {
+                let imageUrlCode = null;
+                let imageDocId = null;
+
+                if (imageFile) {
+                    const imageBase64 = await getBase64(imageFile);
+                    const imageRef = await db.collection('imagenscode').add({
+                        base64_code: imageBase64,
+                        original_name: imageFile.name,
+                        upload_date: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    imageDocId = imageRef.id;
+                    imageUrlCode = `[IMAGEM_ID:${imageDocId}]`;
+
+                    resultDiv.innerHTML += `<p>Imagem salva com sucesso! ID: <strong>${imageDocId}</strong></p>`;
+                }
+
+                await db.collection('wazzimagiyggfemboyverse69').add({
+                    title: title,
+                    sector: sector,
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    content: content,
+                    author_uid: user.uid,
+                    agreed_terms: termsConsent,
+                    image_reference: imageUrlCode
+                });
+
+                resultDiv.innerHTML += `<p>Documento publicado com sucesso na coleção "wazzimagiyggfemboyverse69".</p>`;
+                contentForm.reset();
+            } catch (error) {
+                console.error("Erro ao publicar: ", error);
+                resultDiv.innerHTML = `<p style="color:red;">Ocorreu um erro ao publicar o conteúdo. Tente novamente.</p>`;
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

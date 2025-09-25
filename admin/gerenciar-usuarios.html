@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Usuários - WZZM Admin</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            background-color: #f5f5f5; /* Cor de fundo suave */
+        }
+        .mdl-layout__content {
+            padding: 20px;
+        }
+        .page-content {
+            max-width: 960px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .mdl-data-table {
+            width: 100%;
+            white-space: nowrap; /* Evita quebra de linha em células pequenas */
+        }
+        .mdl-data-table th, .mdl-data-table td {
+            padding: 12px 18px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: left;
+        }
+        .mdl-data-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            color: #555;
+        }
+        .mdl-data-table tbody tr:hover {
+            background-color: #f0f0f0;
+        }
+        .user-actions {
+            display: flex;
+            gap: 8px; /* Espaço entre os botões */
+        }
+        .user-actions .mdl-button {
+            min-width: unset; /* Remove o min-width padrão do MDL para botões menores */
+            padding: 0 8px;
+            height: 32px;
+            line-height: 32px;
+            font-size: 0.8em;
+        }
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .search-container .mdl-textfield {
+            flex-grow: 1; /* Campo de busca ocupa o espaço disponível */
+        }
+        .mdl-dialog {
+            border: none;
+            box-shadow: 0 9px 46px 1px rgba(0,0,0,.14), 0 11px 15px -7px rgba(0,0,0,.12), 0 24px 38px 3px rgba(0,0,0,.2);
+            width: 600px;
+            padding: 24px;
+            background: #fff;
+            border-radius: 8px;
+        }
+        .mdl-dialog__title {
+            padding: 0 0 16px 0;
+            font-size: 24px;
+            color: #333;
+        }
+        .mdl-dialog__actions {
+            padding: 16px 0 0 0;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .mdl-dialog__content {
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script>
+        // Inicialização do Firebase (se não for herdada do pai)
+        // Se este HTML for carregado num iframe do index.html, e o index.html já inicializou o Firebase,
+        // você PODE ter acesso às variáveis `firebase`, `auth`, `firestore` diretamente.
+        // No entanto, para garantir que funcione de forma independente ou se o iframe for restrito,
+        // é mais seguro inicializar novamente aqui.
+        if (typeof firebase === 'undefined' || !firebase.apps.length) {
+            const firebaseConfig = {
+                apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua chave real
+                authDomain: "wzzm-ce3fc.firebaseapp.com",
+                projectId: "wzzm-ce3fc",
+                storageBucket: "wzzm-ce3fc.appspot.com",
+                messagingSenderId: "249427877153",
+                appId: "1:249427877153:web:0e4297294794a5aadeb260",
+                measurementId: "G-PLKNZNFCQ8"
+            };
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+
+            const usersTableBody = document.getElementById('users-table-body');
+            const searchInput = document.getElementById('search-user-input');
+            const addUserButton = document.getElementById('add-user-button');
+            const addUserDialog = document.getElementById('add-user-dialog');
+            const closeAddUserDialogButton = document.getElementById('close-add-user-dialog');
+
+            // Exibir/Ocultar o diálogo de adicionar usuário
+            if (addUserButton) {
+                addUserButton.addEventListener('click', () => {
+                    if (addUserDialog) {
+                        addUserDialog.showModal();
+                    }
+                });
+            }
+
+            if (closeAddUserDialogButton) {
+                closeAddUserDialogButton.addEventListener('click', () => {
+                    if (addUserDialog) {
+                        addUserDialog.close();
+                    }
+                });
+            }
+
+            // Função para buscar e exibir usuários
+            async function fetchAndDisplayUsers() {
+                usersTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Carregando usuários...</td></tr>';
+                const searchTerm = searchInput.value.toLowerCase();
+
+                try {
+                    const usersRef = firestore.collection('users');
+                    let query = usersRef;
+
+                    // Implementação básica de busca (você pode precisar de índices no Firebase)
+                    // Para buscas mais avançadas, considere Algolia ou pesquisa full-text no lado do cliente.
+                    // Para uma busca no Firestore, a query precisa ser mais específica, por exemplo, por email.
+                    // Exemplo: query = usersRef.where('email', '>=', searchTerm).where('email', '<=', searchTerm + '\uf8ff');
+                    // Ou, se o Firestore não suportar a busca exata que você precisa no "name",
+                    // você pode buscar todos e filtrar no cliente (para conjuntos de dados pequenos a médios).
+
+                    const snapshot = await query.get();
+                    let users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                    // Filtragem no cliente se a busca do Firestore for limitada
+                    if (searchTerm) {
+                        users = users.filter(user =>
+                            (user.name && user.name.toLowerCase().includes(searchTerm)) ||
+                            (user.email && user.email.toLowerCase().includes(searchTerm))
+                        );
+                    }
+
+                    usersTableBody.innerHTML = ''; // Limpa antes de adicionar
+                    if (users.length === 0) {
+                        usersTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Nenhum usuário encontrado.</td></tr>';
+                        return;
+                    }
+
+                    users.forEach(user => {
+                        const row = usersTableBody.insertRow();
+                        row.innerHTML = `
+                            <td>${user.name || 'N/A'}</td>
+                            <td>${user.email || 'N/A'}</td>
+                            <td>${user.isAdmin ? 'Sim' : 'Não'}</td>
+                            <td>${user.lastLoginAt ? new Date(user.lastLoginAt.seconds * 1000).toLocaleString() : 'Nunca'}</td>
+                            <td class="user-actions">
+                                <button class="mdl-button mdl-js-button mdl-button--icon mdl-button--colored" data-user-id="${user.id}" data-action="edit" title="Editar">
+                                    <i class="material-icons">edit</i>
+                                </button>
+                                <button class="mdl-button mdl-js-button mdl-button--icon mdl-button--accent" data-user-id="${user.id}" data-action="delete" title="Excluir">
+                                    <i class="material-icons">delete</i>
+                                </button>
+                                <button class="mdl-button mdl-js-button mdl-button--icon mdl-button--primary" data-user-id="${user.id}" data-is-admin="${user.isAdmin}" data-action="toggle-admin" title="${user.isAdmin ? 'Remover Admin' : 'Tornar Admin'}">
+                                    <i class="material-icons">${user.isAdmin ? 'person_remove' : 'verified_user'}</i>
+                                </button>
+                            </td>
+                        `;
+                    });
+
+                    // Atualiza os componentes MDL para os novos botões
+                    componentHandler.upgradeElements(usersTableBody);
+
+                } catch (error) {
+                    console.error("Erro ao buscar usuários:", error);
+                    usersTableBody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">Erro ao carregar usuários: ${error.message}</td></tr>`;
+                }
+            }
+
+            // Listener para o campo de busca
+            if (searchInput) {
+                searchInput.addEventListener('input', fetchAndDisplayUsers);
+            }
+
+            // Delegar eventos para os botões de ação (editar, excluir, toggle admin)
+            if (usersTableBody) {
+                usersTableBody.addEventListener('click', async (event) => {
+                    const target = event.target.closest('button');
+                    if (!target) return;
+
+                    const userId = target.dataset.userId;
+                    const action = target.dataset.action;
+
+                    if (!userId) return;
+
+                    switch (action) {
+                        case 'edit':
+                            alert(`Editar usuário ${userId} (funcionalidade a ser implementada)`);
+                            // Abrir um modal de edição, preencher formulário, etc.
+                            break;
+                        case 'delete':
+                            if (confirm(`Tem certeza que deseja excluir o usuário ${userId}?`)) {
+                                try {
+                                    await firestore.collection('users').doc(userId).delete();
+                                    alert('Usuário excluído com sucesso!');
+                                    fetchAndDisplayUsers(); // Recarrega a lista
+                                } catch (error) {
+                                    console.error("Erro ao excluir usuário:", error);
+                                    alert(`Erro ao excluir usuário: ${error.message}`);
+                                }
+                            }
+                            break;
+                        case 'toggle-admin':
+                            const currentAdminStatus = target.dataset.isAdmin === 'true';
+                            const newAdminStatus = !currentAdminStatus;
+                            const confirmMessage = newAdminStatus ? `Tornar usuário ${userId} administrador?` : `Remover privilégios de administrador de ${userId}?`;
+
+                            if (confirm(confirmMessage)) {
+                                try {
+                                    await firestore.collection('users').doc(userId).update({ isAdmin: newAdminStatus });
+                                    alert(`Privilégios de administrador de ${userId} atualizados para: ${newAdminStatus ? 'Sim' : 'Não'}`);
+                                    fetchAndDisplayUsers(); // Recarrega a lista
+                                } catch (error) {
+                                    console.error("Erro ao atualizar privilégios de admin:", error);
+                                    alert(`Erro ao atualizar privilégios de admin: ${error.message}`);
+                                }
+                            }
+                            break;
+                    }
+                });
+            }
+
+            // Carrega os usuários na primeira vez
+            fetchAndDisplayUsers();
+        });
+    </script>
+
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+        <header class="mdl-layout__header" style="display: none;">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title">Gerenciar Usuários</span>
+            </div>
+        </header>
+
+        <main class="mdl-layout__content">
+            <div class="page-content">
+                <h2>Gerenciamento de Usuários</h2>
+                <p>Aqui você pode visualizar, adicionar, editar e remover usuários do sistema, além de gerenciar seus privilégios de administrador.</p>
+
+                <div class="search-container">
+                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                        <input class="mdl-textfield__input" type="text" id="search-user-input">
+                        <label class="mdl-textfield__label" for="search-user-input">Buscar por nome ou e-mail...</label>
+                    </div>
+                    <button id="add-user-button" class="mdl-button mdl-js-button mdl-button--fab mdl-button--mini-fab mdl-button--colored" title="Adicionar Novo Usuário">
+                        <i class="material-icons">person_add</i>
+                    </button>
+                </div>
+
+                <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">
+                    <thead>
+                        <tr>
+                            <th class="mdl-data-table__cell--non-numeric">Nome</th>
+                            <th class="mdl-data-table__cell--non-numeric">E-mail</th>
+                            <th>Admin</th>
+                            <th>Último Login</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <dialog class="mdl-dialog" id="add-user-dialog">
+        <h4 class="mdl-dialog__title">Adicionar Novo Usuário</h4>
+        <div class="mdl-dialog__content">
+            <p>Funcionalidade para adicionar um novo usuário manualmente ou convidar.</p>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <input class="mdl-textfield__input" type="text" id="new-user-name">
+                <label class="mdl-textfield__label" for="new-user-name">Nome do Usuário</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <input class="mdl-textfield__input" type="email" id="new-user-email">
+                <label class="mdl-textfield__label" for="new-user-email">E-mail</label>
+            </div>
+            <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="new-user-is-admin" style="margin-top: 15px;">
+                <input type="checkbox" id="new-user-is-admin" class="mdl-checkbox__input">
+                <span class="mdl-checkbox__label">Tornar Administrador</span>
+            </label>
+        </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button" id="submit-add-user">Adicionar</button>
+            <button type="button" class="mdl-button" id="close-add-user-dialog">Cancelar</button>
+        </div>
+    </dialog>
+</body>
+</html>

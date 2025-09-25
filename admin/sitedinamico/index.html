@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Moderadores - Denúncias</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 50px;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            padding: 24px;
+            background-color: #fff;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,0.14), 0 3px 1px -2px rgba(0,0,0,0.2), 0 1px 5px 0 rgba(0,0,0,0.12);
+            border-radius: 8px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #3f51b5;
+        }
+        #reports-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .report-item {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: background-color 0.3s;
+        }
+        .report-item:last-child {
+            border-bottom: none;
+        }
+        .report-item:hover {
+            background-color: #fafafa;
+        }
+        .report-item.resolved {
+            background-color: #e8f5e9;
+        }
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .report-header h4 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        .report-meta {
+            font-size: 0.9em;
+            color: #757575;
+        }
+        .report-content {
+            padding-left: 16px;
+            border-left: 3px solid #f44336;
+        }
+        .report-content strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+        .report-actions {
+            margin-top: 10px;
+            align-self: flex-end;
+        }
+        .mdl-spinner {
+            margin: 20px auto;
+            display: block;
+        }
+        .mdl-snackbar {
+            background-color: #333;
+            color: #fff;
+        }
+        #auth-message {
+            text-align: center;
+            font-size: 1.2em;
+            color: #f44336;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Denúncias de Artigos</h2>
+        <div id="loading-spinner" class="mdl-spinner mdl-spinner--single-color mdl-js-spinner is-active"></div>
+        <p id="no-reports-message" style="text-align: center; display: none;">Nenhuma denúncia pendente encontrada.</p>
+        <p id="auth-message" style="display: none;">Você precisa estar autenticado como administrador para acessar esta página.</p>
+        <ul id="reports-list"></ul>
+    </div>
+
+    <div id="snackbar" class="mdl-js-snackbar mdl-snackbar">
+        <div class="mdl-snackbar__text"></div>
+        <button class="mdl-snackbar__action" type="button"></button>
+    </div>
+
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+        // A função firebase.analytics() agora funcionará
+        firebase.analytics();
+
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const reportsList = document.getElementById('reports-list');
+        const noReportsMessage = document.getElementById('no-reports-message');
+        const authMessage = document.getElementById('auth-message');
+
+        function showSnackbar(message) {
+            var snackbarContainer = document.querySelector('#snackbar');
+            var data = {
+                message: message,
+                timeout: 3000
+            };
+            if (snackbarContainer && snackbarContainer.MaterialSnackbar) {
+                snackbarContainer.MaterialSnackbar.showSnackbar(data);
+            }
+        }
+
+        async function loadReports() {
+            loadingSpinner.style.display = 'block';
+            reportsList.innerHTML = '';
+            noReportsMessage.style.display = 'none';
+
+            try {
+                const reportsSnapshot = await firestore.collection('reports').orderBy('timestamp', 'desc').get();
+
+                if (reportsSnapshot.empty) {
+                    noReportsMessage.style.display = 'block';
+                    loadingSpinner.style.display = 'none';
+                    return;
+                }
+
+                for (const reportDoc of reportsSnapshot.docs) {
+                    const reportData = reportDoc.data();
+                    const reportId = reportDoc.id;
+
+                    let articleTitle = 'Artigo não encontrado';
+                    if (reportData.articleUid) {
+                        const articleDoc = await firestore.collection('articles').doc(reportData.articleUid).get();
+                        if (articleDoc.exists) {
+                            articleTitle = articleDoc.data().title || 'Sem título';
+                        }
+                    }
+
+                    let reporterName = 'Usuário desconhecido';
+                    if (reportData.reporterUid) {
+                        const reporterDoc = await firestore.collection('users').doc(reportData.reporterUid).get();
+                        if (reporterDoc.exists) {
+                            reporterName = reporterDoc.data().displayName || 'Usuário sem nome';
+                        }
+                    }
+
+                    const reportItem = document.createElement('li');
+                    reportItem.classList.add('report-item');
+                    if (reportData.status === 'resolvido') {
+                        reportItem.classList.add('resolved');
+                    }
+                    
+                    const timestampDate = reportData.timestamp ? reportData.timestamp.toDate() : new Date();
+                    const timeString = timestampDate.toLocaleString();
+                    const statusText = reportData.status === 'resolvido' ? 'Resolvido' : 'Pendente';
+
+                    reportItem.innerHTML = `
+                        <div class="report-header">
+                            <h4>Denúncia: ${articleTitle}</h4>
+                            <span class="report-meta">
+                                por ${reporterName} em ${timeString}
+                            </span>
+                        </div>
+                        <div class="report-content">
+                            <strong>Motivo:</strong> ${reportData.reason}<br>
+                            <strong>Detalhes:</strong> ${reportData.details || 'Nenhum detalhe adicional.'}<br>
+                            <strong>Status:</strong> <span id="status-${reportId}">${statusText}</span>
+                        </div>
+                        <div class="report-actions">
+                            ${reportData.status !== 'resolvido' ? 
+                                `<button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" onclick="resolveReport('${reportId}')">
+                                    Resolver
+                                </button>` : ''}
+                            <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="deleteReport('${reportId}')">
+                                Excluir
+                            </button>
+                        </div>
+                    `;
+                    reportsList.appendChild(reportItem);
+                }
+                loadingSpinner.style.display = 'none';
+            } catch (error) {
+                console.error("Erro ao carregar denúncias:", error);
+                loadingSpinner.style.display = 'none';
+                showSnackbar('Erro ao carregar denúncias. Verifique o console.');
+            }
+        }
+
+        async function resolveReport(reportId) {
+            try {
+                await firestore.collection('reports').doc(reportId).update({
+                    status: 'resolvido'
+                });
+                showSnackbar('Denúncia resolvida com sucesso!');
+                const item = document.querySelector(`.report-item button[onclick="resolveReport('${reportId}')"]`).closest('.report-item');
+                item.classList.add('resolved');
+                item.querySelector(`#status-${reportId}`).textContent = 'Resolvido';
+                item.querySelector('.report-actions').innerHTML = `<button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="deleteReport('${reportId}')">Excluir</button>`;
+            } catch (error) {
+                console.error("Erro ao resolver denúncia:", error);
+                showSnackbar('Erro ao resolver a denúncia. Tente novamente.');
+            }
+        }
+
+        async function deleteReport(reportId) {
+            if (confirm('Tem certeza que deseja excluir esta denúncia? Esta ação não pode ser desfeita.')) {
+                try {
+                    await firestore.collection('reports').doc(reportId).delete();
+                    showSnackbar('Denúncia excluída com sucesso!');
+                    const item = document.querySelector(`.report-item[data-id="${reportId}"]`);
+                    if (item) item.remove();
+                    if(reportsList.children.length === 0) {
+                        noReportsMessage.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error("Erro ao excluir denúncia:", error);
+                    showSnackbar('Erro ao excluir a denúncia. Tente novamente.');
+                }
+            }
+        }
+        
+        auth.onAuthStateChanged(async user => {
+            if (user) {
+                try {
+                    const userDoc = await firestore.collection('users').doc(user.uid).get();
+                    if (userDoc.exists && userDoc.data().isAdmin) {
+                        authMessage.style.display = 'none';
+                        document.querySelector('.container').style.display = 'block';
+                        loadReports();
+                    } else {
+                        document.querySelector('.container').style.display = 'none';
+                        authMessage.textContent = 'Acesso negado. Você não tem permissão de administrador.';
+                        authMessage.style.display = 'block';
+                        loadingSpinner.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar permissões de usuário:", error);
+                    document.querySelector('.container').style.display = 'none';
+                    authMessage.textContent = 'Erro ao verificar permissões. Tente fazer login novamente.';
+                    authMessage.style.display = 'block';
+                    loadingSpinner.style.display = 'none';
+                }
+            } else {
+                document.querySelector('.container').style.display = 'none';
+                authMessage.textContent = 'Você precisa fazer login para acessar este painel.';
+                authMessage.style.display = 'block';
+                loadingSpinner.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

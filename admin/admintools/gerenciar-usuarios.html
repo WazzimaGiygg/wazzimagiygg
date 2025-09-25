@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Usuários - WZZM Admin</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        .mdl-card {
+            width: 100%;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .mdl-card__title {
+            color: #fff;
+            background-color: #3f51b5;
+            padding: 16px;
+            font-size: 24px;
+            line-height: 1.2;
+        }
+        .mdl-card__supporting-text {
+            padding: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 40px;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+            vertical-align: middle; /* Alinha o conteúdo verticalmente */
+        }
+        th {
+            background-color: #f0f0f0;
+            color: #444;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .action-buttons button {
+            margin-right: 8px;
+        }
+        .user-status {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            display: inline-block;
+        }
+        .user-status.admin {
+            background-color: #4CAF50; /* Verde */
+        }
+        .user-status.regular {
+            background-color: #2196F3; /* Azul */
+        }
+        .user-status.pending {
+            background-color: #FFC107; /* Amarelo */
+            color: #333;
+        }
+        .user-status.banned {
+            background-color: #f44336; /* Vermelho */
+        }
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; /* 5% from the top and centered */
+            padding: 30px;
+            border: 1px solid #888;
+            width: 100%; /* Could be more or less, depending on screen size */
+            max-width: 500px;
+            border-radius: 2px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-content h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #3f51b5;
+        }
+        /* Ajuste para campos de texto no modal */
+        #editUserForm .mdl-textfield {
+            width: 100%; /* Faz com que os campos ocupem a largura total */
+            box-sizing: border-box; /* Inclui padding e borda na largura total */
+        }
+        #editUserForm .mdl-textfield__input {
+            width: 100%; /* Garante que o input também se expanda */
+        }
+        /* Fim do ajuste */
+        .mdl-dialog__actions {
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="mdl-card mdl-shadow--8dp">
+        <div class="mdl-card__title">
+            <h2 class="mdl-card__title-text">Gerenciar Usuários</h2>
+        </div>
+        <div class="mdl-card__supporting-text">
+            <p>Visualize e gerencie os perfis de usuários cadastrados, alterando suas permissões e status de banimento.</p>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable mdl-textfield--floating-label mdl-textfield--align-right">
+                <label class="mdl-button mdl-js-button mdl-button--icon" for="search-user">
+                    <i class="material-icons">search</i>
+                </label>
+                <div class="mdl-textfield__expandable-holder">
+                    <input class="mdl-textfield__input" type="text" id="search-user" onkeyup="filterUsers()">
+                    <label class="mdl-textfield__label" for="search-user">Buscar usuário por nome, e-mail ou UID</label>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>UID</th>
+                        <th>Último Login</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table-body">
+                    <tr><td colspan="6">Carregando usuários...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h3>Editar Usuário</h3>
+            <form id="editUserForm">
+                <input type="hidden" id="edit-user-uid">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="edit-user-name" readonly>
+                    <label class="mdl-textfield__label" for="edit-user-name">Nome</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="email" id="edit-user-email" readonly>
+                    <label class="mdl-textfield__label" for="edit-user-email">E-mail</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="edit-user-display-uid" readonly>
+                    <label class="mdl-textfield__label" for="edit-user-display-uid">UID do Usuário</label>
+                </div>
+
+                <label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="edit-user-is-admin">
+                    <input type="checkbox" id="edit-user-is-admin" class="mdl-switch__input">
+                    <span class="mdl-switch__label">Administrador</span>
+                </label>
+                <br>
+                <label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="edit-user-is-ban">
+                    <input type="checkbox" id="edit-user-is-ban" class="mdl-switch__input">
+                    <span class="mdl-switch__label">Banido</span>
+                </label>
+
+                <div class="mdl-dialog__actions">
+                    <button type="button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="saveUserChanges()">Salvar</button>
+                    <button type="button" class="mdl-button mdl-js-button" onclick="closeModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script>
+        let allUsersData = []; // Para armazenar todos os usuários e facilitar a busca/filtro
+
+        // Função para carregar os usuários do Firebase Firestore
+        async function loadUsers() {
+            const usersTableBody = document.getElementById('users-table-body');
+            usersTableBody.innerHTML = '<tr><td colspan="6">Carregando usuários...</td></tr>'; // Mensagem de carregamento
+
+            try {
+                // Acessa o Firebase Firestore do documento pai (index.html)
+                // É crucial que a página pai inicialize o Firebase corretamente.
+                const firestore = parent.firebase.firestore(); 
+                const usersSnapshot = await firestore.collection('users').orderBy('name').get(); // Ordena por nome
+
+                allUsersData = []; // Limpa os dados anteriores
+                usersTableBody.innerHTML = ''; // Limpa a mensagem de carregamento
+
+                if (usersSnapshot.empty) {
+                    usersTableBody.innerHTML = '<tr><td colspan="6">Nenhum usuário encontrado.</td></tr>';
+                    return;
+                }
+
+                usersSnapshot.forEach(doc => {
+                    const user = { uid: doc.id, ...doc.data() }; // Adiciona o UID do documento aos dados do usuário
+                    allUsersData.push(user); // Adiciona ao array para filtro
+                });
+
+                displayUsers(allUsersData); // Exibe todos os usuários inicialmente
+            } catch (error) {
+                console.error("Erro ao carregar usuários:", error);
+                usersTableBody.innerHTML = '<tr><td colspan="6">Erro ao carregar usuários. Verifique as regras de segurança do Firestore e a inicialização do Firebase na página pai.</td></tr>';
+                // Adapte o tratamento de erro conforme necessário
+            }
+        }
+
+        // Função para exibir os usuários na tabela (pode ser filtrada)
+        function displayUsers(usersToDisplay) {
+            const usersTableBody = document.getElementById('users-table-body');
+            usersTableBody.innerHTML = ''; // Limpa a tabela antes de preencher
+
+            if (usersToDisplay.length === 0) {
+                usersTableBody.innerHTML = '<tr><td colspan="6">Nenhum usuário encontrado com os critérios de busca.</td></tr>';
+                return;
+            }
+
+            usersToDisplay.forEach(user => {
+                const row = usersTableBody.insertRow();
+
+                row.insertCell().textContent = user.name || 'Nome Indisponível';
+                row.insertCell().textContent = user.email || 'E-mail Indisponível';
+                row.insertCell().textContent = user.uid || 'UID Indisponível'; // Exibe a UID
+                row.insertCell().textContent = user.lastLoginAt ? new Date(user.lastLoginAt.toDate()).toLocaleString() : 'Nunca logou';
+
+                const statusCell = row.insertCell();
+                const statusSpan = document.createElement('span');
+                statusSpan.classList.add('user-status');
+
+                if (user.isBan) {
+                    statusSpan.classList.add('banned');
+                    statusSpan.textContent = 'Banido';
+                } else if (user.isAdmin) {
+                    statusSpan.classList.add('admin');
+                    statusSpan.textContent = 'Admin';
+                } else {
+                    statusSpan.classList.add('regular');
+                    statusSpan.textContent = 'Normal';
+                }
+                statusCell.appendChild(statusSpan);
+
+                const actionsCell = row.insertCell();
+                const editButton = document.createElement('button');
+                editButton.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon', 'mdl-js-ripple-effect');
+                editButton.innerHTML = '<i class="material-icons">edit</i>';
+                editButton.title = 'Editar Permissões';
+                editButton.onclick = () => openEditModal(user);
+                actionsCell.appendChild(editButton);
+
+                // Botão para deletar usuário (opcional, requer regras de segurança e confirmação)
+                // Com as regras atuais, apenas um Admin poderia deletar o documento no Firestore
+                // Mas, para deletar o usuário do AUTHENTICATION, uma Cloud Function é necessária.
+                /*
+                const deleteButton = document.createElement('button');
+                deleteButton.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon', 'mdl-js-ripple-effect', 'mdl-color-text--red');
+                deleteButton.innerHTML = '<i class="material-icons">delete</i>';
+                deleteButton.title = 'Deletar Usuário';
+                deleteButton.onclick = () => confirmAndDeleteUser(user.uid, user.email);
+                actionsCell.appendChild(deleteButton);
+                */
+            });
+
+            // Atualiza os componentes MDL após adicionar linhas dinamicamente
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+            }
+        }
+
+        // Função para filtrar usuários
+        function filterUsers() {
+            const searchTerm = document.getElementById('search-user').value.toLowerCase();
+            const filtered = allUsersData.filter(user =>
+                (user.name && user.name.toLowerCase().includes(searchTerm)) ||
+                (user.email && user.email.toLowerCase().includes(searchTerm)) ||
+                (user.uid && user.uid.toLowerCase().includes(searchTerm)) // Adiciona filtro por UID
+            );
+            displayUsers(filtered);
+        }
+
+        // --- Lógica do Modal de Edição ---
+        const editUserModal = document.getElementById('editUserModal');
+        const editUserUid = document.getElementById('edit-user-uid');
+        const editUserName = document.getElementById('edit-user-name');
+        const editUserEmail = document.getElementById('edit-user-email');
+        const editUserDisplayUid = document.getElementById('edit-user-display-uid');
+        const editUserIsAdmin = document.getElementById('edit-user-is-admin');
+        const editUserIsBan = document.getElementById('edit-user-is-ban');
+
+        function openEditModal(user) {
+            editUserUid.value = user.uid;
+            editUserName.value = user.name || 'Nome Indisponível';
+            editUserEmail.value = user.email || 'E-mail Indisponível';
+            editUserDisplayUid.value = user.uid || 'UID Indisponível';
+            editUserIsAdmin.checked = user.isAdmin === true; // Garante que é um booleano
+            editUserIsBan.checked = user.isBan === true; // Garante que é um booleano
+
+            // Atualiza os switches do MDL para refletir o estado dos checkboxes
+            if (window.componentHandler) {
+                const updateSwitchState = (checkboxId, isChecked) => {
+                    const checkboxElement = document.getElementById(checkboxId);
+                    const switchElement = checkboxElement.closest('.mdl-switch');
+                    if (switchElement) {
+                        if (isChecked) {
+                            switchElement.classList.add('is-checked');
+                        } else {
+                            switchElement.classList.remove('is-checked');
+                        }
+                    }
+                };
+
+                updateSwitchState('edit-user-is-admin', editUserIsAdmin.checked);
+                updateSwitchState('edit-user-is-ban', editUserIsBan.checked);
+                
+                // Força o upgrade de todos os componentes MDL no DOM do modal
+                window.componentHandler.upgradeElements(editUserModal);
+            }
+
+            editUserModal.style.display = 'block';
+        }
+
+        function closeModal() {
+            editUserModal.style.display = 'none';
+        }
+
+        // Salvar alterações do usuário
+        async function saveUserChanges() {
+            const uid = editUserUid.value;
+            const isAdmin = editUserIsAdmin.checked;
+            const isBan = editUserIsBan.checked;
+
+            if (!uid) {
+                alert('UID do usuário não encontrado para salvar.');
+                return;
+            }
+
+            try {
+                const firestore = parent.firebase.firestore();
+                
+                // Cria um objeto JavaScript puro com os dados a serem atualizados
+                // Esta é a parte crítica para resolver o erro "custom Object object"
+                const updateData = {
+                    isAdmin: isAdmin,
+                    isBan: isBan
+                };
+
+                await firestore.collection('users').doc(uid).update(updateData);
+
+                alert('Permissões e status do usuário atualizados com sucesso!');
+                closeModal();
+                loadUsers(); // Recarrega a lista de usuários para mostrar a mudança
+            } catch (error) {
+                console.error("Erro ao salvar alterações do usuário:", error);
+                alert(`Erro ao salvar alterações: ${error.message}`);
+            }
+        }
+
+        // Função para confirmar e deletar usuário (opcional e desabilitada por segurança)
+        /*
+        async function confirmAndDeleteUser(uid, email) {
+            if (confirm(`Tem certeza que deseja deletar o usuário ${email}? Esta ação é irreversível!`)) {
+                try {
+                    // Para deletar usuários do Authentication (Firebase Auth), você DEVE usar uma Cloud Function.
+                    // Não é seguro nem possível diretamente do lado do cliente por questões de segurança e permissões.
+                    // Exemplo de como chamaria uma Cloud Function (hipotética):
+                    // const deleteUserFunction = parent.firebase.functions().httpsCallable('deleteUser');
+                    // await deleteUserFunction({ uid: uid });
+
+                    // Para o Firestore, você pode deletar o documento do perfil:
+                    const firestore = parent.firebase.firestore();
+                    await firestore.collection('users').doc(uid).delete();
+                    alert('Usuário e seu perfil no Firestore deletados com sucesso!');
+                    loadUsers(); // Recarrega a lista
+                } catch (error) {
+                    console.error("Erro ao deletar usuário:", error);
+                    alert(`Erro ao deletar usuário: ${error.message}. Verifique as regras de segurança ou se o usuário está autenticado para esta operação.`);
+                }
+            }
+        }
+        */
+
+        // Chama a função para carregar os usuários quando a página for carregada
+        document.addEventListener('DOMContentLoaded', () => {
+            // Garante que todos os componentes MDL estáticos sejam atualizados na carga inicial
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+            }
+            loadUsers();
+        });
+    </script>
+</body>
+</html>

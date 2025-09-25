@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adicionar/Editar Artigo - WZZM Admin</title>
+    <a href="./beta/"></a>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .mdl-textfield {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .mdl-textfield__input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        textarea.mdl-textfield__input {
+            height: 120px;
+            min-height: 80px;
+            resize: vertical;
+        }
+        .mdl-button {
+            margin-right: 10px;
+        }
+        .actions {
+            text-align: right;
+            margin-top: 30px;
+        }
+        .error-message {
+            text-align: center;
+            padding: 15px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        /* Estilos adicionais para o selectfield do MDL */
+        .mdl-selectfield {
+            position: relative;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .mdl-selectfield select {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,.12);
+            background: transparent;
+            font-size: 16px;
+            color: rgba(0,0,0,.87);
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+        .mdl-selectfield label {
+            color: rgba(0,0,0,.26);
+            font-size: 16px;
+            left: 0;
+            top: 10px;
+            position: absolute;
+            pointer-events: none;
+            transition: 0.2s ease all;
+            transform-origin: left top;
+        }
+        .mdl-selectfield select:focus + label,
+        .mdl-selectfield select:not([value=""]) + label {
+            color: #3f51b5;
+            top: -15px;
+            font-size: 12px;
+            transform: scale(0.75);
+        }
+        .mdl-selectfield .mdl-textfield__error {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            font-size: 12px;
+            color: #d32f2f;
+            display: none;
+        }
+        .mdl-selectfield select:invalid ~ .mdl-textfield__error {
+            display: block;
+        }
+
+        /* Estilos para o Quill Editor */
+        #editor-container {
+            height: 300px; /* Altura padrão para o editor */
+            margin-bottom: 20px;
+            border: 1px solid rgba(0,0,0,.12); /* Adiciona borda para combinar com MDL */
+            border-radius: 4px;
+        }
+        .ql-toolbar.ql-snow {
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        .ql-container.ql-snow {
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        /* Ajusta o rótulo para o editor de texto rico */
+        .rich-text-label {
+            color: rgba(0,0,0,.26);
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+    <div class="container">
+        <h1 id="form-title">Adicionar Novo Artigo</h1>
+
+        <div id="error-display" class="error-message"></div>
+
+        <form id="article-form">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="article-title" required>
+                <label class="mdl-textfield__label" for="article-title">Título do Artigo *</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="article-description">
+                <label class="mdl-textfield__label" for="article-description">Descrição Curta</label>
+            </div>
+
+            <label class="rich-text-label">Conteúdo do Artigo *</label>
+            <div id="editor-container"></div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="url" id="article-original-url">
+                <label class="mdl-textfield__label" for="article-original-url">URL do Artigo Original (PDF/HTML)</label>
+                <span class="mdl-textfield__help">Link para o artigo completo em PDF ou HTML externo.</span>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="article-sources">
+                <label class="mdl-textfield__label" for="article-sources">Fontes (separadas por vírgula)</label>
+                <span class="mdl-textfield__help">Ex: Livro X, Site Y, Artigo Z</span>
+            </div>
+
+            <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                <select id="article-language" class="mdl-textfield__input" required>
+                    <option value="" disabled selected>Selecione o Idioma</option>
+                    <option value="pt-BR">Português (Brasil)</option>
+                    <option value="en-US">English (United States)</option>
+                </select>
+                <label for="article-language" class="mdl-textfield__label">Idioma *</label>
+                <span class="mdl-textfield__error">Por favor, selecione um idioma.</span>
+            </div>
+
+            <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
+                <select id="article-type" class="mdl-textfield__input" required>
+                    <option value="" disabled selected>Selecione o Tipo de Artigo</option>
+                    <option value="cientifico">Científico</option>
+                    <option value="revisao">Revisão Bibliográfica</option>
+                    <option value="noticia">Notícia</option>
+                    <option value="editorial">Editorial</option>
+                    <option value="opiniao">Opinião</option>
+                    <option value="entrevista">Entrevista</option>
+                    <option value="tutorial">Tutorial</option>
+                </select>
+                <label for="article-type" class="mdl-textfield__label">Tipo de Artigo *</label>
+                <span class="mdl-textfield__error">Por favor, selecione um tipo de artigo.</span>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="save-article-btn"
+                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                    Salvar Artigo
+                </button>
+                <button type="button" id="cancel-btn"
+                        class="mdl-button mdl-js-button mdl-button--raised">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase com suas chaves e dados originais ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth(); // Inicializa o Auth
+
+        let currentUser = null; // Para armazenar o usuário logado
+        let currentArticleId = null; // Para armazenar o ID do artigo em edição
+
+        const formTitle = document.getElementById('form-title');
+        const articleForm = document.getElementById('article-form');
+        const errorDisplay = document.getElementById('error-display');
+        const saveArticleBtn = document.getElementById('save-article-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        const articleTitleInput = document.getElementById('article-title');
+        const articleDescriptionInput = document.getElementById('article-description');
+        const articleOriginalUrlInput = document.getElementById('article-original-url');
+        const articleSourcesInput = document.getElementById('article-sources');
+        const articleLanguageSelect = document.getElementById('article-language');
+        const articleTypeSelect = document.getElementById('article-type');
+
+        // --- Inicialização do Quill Editor ---
+        const quill = new Quill('#editor-container', {
+            theme: 'snow', // Tema 'snow' para uma barra de ferramentas visual
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'script': 'sub'}, { 'script': 'super' }],
+                    [{ 'indent': '-1'}, { 'indent': '+1' }],
+                    [{ 'direction': 'rtl' }],
+                    [{ 'align': [] }],
+                    ['link', 'image', 'video'], // Adicione se quiser suporte a imagens/vídeos
+                    ['clean'] // Remove formatação
+                ]
+            },
+            placeholder: 'Digite o conteúdo completo do artigo aqui...'
+        });
+
+
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+        }
+
+        // Listener para o estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                console.log("Usuário logado:", currentUser.uid);
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                if (id) {
+                    currentArticleId = id;
+                    formTitle.textContent = 'Editar Artigo';
+                    loadArticleData(id); // Carrega os dados do artigo para edição
+                }
+            } else {
+                currentUser = null;
+                console.warn("Nenhum usuário logado. Redirecionando para login?");
+                alert("Você precisa estar logado para adicionar ou editar artigos.");
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'navigateIframe', url: './login.html' }, window.location.origin);
+                } else {
+                    window.location.href = './login.html';
+                }
+            }
+        });
+
+        // Carrega dados do artigo para edição
+        async function loadArticleData(articleId) {
+            try {
+                const docRef = firestore.collection('articlesdoc').doc(articleId);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    articleTitleInput.value = data.title || '';
+                    articleDescriptionInput.value = data.description || '';
+                    articleOriginalUrlInput.value = data.originalUrl || '';
+                    articleSourcesInput.value = (data.sources && Array.isArray(data.sources)) ? data.sources.join(', ') : '';
+                    articleLanguageSelect.value = data.language || '';
+                    articleTypeSelect.value = data.articleType || '';
+
+                    // Carrega o conteúdo formatado no Quill
+                    if (data.formattedContent) {
+                        // Se o conteúdo foi salvo como HTML:
+                        quill.root.innerHTML = data.formattedContent;
+                        
+                        // Se o conteúdo foi salvo como Base64 (assumindo que é HTML codificado):
+                        // const decodedContent = atob(data.formattedContent); // Decodifica de Base64
+                        // quill.root.innerHTML = decodedContent;
+
+                        // Se o conteúdo foi salvo como Delta JSON stringificado:
+                        // const delta = JSON.parse(data.formattedContent);
+                        // quill.setContents(delta);
+                    }
+
+
+                    // Atualiza o MDL para os campos pré-preenchidos
+                    if (window.componentHandler) {
+                        articleForm.querySelectorAll('.mdl-textfield').forEach(textfield => {
+                            if (textfield.MaterialTextfield) {
+                                textfield.MaterialTextfield.checkDirty();
+                                textfield.MaterialTextfield.checkValidity();
+                            }
+                        });
+                        articleForm.querySelectorAll('.mdl-selectfield').forEach(selectfield => {
+                            // Aqui o MDL não tem um método direto para 'checkDirty' em select,
+                            // mas o preenchimento do value já deve ser suficiente.
+                            // Para garantir que o label flutue, podemos forçar o upgrade.
+                            componentHandler.upgradeElement(selectfield); 
+                        });
+                    }
+                } else {
+                    displayError("Artigo não encontrado.");
+                    console.error("Artigo com ID", articleId, "não encontrado na coleção 'articlesdoc'.");
+                }
+            } catch (error) {
+                displayError("Erro ao carregar dados do artigo: " + error.message);
+                console.error("Erro ao carregar dados do artigo da coleção 'articlesdoc':", error);
+            }
+        }
+
+        // Função para salvar (adicionar ou atualizar) o artigo
+        async function saveArticle(event) {
+            event.preventDefault();
+
+            if (!currentUser) {
+                displayError("Você precisa estar logado para salvar artigos.");
+                return;
+            }
+
+            // Validação básica
+            if (!articleTitleInput.value.trim()) {
+                displayError("O Título do Artigo é obrigatório.");
+                articleTitleInput.focus();
+                return;
+            }
+            if (quill.root.innerHTML.trim() === '<p><br></p>') { // Verifica se o editor está vazio (HTML padrão do Quill vazio)
+                displayError("O Conteúdo do Artigo é obrigatório.");
+                // Não há um .focus() direto no Quill, mas você pode rolar para o editor.
+                document.getElementById('editor-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            if (!articleLanguageSelect.value) {
+                displayError("O Idioma é obrigatório.");
+                articleLanguageSelect.focus();
+                return;
+            }
+            if (!articleTypeSelect.value) {
+                displayError("O Tipo de Artigo é obrigatório.");
+                articleTypeSelect.focus();
+                return;
+            }
+
+            errorDisplay.style.display = 'none';
+            saveArticleBtn.disabled = true;
+
+            // Obter o conteúdo do Quill. Você pode escolher entre HTML, Delta ou texto.
+            // HTML é geralmente o mais fácil para exibir diretamente em um navegador.
+            const articleContent = quill.root.innerHTML;
+            // Para Base64 (se for o caso):
+            // const articleContent = btoa(quill.root.innerHTML); // Codifica para Base64
+
+            // Para Delta JSON (para reverter para o Quill ou renderizar em outro lugar com Quill):
+            // const articleContent = JSON.stringify(quill.getContents());
+
+            const articleData = {
+                userId: currentUser.uid,
+                title: articleTitleInput.value.trim(),
+                description: articleDescriptionInput.value.trim(),
+                formattedContent: articleContent, // Novo campo para o conteúdo formatado
+                originalUrl: articleOriginalUrlInput.value.trim(),
+                sources: articleSourcesInput.value.split(',').map(s => s.trim()).filter(s => s),
+                language: articleLanguageSelect.value,
+                articleType: articleTypeSelect.value,
+                lastModified: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            // Adiciona status de verificação apenas se for um novo artigo
+            if (!currentArticleId) {
+                articleData.verificationStatus = 'pending';
+                articleData.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+            }
+
+            try {
+                const articlesCollectionRef = firestore.collection('articlesdoc');
+
+                if (currentArticleId) {
+                    await articlesCollectionRef.doc(currentArticleId).update(articleData);
+                    alert("Artigo atualizado com sucesso!");
+                    console.log("Artigo atualizado na coleção 'articlesdoc':", currentArticleId);
+                } else {
+                    const newDocRef = await articlesCollectionRef.add(articleData);
+                    currentArticleId = newDocRef.id;
+                    alert("Artigo adicionado com sucesso! ID: " + newDocRef.id);
+                    console.log("Novo artigo adicionado na coleção 'articlesdoc' com ID:", newDocRef.id);
+                    formTitle.textContent = 'Editar Artigo';
+                }
+
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'refreshArticlesList' }, window.location.origin);
+                } else {
+                    alert("Artigo salvo! (Em ambiente de desenvolvimento sem iframe)");
+                    // Para fins de teste, pode redirecionar se não estiver em iframe
+                    // window.location.href = './index.html'; 
+                }
+
+            } catch (error) {
+                displayError("Erro ao salvar artigo: " + error.message);
+                console.error("Erro ao salvar artigo na coleção 'articlesdoc':", error);
+            } finally {
+                saveArticleBtn.disabled = false;
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            articleForm.addEventListener('submit', saveArticle);
+
+            cancelBtn.addEventListener('click', () => {
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'refreshArticlesList' }, window.location.origin);
+                } else {
+                    window.history.back();
+                }
+            });
+
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+            }
+        });
+    </script>
+<a href="./versãoemtestes/"></a>
+</body>
+</html>

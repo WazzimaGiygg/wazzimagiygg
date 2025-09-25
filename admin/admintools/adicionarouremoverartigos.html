@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciar Artigos - WZZM Admin</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <style>
+    body {
+      font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+    }
+    h1 {
+      color: #3f51b5;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    #articles-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+      width: 100%;
+    }
+    .article-card {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    .article-card:hover {
+      box-shadow: 0 4px 8px 0 rgba(0,0,0,.2), 0 6px 2px -4px rgba(0,0,0,.2), 0 2px 10px 0 rgba(0,0,0,.12);
+    }
+    .article-card .mdl-card__title {
+      color: #fff;
+      background-color: #3f51b5;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .article-card .mdl-card__title-text {
+      color: #fff;
+      font-size: 1.5em;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .article-card .mdl-card__supporting-text {
+      padding: 16px;
+      font-size: 0.9em;
+      line-height: 1.5;
+      flex-grow: 1;
+      white-space: normal;
+      max-height: 200px; /* Limita a altura do texto para evitar cards muito grandes */
+      overflow-y: auto; /* Adiciona scroll se o conteúdo for muito grande */
+    }
+    .article-card .mdl-card__supporting-text strong {
+        color: #3f51b5;
+        display: block;
+        margin-top: 10px;
+        margin-bottom: 5px;
+    }
+    .article-card .mdl-card__actions {
+      border-top: 1px solid rgba(0,0,0,.1);
+      padding: 8px 16px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .article-card .mdl-card__actions .mdl-button {
+      margin-left: 8px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 50px;
+      color: #777;
+      font-size: 1.1em;
+      width: 100%;
+    }
+    .error-message {
+      text-align: center;
+      padding: 30px;
+      color: #d32f2f;
+      background-color: #ffebee;
+      border: 1px solid #d32f2f;
+      border-radius: 5px;
+      margin-top: 20px;
+      width: 100%;
+    }
+    .search-container {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .search-container .mdl-textfield {
+      flex-grow: 1;
+    }
+    .search-container .mdl-button {
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+  <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+  <div class="container">
+    <h1>Gerenciar Artigos</h1>
+
+    <div class="search-container">
+      <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+        <input class="mdl-textfield__input" type="text" id="search-summary">
+        <label class="mdl-textfield__label" for="search-summary">Buscar por Resumo...</label>
+      </div>
+      <button id="search-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+        <i class="material-icons">search</i> Buscar
+      </button>
+      <button id="clear-search-button" class="mdl-button mdl-js-button mdl-button--raised">
+        Limpar
+      </button>
+    </div>
+
+    <div id="articles-list" class="mdl-grid">
+      <p class="empty-state" id="loading-message">Carregando artigos...</p>
+    </div>
+
+    <div id="error-display" class="error-message" style="display: none;"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+      authDomain: "wzzm-ce3fc.firebaseapp.com",
+      projectId: "wzzm-ce3fc",
+      storageBucket: "wzzm-ce3fc.appspot.com",
+      messagingSenderId: "249427877153",
+      appId: "1:249427877153:web:0e4297294794a5aadeb260",
+      measurementId: "G-PLKNZNFCQ8"
+    };
+
+    let app;
+    try {
+      app = firebase.app();
+    } catch (e) {
+      app = firebase.initializeApp(firebaseConfig);
+    }
+    const firestore = firebase.firestore();
+
+    const articlesListDiv = document.getElementById('articles-list');
+    const loadingMessage = document.getElementById('loading-message');
+    const errorDisplay = document.getElementById('error-display');
+    const searchSummaryInput = document.getElementById('search-summary');
+    const searchButton = document.getElementById('search-button');
+    const clearSearchButton = document.getElementById('clear-search-button');
+
+    function displayError(message) {
+      errorDisplay.textContent = `Erro: ${message}`;
+      errorDisplay.style.display = 'block';
+      loadingMessage.style.display = 'none';
+    }
+
+    async function loadArticles(searchTerm = '') {
+      articlesListDiv.innerHTML = '';
+      loadingMessage.style.display = 'block';
+      errorDisplay.style.display = 'none';
+
+      try {
+        let articlesRef = firestore.collection('articlesdoc');
+        const trimmedSearchTerm = searchTerm.trim();
+
+        if (trimmedSearchTerm) {
+          // Ajuste aqui se quiser buscar por mais campos além de 'summary'
+          articlesRef = articlesRef
+            .where('Summary', '>=', trimmedSearchTerm) // Note o 'S' maiúsculo para Summary
+            .where('Summary', '<=', trimmedSearchTerm + '\uf8ff')
+            .orderBy('Summary');
+        } else {
+          articlesRef = articlesRef.orderBy('Timestamp', 'desc'); // Note o 'T' maiúsculo para Timestamp
+        }
+
+        const snapshot = await articlesRef.get();
+        loadingMessage.style.display = 'none';
+
+        if (snapshot.empty) {
+          const emptyMessage = trimmedSearchTerm ?
+            `Nenhum artigo encontrado com o termo "${trimmedSearchTerm}" no resumo.` :
+            'Nenhum artigo (articlesdoc) publicado ainda.';
+          articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const id = doc.id;
+
+          // Formatação da data do Timestamp
+          const timestampDate = data.Timestamp ? new Date(data.Timestamp.toDate()) : null;
+          const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+          }) : 'Data de Criação Indisponível';
+
+          // Formatação da data do lastModified
+          const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
+          const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+          }) : 'Data de Modificação Indisponível';
+
+          const card = document.createElement('div');
+          card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
+          card.innerHTML = `
+            <div class="mdl-card__title">
+              <h2 class="mdl-card__title-text">${data.Title || 'Título Indisponível'}</h2>
+            </div>
+            <div class="mdl-card__supporting-text">
+                <strong>ID do Artigo:</strong> <p>${id}</p>
+                <strong>ID do Usuário:</strong> <p>${data.UserID || 'ID do Usuário Indisponível'}</p>
+                <strong>Resumo:</strong> <p>${data.Summary || 'Nenhum resumo disponível.'}</p>
+                <strong>Introdução:</strong> <p>${data.introduction || 'Nenhuma introdução disponível.'}</p>
+                <strong>Descrição:</strong> <p>${data.description || 'Nenhuma descrição disponível.'}</p>
+                <strong>Discussão:</strong> <p>${data.discussion || 'Nenhuma discussão disponível.'}</p>
+                <strong>Metodologia:</strong> <p>${data.Methodology || 'Nenhuma metodologia disponível.'}</p>
+                <strong>Abstract:</strong> <p>${data.abstract || 'Nenhum abstract disponível.'}</p>
+                <strong>Conclusão:</strong> <p>${data.conclusion || 'Nenhuma conclusão disponível.'}</p>
+                <strong>Fontes:</strong> <p>${data.Sources || 'Nenhuma fonte disponível.'}</p>
+                <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
+                <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
+            </div>
+            <div class="mdl-card__actions mdl-card--border">
+              <a href="#" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect edit-article-button" data-article-id="${id}">Editar</a>
+              <button class="mdl-button mdl-button--accent mdl-js-button mdl-js-ripple-effect delete-article-button" data-article-id="${id}">Excluir</button>
+            </div>
+          `;
+          articlesListDiv.appendChild(card);
+        });
+
+        if (window.componentHandler) {
+          window.componentHandler.upgradeElements(articlesListDiv);
+        }
+
+      } catch (error) {
+        displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`);
+      }
+    }
+
+    async function deleteArticle(articleId) {
+      if (!confirm('Tem certeza que deseja excluir este artigo? Esta ação é irreversível.')) return;
+
+      try {
+        await firestore.collection('articlesdoc').doc(articleId).delete();
+        alert('Artigo excluído com sucesso!');
+        loadArticles(searchSummaryInput.value.trim()); // Recarrega a lista após a exclusão
+      } catch (error) {
+        displayError(`Não foi possível excluir o artigo. ${error.message}`);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadArticles();
+
+      articlesListDiv.addEventListener('click', event => {
+        const target = event.target;
+        if (target.classList.contains('delete-article-button')) {
+          deleteArticle(target.dataset.articleId);
+        }
+        if (target.classList.contains('edit-article-button')) {
+          event.preventDefault(); // Evita que a página seja recarregada
+          const articleId = target.dataset.articleId;
+          // Redireciona para uma página de edição com o ID do artigo como parâmetro
+          // Você precisará criar a página "editordeartigos.html" em admintools/
+          const urlToLoad = `./admintools/editordeartigos.html?id=${articleId}`;
+
+          // Se estiver em um iframe e houver uma função para navegar no pai
+          if (window.parent !== window && window.parent.postMessage) {
+            window.parent.postMessage({ type: 'navigateIframe', url: urlToLoad }, window.location.origin);
+          } else {
+            // Caso contrário, apenas navega na mesma janela
+            window.location.href = urlToLoad;
+          }
+        }
+      });
+
+      searchButton.addEventListener('click', () => {
+        loadArticles(searchSummaryInput.value.trim());
+      });
+
+      searchSummaryInput.addEventListener('keypress', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          loadArticles(searchSummaryInput.value.trim());
+        }
+      });
+
+      clearSearchButton.addEventListener('click', () => {
+        searchSummaryInput.value = '';
+        loadArticles();
+      });
+
+      if (window.componentHandler) {
+        window.componentHandler.upgradeDom();
+      }
+    });
+  </script>
+</body>
+</html>
