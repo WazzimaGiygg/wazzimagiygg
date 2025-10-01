@@ -2,119 +2,105 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teste de Histórico</title>
+    <title>Gerenciamento de Sessão com Firebase</title>
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f2f5;
-        }
-        .container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-        button {
-            padding: 12px 24px;
-            font-size: 16px;
-            color: #fff;
-            background-color: #007bff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        p {
-            margin-top: 20px;
-            color: #555;
-            font-size: 14px;
-        }
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        #log { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Teste de Gravação de Histórico</h1>
-    <button onclick="adicionarRegistroTeste()">Adicionar Registro de Teste</button>
-    <p>Verifique o console do navegador e a coleção 'historicogeral' no seu Firebase.</p>
-</div>
+    <div id="log">Aguardando inicialização do Firebase e da sessão...</div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
 
-<script>
-// --- Configuração do Firebase ---
-const firebaseConfig = {
-    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-    authDomain: "wzzm-ce3fc.firebaseapp.com",
-    projectId: "wzzm-ce3fc",
-    storageBucket: "wzzm-ce3fc.appspot.com",
-    messagingSenderId: "249427877153",
-    appId: "1:249427877153:web:0e4297294794a5aadeb260",
-    measurementId: "G-PLKNZNFCQ8"
-};
-
-// Inicialize o Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-// Variável para armazenar o UID do usuário
-let userUid = null;
-
-// Espera o estado de autenticação carregar
-firebase.auth().onAuthStateChanged(user => {
-    if (user) {
-        userUid = user.uid;
-        console.log("Usuário logado. UID disponível: " + userUid);
-    } else {
-        userUid = null;
-        console.log("Nenhum usuário logado.");
-    }
-});
-
-// Função para adicionar um registro de teste no histórico
-async function adicionarRegistroTeste() {
-    // Verifica se o UID do usuário já está disponível
-    if (!userUid) {
-        alert('Por favor, faça login primeiro para executar este teste.');
-        console.log("Teste abortado: usuário não logado.");
-        return;
-    }
-
-    try {
-        const novoRegistroHistorico = {
-            'Coleção associada': 'teste-adicao-automatica',
-            'UID usuário': userUid,
-            'Data': new Date().toLocaleDateString('pt-BR'),
-            'Hora': new Date().toLocaleTimeString('pt-BR'),
-            'Descrição': `Registro de teste adicionado pelo UID: ${userUid}`,
-            'Navegador': navigator.userAgent,
-            'IP': 'Aguardando API ou IP não disponível',
+    <script>
+        // --- Configuração do Firebase (Fornecida na requisição) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Chave de exemplo
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
         };
 
-        await db.collection("historicogeral").add(novoRegistroHistorico);
+        // Inicialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+        firebase.analytics();
 
-        alert('Registro de teste adicionado com sucesso!');
-        console.log("Registro de teste adicionado com sucesso na coleção 'historicogeral'.");
+        const logElement = document.getElementById('log');
+        const COLLECTION_NAME = "securityuid_sessions"; // Nome da coleção
 
-    } catch (error) {
-        console.error("Erro ao adicionar o registro de teste: ", error);
-        alert('Erro ao adicionar o registro de teste. Verifique o console para mais detalhes.');
-    }
-}
-</script>
+        // Função para simular a exclusão de um documento
+        function deleteSessionDocument(docId) {
+            // A exclusão real no Firestore não é recomendada a partir de um cliente sem
+            // regras de segurança estritas, mas demonstramos o conceito:
+            firestore.collection(COLLECTION_NAME).doc(docId).delete()
+            .then(() => {
+                logElement.innerHTML += `<br><b>🗑️ Documento de sessão anterior (ID: ${docId}) DELETADO com sucesso.</b>`;
+            })
+            .catch((error) => {
+                logElement.innerHTML += `<br>⚠️ Erro ao tentar deletar o documento anterior (ID: ${docId}): ${error.message}`;
+            });
+        }
 
+        async function initializeSession() {
+            // 1. Verificar se existe um ID de sessão anterior no sessionStorage
+            const previousSessionId = sessionStorage.getItem('currentSessionDocId');
+
+            if (previousSessionId) {
+                // 2. Se houver um ID anterior, simulamos a exclusão (ou desativação)
+                logElement.innerHTML = `Sessão anterior encontrada no storage: <b>${previousSessionId}</b>. Tentando apagar...`;
+                deleteSessionDocument(previousSessionId);
+            }
+
+            // 3. Criar um novo documento de sessão (o Firestore gera o ID automaticamente)
+            try {
+                // Dados para o novo documento. IP é OMITIDO por questões de segurança/privacidade.
+                const user = auth.currentUser;
+                const newSessionData = {
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    // ID do usuário autenticado, se houver
+                    userId: user ? user.uid : 'USUARIO_NAO_AUTENTICADO',
+                    // A URL da página atual, incluindo o parâmetro ?uid=
+                    pageUrl: window.location.href,
+                    // Validade de 5 minutos (para ser verificado no lado do servidor/regras)
+                    expiresAt: Date.now() + (5 * 60 * 1000)
+                    // Endereço IP DEVE ser coletado e processado em um SERVIDOR BACKEND SE NECESSÁRIO.
+                };
+
+                const newDocRef = await firestore.collection(COLLECTION_NAME).add(newSessionData);
+                const newDocId = newDocRef.id;
+
+                // 4. Armazenar o novo ID na memória temporária do navegador
+                sessionStorage.setItem('currentSessionDocId', newDocId);
+
+                // 5. Redirecionar/Atualizar o URL com o novo ID (simulando o ?uid=)
+                const newUrl = window.location.origin + window.location.pathname + `?uid=${newDocId}`;
+                window.history.pushState({ path: newUrl }, '', newUrl); // Altera o URL sem recarregar
+
+                logElement.innerHTML += `<br>✅ Nova sessão criada com sucesso!`;
+                logElement.innerHTML += `<br><b>ID do Documento (UID):</b> ${newDocId}`;
+                logElement.innerHTML += `<br><b>UID armazenado no sessionStorage.</b>`;
+                logElement.innerHTML += `<br>URL atualizada para: ${newUrl}`;
+
+
+            } catch (error) {
+                logElement.innerHTML = `<br>❌ Erro ao criar a nova sessão no Firestore: ${error.message}`;
+            }
+        }
+
+        // Inicia o processo de sessão ao carregar a página
+        initializeSession();
+    </script>
 </body>
 </html>
