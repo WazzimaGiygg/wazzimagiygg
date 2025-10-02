@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atualizador de Notícias Dinâmico</title>
+    <title>Atualizador de Notícias Dinâmico (Firebase)</title>
     <style>
         /* Estilização básica do "retângulo" */
         #news-container {
@@ -52,10 +52,11 @@
             font-size: 1em;
         }
     </style>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
-
-
 
     <div id="news-container">
         <p>Carregando notícias...</p>
@@ -64,39 +65,86 @@
     <button id="open-tabs-button" style="display: none;">Abrir 10 Mais Recentes em Novas Abas</button>
 
 
-    <script>
-        const NEWS_FILE = 'news.json';
+ <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+<script>
+// --- Configuração do Firebase ---
+const firebaseConfig = {
+apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+authDomain: "wzzm-ce3fc.firebaseapp.com",
+projectId: "wzzm-ce3fc",
+storageBucket: "wzzm-ce3fc.appspot.com",
+messagingSenderId: "249427877153",
+appId: "1:249427877153:web:0e4297294794a5aadeb260",
+measurementId: "G-PLKNZNFCQ8"
+};
+// Inicialize Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const firestore = firebase.firestore();
+firebase.analytics();
+
+// Variáveis globais para estado do usuário
+let currentUser = null;
+let isCurrentUserBanned = false;
+        // Nome da coleção que você pediu
+        const COLLECTION_NAME = "WZPZM"; 
         const MAX_TABS = 10;
         const UPDATE_INTERVAL_MS = 5000; // 5 segundos
         
         let allNews = []; // Armazena todas as notícias carregadas
 
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         // Função auxiliar para formatar a data
-        function formatDate(dateString) {
+        function formatDate(dateValue) {
+            // Se for um objeto Timestamp do Firebase, use .toDate()
+            let date;
+            if (dateValue && typeof dateValue.toDate === 'function') {
+                date = dateValue.toDate();
+            } else {
+                date = new Date(dateValue);
+            }
+            
             const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
             try {
-                return new Date(dateString).toLocaleDateString('pt-BR', options);
+                return date.toLocaleDateString('pt-BR', options);
             } catch (e) {
-                return dateString;
+                return dateValue;
             }
         }
 
         /**
-         * 1. Busca os dados do news.json.
+         * 1. Busca os dados do Firebase Firestore (Coleção WZPZM).
          * 2. Atualiza o "retângulo" na tela.
          */
         async function updateNews(newsContainer, openTabsButton) {
             try {
-                // Adiciona um timestamp para forçar o navegador a buscar a versão mais recente
-                const response = await fetch(`${NEWS_FILE}?t=${new Date().getTime()}`);
-                if (!response.ok) {
-                    throw new Error(`Erro ${response.status} ao carregar o arquivo ${NEWS_FILE}.`);
-                }
+                // Busca todos os documentos na coleção "WZPZM"
+                // Ordena pelo campo 'date' (assumindo que este campo existe e é um Timestamp)
+                // e limita a, por exemplo, 100 resultados, para evitar buscar coleções muito grandes.
+                const snapshot = await db.collection(COLLECTION_NAME)
+                    .orderBy('date', 'desc') // Ordena do mais novo para o mais antigo
+                    .limit(100)
+                    .get();
 
-                const newsData = await response.json();
-
-                // Invertemos para exibir a mais nova no topo do retângulo.
-                allNews = newsData.slice().reverse(); 
+                const newsData = [];
+                snapshot.forEach(doc => {
+                    // Mapeia os dados do documento para o formato esperado
+                    newsData.push({
+                        id: doc.id, // ID do documento
+                        ...doc.data() // Traz os campos title, url, author, date
+                    });
+                });
+                
+                // O Firestore já retorna ordenado do mais novo para o mais antigo (por 'date', 'desc')
+                // então não é necessário o .slice().reverse() que estava no código JSON.
+                allNews = newsData;
 
                 renderNews(newsContainer);
 
@@ -109,8 +157,8 @@
                 }
 
             } catch (error) {
-                newsContainer.innerHTML = `<p class="warning">Falha ao atualizar notícias: ${error.message}</p>`;
-                console.error(error);
+                newsContainer.innerHTML = `<p class="warning">Falha ao atualizar notícias do Firebase: ${error.message}</p>`;
+                console.error("Erro ao buscar dados no Firebase:", error);
             }
         }
 
@@ -144,7 +192,8 @@
                 // Data e Autor
                 const metaP = document.createElement('p');
                 metaP.className = 'news-meta';
-                metaP.textContent = `Data: ${formatDate(news.date)} | Autor: ${news.author}`;
+                // A função formatDate agora lida com Timestamp do Firebase
+                metaP.textContent = `Data: ${formatDate(news.date)} | Autor: ${news.author || 'Desconhecido'}`;
 
                 itemDiv.appendChild(titleP);
                 itemDiv.appendChild(metaP);
@@ -157,10 +206,11 @@
          */
         function openNewestNews(openTabsButton) {
             if (allNews.length < MAX_TABS) {
-                alert('Ainda não há 10 notícias para abrir.');
+                alert(`Ainda não há ${MAX_TABS} notícias para abrir.`);
                 return;
             }
 
+            // O allNews já está ordenado do mais novo para o mais antigo.
             const newestNews = allNews.slice(0, MAX_TABS);
 
             // Abre do mais novo ao mais antigo.
@@ -168,8 +218,8 @@
                 if (news.url) {
                     // Adiciona um pequeno delay para ajudar o navegador a processar a abertura de várias abas
                     setTimeout(() => {
-                         // Abre a URL em uma nova aba ('_blank')
-                        window.open(news.url, '_blank');
+                            // Abre a URL em uma nova aba ('_blank')
+                           window.open(news.url, '_blank');
                     }, 150 * index); 
                 }
             });
@@ -188,7 +238,6 @@
             const newsContainer = document.getElementById('news-container');
             const openTabsButton = document.getElementById('open-tabs-button');
 
-            // Verifica se os elementos cruciais existem
             if (!newsContainer || !openTabsButton) {
                 console.error("Erro Crítico: Elementos #news-container ou #open-tabs-button não foram encontrados. O código não pode ser executado.");
                 return;
@@ -206,4 +255,3 @@
     </script>
 </body>
 </html>
-
