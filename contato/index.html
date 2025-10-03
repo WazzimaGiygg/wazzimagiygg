@@ -255,15 +255,20 @@
             }
         });
 
-        // --- Funções do Firestore (Chat) ---
-        function ouvirHistoricoChat(uid) {
-            mensagensContainer.innerHTML = '<p style="color: var(--color-text-light);">Carregando histórico do chat...</p>';
+// --- NOVO CÓDIGO DA FUNÇÃO ouvirHistoricoChat no contato.html ---
 
-            // Usa onSnapshot para escutar em tempo real (como um chat)
-            db.collection(COLECAO_CONTATO)
-                .orderBy("dataEnvio", "asc") // Do mais antigo para o mais novo
-                .limit(50) 
-                .onSnapshot(snapshot => {
+function ouvirHistoricoChat(uid) {
+    mensagensContainer.innerHTML = '<p style="color: var(--color-text-light);">Carregando histórico do chat...</p>';
+
+    // 🚨 AJUSTE CRÍTICO: Adicionar um filtro where
+    // Usamos .where("uidRemetente", "==", uid) para limitar a consulta.
+    // O Firebase Rules (que permite a leitura por uidRemetente OU uidDestinatario)
+    // então se encarrega de permitir os documentos que são respostas do admin.
+    db.collection(COLECAO_CONTATO)
+        .where("uidRemetente", "==", uid) // Filtra todos os documentos que o usuário enviou
+        .orderBy("dataEnvio", "asc") 
+        .limit(50) 
+        .onSnapshot(snapshot => {
                     mensagensContainer.innerHTML = '';
                     let conversaEncontrada = false;
 
@@ -302,9 +307,9 @@
                     // Rola para a mensagem mais recente
                     mensagensContainer.scrollTop = mensagensContainer.scrollHeight;
 
-                }, error => {
-                    console.error("Erro ao carregar chat:", error);
-                    mensagensContainer.innerHTML = '<p style="color: red;">Erro ao carregar chat. Verifique as regras e o índice composto do Firestore.</p>';
+ })
+                    .catch(error => {
+            console.error("Erro ao carregar chat:", error);
                 });
         }
         
