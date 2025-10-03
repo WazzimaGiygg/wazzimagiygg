@@ -189,7 +189,6 @@
         // 🚨 CONFIGURAÇÕES E CONSTANTES - AJUSTE ESTES VALORES
         const ADMIN_UID = "sZxfMuOBPbXdR8nttVPXIN8QOOl1"; 
         
-        // Configuração do Firebase (A MESMA USADA NO PAINEL ADMIN)
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -213,6 +212,8 @@
         const feedback = document.getElementById('feedback');
 
         let userUid = null;
+        let messagesSent = [];
+        let messagesReceived = [];
 
         // --- Funções de Autenticação ---
         googleLoginBtn.addEventListener('click', () => {
@@ -221,7 +222,6 @@
                 .catch(error => console.error("Erro no login:", error));
         });
 
-        // Observa o estado da autenticação
         auth.onAuthStateChanged(user => {
             if (user) {
                 userUid = user.uid;
@@ -230,37 +230,53 @@
             } else {
                 userUid = null;
                 loginOverlay.style.display = 'flex';
+                // Certifica-se de que se desconectarmos listeners anteriores
+                // (Se você tiver a função unsubscribe, chame-a aqui)
                 chatWindow.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Faça login para começar a conversar.</p>';
             }
         });
 
-        // --- Lógica Principal: Ouvir Chat do Usuário ---
+        // --- Lógica Principal: Ouvir Chat do Usuário (CORRIGIDA COM 2 LISTENERS) ---
         function ouvirChatDoUsuario(uid) {
             chatWindow.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Carregando histórico...</p>';
 
-            // Cria uma query que filtra APENAS as mensagens onde o usuário logado é REMETENTE OU DESTINATÁRIO
-            db.collection(COLECAO_CONTATO)
-                .where(firebase.firestore.FieldPath.documentId(), '>', '') // Necessário para usar 2 filtros OR
-                .where('uidRemetente', 'in', [uid, ADMIN_UID])
+            // 1. Listener para Mensagens ENVIADAS pelo usuário (uidRemetente == uid)
+            const listener1 = db.collection(COLECAO_CONTATO)
+                .where('uidRemetente', '==', uid)
                 .orderBy("dataEnvio", "asc")
                 .onSnapshot(snapshot => {
-                    // O filtro acima é insuficiente e pode trazer mensagens de outros usuários.
-                    // O filtro final é feito no lado do cliente.
-                    
-                    const mensagens = snapshot.docs
-                        .map(doc => doc.data())
-                        .filter(data => data.uidRemetente === uid || data.uidDestinatario === uid);
-                    
-                    renderCombinedChat(mensagens);
+                    messagesSent = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                    renderCombinedChat();
                 }, error => {
-                    // Este erro é o 'Missing or insufficient permissions.' (Linha 323)
-                    console.error("Erro ao carregar chat:", error); 
-                    chatWindow.innerHTML = `<p style="text-align: center; color: red;">Erro ao carregar chat: ${error.message}</p>`;
+                    console.error("Erro ao carregar mensagens enviadas:", error);
+                    // O erro de permissão é geralmente aqui se a regra de 'read' estiver errada.
                 });
+
+            // 2. Listener para Mensagens RECEBIDAS do Admin (uidRemetente == ADMIN_UID E uidDestinatario == uid)
+            const listener2 = db.collection(COLECAO_CONTATO)
+                .where('uidRemetente', '==', ADMIN_UID)
+                .where('uidDestinatario', '==', uid) // Filtra para garantir que seja SÓ para este usuário
+                .orderBy("dataEnvio", "asc")
+                .onSnapshot(snapshot => {
+                    messagesReceived = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                    renderCombinedChat();
+                }, error => {
+                    console.error("Erro ao carregar mensagens recebidas:", error);
+                });
+            
+            // Você pode querer armazenar listener1 e listener2 para desinscrever em auth.onAuthStateChanged(user => null)
         }
         
-        // --- Renderiza o Histórico de Mensagens ---
-        function renderCombinedChat(mensagens) {
+        // --- Renderiza o Histórico de Mensagens (Combinando os dois arrays) ---
+        function renderCombinedChat() {
+            // Combina e ordena todas as mensagens pelo Timestamp
+            const mensagens = [...messagesSent, ...messagesReceived].sort((a, b) => {
+                // Tratamento de segurança contra 'null' em serverTimestamp
+                const timeA = a.dataEnvio && a.dataEnvio.toDate ? a.dataEnvio.toDate().getTime() : 0;
+                const timeB = b.dataEnvio && b.dataEnvio.toDate ? b.dataEnvio.toDate().getTime() : 0;
+                return timeA - timeB;
+            });
+
             chatWindow.innerHTML = '';
             
             if (mensagens.length === 0) {
@@ -272,12 +288,12 @@
                 const isUser = data.uidRemetente === userUid;
                 const classeChat = isUser ? 'mensagem-usuario' : 'mensagem-admin';
                 
-                // ✅ CORREÇÃO para o TypeError: Verifica se o Timestamp é válido
+                // ✅ CORREÇÃO do 'reading seconds': Verifica se o Timestamp é válido
                 const dataEnvioValida = data.dataEnvio && typeof data.dataEnvio.toDate === 'function';
 
                 const dataFormatada = dataEnvioValida 
                     ? data.dataEnvio.toDate().toLocaleTimeString('pt-BR') 
-                    : 'Enviando...'; // Exibe "Enviando..." até o serverTimestamp retornar
+                    : 'Enviando...';
                 
                 const divMensagem = document.createElement('div');
                 divMensagem.className = 'mensagem ' + classeChat;
@@ -289,7 +305,6 @@
                 chatWindow.appendChild(divMensagem);
             });
             
-            // Rola para o final
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
@@ -310,15 +325,16 @@
                 uidRemetente: user.uid,
                 emailRemetente: user.email,
                 displayNameRemetente: user.displayName,
-                uidDestinatario: ADMIN_UID, // Sempre envia para o Admin
-                assunto: 'Novo Contato', // Assunto padrão
+                uidDestinatario: ADMIN_UID,
+                assunto: 'Novo Contato',
                 mensagem: document.getElementById('mensagem').value,
                 midiaLink: document.getElementById('midia').value || null,
                 dataEnvio: firebase.firestore.FieldValue.serverTimestamp(),
-                status: 'pendente' // Novo status
+                status: 'pendente'
             };
 
             try {
+                // A mensagem é adicionada e o listener irá capturar a mudança em tempo real
                 await db.collection(COLECAO_CONTATO).add(dadosMensagem);
                 
                 feedback.textContent = 'Mensagem enviada!';
@@ -326,7 +342,6 @@
                 chatForm.reset(); 
                 
             } catch (error) {
-                // Este erro é o 'Missing or insufficient permissions.' (Linha 369)
                 console.error("Erro ao enviar mensagem:", error);
                 feedback.textContent = `Erro ao enviar: ${error.message}. Verifique as Regras de Segurança.`;
                 feedback.style.color = 'red';
