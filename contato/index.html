@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contato com Admin - Acesso Restrito</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <style>
+        /* Estilos básicos para melhor visualização */
+        body { font-family: sans-serif; margin: 20px; }
+        #login-page { text-align: center; }
+        #app-content { display: none; }
+        #mensagens-container { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; max-height: 300px; overflow-y: scroll; }
+        .mensagem { border-bottom: 1px dashed #eee; padding: 5px 0; }
+        .mensagem strong { color: #007bff; }
+        .mensagem small { color: #6c757d; font-size: 0.8em; }
+        #consentimento-link { text-decoration: none; color: blue; }
+        .user-info { margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+
+    <div id="login-page">
+        <h2>Acesso Restrito</h2>
+        <p>Por favor, faça login com sua conta Google para continuar.</p>
+        <button id="google-login-btn">Entrar com Google</button>
+    </div>
+
+    <div id="app-content">
+        <div class="user-info">
+            <p>Logado como: <strong id="user-display-name"></strong> (<span id="user-uid"></span>)</p>
+            <button id="logout-btn">Sair</button>
+        </div>
+        
+        <hr>
+
+        <h3>Suas Últimas Mensagens</h3>
+        <div id="mensagens-container">
+            <p>Carregando mensagens...</p>
+            </div>
+
+        <hr>
+
+        <h3>Enviar Nova Mensagem</h3>
+        <form id="mensagem-form">
+            <label for="assunto">Assunto:</label><br>
+            <input type="text" id="assunto" name="assunto" required><br><br>
+
+            <label for="mensagem">Campo da mensagem:</label><br>
+            <textarea id="mensagem" name="mensagem" rows="5" required></textarea><br><br>
+
+            <label for="midia-link">Link de mídias ou PDF externos:</label><br>
+            <input type="url" id="midia-link" name="midia-link"><br><br>
+
+            <input type="checkbox" id="consentimento" name="consentimento" required>
+            <label for="consentimento">Eu concordo com o <a id="consentimento-link" href="consentimento.pdf" target="_blank">termo de consentimento</a> (PDF)</label><br><br>
+
+            <button type="submit">Enviar Mensagem</button>
+            <p id="feedback" style="color: green;"></p>
+        </form>
+    </div>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+<script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script>
+        // Substitua ESTES DADOS pela sua configuração REAL do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializa o Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = app.auth();
+        const db = app.firestore();
+        const COLECAO_CONTATO = "contatowazzimagiygg";
+
+        // Elementos do DOM
+        const loginPage = document.getElementById('login-page');
+        const appContent = document.getElementById('app-content');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const mensagemForm = document.getElementById('mensagem-form');
+        const mensagensContainer = document.getElementById('mensagens-container');
+        const feedbackElement = document.getElementById('feedback');
+        const userDisplayName = document.getElementById('user-display-name');
+        const userUID = document.getElementById('user-uid');
+
+
+        // --- Funções de Autenticação ---
+
+        googleLoginBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => console.error("Erro no login:", error));
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Observa o estado da autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Usuário Logado
+                loginPage.style.display = 'none';
+                appContent.style.display = 'block';
+
+                userDisplayName.textContent = user.displayName || user.email;
+                userUID.textContent = user.uid;
+                
+                carregarUltimasMensagens(user.uid);
+            } else {
+                // Usuário Deslogado
+                loginPage.style.display = 'block';
+                appContent.style.display = 'none';
+            }
+        });
+
+        // --- Funções do Firestore (Leitura) ---
+
+        function carregarUltimasMensagens(uid) {
+            mensagensContainer.innerHTML = 'Carregando...';
+
+            db.collection(COLECAO_CONTATO)
+                // Filtra apenas mensagens do usuário logado
+                .where("uid", "==", uid) 
+                // Ordena pela data de criação
+                .orderBy("dataEnvio", "desc")
+                // Limita às últimas 10 ou 20, ajuste conforme necessário
+                .limit(10) 
+                .get()
+                .then(snapshot => {
+                    mensagensContainer.innerHTML = ''; // Limpa o "Carregando..."
+                    if (snapshot.empty) {
+                        mensagensContainer.innerHTML = '<p>Você ainda não enviou nenhuma mensagem.</p>';
+                        return;
+                    }
+
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const dataFormatada = data.dataEnvio ? new Date(data.dataEnvio.toDate()).toLocaleString() : 'Data indisponível';
+                        
+                        const divMensagem = document.createElement('div');
+                        divMensagem.className = 'mensagem';
+                        divMensagem.innerHTML = `
+                            <strong>Assunto:</strong> ${data.assunto} 
+                            <small>(${dataFormatada})</small><br>
+                            <p>${data.mensagem.substring(0, 100)}...</p> 
+                            ${data.midiaLink ? `<p>Link: <a href="${data.midiaLink}" target="_blank">Abrir Mídia/PDF</a></p>` : ''}
+                        `;
+                        mensagensContainer.appendChild(divMensagem);
+                    });
+                })
+                .catch(error => {
+                    console.error("Erro ao carregar mensagens:", error);
+                    mensagensContainer.innerHTML = '<p style="color: red;">Erro ao carregar mensagens.</p>';
+                });
+        }
+
+        // --- Funções do Firestore (Escrita) ---
+
+        mensagemForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            feedbackElement.textContent = 'Enviando...';
+            
+            const user = auth.currentUser;
+            if (!user) {
+                alert("Você precisa estar logado para enviar uma mensagem.");
+                feedbackElement.textContent = '';
+                return;
+            }
+
+            // Captura os dados do formulário
+            const dadosMensagem = {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                assunto: document.getElementById('assunto').value,
+                mensagem: document.getElementById('mensagem').value,
+                midiaLink: document.getElementById('midia-link').value || null, // Se vazio, salva como null
+                dataEnvio: firebase.firestore.FieldValue.serverTimestamp(), // Marca o tempo no servidor
+                status: 'pendente' // Adiciona um status inicial
+            };
+
+            try {
+                // Adiciona o documento à coleção
+                await db.collection(COLECAO_CONTATO).add(dadosMensagem);
+                
+                feedbackElement.textContent = 'Mensagem enviada com sucesso!';
+                mensagemForm.reset(); // Limpa o formulário
+                document.getElementById('consentimento').checked = false; // Desmarca o checkbox
+
+                // Recarrega as últimas mensagens para incluir a nova
+                carregarUltimasMensagens(user.uid); 
+
+            } catch (error) {
+                console.error("Erro ao enviar mensagem:", error);
+                feedbackElement.textContent = `Erro ao enviar mensagem: ${error.message}`;
+                feedbackElement.style.color = 'red';
+            }
+        });
+
+    </script>
+</body>
+</html>
