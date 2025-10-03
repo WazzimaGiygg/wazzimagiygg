@@ -36,10 +36,10 @@
         
         <hr>
 
-        <h3>Suas Últimas Mensagens</h3>
+        <h3>Suas Últimas Mensagens Enviadas</h3>
         <div id="mensagens-container">
             <p>Carregando mensagens...</p>
-            </div>
+        </div>
 
         <hr>
 
@@ -61,15 +61,12 @@
             <p id="feedback" style="color: green;"></p>
         </form>
     </div>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
-<script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <script>
-        // Substitua ESTES DADOS pela sua configuração REAL do Firebase
+        // 🚨 ATENÇÃO: SUBSTITUA ESTA LINHA PELO UID REAL DO SEU ADMINISTRADOR!
+        const ADMIN_UID = "sZxfMuOBPbXdR8nttVPXIN8QOOl1"; 
+        
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -98,7 +95,7 @@
         const userUID = document.getElementById('user-uid');
 
 
-        // --- Funções de Autenticação ---
+        // --- Funções de Autenticação e Lógica da Aplicação ---
 
         googleLoginBtn.addEventListener('click', () => {
             const provider = new firebase.auth.GoogleAuthProvider();
@@ -113,7 +110,7 @@
         // Observa o estado da autenticação
         auth.onAuthStateChanged(user => {
             if (user) {
-                // Usuário Logado
+                // Usuário Logado: Exibe o conteúdo e carrega mensagens
                 loginPage.style.display = 'none';
                 appContent.style.display = 'block';
 
@@ -122,7 +119,7 @@
                 
                 carregarUltimasMensagens(user.uid);
             } else {
-                // Usuário Deslogado
+                // Usuário Deslogado: Exibe a tela de login
                 loginPage.style.display = 'block';
                 appContent.style.display = 'none';
             }
@@ -134,15 +131,13 @@
             mensagensContainer.innerHTML = 'Carregando...';
 
             db.collection(COLECAO_CONTATO)
-                // Filtra apenas mensagens do usuário logado
-                .where("uid", "==", uid) 
-                // Ordena pela data de criação
+                // Filtra apenas mensagens enviadas pelo usuário logado
+                .where("uidRemetente", "==", uid) 
                 .orderBy("dataEnvio", "desc")
-                // Limita às últimas 10 ou 20, ajuste conforme necessário
                 .limit(10) 
                 .get()
                 .then(snapshot => {
-                    mensagensContainer.innerHTML = ''; // Limpa o "Carregando..."
+                    mensagensContainer.innerHTML = ''; 
                     if (snapshot.empty) {
                         mensagensContainer.innerHTML = '<p>Você ainda não enviou nenhuma mensagem.</p>';
                         return;
@@ -150,14 +145,16 @@
 
                     snapshot.forEach(doc => {
                         const data = doc.data();
+                        // Nota: O campo 'uidDestinatario' deve ser igual ao ADMIN_UID
+                        const destinatario = data.uidDestinatario === ADMIN_UID ? 'Admin' : 'Outro'; 
                         const dataFormatada = data.dataEnvio ? new Date(data.dataEnvio.toDate()).toLocaleString() : 'Data indisponível';
                         
                         const divMensagem = document.createElement('div');
                         divMensagem.className = 'mensagem';
                         divMensagem.innerHTML = `
                             <strong>Assunto:</strong> ${data.assunto} 
-                            <small>(${dataFormatada})</small><br>
-                            <p>${data.mensagem.substring(0, 100)}...</p> 
+                            <small>(${dataFormatada}) - Enviado para: ${destinatario}</small><br>
+                            <p>${data.mensagem.substring(0, 100)}${data.mensagem.length > 100 ? '...' : ''}</p> 
                             ${data.midiaLink ? `<p>Link: <a href="${data.midiaLink}" target="_blank">Abrir Mídia/PDF</a></p>` : ''}
                         `;
                         mensagensContainer.appendChild(divMensagem);
@@ -182,27 +179,28 @@
                 return;
             }
 
-            // Captura os dados do formulário
+            // Captura os dados do formulário e INCLUI o UID do administrador
             const dadosMensagem = {
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
+                uidRemetente: user.uid, // O UID de quem envia
+                emailRemetente: user.email,
+                displayNameRemetente: user.displayName,
+                uidDestinatario: ADMIN_UID, // O UID do administrador que você definiu
                 assunto: document.getElementById('assunto').value,
                 mensagem: document.getElementById('mensagem').value,
-                midiaLink: document.getElementById('midia-link').value || null, // Se vazio, salva como null
-                dataEnvio: firebase.firestore.FieldValue.serverTimestamp(), // Marca o tempo no servidor
-                status: 'pendente' // Adiciona um status inicial
+                midiaLink: document.getElementById('midia-link').value || null,
+                dataEnvio: firebase.firestore.FieldValue.serverTimestamp(),
+                status: 'pendente' 
             };
 
             try {
                 // Adiciona o documento à coleção
                 await db.collection(COLECAO_CONTATO).add(dadosMensagem);
                 
-                feedbackElement.textContent = 'Mensagem enviada com sucesso!';
-                mensagemForm.reset(); // Limpa o formulário
-                document.getElementById('consentimento').checked = false; // Desmarca o checkbox
+                feedbackElement.textContent = 'Mensagem enviada com sucesso! Aguarde o retorno do administrador.';
+                mensagemForm.reset(); 
+                document.getElementById('consentimento').checked = false; 
 
-                // Recarrega as últimas mensagens para incluir a nova
+                // Recarrega as últimas mensagens
                 carregarUltimasMensagens(user.uid); 
 
             } catch (error) {
