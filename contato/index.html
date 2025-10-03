@@ -79,7 +79,7 @@
             border-radius: 4px; box-sizing: border-box; resize: vertical;
         }
         .search-form button { padding: 10px 15px; background-color: var(--color-primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
-        
+
         /* Estilos do Chat */
         #mensagens-container {
             border: 1px solid #dadce0;
@@ -113,7 +113,7 @@
             border-radius: 18px 18px 18px 0;
             border: 1px solid #dadce0;
         }
-        
+
         .chat-info {
             font-size: 0.7em !important;
             margin-top: 5px !important;
@@ -144,7 +144,7 @@
                     
                     <h3 style="margin-top: 20px;">Minhas Conversas</h3>
                     <div id="conversations-list">
-                        <div class="conversation-item active" data-uid="" data-displayname="Administrador">
+                        <div class="conversation-item active" data-uid="ADMIN_UID" data-displayname="Administrador">
                             <strong>Chat com Administrador</strong>
                             <small class="last-message">Clique para conversar.</small>
                         </div>
@@ -177,7 +177,6 @@
         const ADMIN_UID = "sZxfMuOBPbXdR8nttVPXIN8QOOl1"; 
         
         const firebaseConfig = {
-            // Insira sua configuração real do Firebase aqui
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
             authDomain: "wzzm-ce3fc.firebaseapp.com",
             projectId: "wzzm-ce3fc",
@@ -191,7 +190,7 @@
         const auth = app.auth();
         const db = app.firestore();
         const COLECAO_CONTATO = "contatowazzimagiygg";
-        const COLECAO_USERS = "users"; // Ou "usuarios" se for o nome que você usa
+        const COLECAO_USERS = "users"; // OU "usuarios"
 
         // Variáveis de estado
         let currentUser = null;
@@ -208,30 +207,24 @@
         const feedbackMensagem = document.getElementById('feedback-mensagem');
         const searchForm = document.getElementById('search-form');
         const conversationsList = document.getElementById('conversations-list');
-        const adminConversationItem = document.querySelector('.conversation-item[data-uid="ADMIN_UID"]');
         
-        // Atribui o UID do Admin ao item fixo na sidebar
-        if (adminConversationItem) {
-            adminConversationItem.setAttribute('data-uid', ADMIN_UID);
-        }
+        // Elemento DOM CORRIGIDO: Encontra o item com data-uid="ADMIN_UID"
+        const adminConversationItem = document.querySelector('.conversation-item[data-uid="ADMIN_UID"]'); 
 
         // --- Lógica de Autenticação ---
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
                 authStatus.textContent = `Logado como: ${user.displayName || user.email}`;
-                appContent.style.display = 'block';
+                appContent.style.display = 'flex'; // Use 'flex' para o main-content
                 
                 // 1. Configura o primeiro chat com o Admin
-                adminConversationItem.addEventListener('click', () => setChatActive(ADMIN_UID, 'Administrador'));
-                
+                if (adminConversationItem) { // Adiciona a verificação de null/undefined
+                    adminConversationItem.addEventListener('click', () => setChatActive(ADMIN_UID, 'Administrador'));
+                }
+
                 // 2. Inicia o chat default
                 setChatActive(ADMIN_UID, 'Administrador');
-
-                // 3. Opcional: ouvir outras conversas recentes
-                // Para manter a simplicidade e a performance, não carregaremos todas as conversas recentes
-                // na sidebar do usuário (devido à limitação do Firestore em consultas OR).
-                // O usuário deve buscar o contato ou terá o chat iniciado após a primeira mensagem.
 
             } else {
                 authStatus.innerHTML = 'Você precisa estar logado para usar o chat. <button onclick="loginWithGoogle()">Fazer Login</button>';
@@ -239,7 +232,7 @@
                 currentUser = null;
             }
         });
-        
+
         function loginWithGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider).catch(error => console.error("Erro no login:", error));
@@ -247,11 +240,10 @@
 
         // --- Funções Auxiliares de Chat ---
         function getTargetUid() {
-            return ultimoUidAtivo; // O UID do destinatário é simplesmente o UID ativo no momento
+            return ultimoUidAtivo;
         }
-        
+
         function setChatActive(uid, displayName) {
-            // 1. Desinscreve a escuta anterior, se houver
             if (unsubscribeChat) {
                 unsubscribeChat();
                 unsubscribeChat = null;
@@ -261,26 +253,22 @@
             ultimoDisplayNameAtivo = displayName;
             chatStatusTitle.textContent = `Chat com: ${displayName}`;
 
-            // 2. Atualiza a sidebar visualmente
             document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
             const activeItem = document.querySelector(`.conversation-item[data-uid="${uid}"]`);
             if (activeItem) {
                 activeItem.classList.add('active');
             }
 
-            // 3. Inicia a nova escuta
             ouvirHistoricoChat(uid, displayName);
         }
 
-        // --- Lógica de Histórico de Chat (CORRIGIDA) ---
+        // --- Lógica de Histórico de Chat (Mesma lógica de OR) ---
         function ouvirHistoricoChat(targetUid, targetDisplayName) {
             if (!currentUser) return;
             mensagensContainer.innerHTML = '<p style="color: var(--color-text-light);">Carregando histórico...</p>';
 
             const userUid = currentUser.uid;
-            
-            // O Firestore não suporta OR, então faremos duas queries de escuta (onSnapshot)
-            // e mesclaremos os resultados no código.
+            let allMessages = [];
 
             const queryUserToTarget = db.collection(COLECAO_CONTATO)
                 .where("uidRemetente", "==", userUid)
@@ -294,19 +282,16 @@
                 .orderBy("dataEnvio", "asc")
                 .limit(50);
 
-            let allMessages = [];
-            let snapshotsReceived = 0;
-
             const renderCombinedChat = () => {
-                // Ordena todas as mensagens combinadas pela data de envio
-                allMessages.sort((a, b) => a.dataEnvio.seconds - b.dataEnvio.seconds);
+                const uniqueMessages = Array.from(new Map(allMessages.map(msg => [msg.dataEnvio.seconds, msg])).values());
+                uniqueMessages.sort((a, b) => a.dataEnvio.seconds - b.dataEnvio.seconds);
                 
                 mensagensContainer.innerHTML = '';
-                if (allMessages.length === 0) {
+                if (uniqueMessages.length === 0) {
                      mensagensContainer.innerHTML = `<p style="text-align: center;">Inicie a conversa com ${targetDisplayName}.</p>`;
                 }
                 
-                allMessages.forEach(data => {
+                uniqueMessages.forEach(data => {
                     const isMyMessage = data.uidRemetente === userUid;
                     const nomeDisplay = isMyMessage ? 'Você' : targetDisplayName;
 
@@ -326,15 +311,11 @@
                 mensagensContainer.scrollTop = mensagensContainer.scrollHeight;
             };
 
-            const listener = (snapshot) => {
-                 // Mapeia o snapshot para objetos de dados
+            const listener = (snapshot) => { 
                  const newMessages = snapshot.docs.map(doc => doc.data());
-                 
-                 // Combina as mensagens, eliminando duplicatas (se necessário) e reordena
                  allMessages = allMessages.filter(msg => 
-                     !newMessages.some(newMsg => newMsg.dataEnvio.isEqual && newMsg.dataEnvio.isEqual(msg.dataEnvio))
+                     !newMessages.some(newMsg => newMsg.dataEnvio && newMsg.dataEnvio.isEqual && newMsg.dataEnvio.isEqual(msg.dataEnvio))
                  ).concat(newMessages);
-                 
                  renderCombinedChat();
             };
             
@@ -343,19 +324,15 @@
                 mensagensContainer.innerHTML = `<p style="color: red;">Erro ao carregar chat: ${error.message}</p>`;
             };
 
-            // 1ª Escuta: Mensagens enviadas pelo usuário
             const unsubscribe1 = queryUserToTarget.onSnapshot(listener, errorHandler);
-
-            // 2ª Escuta: Mensagens recebidas pelo usuário
             const unsubscribe2 = queryTargetToUser.onSnapshot(listener, errorHandler);
             
-            // Retorna uma função de desinscrição combinada
             unsubscribeChat = () => {
                 unsubscribe1();
                 unsubscribe2();
             };
         }
-        
+
         // --- Lógica de Envio de Mensagem ---
         enviarMensagemForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -413,29 +390,25 @@
                 resultsContainer.innerHTML = '<p>Digite pelo menos 3 caracteres.</p>';
                 return;
             }
-            
+
             let query;
             const isUid = term.length === 28;
             const isEmail = term.includes('@');
 
             if (isUid) {
-                // Busca por UID (document ID)
                 query = db.collection(COLECAO_USERS).where(firebase.firestore.FieldPath.documentId(), '==', term).limit(1);
             } else if (isEmail) {
-                // Busca por Email (requer que o campo 'email' exista na coleção 'users')
                 query = db.collection(COLECAO_USERS).where('email', '==', term).limit(1);
             } else {
-                // Busca por Nome - (A busca "startswith" requer índice e é lenta, mas é mais amigável)
-                // Usaremos uma busca por nome exato para simplificar e garantir precisão
                 query = db.collection(COLECAO_USERS).where('displayName', '==', term).limit(1);
             }
             
-
             try {
                 const snapshot = await query.get();
                 renderSearchResults(snapshot.docs);
             } catch (error) {
-                 console.error("Erro ao buscar usuários:", error);
+                 // Este é o erro de permissão que você viu. A correção deve ser nas regras do Firebase.
+                 console.error("Erro ao buscar usuários:", error); 
                  resultsContainer.innerHTML = `<p style="color: red;">Erro na busca. Verifique as regras e os índices do Firestore.</p>`;
             }
         }
@@ -453,7 +426,6 @@
                 const data = doc.data();
                 const uid = doc.id;
                 
-                // Evita mostrar a si mesmo nos resultados da busca
                 if (uid === currentUser.uid) return;
 
                 const displayName = data.displayName || data.name || data.email;
@@ -463,14 +435,11 @@
                 item.innerHTML = `<strong>${displayName}</strong> <small>(${data.email})</small>`;
                 
                 item.addEventListener('click', () => {
-                    // 1. Inicia o chat com o usuário encontrado
                     setChatActive(uid, displayName);
                     
-                    // 2. Limpa e esconde a busca
                     document.getElementById('search-input').value = '';
                     resultsContainer.innerHTML = '';
 
-                    // 3. Adiciona o item à lista de conversas (se não existir)
                     let existingItem = document.querySelector(`.conversation-item[data-uid="${uid}"]`);
                     if (!existingItem) {
                          const conversationItem = document.createElement('div');
