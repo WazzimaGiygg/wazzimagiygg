@@ -1,180 +1,280 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bem-vindo(a) à Administração WZZM</title>
+    <title>Painel de Administração - Contatos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     
     <style>
-        /* Estilos básicos para a página */
+        /* Variáveis e Estilos de Base do Material Design */
+        :root {
+            --color-primary: #4285F4; /* Azul Google */
+            --color-primary-dark: #3367D6;
+            --color-secondary: #0F9D58; /* Verde (para status) */
+            --color-text-dark: #202124;
+            --color-text-light: #5f6368;
+            --color-background-card: #ffffff;
+            --shadow-elevation-2: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+            --border-radius: 8px;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f7f9;
-            color: #333;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
             margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            padding: 20px;
         }
 
-        /* Container principal com card para a mensagem */
         .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 600px;
-            width: 90%;
-            transition: transform 0.3s ease-in-out;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
         }
 
-        .container:hover {
-            transform: translateY(-5px);
+        /* Top Bar de Admin */
+        .admin-header {
+            background-color: var(--color-primary);
+            color: white;
+            padding: 15px 30px;
+            margin-bottom: 30px;
+            border-radius: var(--border-radius);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-elevation-2);
         }
 
-        /* Estilo para o título principal */
-        h1 {
-            color: #2c3e50;
-            font-size: 2.5em;
-            margin-bottom: 10px;
+        .admin-header h1 {
+            margin: 0;
+            font-weight: 400;
         }
 
-        /* Estilo para a mensagem de boas-vindas */
-        p {
-            font-size: 1.1em;
-            color: #666;
-            line-height: 1.6;
-        }
+        /* Estilo Geral do Painel */
+        #login-page { text-align: center; }
+        #app-content { display: none; }
 
-        /* Estilo para o logo ou nome da empresa */
-        .logo {
-            margin-bottom: 20px;
-            font-size: 2em;
-            font-weight: bold;
-            color: #3498db;
+        h2 {
+            color: var(--color-text-dark);
+            font-weight: 500;
+            margin-top: 0;
+            padding-bottom: 10px;
         }
         
-        /* Estilo para os links de navegação rápida (Opcional, pois não aparecem antes do login) */
-        .quick-links {
-            margin-top: 30px;
-            padding: 0;
-            list-style: none;
-            display: flex;
-            justify-content: center;
+        /* Estilo da Lista de Tickets */
+        #tickets-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
-            flex-wrap: wrap;
         }
 
-        .quick-links li a {
-            text-decoration: none;
-            color: #3498db;
-            font-weight: bold;
-            font-size: 1em;
-            background-color: #eaf6fc;
-            padding: 12px 20px;
-            border-radius: 8px;
-            transition: background-color 0.3s, color 0.3s;
+        .ticket-card {
+            background-color: var(--color-background-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-elevation-1);
+            padding: 20px;
+            border-left: 5px solid transparent; /* Para indicação de status */
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .quick-links li a:hover {
-            background-color: #3498db;
-            color: #fff;
+        .ticket-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-elevation-2);
         }
 
-        /* 4. CSS para controlar a visibilidade */
-        #painel-admin, #logout-btn {
-            display: none; /* Oculta o conteúdo e o botão de logout por padrão */
-        }
-        #login-msg {
-            display: block; /* Garante que a mensagem de login apareça por padrão */
+        .ticket-card h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: var(--color-primary);
+            font-weight: 500;
         }
 
-        /* Ajuste o alinhamento para o botão de logout */
+        .ticket-card p {
+            font-size: 14px;
+            color: var(--color-text-light);
+            margin: 5px 0;
+        }
+
+        .ticket-card strong {
+            color: var(--color-text-dark);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 10px;
+        }
+
+        .status-badge.pendente {
+            background-color: #fce8e6; /* Vermelho claro */
+            color: #d93025;
+            border-left-color: #d93025;
+        }
+        
+        .status-badge.resolvido {
+            background-color: #e6f4ea; /* Verde claro */
+            color: var(--color-secondary);
+            border-left-color: var(--color-secondary);
+        }
+
+        /* Botão */
         #logout-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 10px 15px;
-            background-color: #e74c3c;
-            color: white;
+            background-color: white;
+            color: var(--color-primary);
+            padding: 8px 16px;
             border: none;
-            border-radius: 6px;
+            border-radius: 4px;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 500;
+            transition: background-color 0.2s;
         }
 
+        #logout-btn:hover {
+            background-color: #f0f0f0;
+        }
     </style>
 </head>
 <body>
 
-    <div id="login-msg" class="container">
-        <div class="logo">WZZM</div>
-        <h2>Acesso Administrativo</h2>
-        <p>Faça login com sua conta Google para continuar.</p>
-        
-        <div id="g_id_onload"
-             data-client_id="699888851678-k2qkdplg06ueqjgimmtofjvna5sclcm2.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
+    <div class="container">
+        <div id="login-page">
+            <h2>Acesso Restrito ao Painel de Admin</h2>
+            <p>Por favor, faça login com sua conta de administrador.</p>
+            <button id="google-login-btn" style="background-color: var(--color-primary); color: white; padding: 10px 20px; border: none; border-radius: 4px;">
+                Entrar com Google
+            </button>
         </div>
-        
-        <div class="g_id_signin"
-             data-type="standard"
-             data-size="large"
-             data-theme="outline"
-             data-text="sign_in_with"
-             data-shape="rectangular"
-             data-logo_alignment="left">
+
+        <div id="app-content">
+            <div class="admin-header">
+                <h1>Painel de Contato</h1>
+                <p>Logado como: <strong id="user-display-name"></strong> | <button id="logout-btn">Sair</button></p>
+            </div>
+            
+            <h2>Tickets Recebidos</h2>
+            <div id="tickets-container">
+                <p>Verificando acesso e carregando tickets...</p>
+            </div>
         </div>
-    </div>
-
-    <button id="logout-btn" onclick="logout()">Sair</button>
-
-    <div id="painel-admin" class="container">
-        <div class="logo">WZZM</div>
-        <h1>Bem-vindo(a) à Administração Central</h1>
-        <p>
-            Olá! Você está na área de controle dos produtos WZZM. Utilize os links rápidos abaixo
-            para gerenciar seus produtos, analisar relatórios de vendas e configurar o sistema.
-        </p>
-        
-        <ul class="quick-links">
-            <li><a href="detalhes_cliente/">Procurar informações sobre Cliente<</a></li>
-            <li><a href="administrarcustos/">Configurações de Custos</a></li>
-            <li><a href="listadecustosavancada/">Procura de Custos avançado</a></li>
-        </ul>
-        
-        <p>Seu trabalho é fundamental para o nosso sucesso. Vamos começar?</p>
     </div>
 
     <script>
-        // 5. Funções JavaScript para o fluxo de login/logout
+        // 🚨 ATENÇÃO: SUBSTITUA ESTA LINHA PELO UID REAL DO SEU ADMINISTRADOR!
+        // O UID DEVE ser o mesmo que você colocou nas regras de segurança do Firestore.
+        const ADMIN_UID = "INSIRA_O_UID_DO_ADMINISTRADOR_AQUI"; 
         
-        function handleCredentialResponse(response) {
-            // Em uma aplicação real, você enviaria o 'response.credential' para o seu servidor
-            // para validação e autorização.
-            
-            // Para este exemplo, simplesmente exibimos o painel:
-            document.getElementById('login-msg').style.display = 'none';
-            document.getElementById('painel-admin').style.display = 'block';
-            document.getElementById('logout-btn').style.display = 'inline-block';
-        }
-        
-        function logout() {
-            // Isso notifica o Google que o usuário saiu (impede o auto-select)
-            if (google && google.accounts && google.accounts.id) {
-                google.accounts.id.disableAutoSelect();
+        // Configuração do Firebase (A mesma da página do usuário)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializa o Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = app.auth();
+        const db = app.firestore();
+        const COLECAO_CONTATO = "contatowazzimagiygg";
+
+        // Elementos do DOM
+        const loginPage = document.getElementById('login-page');
+        const appContent = document.getElementById('app-content');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const ticketsContainer = document.getElementById('tickets-container');
+        const userDisplayName = document.getElementById('user-display-name');
+
+
+        // --- Funções de Autenticação e Lógica da Aplicação ---
+
+        googleLoginBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => console.error("Erro no login:", error));
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Observa o estado da autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Checa se é o administrador
+                if (user.uid === ADMIN_UID) {
+                    loginPage.style.display = 'none';
+                    appContent.style.display = 'block';
+                    userDisplayName.textContent = user.displayName || user.email;
+                    carregarTodosTickets();
+                } else {
+                    // Usuário logado, mas NÃO é o admin
+                    alert("Acesso negado. Você não é um administrador.");
+                    auth.signOut();
+                }
+            } else {
+                // Usuário Deslogado
+                loginPage.style.display = 'block';
+                appContent.style.display = 'none';
+                ticketsContainer.innerHTML = '<p>Faça login para acessar o painel.</p>';
             }
-            
-            // Oculta o painel e mostra a tela de login
-            document.getElementById('painel-admin').style.display = 'none';
-            document.getElementById('logout-btn').style.display = 'none';
-            document.getElementById('login-msg').style.display = 'block';
+        });
+
+        // --- Funções do Firestore (Leitura Admin) ---
+
+        function carregarTodosTickets() {
+            ticketsContainer.innerHTML = '<p>Carregando todos os tickets...</p>';
+
+            db.collection(COLECAO_CONTATO)
+                // Ordena pelo mais recente
+                .orderBy("dataEnvio", "desc")
+                .get()
+                .then(snapshot => {
+                    ticketsContainer.innerHTML = '';
+                    if (snapshot.empty) {
+                        ticketsContainer.innerHTML = '<p>Nenhuma mensagem de contato encontrada.</p>';
+                        return;
+                    }
+
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const dataFormatada = data.dataEnvio ? new Date(data.dataEnvio.toDate()).toLocaleString() : 'Data indisponível';
+                        const statusClass = data.status === 'pendente' ? 'pendente' : 'resolvido';
+                        
+                        const ticketCard = document.createElement('div');
+                        ticketCard.className = 'ticket-card ' + statusClass;
+                        
+                        // Determina se o ticket foi endereçado diretamente para este admin
+                        const ehParaMim = data.uidDestinatario === ADMIN_UID;
+                        
+                        ticketCard.innerHTML = `
+                            <h4>${data.assunto}</h4>
+                            <p><strong>Remetente:</strong> ${data.displayNameRemetente || data.emailRemetente}</p>
+                            <p><strong>UID Remetente:</strong> ${data.uidRemetente}</p>
+                            <p><strong>Data:</strong> ${dataFormatada}</p>
+                            <p><strong>Mensagem:</strong> ${data.mensagem.substring(0, 80)}...</p> 
+                            ${data.midiaLink ? `<p><a href="${data.midiaLink}" target="_blank">Abrir Mídia/PDF</a></p>` : ''}
+                            <span class="status-badge ${statusClass}">${data.status}</span>
+                            ${ehParaMim ? '<span class="status-badge" style="background-color: #fff3e0; color: #f57f17; margin-left: 10px;">PARA MIM</span>' : ''}
+                        `;
+                        ticketsContainer.appendChild(ticketCard);
+                    });
+                })
+                .catch(error => {
+                    console.error("Erro ao carregar tickets:", error);
+                    ticketsContainer.innerHTML = '<p style="color: red;">Erro ao carregar tickets. Verifique as regras do Firestore.</p>';
+                });
         }
     </script>
 </body>
