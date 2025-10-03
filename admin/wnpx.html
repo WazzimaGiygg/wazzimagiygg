@@ -53,7 +53,7 @@
         .admin-header h1 { margin: 0; font-weight: 400; }
         #login-page { text-align: center; }
         #app-content { display: none; }
-        
+
         /* Botão Sair */
         #logout-btn {
             background-color: white;
@@ -68,7 +68,7 @@
         /* --- Novo Layout de Duas Colunas --- */
         .main-content {
             display: flex;
-            gap: 20px; 
+            gap: 20px;
         }
 
         .sidebar {
@@ -77,12 +77,12 @@
             border-radius: var(--border-radius);
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             padding: 15px;
-            max-height: 70vh; 
+            max-height: 70vh;
             overflow-y: auto;
         }
 
         .chat-viewer {
-            flex-grow: 1; 
+            flex-grow: 1;
             background-color: var(--color-background-card);
             padding: 15px;
             border-radius: var(--border-radius);
@@ -109,7 +109,7 @@
         }
 
         .conversation-item:hover, .conversation-item.active {
-            background-color: #e8f0fe; 
+            background-color: #e8f0fe;
             font-weight: 500;
         }
 
@@ -140,7 +140,7 @@
             flex-direction: column;
         }
 
-        .mensagem { 
+        .mensagem {
             max-width: 80%;
             margin-bottom: 15px;
             padding: 10px 15px;
@@ -153,17 +153,17 @@
             background-color: #e6f4ea; /* Verde clarinho */
             color: var(--color-text-dark);
             align-self: flex-end;
-            border-radius: 18px 18px 0 18px; 
+            border-radius: 18px 18px 0 18px;
         }
 
         .chat-destinatario { /* Mensagens do Usuário */
-            background-color: #ffffff; 
+            background-color: #ffffff;
             color: var(--color-text-dark);
             align-self: flex-start;
             border-radius: 18px 18px 18px 0;
             border: 1px solid #dadce0;
         }
-        
+
         .chat-info {
             font-size: 0.7em !important;
             margin-top: 5px !important;
@@ -171,10 +171,9 @@
             display: block;
             color: var(--color-text-light);
         }
-
         .chat-destinatario .chat-info { text-align: left; }
         .mensagem p.chat-text { margin: 0; }
-        
+
         /* Formulário de Resposta */
         label { display: block; margin-top: 10px; font-weight: 500; color: var(--color-text-dark); }
         input[type="url"], textarea {
@@ -182,13 +181,12 @@
             border-radius: 4px; box-sizing: border-box; resize: vertical;
         }
         #enviar-resposta-btn {
-            background-color: var(--color-secondary); 
+            background-color: var(--color-secondary);
             color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px;
         }
     </style>
 </head>
 <body>
-
     <div class="container">
         <div id="login-page">
             <h2>Acesso Restrito ao Painel de Admin</h2>
@@ -197,7 +195,7 @@
                 Entrar com Google
             </button>
         </div>
-
+        
         <div id="app-content">
             <div class="admin-header">
                 <h1>Painel de Chat</h1>
@@ -243,7 +241,6 @@
         
         // Configuração do Firebase
         const firebaseConfig = {
-            // Insira sua configuração real do Firebase aqui
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
             authDomain: "wzzm-ce3fc.firebaseapp.com",
             projectId: "wzzm-ce3fc",
@@ -272,7 +269,6 @@
         let ultimoUidAtivo = null; // Rastreia o usuário que o admin está conversando
 
         // --- Funções de Autenticação ---
-
         googleLoginBtn.addEventListener('click', () => {
             const provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider)
@@ -304,8 +300,7 @@
             }
         });
 
-        // --- Lógica Principal: Ouvir Todas as Conversas ---
-
+        // --- Lógica Principal: Ouvir Todas as Conversas (CORRIGIDA) ---
         function ouvirConversas() {
             conversationsList.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Ouvindo mensagens...</p>';
             
@@ -316,28 +311,30 @@
                 .onSnapshot(snapshot => {
                     const conversationsMap = new Map();
                     let docs = snapshot.docs;
-                    
+
                     // 1. Agrupar Mensagens por Usuário
                     docs.forEach(doc => {
                         const data = doc.data();
                         
                         // O UID da conversa é o UID do usuário (não o admin)
-                        const uidUsuario = data.uidRemetente !== ADMIN_UID 
-                            ? data.uidRemetente 
+                        const uidUsuario = data.uidRemetente !== ADMIN_UID
+                            ? data.uidRemetente
                             : data.uidDestinatario;
 
                         if (uidUsuario && uidUsuario !== ADMIN_UID) {
                             
+                            // ✅ CORREÇÃO do TypeError: Verifica se o Timestamp é válido
+                            const dataEnvioValida = data.dataEnvio && typeof data.dataEnvio.toDate === 'function';
+                            
                             // Se esta é a primeira ou a mensagem mais recente que encontramos para este UID
-                            // Lógica de Map.has() garante que a primeira mensagem (a mais recente, pois ordenamos por 'desc') seja salva.
                             if (!conversationsMap.has(uidUsuario)) {
                                 conversationsMap.set(uidUsuario, {
                                     uid: uidUsuario,
                                     displayName: data.displayNameRemetente || 'Usuário Desconhecido',
                                     ultimaMensagem: data.mensagem,
-                                    dataUltimaMensagem: data.dataEnvio.toDate(),
-                                    // Guarda a snapshot completa para uso posterior, se necessário
-                                    latestDoc: doc 
+                                    // Usa new Date(0) como fallback para evitar o erro toDate em mensagens pendentes
+                                    dataUltimaMensagem: dataEnvioValida ? data.dataEnvio.toDate() : new Date(0), 
+                                    latestDoc: doc
                                 });
                             }
                         }
@@ -345,16 +342,16 @@
 
                     // 2. Renderizar a Lista de Conversas
                     renderConversationsList(conversationsMap, docs);
-                    
+
                     // 3. Inicializar ou Recarregar o Chat Ativo
                     if (!ultimoUidAtivo && conversationsMap.size > 0) {
                         // Seleciona o chat do usuário mais recente para abrir por padrão
-                        const sortedConversations = Array.from(conversationsMap.values()).sort((a, b) => 
+                        const sortedConversations = Array.from(conversationsMap.values()).sort((a, b) =>
                             b.dataUltimaMensagem.getTime() - a.dataUltimaMensagem.getTime()
                         );
                         ultimoUidAtivo = sortedConversations[0].uid;
                     }
-                    
+
                     // Recarrega o chat ativo com o novo snapshot (se houver um)
                     if (ultimoUidAtivo) {
                         carregarChatAdmin(docs, ultimoUidAtivo);
@@ -369,13 +366,13 @@
         // --- Função para Renderizar a Lista de Usuários na Sidebar ---
         function renderConversationsList(conversationsMap, allDocs) {
             conversationsList.innerHTML = '';
-            
+
             if (conversationsMap.size === 0) {
                 conversationsList.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Nenhuma conversa ativa.</p>';
                 return;
             }
-            
-            const sortedConversations = Array.from(conversationsMap.values()).sort((a, b) => 
+
+            const sortedConversations = Array.from(conversationsMap.values()).sort((a, b) =>
                 b.dataUltimaMensagem.getTime() - a.dataUltimaMensagem.getTime()
             );
 
@@ -383,7 +380,7 @@
                 const item = document.createElement('div');
                 item.className = 'conversation-item';
                 item.setAttribute('data-uid', conv.uid);
-                
+
                 if (conv.uid === ultimoUidAtivo) {
                     item.classList.add('active');
                 }
@@ -400,7 +397,7 @@
                     // 1. Atualizar UI da sidebar
                     document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-                    
+
                     // 2. Mudar o chat ativo e carregar
                     ultimoUidAtivo = conv.uid;
                     carregarChatAdmin(allDocs, ultimoUidAtivo); // Usa o snapshot já carregado
@@ -409,44 +406,48 @@
                 conversationsList.appendChild(item);
             });
         }
-        
-        // --- Função para Carregar e Mostrar o Histórico do Chat ---
-        function carregarChatAdmin(docs, uidUsuario) {
-            chatAdminContainer.innerHTML = ''; 
-            let remetenteNome = 'Usuário'; 
-            let conversaEncontrada = false;
-            
-            docs.forEach(doc => {
-                const data = doc.data();
-                
-                // Filtra para mostrar APENAS a conversa entre o Admin e o Usuário Ativo
-                if (data.uidRemetente === uidUsuario || data.uidDestinatario === uidUsuario) {
-                    conversaEncontrada = true;
-                    const isAdmin = data.uidRemetente === ADMIN_UID;
-                    const nomeDisplay = isAdmin ? 'Você (Admin)' : data.displayNameRemetente || 'Usuário';
-                    
-                    if (!isAdmin) {
-                        remetenteNome = data.displayNameRemetente || 'Usuário';
-                    }
 
-                    const classeChat = isAdmin ? 'chat-remetente' : 'chat-destinatario';
-                    const dataFormatada = data.dataEnvio ? new Date(data.dataEnvio.toDate()).toLocaleTimeString() : '';
-                    
-                    const divMensagem = document.createElement('div');
-                    divMensagem.className = 'mensagem ' + classeChat;
-                    divMensagem.innerHTML = `
-                        <p class="chat-text">${data.mensagem}</p>
-                        ${data.midiaLink ? `<p><a href="${data.midiaLink}" target="_blank">Abrir Mídia/PDF</a></p>` : ''}
-                        <small class="chat-info">(${nomeDisplay}) - ${dataFormatada}</small>
-                    `;
-                    chatAdminContainer.appendChild(divMensagem);
+        // --- Função para Carregar e Mostrar o Histórico do Chat (CORRIGIDA) ---
+        function carregarChatAdmin(docs, uidUsuario) {
+            chatAdminContainer.innerHTML = '';
+            let remetenteNome = 'Usuário';
+            let conversaEncontrada = false;
+
+            // Filtramos a conversa do usuário ativo
+            const conversa = docs.filter(doc => {
+                const data = doc.data();
+                return data.uidRemetente === uidUsuario || data.uidDestinatario === uidUsuario;
+            }).map(doc => doc.data()); // Mapeia para os dados (data)
+
+            conversa.forEach(data => {
+                conversaEncontrada = true;
+                const isAdmin = data.uidRemetente === ADMIN_UID;
+                const nomeDisplay = isAdmin ? 'Você (Admin)' : data.displayNameRemetente || 'Usuário';
+
+                if (!isAdmin) {
+                    remetenteNome = data.displayNameRemetente || 'Usuário';
                 }
+                
+                // ✅ CORREÇÃO: Verifica se o Timestamp é válido
+                const dataEnvioValida = data.dataEnvio && typeof data.dataEnvio.toDate === 'function';
+
+                const classeChat = isAdmin ? 'chat-remetente' : 'chat-destinatario';
+                const dataFormatada = dataEnvioValida ? new Date(data.dataEnvio.toDate()).toLocaleTimeString() : 'Aguardando...'; 
+                
+                const divMensagem = document.createElement('div');
+                divMensagem.className = 'mensagem ' + classeChat;
+                divMensagem.innerHTML = `
+                    <p class="chat-text">${data.mensagem}</p>
+                    ${data.midiaLink ? `<p><a href="${data.midiaLink}" target="_blank">Abrir Mídia/PDF</a></p>` : ''}
+                    <small class="chat-info">(${nomeDisplay}) - ${dataFormatada}</small>
+                `;
+                chatAdminContainer.appendChild(divMensagem);
             });
 
             // Lógica de exibição final
             if (conversaEncontrada) {
                 document.getElementById('chat-status-title').textContent = `Chat Ativo com: ${remetenteNome}`;
-                respostaForm.style.display = 'block'; 
+                respostaForm.style.display = 'block';
             } else {
                 document.getElementById('chat-status-title').textContent = `Nenhum Chat Selecionado`;
                 respostaForm.style.display = 'none';
@@ -456,9 +457,8 @@
             // Rola para o final
             chatAdminContainer.scrollTop = chatAdminContainer.scrollHeight;
         }
-        
-        // --- Lógica de Envio de Resposta do Admin ---
 
+        // --- Lógica de Envio de Resposta do Admin ---
         respostaForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             respostaFeedback.textContent = 'Enviando...';
@@ -477,20 +477,21 @@
                 uidRemetente: ADMIN_UID,
                 emailRemetente: user.email,
                 displayNameRemetente: user.displayName,
-                uidDestinatario: ultimoUidAtivo, 
-                assunto: 'Resposta (Admin)', 
+                uidDestinatario: ultimoUidAtivo,
+                assunto: 'Resposta (Admin)',
                 mensagem: document.getElementById('resposta-mensagem').value,
                 midiaLink: document.getElementById('resposta-midia').value || null,
                 dataEnvio: firebase.firestore.FieldValue.serverTimestamp(),
-                status: 'resolvendo' 
+                status: 'resolvendo'
             };
 
             try {
+                // Se o erro de permissão persistir, o problema é 100% nas Regras do Firestore
                 await db.collection(COLECAO_CONTATO).add(dadosResposta);
-                
+
                 respostaFeedback.textContent = 'Resposta enviada com sucesso!';
                 respostaFeedback.style.color = 'green';
-                respostaForm.reset(); 
+                respostaForm.reset();
 
             } catch (error) {
                 console.error("Erro ao enviar resposta:", error);
