@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -170,6 +170,22 @@
         .add-contact-dialog .mdl-dialog__actions {
             padding: 10px 20px; /*  */
         }
+        /* NEW: Estilos para o item de usuário na lista de seleção */
+        .all-user-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .all-user-item:hover {
+            background-color: #f5f5f5;
+        }
+        .all-user-item.active-user {
+            background-color: #e8eaf6; /* Um azul claro para destaque */
+        }
+        /* Garantir que o ícone de seleção fique à direita */
+        .all-user-item .mdl-list__item-secondary-action {
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -228,23 +244,29 @@
         </footer>
 
         <dialog class="mdl-dialog add-contact-dialog" id="add-contact-dialog">
-            <h4 class="mdl-dialog__title">Adicionar Novo Contato</h4>
-            <div class="mdl-dialog__content">
-                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
-                    <input class="mdl-textfield__input" type="text" id="contact-uid-input">
-                    <label class="mdl-textfield__label" for="contact-uid-input">UID Google do Contato</label>
-                </div>
-                <p id="contact-search-status" style="color: grey; font-size: 14px; margin-top: 10px;"></p>
-                <div id="found-contact-info" style="display: none; margin-top: 15px; padding: 10px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f9f9f9;">
-                    <img id="found-contact-pic" src="" alt="Avatar" style="width: 50px; height: 50px; border-radius: 50%; margin-right: 10px; vertical-align: middle;">
-                    <strong id="found-contact-name"></strong>
-                </div>
-            </div>
-            <div class="mdl-dialog__actions">
-                <button type="button" class="mdl-button" id="start-chat-button" disabled>Iniciar Chat</button>
-                <button type="button" class="mdl-button close-dialog">Cancelar</button>
-            </div>
-        </dialog>
+    <h4 class="mdl-dialog__title">Iniciar Nova Conversa</h4>
+    <div class="mdl-dialog__content" style="display: flex; flex-direction: column;">
+        
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+            <input class="mdl-textfield__input" type="text" id="user-filter-input">
+            <label class="mdl-textfield__label" for="user-filter-input">Filtrar por nome ou e-mail...</label>
+        </div>
+
+        <ul id="all-users-list" class="mdl-list" style="flex-grow: 1; overflow-y: auto; max-height: 400px; padding: 0;">
+            <li class="mdl-list__item">
+                <span class="mdl-list__item-primary-content">
+                    Carregando usuários...
+                </span>
+            </li>
+        </ul>
+        
+        <p id="user-selection-status" style="color: #3f51b5; font-size: 14px; margin-top: 10px;">Nenhum usuário selecionado.</p>
+    </div>
+    <div class="mdl-dialog__actions">
+        <button type="button" class="mdl-button" id="start-chat-from-list-button" disabled>Iniciar Chat</button>
+        <button type="button" class="mdl-button close-dialog">Cancelar</button>
+    </div>
+</dialog>
 
     </div>
 
@@ -288,13 +310,23 @@
         // Elementos do Diálogo de Adicionar Contato
         const addContactButton = document.getElementById('add-contact-button'); /*  */
         const addContactDialog = document.getElementById('add-contact-dialog'); /*  */
-        const contactUidInput = document.getElementById('contact-uid-input'); /*  */
-        const contactSearchStatus = document.getElementById('contact-search-status'); /*  */
-        const foundContactInfo = document.getElementById('found-contact-info'); /*  */
+        //const contactUidInput = document.getElementById('contact-uid-input'); /*  */
+        //const contactSearchStatus = document.getElementById('contact-search-status'); /*  */
+        //const foundContactInfo = document.getElementById('found-contact-info'); /*  */
         const foundContactPic = document.getElementById('found-contact-pic'); /*  */
-        const foundContactName = document.getElementById('found-contact-name'); /*  */
-        const startChatButton = document.getElementById('start-chat-button'); /*  */
+        //const foundContactName = document.getElementById('found-contact-name'); /*  */
+        //const startChatButton = document.getElementById('start-chat-button'); /*  */
         const closeDialogButtons = addContactDialog.querySelectorAll('.close-dialog'); /*  */
+        // ... (após 'const addContactDialog = document.getElementById('add-contact-dialog');')
+        // Elementos do Novo Diálogo "Iniciar Nova Conversa"
+        const userFilterInput = document.getElementById('user-filter-input');
+        const allUsersList = document.getElementById('all-users-list');
+        const userSelectionStatus = document.getElementById('user-selection-status');
+        const startChatFromListButton = document.getElementById('start-chat-from-list-button');
+        const startChatButton = startChatFromListButton; // Renomeamos o botão, mas mantemos a referência
+
+        let selectedUserForChat = null; // O UID do usuário selecionado para o chat
+        let allUsersData = []; // Cache de todos os dados dos usuários (não banidos, exceto eu)
 
         let currentUser = null; /*  */ // O usuário atualmente logado
         let currentChatId = null; /*  */ // O ID da conversa atualmente selecionada
@@ -622,26 +654,78 @@
             messageInput.style.height = messageInput.scrollHeight + 'px';
         }); /*  */
         // Lógica do Diálogo "Adicionar Contato"
-        addContactButton.addEventListener('click', () => {
-            if (!currentUser) {
-                alert("Por favor, faça login para adicionar contatos.");
-                return;
-            }
-            // Limpa o diálogo antes de abrir
-            contactUidInput.value = ''; /*  */
-            contactSearchStatus.textContent = ''; /*  */
-            foundContactInfo.style.display = 'none'; /*  */
-            foundContactPic.src = ''; /*  */
-            foundContactName.textContent = ''; /*  */
-            startChatButton.disabled = true; /*  */
-            addContactDialog.showModal(); /*  */
-        });
+       // --- Event Listeners do Novo Diálogo "Iniciar Nova Conversa" ---
 
-        closeDialogButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                addContactDialog.close();
-            });
-        }); /*  */
+// 1. Abertura do Diálogo
+addContactButton.addEventListener('click', () => {
+    if (!currentUser) {
+        alert("Por favor, faça login para iniciar novas conversas.");
+        return;
+    }
+    
+    // Limpa e prepara
+    userFilterInput.value = '';
+    selectedUserForChat = null;
+    startChatFromListButton.disabled = true;
+    userSelectionStatus.textContent = 'Nenhum usuário selecionado.';
+    
+    loadAllUsers(); // Inicia o carregamento dos usuários não banidos
+    addContactDialog.showModal();
+});
+
+// 2. Listener para o filtro de usuários
+userFilterInput.addEventListener('input', () => {
+    const filterText = userFilterInput.value.toLowerCase();
+    
+    // Filtra no cache 'allUsersData'
+    const filteredUsers = allUsersData.filter(user => {
+        const name = user.name ? user.name.toLowerCase() : '';
+        const email = user.email ? user.email.toLowerCase() : '';
+        return name.includes(filterText) || email.includes(filterText);
+    });
+    
+    renderUsersList(filteredUsers);
+});
+
+// 3. Listener para o botão Iniciar Chat da lista
+startChatFromListButton.addEventListener('click', async () => {
+    if (selectedUserForChat) {
+        addContactDialog.close();
+        
+        // 1. Tenta obter/criar o chat
+        const chatId = await getOrCreateChat(selectedUserForChat);
+        
+        if (chatId) {
+            // Obtém dados do usuário selecionado para atualizar o cabeçalho
+            const selectedUserData = allUsersData.find(u => u.uid === selectedUserForChat);
+            const otherUserName = selectedUserData ? (selectedUserData.name || selectedUserData.email.split('@')[0]) : 'Chat Privado';
+            const otherUserPic = selectedUserData ? (selectedUserData.profilePictureUrl || 'https://via.placeholder.com/40') : 'https://via.placeholder.com/40';
+
+            // Atualiza o painel da conversa
+            currentChatId = chatId;
+            chatHeader.innerHTML = `
+                <img src="${otherUserPic}" alt="${otherUserName} Avatar">
+                <h3>${otherUserName}</h3>
+            `;
+            // Carrega as mensagens do novo chat
+            loadMessages(chatId);
+            
+            // Força a atualização da lista de conversas recentes (se a nova conversa não apareceu ainda)
+            loadRecentChats(); 
+            
+            console.log("Chat ID pronto:", chatId);
+            
+        } else {
+            alert("Não foi possível iniciar o chat. Tente novamente.");
+        }
+    }
+});
+
+closeDialogButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        addContactDialog.close();
+    });
+});
         contactUidInput.addEventListener('input', async () => {
             const uid = contactUidInput.value.trim(); /*  */
             foundContactUid = null; // Reseta o UID encontrado /*  */
@@ -750,6 +834,100 @@
                 dialogPolyfill.registerDialog(addContactDialog); /*  */
             }
         });
+
+        // --- NEW: Funções de Listagem e Seleção de Usuários ---
+
+// 1. Função para buscar todos os usuários (exceto o logado e banidos)
+async function loadAllUsers() {
+    if (!currentUser) return;
+
+    allUsersList.innerHTML = '<li class="mdl-list__item"><span class="mdl-list__item-primary-content">Buscando usuários...</span></li>';
+    allUsersData = [];
+    selectedUserForChat = null;
+    startChatFromListButton.disabled = true;
+    userSelectionStatus.textContent = 'Nenhum usuário selecionado.';
+
+    try {
+        // [MODIFICAÇÃO CHAVE]: Filtra apenas usuários não banidos (isBan == false)
+        const usersSnapshot = await firestore.collection('users')
+            .where('isBan', '==', false) 
+            .get();
+
+        usersSnapshot.forEach(doc => {
+            const userData = doc.data();
+            // Filtra o próprio usuário no lado do cliente
+            if (userData.uid !== currentUser.uid) {
+                allUsersData.push(userData);
+            }
+        });
+
+        if (allUsersData.length === 0) {
+            allUsersList.innerHTML = '<li class="mdl-list__item"><span class="mdl-list__item-primary-content">Nenhum outro usuário disponível para chat.</span></li>';
+        } else {
+            renderUsersList(allUsersData);
+        }
+
+    } catch (error) {
+        console.error("Erro ao carregar usuários:", error);
+        allUsersList.innerHTML = '<li class="mdl-list__item"><span class="mdl-list__item-primary-content" style="color: red;">Erro ao carregar usuários.</span></li>';
+    }
+}
+
+// 2. Função para renderizar a lista (e aplicar filtro)
+function renderUsersList(usersToRender) {
+    allUsersList.innerHTML = '';
+    
+    usersToRender.forEach(user => {
+        const listItem = document.createElement('li');
+        listItem.classList.add('mdl-list__item', 'all-user-item');
+        listItem.dataset.uid = user.uid;
+        
+        const userName = user.name || user.email.split('@')[0]; // Exibe o nome ou parte do e-mail
+        const userPic = user.profilePictureUrl || 'https://via.placeholder.com/40';
+
+        listItem.innerHTML = `
+            <span class="mdl-list__item-primary-content">
+                <img src="${userPic}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 16px; object-fit: cover;">
+                <span>${userName}</span>
+            </span>
+            <span class="mdl-list__item-secondary-action">
+                <i class="material-icons user-select-icon" style="color: grey;">radio_button_unchecked</i>
+            </span>
+        `;
+        
+        listItem.addEventListener('click', () => {
+            selectUserForChat(user.uid, userName);
+        });
+        
+        allUsersList.appendChild(listItem);
+    });
+
+    // Atualiza o MDL para os novos elementos
+    if (componentHandler) {
+        componentHandler.upgradeElements(allUsersList); 
+    }
+}
+
+// 3. Função para lidar com a seleção do usuário
+function selectUserForChat(uid, name) {
+    selectedUserForChat = uid;
+    userSelectionStatus.textContent = `Usuário selecionado: ${name}`;
+    startChatFromListButton.disabled = false;
+    
+    // Atualiza os ícones de seleção
+    document.querySelectorAll('.all-user-item').forEach(item => {
+        const icon = item.querySelector('.user-select-icon');
+        if (item.dataset.uid === uid) {
+            item.classList.add('active-user');
+            icon.textContent = 'radio_button_checked';
+            icon.style.color = '#3f51b5';
+        } else {
+            item.classList.remove('active-user');
+            icon.textContent = 'radio_button_unchecked';
+            icon.style.color = 'grey';
+        }
+    });
+}
     </script>
 </body>
 </html>
