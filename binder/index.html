@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criador de Projeto (Binder) com Chat Firebase</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+        form { margin-bottom: 30px; padding: 25px; border: 1px solid #ddd; border-radius: 8px; background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        label { display: block; margin-top: 15px; font-weight: bold; color: #34495e; }
+        input[type="text"], input[type="url"], input[type="password"], textarea { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; transition: border-color 0.3s; }
+        input:focus, textarea:focus { border-color: #3498db; outline: none; }
+        button { padding: 12px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 20px; font-size: 16px; transition: background-color 0.3s; }
+        button:hover { background-color: #2980b9; }
+        #project-display, #chat-editor { margin-top: 40px; padding: 25px; border: 1px solid #ccc; border-radius: 8px; background-color: #ecf0f1; display: none; }
+        .project-field { margin-bottom: 15px; line-height: 1.6; }
+        .chat-message { border-bottom: 1px dashed #bdc3c7; padding: 10px 0; }
+        .chat-message:last-child { border-bottom: none; }
+        .chat-author { font-weight: bold; color: #27ae60; }
+        .chat-content { margin-top: 5px; color: #333; }
+    </style>
+</head>
+<body>
+
+    <h1>Criar Novo Projeto (Binder)</h1>
+
+    <form id="project-form">
+        
+        <label for="title">Título do Projeto:</label>
+        <input type="text" id="title" required>
+
+        <label for="description">Descrição:</label>
+        <textarea id="description" rows="5" required></textarea>
+
+        <label for="pdf-link">Link de PDF (opcional):</label>
+        <input type="url" id="pdf-link" placeholder="Ex: https://dominio.com/documento.pdf">
+
+        <label for="image-link">Link de Imagem (opcional):</label>
+        <input type="url" id="image-link" placeholder="Ex: https://dominio.com/imagem.png">
+
+        <label>
+            <input type="checkbox" id="acknowledgement" required>
+            Confirmo que estou ciente sobre os dados inseridos e concordo com a publicação.
+        </label>
+
+        <button type="submit">Salvar Projeto no Binder</button>
+    </form>
+
+    <div id="project-display">
+        <h2>Detalhes do Projeto</h2>
+        <div class="project-field">
+            <strong>Título:</strong> <span id="display-title"></span>
+        </div>
+        <div class="project-field">
+            <strong>Descrição:</strong> <span id="display-description"></span>
+        </div>
+        <div class="project-field">
+            <strong>PDF:</strong> <a id="display-pdf-link" href="#" target="_blank"></a>
+        </div>
+        <div class="project-field">
+            <strong>Imagem:</strong> <img id="display-image-link" src="" alt="Imagem do Projeto" style="max-width: 200px; margin-top: 10px; border-radius: 4px; display: none;">
+        </div>
+    </div>
+
+    <div id="chat-editor">
+        <h2>Chat do Projeto / Informações Adicionais</h2>
+        
+        <div id="chat-messages" style="max-height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px;">
+            <p style="text-align: center; color: #7f8c8d;">Carregando mensagens...</p>
+        </div>
+
+        <form id="chat-form">
+            <label for="chat-author">Seu Nome:</label>
+            <input type="text" id="chat-author" placeholder="Seu nome" required>
+            <label for="chat-message">Adicionar Nova Mensagem/Informação:</label>
+            <textarea id="chat-message" rows="3" required></textarea>
+            <button type="submit">Enviar Mensagem/Comentário</button>
+        </form>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9/firebase-firestore-compat.js"></script>
+
+    <script>
+        // 1. CONFIGURAÇÃO DO FIREBASE (SUBSTITUA PELAS SUAS CREDENCIAIS)
+const firebaseConfig = {
+apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+authDomain: "wzzm-ce3fc.firebaseapp.com",
+projectId: "wzzm-ce3fc",
+storageBucket: "wzzm-ce3fc.appspot.com",
+messagingSenderId: "249427877153",
+appId: "1:249427877153:web:0e4297294794a5aadeb260",
+measurementId: "G-PLKNZNFCQ8"
+};
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = app.firestore();
+
+        // Referências do HTML
+        const projectForm = document.getElementById('project-form');
+        const projectDisplay = document.getElementById('project-display');
+        const chatEditor = document.getElementById('chat-editor');
+        const chatMessagesDiv = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+
+        let currentProjectId = null; 
+
+        // --- FUNÇÕES DE PROJETO ---
+
+        // Função para salvar o projeto na coleção 'binder' (sem validação de senha)
+        projectForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // A lógica de validação de senha foi removida.
+            
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+            const pdfLink = document.getElementById('pdf-link').value;
+            const imageLink = document.getElementById('image-link').value;
+            const acknowledgement = document.getElementById('acknowledgement').checked;
+            
+            if (!acknowledgement) {
+                alert('Você deve confirmar que está ciente sobre os dados inseridos.');
+                return;
+            }
+
+            try {
+                // Adiciona o novo documento na COLEÇÃO 'binder'
+                const docRef = await db.collection("binder").add({
+                    title: title,
+                    description: description,
+                    pdfLink: pdfLink,
+                    imageLink: imageLink,
+                    createdBy: 'Usuário', // Define um criador genérico
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                currentProjectId = docRef.id;
+
+                alert("Projeto Salvo com Sucesso na coleção 'binder'! ID: " + currentProjectId);
+                displayProject(title, description, pdfLink, imageLink);
+                
+                // Oculta o formulário de criação e exibe as seções de visualização/chat
+                projectForm.style.display = 'none';
+                projectDisplay.style.display = 'block';
+                chatEditor.style.display = 'block';
+
+                // Inicia o listener para o chat
+                listenForChatMessages(currentProjectId);
+                
+            } catch (error) {
+                console.error("Erro ao adicionar documento: ", error);
+                alert("Erro ao salvar o projeto. Verifique o console.");
+            }
+        });
+
+        // Função para exibir o projeto na tela (mantida)
+        function displayProject(title, description, pdfLink, imageLink) {
+            document.getElementById('display-title').textContent = title;
+            document.getElementById('display-description').textContent = description;
+            
+            const pdfAnchor = document.getElementById('display-pdf-link');
+            pdfAnchor.textContent = pdfLink ? 'Ver PDF' : 'Nenhum link de PDF';
+            pdfAnchor.href = pdfLink || '#';
+            pdfAnchor.style.display = pdfLink ? 'inline' : 'none';
+
+            const imageElement = document.getElementById('display-image-link');
+            if (imageLink) {
+                imageElement.src = imageLink;
+                imageElement.style.display = 'block';
+            } else {
+                imageElement.style.display = 'none';
+                imageElement.src = '';
+            }
+        }
+
+
+        // --- FUNÇÕES DE CHAT/MENSAGENS ---
+
+        // Listener em tempo real para as mensagens do chat (mantida)
+        function listenForChatMessages(projectId) {
+            // Acessa a subcoleção 'chats' do documento na coleção 'binder'
+            db.collection("binder").doc(projectId).collection("chats")
+                .orderBy("timestamp", "asc")
+                .onSnapshot((snapshot) => {
+                    chatMessagesDiv.innerHTML = '';
+                    
+                    if (snapshot.empty) {
+                        chatMessagesDiv.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Nenhuma mensagem ainda. Seja o primeiro a adicionar informações!</p>';
+                        return;
+                    }
+
+                    snapshot.forEach((doc) => {
+                        const messageData = doc.data();
+                        const messageElement = document.createElement('div');
+                        messageElement.className = 'chat-message';
+                        const time = messageData.timestamp ? messageData.timestamp.toDate().toLocaleTimeString('pt-BR') : 'agora';
+
+                        messageElement.innerHTML = `
+                            <span class="chat-author">${messageData.author} (${time}):</span>
+                            <div class="chat-content">${messageData.content}</div>
+                        `;
+                        chatMessagesDiv.appendChild(messageElement);
+                    });
+                    // Rola para o final
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                }, (error) => {
+                    console.error("Erro ao ouvir as mensagens do chat: ", error);
+                    chatMessagesDiv.innerHTML = '<p style="color: red;">Erro ao carregar mensagens.</p>';
+                });
+        }
+
+        // Função para adicionar uma nova mensagem ao chat (mantida)
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentProjectId) {
+                alert('Primeiro, crie e salve um projeto.');
+                return;
+            }
+
+            const author = document.getElementById('chat-author').value;
+            const content = document.getElementById('chat-message').value;
+
+            try {
+                // Adiciona o documento na subcoleção 'chats' de 'binder'
+                await db.collection("binder").doc(currentProjectId).collection("chats").add({
+                    author: author,
+                    content: content,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                document.getElementById('chat-message').value = '';
+                
+            } catch (error) {
+                console.error("Erro ao enviar mensagem: ", error);
+                alert("Erro ao enviar mensagem.");
+            }
+        });
+
+    </script>
+</body>
+</html>
