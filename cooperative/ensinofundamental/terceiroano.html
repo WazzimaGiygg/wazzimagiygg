@@ -1,0 +1,197 @@
+
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Materiais do Ensino Fundamental - WZZM Escolar</title>
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .mdl-grid {
+            justify-content: center; /* Centraliza os cards */
+            width: 100%;
+            max-width: 1200px; /* Limita a largura do grid */
+        }
+        .materia-card {
+            width: 100%;
+            min-height: 180px; /* Altura mínima para os cards */
+            margin: 16px; /* Espaçamento entre os cards */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Empurra o botão para baixo */
+        }
+        .materia-card .mdl-card__title {
+            background-color: #3f51b5; /* Cor primária do MDL */
+            color: white;
+            padding: 16px;
+            font-size: 1.2em;
+            word-wrap: break-word; /* Garante que títulos longos quebrem linha */
+        }
+        .materia-card .mdl-card__supporting-text {
+            flex-grow: 1; /* Ocupa espaço disponível */
+            padding-bottom: 0; /* Remove padding extra para alinhar bem com actions */
+            word-wrap: break-word; /* Garante que descrições longas quebrem linha */
+        }
+        .materia-card .mdl-card__actions {
+            display: flex;
+            justify-content: flex-end; /* Alinha o botão à direita */
+            padding: 8px 16px 16px 16px; /* Ajusta o padding para o botão */
+            border-top: 1px solid rgba(0,0,0,.1);
+        }
+        .no-materias-message {
+            text-align: center;
+            font-size: 1.2em;
+            color: #666;
+            margin-top: 50px;
+        }
+        h2 {
+            text-align: center;
+            color: #3f51b5;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <h2>Matérias do Ensino Fundamental - Beta</h2>
+
+    <div id="materias-container" class="mdl-grid">
+        </div>
+
+    <div id="no-materias" class="no-materias-message" style="display: none;">
+        Nenhuma matéria encontrada para o Ensino Fundamental
+    </div>
+
+    <script>
+        // --- Configuração do Firebase (copie do seu index.html) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+
+        const materiasContainer = document.getElementById('materias-container');
+        const noMateriasMessage = document.getElementById('no-materias');
+        // A span 'graduacao-title' não é mais necessária, pois o título é fixo
+
+        // Valor fixo para a graduação
+        const GRADUACAO_ALVO = 'Ensino Fundamental - Terceiro Ano';
+
+        // Função para carregar as matérias do Firestore
+        async function loadMateriasByGraduacao() { // Não recebe mais 'graduacao' como parâmetro
+            materiasContainer.innerHTML = ''; // Limpa o container
+            noMateriasMessage.style.display = 'none'; // Esconde a mensagem de "nenhuma matéria"
+
+            try {
+                const snapshot = await firestore.collection('materia')
+                                                .where('graduacao', '==', GRADUACAO_ALVO) // Usa o valor fixo
+                                                .orderBy('criadoEm', 'desc')
+                                                .get();
+
+                if (snapshot.empty) {
+                    noMateriasMessage.textContent = `Nenhuma matéria encontrada para o ${GRADUACAO_ALVO}.`;
+                    noMateriasMessage.style.display = 'block';
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const materia = doc.data();
+                    const card = createMateriaCard(materia);
+                    materiasContainer.appendChild(card);
+                });
+
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(materiasContainer.querySelectorAll('.mdl-card'));
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar matérias:", error);
+                noMateriasMessage.textContent = `Erro ao carregar matérias: ${error.message}`;
+                noMateriasMessage.style.display = 'block';
+            }
+        }
+
+        // Função para criar um card de matéria MDL (mantida a mesma)
+        function createMateriaCard(materia) {
+            const card = document.createElement('div');
+            card.className = 'materia-card mdl-card mdl-shadow--2dp mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'mdl-card__title';
+            titleDiv.innerHTML = `<h2 class="mdl-card__title-text">${materia.titulo}</h2>`;
+
+            const supportingTextDiv = document.createElement('div');
+            supportingTextDiv.className = 'mdl-card__supporting-text';
+            supportingTextDiv.innerHTML = `
+                <p><strong>Descrição:</strong> ${materia.descricao}</p>
+                <p><strong>Graduação:</strong> ${materia.graduacao}</p>
+                <p><strong>Criado em:</strong> ${materia.criadoEm ? new Date(materia.criadoEm.toDate()).toLocaleDateString('pt-BR') : 'N/A'}</p>
+            `;
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'mdl-card__actions mdl-card--border';
+            if (materia.linkArtigo) {
+                const linkButton = document.createElement('a');
+                linkButton.className = 'mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect';
+                linkButton.href = materia.linkArtigo;
+                linkButton.target = '_blank';
+                linkButton.textContent = 'Ver Artigo';
+                actionsDiv.appendChild(linkButton);
+            }
+
+            card.appendChild(titleDiv);
+            card.appendChild(supportingTextDiv);
+            card.appendChild(actionsDiv);
+
+            return card;
+        }
+
+        // Carregar as matérias assim que a página é carregada
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMateriasByGraduacao(); // Chama sem parâmetro
+        });
+
+        // Listener de autenticação (opcional, dependendo se esta página precisa de login)
+        auth.onAuthStateChanged(user => {
+            // Se você quiser que esta página só mostre conteúdo para logados,
+            // descomente e ajuste a lógica abaixo:
+            /*
+            if (!user) {
+                materiasContainer.innerHTML = '';
+                document.querySelector('h2').textContent = "Acesso Restrito"; // Ajusta o título
+                noMateriasMessage.textContent = "Você precisa estar logado para ver as matérias.";
+                noMateriasMessage.style.display = 'block';
+            } else {
+                loadMateriasByGraduacao();
+            }
+            */
+        });
+    </script>
+</body>
+</html>
