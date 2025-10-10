@@ -335,6 +335,60 @@ height: auto;
 margin-top: 10px;
 border-radius: 4px;
 }
+#main-menu-popup {
+  display: none;
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 320px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  z-index: 1000;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+#main-menu-popup h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #3f51b5;
+  text-align: center;
+  font-weight: bold;
+}
+
+#main-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+#main-menu-grid .menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+#main-menu-grid .menu-item:hover {
+  background-color: #f0f0f0;
+}
+
+#main-menu-grid .menu-item img {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 5px;
+}
+
+#main-menu-grid .menu-item span {
+  font-size: 0.8em;
+  color: #555;
+}
 </style>
 <script>
 // Script de redirecionamento para navegadores não-Chromium
@@ -1251,6 +1305,67 @@ if (searchArticlesLink) {
 searchArticlesLink.textContent = data.linkProcurarArtigos || 'Procurar Artigos';
 }
 }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const menuButton = document.getElementById('main-menu-button');
+  const menuPopup = document.getElementById('main-menu-popup');
+  const menuGrid = document.getElementById('main-menu-grid');
+
+  if (!menuButton || !menuPopup || !menuGrid) return;
+
+  // Clique no botão para abrir/fechar o popup
+  menuButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+
+    if (menuPopup.style.display === 'block') {
+      menuPopup.style.display = 'none';
+      return;
+    }
+
+    // Mostra o popup e limpa o grid
+    menuPopup.style.display = 'block';
+    menuGrid.innerHTML = '<p style="grid-column: span 3; text-align:center;">Carregando...</p>';
+
+    try {
+      const response = await fetch('menu.json');
+      if (!response.ok) throw new Error('Erro ao carregar menu.json');
+      const menuItems = await response.json();
+
+      // Popula o menu
+      menuGrid.innerHTML = '';
+      menuItems.forEach(item => {
+        const menuItem = document.createElement('div');
+        menuItem.classList.add('menu-item');
+        menuItem.innerHTML = `
+          <img src="iconmagic.png" alt="${item.label}">
+          <span>${item.label}</span>
+        `;
+        menuItem.addEventListener('click', () => {
+          if (item.requiresAuth && typeof currentUser !== 'undefined' && !currentUser) {
+            alert('Você precisa estar logado para acessar esta seção.');
+            return;
+          }
+          createFloatingWindow(item.href, item.label, item.requiresAuth);
+          menuPopup.style.display = 'none';
+        });
+        menuGrid.appendChild(menuItem);
+      });
+    } catch (error) {
+      console.error('Erro ao carregar menu.json:', error);
+      menuGrid.innerHTML = `<p style="color:red; grid-column: span 3; text-align:center;">Erro ao carregar o menu.</p>`;
+    }
+  });
+
+  // Fecha o popup ao clicar fora
+  document.addEventListener('click', (event) => {
+    if (
+      menuPopup.style.display === 'block' &&
+      !menuButton.contains(event.target) &&
+      !menuPopup.contains(event.target)
+    ) {
+      menuPopup.style.display = 'none';
+    }
+  });
 });
 </script>
 </body>
