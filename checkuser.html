@@ -32,15 +32,7 @@
         }
 
         h1 {
-            margin-bottom: 5px; /* Ajuste para dar espaço ao aviso */
-        }
-        
-        /* NOVO ESTILO: Para o aviso */
-        #challenge-goal { 
-            font-size: 1.1em;
-            color: #FFA726; /* Cor de destaque (Laranja) */
-            margin-bottom: 25px; 
-            font-weight: bold;
+            margin-bottom: 20px;
         }
 
         #game-container {
@@ -48,7 +40,7 @@
             border: 2px solid var(--border-color);
             overflow: hidden;
             background-color: var(--path-color);
-            box-sizing: content-box;
+            box-sizing: content-box; /* Garante que o padding/borda não afete as dimensões do grid */
         }
 
         #maze {
@@ -132,9 +124,6 @@
 </head>
 <body>
     <h1>Labirinto Desafio de Acesso</h1>
-    
-    <p id="challenge-goal">Carregando o desafio...</p> 
-    
     <div id="game-container">
         <div id="maze"></div>
         <div id="player"></div>
@@ -150,113 +139,334 @@
         </div>
     </div>
 
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const URL_DE_REDIRECIONAMENTO = 'https://wazzimagiygg.com/wikinotpedia.html';
+            const FASES_NECESSARIAS = 3; // O número de fases que o jogador precisa completar
+            
+            const mazeContainer = document.getElementById('maze');
+            const player = document.getElementById('player');
+            const startPoint = document.getElementById('start-point');
+            const endPoint = document.getElementById('end-point');
+            const timeDisplay = document.getElementById('time');
+            const levelDisplay = document.getElementById('level');
+            const restartButton = document.getElementById('restart-button');
+            const nextLevelButton = document.getElementById('next-level-button');
 
-<script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-        authDomain: "wzzm-ce3fc.firebaseapp.com",
-        projectId: "wzzm-ce3fc",
-        storageBucket: "wzzm-ce3fc.appspot.com",
-        messagingSenderId: "249427877153",
-        appId: "1:249427877153:web:0e4297294794a5aadeb260",
-        measurementId: "G-PLKNZNFCQ8"
-    };
-    
-    // Lista de UIDs que são, na verdade, URLs de redirecionamento
-    const REDIRECT_UIDS = ['wikinotpedia.html', 'secreta.html']; // Adicione outros destinos se precisar
+            const cellSize = 20; // Tamanho de cada célula em pixels
 
-// REMOVA A LINHA CONST artigoContainer AQUI (DEIXE APENAS O FIREBASE INIT)
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+            let maze = [];
+            let numRows, numCols;
+            let playerPos = { x: 0, y: 0 };
+            let startPos = { x: 0, y: 0 };
+            let endPos = { x: 0, y: 0 };
 
-// AGORA, COLOQUE A DEFINIÇÃO DENTRO DA FUNÇÃO:
-async function buscarEExibirArtigo() {
-    // Definimos a variável AQUI para garantir que o elemento já exista no DOM.
-    const artigoContainer = document.getElementById('artigo-container'); 
-    
-    // Agora, se o elemento NÃO for encontrado, a função falha com um erro mais claro.
-    // Embora o erro deva ser resolvido, é bom ter uma verificação
-    if (!artigoContainer) {
-        console.error("Erro fatal: O elemento #artigo-container não foi encontrado no DOM.");
-        return;
-    }
+            let startTime;
+            let timerInterval;
+            let gameActive = false;
+            let currentLevel = 1;
 
-    const urlParams = new URLSearchParams(window.location.search);
-        const uid = urlParams.get('uid');
+            // Configurações de cores para diferentes temas
+            const colorThemes = [
+                { // Tema 1: Azul Ciano (Padrão)
+                    '--bg-color': '#282c34',
+                    '--border-color': '#61dafb',
+                    '--wall-color': '#61dafb',
+                    '--path-color': '#333',
+                    '--player-color': '#e0b0ff',
+                    '--start-color': '#4CAF50',
+                    '--start-border-color': '#388E3C',
+                    '--end-color': '#f44336',
+                    '--end-border-color': '#D32F2F',
+                },
+                { // Tema 2: Verde Floresta
+                    '--bg-color': '#224036',
+                    '--border-color': '#6cc091',
+                    '--wall-color': '#6cc091',
+                    '--path-color': '#1a2a22',
+                    '--player-color': '#d1f0c4',
+                    '--start-color': '#A5D6A7',
+                    '--start-border-color': '#66BB6A',
+                    '--end-color': '#FF8A65',
+                    '--end-border-color': '#FF5722',
+                },
+                { // Tema 3: Roxo Escuro
+                    '--bg-color': '#3a2b4f',
+                    '--border-color': '#9b59b6',
+                    '--wall-color': '#9b59b6',
+                    '--path-color': '#281d3a',
+                    '--player-color': '#f3e5f5',
+                    '--start-color': '#81C784',
+                    '--start-border-color': '#4CAF50',
+                    '--end-color': '#EF9A9A',
+                    '--end-border-color': '#E57373',
+                },
+                { // Tema 4: Laranja Pôr do Sol
+                    '--bg-color': '#4d392b',
+                    '--border-color': '#ffa726',
+                    '--wall-color': '#ffa726',
+                    '--path-color': '#382a1f',
+                    '--player-color': '#ffe0b2',
+                    '--start-color': '#FFD54F',
+                    '--start-border-color': '#FFC107',
+                    '--end-color': '#FF7043',
+                    '--end-border-color': '#F4511E',
+                }
+            ];
 
-        if (!uid) {
-            artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">UID do artigo não fornecido na URL.</p>';
-            return;
-        }
+            // --- Algoritmo de Geração de Labirinto (DFS) ---
+            function generateMaze(rows, cols) {
+                numRows = rows % 2 === 0 ? rows + 1 : rows;
+                numCols = cols % 2 === 0 ? cols + 1 : cols;
 
-        // NOVO: Verifica se o UID é um UID de redirecionamento
-        if (REDIRECT_UIDS.includes(uid)) {
-            // Se for um UID de redirecionamento, vá diretamente para a página
-            artigoContainer.innerHTML = '<p style="text-align: center; color: #1a73e8;">UID especial detectado. Redirecionando...</p>';
-            window.location.href = uid;
-            return;
-        }
-        // FIM DO NOVO BLOCO
+                const newMaze = Array(numRows).fill(0).map(() => Array(numCols).fill(1));
 
-        try {
-            const docRef = db.collection('materias').doc(uid);
-            const doc = await docRef.get();
+                let startRow = 1;
+                let startCol = 1;
 
-            if (doc.exists) {
-                const materia = doc.data();
-                let fontesHtml = '';
-                if (materia.fontes && materia.fontes.length > 0) {
-                    const fontesLista = materia.fontes.map(fonte => {
-                        const isUrl = fonte.startsWith('http://') || fonte.startsWith('https://');
-                        if (isUrl) {
-                            return `<li><a href="${fonte}" target="_blank">${fonte}</a></li>`;
-                        } else {
-                            return `<li>${fonte}</li>`;
-                        }
-                    }).join('');
-                    fontesHtml = `
-                        <div class="secao fontes-container">
-                            <h2>Fontes</h2>
-                            <ul>${fontesLista}</ul>
-                        </div>
-                    `;
+                const stack = [[startRow, startCol]];
+                newMaze[startRow][startCol] = 0;
+
+                while (stack.length > 0) {
+                    const [currentRow, currentCol] = stack[stack.length - 1];
+
+                    const neighbors = [];
+                    // Cima
+                    if (currentRow - 2 > 0 && newMaze[currentRow - 2][currentCol] === 1) {
+                        neighbors.push([currentRow - 2, currentCol]);
+                    }
+                    // Baixo
+                    if (currentRow + 2 < numRows - 1 && newMaze[currentRow + 2][currentCol] === 1) {
+                        neighbors.push([currentRow + 2, currentCol]);
+                    }
+                    // Esquerda
+                    if (currentCol - 2 > 0 && newMaze[currentRow][currentCol - 2] === 1) {
+                        neighbors.push([currentRow, currentCol - 2]);
+                    }
+                    // Direita
+                    if (currentCol + 2 < numCols - 1 && newMaze[currentRow][currentCol + 2] === 1) {
+                        neighbors.push([currentRow, currentCol + 2]);
+                    }
+
+                    if (neighbors.length > 0) {
+                        const [nextRow, nextCol] = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+                        newMaze[nextRow][nextCol] = 0;
+                        newMaze[currentRow + (nextRow - currentRow) / 2][currentCol + (nextCol - currentCol) / 2] = 0;
+
+                        stack.push([nextRow, nextCol]);
+                    } else {
+                        stack.pop();
+                    }
                 }
 
-                let infoHtml = '';
-                if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
-                if (materia.arquivo) infoHtml += `<p><strong>Arquivo:</strong> ${materia.arquivo}</p>`;
-                if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
+                startPos = { x: 1, y: 1 };
+                newMaze[startPos.y][startPos.x] = 0;
 
-                artigoContainer.innerHTML = `
-                    <div class="print-buttons">
-                        <button onclick="window.print()">Imprimir</button>
-                    </div>
-                    <div class="header-content">
-                        <h1>${materia.titulo}</h1>
-                        <p class="uid-display">UID: ${doc.id}</p>
-                    </div>
-                    <div class="secao">
-                        <h2>Informações Adicionais</h2>
-                        ${infoHtml}
-                    </div>
-                    <div class="secao">
-                        <h2>Descrição</h2>
-                        <p>${materia.descricao}</p>
-                    </div>
-                    ${fontesHtml}
-                `;
-            } else {
-                artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Artigo não encontrado.</p>';
+                let foundEnd = false;
+                while (!foundEnd) {
+                    const randY = Math.floor(Math.random() * (numRows - 2)) + 1;
+                    const randX = Math.floor(Math.random() * (numCols - 2)) + 1;
+
+                    if (newMaze[randY][randX] === 0 && (Math.abs(randY - startPos.y) + Math.abs(randX - startPos.x)) > (numRows + numCols) / 4) {
+                        endPos = { x: randX, y: randY };
+                        foundEnd = true;
+                    }
+                }
+                newMaze[endPos.y][endPos.x] = 0;
+
+                return newMaze;
             }
-        } catch (error) {
-            console.error("Erro ao buscar artigo:", error);
-            artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro ao carregar o artigo: ' + error.message + '</p>';
-        }
-    }
 
-    window.onload = buscarEExibirArtigo;
-</script>
+            // Aplica o tema de cores ao DOM
+            function applyColorTheme(theme) {
+                const root = document.documentElement;
+                for (const [prop, value] of Object.entries(theme)) {
+                    root.style.setProperty(prop, value);
+                }
+            }
+
+            // Cria o labirinto no HTML
+            function drawMaze() {
+                mazeContainer.innerHTML = '';
+                mazeContainer.style.gridTemplateColumns = `repeat(${numCols}, ${cellSize}px)`;
+                mazeContainer.style.gridTemplateRows = `repeat(${numRows}, ${cellSize}px)`;
+
+                for (let row = 0; row < numRows; row++) {
+                    for (let col = 0; col < numCols; col++) {
+                        const cell = document.createElement('div');
+                        cell.classList.add(maze[row][col] === 1 ? 'wall' : 'path');
+                        mazeContainer.appendChild(cell);
+                    }
+                }
+
+                // Posiciona o ponto de início
+                startPoint.style.left = `${startPos.x * cellSize}px`;
+                startPoint.style.top = `${startPos.y * cellSize}px`;
+                startPoint.style.width = `${cellSize}px`;
+                startPoint.style.height = `${cellSize}px`;
+                startPoint.textContent = 'Início';
+                startPoint.style.fontSize = `${cellSize * 0.4}px`;
+                startPoint.style.lineHeight = `${cellSize}px`;
+
+                // Posiciona o ponto final
+                endPoint.style.left = `${endPos.x * cellSize}px`;
+                endPoint.style.top = `${endPos.y * cellSize}px`;
+                endPoint.style.width = `${cellSize}px`;
+                endPoint.style.height = `${cellSize}px`;
+                endPoint.textContent = 'Fim';
+                endPoint.style.fontSize = `${cellSize * 0.4}px`;
+                endPoint.style.lineHeight = `${cellSize}px`;
+            }
+
+            // Atualiza a posição visual do jogador
+            function updatePlayerPosition() {
+                player.style.left = `${playerPos.x * cellSize}px`;
+                player.style.top = `${playerPos.y * cellSize}px`;
+            }
+
+            // Inicia o contador de tempo
+            function startTimer() {
+                startTime = Date.now();
+                timerInterval = setInterval(() => {
+                    const elapsedTime = Date.now() - startTime;
+                    const minutes = Math.floor(elapsedTime / 60000);
+                    const seconds = Math.floor((elapsedTime % 60000) / 1000);
+                    timeDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }, 1000);
+            }
+
+            // Para o contador de tempo
+            function stopTimer() {
+                clearInterval(timerInterval);
+            }
+
+            // Verifica se a nova posição é válida (não é uma parede)
+            function isValidMove(x, y) {
+                return x >= 0 && x < numCols && y >= 0 && y < numRows && maze[y][x] === 0;
+            }
+
+            // Lida com a movimentação do jogador
+            function handleKeyDown(event) {
+                if (!gameActive) return;
+
+                let newX = playerPos.x;
+                let newY = playerPos.y;
+
+                switch (event.key) {
+                    case 'ArrowUp':
+                        newY--;
+                        break;
+                    case 'ArrowDown':
+                        newY++;
+                        break;
+                    case 'ArrowLeft':
+                        newX--;
+                        break;
+                    case 'ArrowRight':
+                        newX++;
+                        break;
+                    default:
+                        return;
+                }
+                
+                // Impede o scroll da página com as setas
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                    event.preventDefault();
+                }
+
+                if (isValidMove(newX, newY)) {
+                    playerPos.x = newX;
+                    playerPos.y = newY;
+                    updatePlayerPosition();
+                    checkWin();
+                }
+            }
+
+            // Verifica se o jogador chegou ao final E gerencia o redirecionamento
+          // Verifica se o jogador chegou ao final E gerencia o redirecionamento
+            function checkWin() {
+                if (playerPos.x === endPos.x && playerPos.y === endPos.y) {
+                    stopTimer();
+                    gameActive = false;
+                    
+                    // --- LÓGICA DE DESAFIO/REDIRECIONAMENTO ---
+                    if (currentLevel < FASES_NECESSARIAS) {
+                        // ... (Lógica para ir para a próxima fase)
+                    } else {
+                        // ÚLTIMA FASE CONCLUÍDA! Aciona o redirecionamento.
+                        alert(`🎉 Desafio Concluído! Você completou as ${FASES_NECESSARIAS} fases. Redirecionando para a página secreta...`);
+                        
+                        // ... (Esconde botões)
+                        
+                        // Redireciona com um pequeno atraso (2 segundos)
+                        setTimeout(() => {
+                            // AQUI está o redirecionamento para o seu arquivo
+                            window.location.href = URL_DE_REDIRECIONAMENTO; 
+                        }, 2000); 
+                    }
+                }
+            }
+
+            // Inicia uma nova fase
+            function startNewLevel() {
+                currentLevel++;
+                levelDisplay.textContent = currentLevel;
+
+                // Aumenta o tamanho do labirinto a cada fase (torna o desafio maior)
+                let mazeRows = 15 + (currentLevel - 1) * 2;
+                let mazeCols = 25 + (currentLevel - 1) * 2;
+
+                mazeRows = mazeRows % 2 === 0 ? mazeRows + 1 : mazeRows;
+                mazeCols = mazeCols % 2 === 0 ? mazeCols + 1 : mazeCols;
+
+                maze = generateMaze(mazeRows, mazeCols);
+                drawMaze();
+
+                playerPos = { ...startPos };
+                updatePlayerPosition();
+
+                // Ajusta o tamanho do container do jogo
+                document.getElementById('game-container').style.width = `${numCols * cellSize}px`;
+                document.getElementById('game-container').style.height = `${numRows * cellSize}px`;
+
+                // Aplica um tema de cor aleatório
+                const randomThemeIndex = Math.floor(Math.random() * colorThemes.length);
+                applyColorTheme(colorThemes[randomThemeIndex]);
+
+                timeDisplay.textContent = '00:00';
+                gameActive = true;
+                
+                // Verifica se estamos na última fase e muda o texto do botão "Próxima Fase"
+                if (currentLevel === FASES_NECESSARIAS) {
+                    nextLevelButton.textContent = 'Concluir Desafio';
+                } else {
+                    nextLevelButton.textContent = 'Próxima Fase';
+                }
+                
+                startTimer();
+                nextLevelButton.style.display = 'none'; // Esconde o botão de próxima fase
+            }
+
+            // Reinicia o jogo (vai para a fase 1)
+            function restartGame() {
+                stopTimer();
+                currentLevel = 0; // Será incrementado para 1 em startNewLevel
+                startNewLevel();
+            }
+
+            // Event Listeners
+            document.addEventListener('keydown', handleKeyDown);
+            restartButton.addEventListener('click', restartGame);
+            nextLevelButton.addEventListener('click', startNewLevel);
+
+            // Inicialização do jogo
+            initGame();
+
+            function initGame() {
+                restartGame(); // Inicia a primeira fase
+            }
+        });
+    </script>
 </body>
 </html>
