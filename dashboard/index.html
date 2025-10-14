@@ -1,132 +1,178 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Busca de Artigos Recentes</title>
-    <style>
-        /* CSS BÁSICO PARA DEMONSTRAÇÃO */
-        body { font-family: Arial, sans-serif; display: flex; }
-        #filtros { width: 250px; padding: 20px; border-right: 1px solid #ccc; }
-        #filtros h3 { margin-top: 0; }
-        #resultados { flex-grow: 1; padding: 20px; }
-        .secao-artigos { margin-bottom: 30px; border: 1px solid #eee; padding: 15px; }
-        .secao-artigos h4 { color: #0056b3; cursor: pointer; }
-        .lista-artigos { list-style: none; padding: 0; margin-left: 15px; display: none; /* Inicia fechado */ }
-        .lista-artigos li { border-bottom: 1px dotted #ccc; padding: 5px 0; }
-        .lista-artigos.aberta { display: block; }
-        
-        /* Estilo para a busca/filtro */
-        #form-busca div { margin-bottom: 15px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artigos Recentes</title>
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      background: #fafafa;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px;
+    }
+    .article-section {
+      margin: 30px 20px;
+    }
+    .article-section h3 {
+      border-bottom: 2px solid #3f51b5;
+      padding-bottom: 5px;
+      color: #3f51b5;
+    }
+    .article-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .article-item {
+      background: white;
+      border-radius: 6px;
+      padding: 10px 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: background 0.2s;
+    }
+    .article-item:hover {
+      background: #f5f5f5;
+    }
+    .article-item small {
+      color: #666;
+      display: block;
+    }
+  </style>
 </head>
 <body>
 
-    <div id="filtros">
-        <h3>Filtros de Busca</h3>
-        <form id="form-busca">
-            
-            <div>
-                <label for="titulo">Título:</label>
-                <input type="text" id="titulo" name="titulo" style="width: 100%;">
-            </div>
+  <div class="filters">
+    <input type="text" id="search-title" placeholder="Buscar por título..." class="mdl-textfield__input" style="flex:1;">
+    <input type="text" id="search-uid" placeholder="Buscar por UID..." class="mdl-textfield__input" style="flex:1;">
+    <select id="filter-sector" class="mdl-textfield__input">
+      <option value="">Todos os Setores</option>
+      <option value="Científico">Científico</option>
+      <option value="Tecnologia">Tecnologia</option>
+      <option value="História">História</option>
+    </select>
+    <select id="filter-category" class="mdl-textfield__input">
+      <option value="">Todas as Categorias</option>
+      <option value="Análises">Análises</option>
+      <option value="Notícias">Notícias</option>
+      <option value="Documentários">Documentários</option>
+    </select>
+    <select id="filter-idioma" class="mdl-textfield__input">
+      <option value="">Todos os Idiomas</option>
+      <option value="pt-BR">Português</option>
+      <option value="en-US">Inglês</option>
+      <option value="es-ES">Espanhol</option>
+    </select>
+    <button id="search-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+      Buscar
+    </button>
+  </div>
 
-            <div>
-                <label for="uid">UID:</label>
-                <input type="text" id="uid" name="uid" style="width: 100%;">
-            </div>
+  <div id="articles-container"></div>
 
-            <div>
-                <label for="setor_busca">Setor:</label>
-                <select id="setor_busca" name="setor" style="width: 100%;">
-                    <option value="">Todos</option>
-                    <option value="tecnologia">Tecnologia</option>
-                    <option value="saude">Saúde</option>
-                    </select>
-            </div>
+  <script>
+    // --- Configuração Firebase ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+      authDomain: "wzzm-ce3fc.firebaseapp.com",
+      projectId: "wzzm-ce3fc"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-            <div>
-                <label for="categoria_busca">Categoria:</label>
-                <select id="categoria_busca" name="categoria" style="width: 100%;">
-                    <option value="">Todas</option>
-                    <option value="software">Software</option>
-                    <option value="hardware">Hardware</option>
-                    </select>
-            </div>
+    const container = document.getElementById("articles-container");
+    const searchBtn = document.getElementById("search-button");
 
-            <div>
-                <label for="idioma_busca">Idioma:</label>
-                <select id="idioma_busca" name="idioma" style="width: 100%;">
-                    <option value="">Todos</option>
-                    <option value="pt">Português</option>
-                    <option value="en">Inglês</option>
-                    </select>
-            </div>
-            
-            <button type="submit">Buscar Artigos</button>
-        </form>
-    </div>
+    // Função principal de busca
+    async function searchArticles() {
+      const title = document.getElementById("search-title").value.toLowerCase();
+      const uid = document.getElementById("search-uid").value;
+      const sector = document.getElementById("filter-sector").value;
+      const category = document.getElementById("filter-category").value;
+      const idioma = document.getElementById("filter-idioma").value;
 
-    <div id="resultados">
-        <h2>Artigos Recentes (Exibição por Categoria e Setor)</h2>
+      let query = db.collection("artigos").orderBy("createdAt", "desc").limit(100);
 
-        <div class="secao-artigos" id="setor-tecnologia">
-            <h4 onclick="toggleLista('lista-tecnologia')">Setor: Tecnologia (10 Artigos Recentes)</h4>
-            <ul class="lista-artigos" id="lista-tecnologia">
-                <li>[UID 123] Título do Artigo de Tecnologia 1</li>
-                <li>[UID 124] Título do Artigo de Tecnologia 2</li>
-                </ul>
-        </div>
+      // Filtros dinâmicos
+      if (sector) query = query.where("setor", "==", sector);
+      if (category) query = query.where("categoria", "==", category);
+      if (idioma) query = query.where("idioma", "==", idioma);
 
-        <div class="secao-artigos" id="setor-saude">
-            <h4 onclick="toggleLista('lista-saude')">Setor: Saúde (10 Artigos Recentes)</h4>
-            <ul class="lista-artigos" id="lista-saude">
-                <li>[UID 456] Título do Artigo de Saúde 1</li>
-                <li>[UID 457] Título do Artigo de Saúde 2</li>
-                </ul>
-        </div>
-        
-        </div>
+      const snapshot = await query.get();
+      const results = [];
 
-    <script>
-        // Lógica JavaScript para a funcionalidade de lista cascata (expandir/colapsar)
-        function toggleLista(idLista) {
-            const lista = document.getElementById(idLista);
-            if (lista.classList.contains('aberta')) {
-                lista.classList.remove('aberta');
-            } else {
-                lista.classList.add('aberta');
-            }
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const matchTitle = title ? data.titulo.toLowerCase().includes(title) : true;
+        const matchUID = uid ? doc.id.includes(uid) : true;
+
+        if (matchTitle && matchUID) results.push({ id: doc.id, ...data });
+      });
+
+      renderArticles(results);
+    }
+
+    // Renderiza os artigos em cascata
+    function renderArticles(articles) {
+      container.innerHTML = "";
+
+      const sectors = {};
+
+      // Organiza por setor e categoria
+      articles.forEach(a => {
+        if (!sectors[a.setor]) sectors[a.setor] = {};
+        if (!sectors[a.setor][a.categoria]) sectors[a.setor][a.categoria] = [];
+        if (sectors[a.setor][a.categoria].length < 10)
+          sectors[a.setor][a.categoria].push(a);
+      });
+
+      for (const setor in sectors) {
+        const sectorDiv = document.createElement("div");
+        sectorDiv.className = "article-section";
+        sectorDiv.innerHTML = `<h3>${setor}</h3>`;
+
+        for (const categoria in sectors[setor]) {
+          const catDiv = document.createElement("div");
+          catDiv.innerHTML = `<h4>${categoria}</h4><div class="article-list"></div>`;
+          const list = catDiv.querySelector(".article-list");
+
+          sectors[setor][categoria].forEach(a => {
+            const item = document.createElement("div");
+            item.className = "article-item";
+            item.innerHTML = `
+              <strong>${a.titulo}</strong>
+              <small>UID: ${a.uid || a.id}</small>
+              <small>Idioma: ${a.idioma || 'pt-BR'}</small>
+            `;
+            item.addEventListener("click", () => {
+              window.parent.postMessage({ action: "openArticle", url: a.link || `https://wzzm.org/html/?uid=${a.id}` }, "*");
+            });
+            list.appendChild(item);
+          });
+
+          sectorDiv.appendChild(catDiv);
         }
-        
-        // Lógica JavaScript para processar a busca (necessita de integração com o backend/dados)
-        document.getElementById('form-busca').addEventListener('submit', function(event) {
-            event.preventDefault(); // Impede o envio padrão do formulário
-            
-            // 1. Coletar os valores dos filtros
-            const titulo = document.getElementById('titulo').value;
-            const uid = document.getElementById('uid').value;
-            const setor = document.getElementById('setor_busca').value;
-            const categoria = document.getElementById('categoria_busca').value;
-            const idioma = document.getElementById('idioma_busca').value;
-            
-            // 2. Aqui você enviaria esses dados para o servidor/API
-            console.log("Iniciando busca com os seguintes filtros:");
-            console.log("Título:", titulo);
-            console.log("UID:", uid);
-            console.log("Setor:", setor);
-            console.log("Categoria:", categoria);
-            console.log("Idioma:", idioma);
-            
-            // 3. O servidor/API deve retornar os artigos correspondentes.
-            // 4. Você precisará de mais JS para exibir os resultados da busca de forma diferente da exibição principal.
-            
-            alert('Busca acionada! O próximo passo seria o servidor processar e retornar os resultados.');
-        });
-        
-        // No carregamento da página, você precisará de uma função que:
-        // 1. Chame o servidor para obter a lista dos "10 artigos recentes por setor/categoria".
-        // 2. Use JavaScript para construir a estrutura HTML das seções (Setor: Tecnologia, etc.) dentro da div #resultados.
-    </script>
 
+        container.appendChild(sectorDiv);
+      }
+
+      if (articles.length === 0) {
+        container.innerHTML = "<p style='margin:20px;color:#777;'>Nenhum artigo encontrado.</p>";
+      }
+    }
+
+    // Busca inicial (artigos recentes)
+    searchBtn.addEventListener("click", searchArticles);
+    window.addEventListener("load", searchArticles);
+  </script>
 </body>
 </html>
