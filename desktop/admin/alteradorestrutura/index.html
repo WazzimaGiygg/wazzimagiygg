@@ -1,0 +1,507 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Configurações da Wiki (Admin)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px; /* Aumentado para acomodar novos campos */
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #0056b3;
+            margin-bottom: 25px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="color"],
+        select { /* Adicionado estilo para select se for usado um dropdown para IDs */
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        input[type="color"] {
+            height: 40px;
+            width: 80px;
+            vertical-align: middle;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 17px;
+            width: 100%;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 14px;
+            color: #333;
+        }
+        .copy-button {
+            display: block;
+            margin-top: 10px;
+            background-color: #28a745;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: background-color 0.3s ease;
+        }
+        .copy-button:hover {
+            background-color: #218838;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .action-buttons button {
+            flex: 1;
+            width: auto;
+        }
+        #auth-section {
+            background-color: #e0e0e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #editor-section {
+            display: none; /* Escondido por padrão, só aparece após login */
+        }
+        #user-info {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            color: #0056b3;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .doc-management-section {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .doc-management-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .doc-management-buttons button {
+            flex: 1;
+            width: auto;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Editor de Configurações da Wiki</h1>
+
+        <div id="auth-section">
+            <h2>Login de Administrador</h2>
+            <div class="form-group">
+                <label for="email">E-mail:</label>
+                <input type="email" id="email" placeholder="admin@exemplo.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Senha:</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button id="loginButton">Entrar</button>
+            <p id="authError" class="error-message"></p>
+        </div>
+
+        <div id="editor-section">
+            <p id="user-info">Bem-vindo, <span id="currentUserEmail"></span>!</p>
+            <button id="logoutButton" style="background-color: #dc3545;">Sair</button>
+
+            <div class="doc-management-section">
+                <h2>Gerenciar Documentos de Configuração</h2>
+                <div class="form-group">
+                    <label for="documentIdInput">Dominio do Site (ID do Documento):</label>
+                    <input type="text" id="documentIdInput" placeholder="ex: wzzm.org ou defaultConfig">
+                </div>
+                <div class="doc-management-buttons">
+                    <button type="button" id="loadSpecificConfigButton">Carregar Configuração</button>
+                    <button type="button" id="createNewConfigButton" style="background-color: #17a2b8;">Nova Configuração</button>
+                </div>
+                <p id="docMessage" class="error-message" style="color: green;"></p>
+            </div>
+
+            <form id="jsonForm">
+                <div class="form-group">
+                    <label for="nomeCompletoWiki">Nome Completo da Wiki:</label>
+                    <input type="text" id="nomeCompletoWiki" name="nomeCompletoWiki">
+                </div>
+
+                <div class="form-group">
+                    <label for="nomePaginaDrawer">Nome da Página no Drawer:</label>
+                    <input type="text" id="nomePaginaDrawer" name="nomePaginaDrawer">
+                </div>
+
+                <div class="form-group">
+                    <label for="linkProcurarArtigos">Link para Procurar Artigos:</label>
+                    <input type="text" id="linkProcurarArtigos" name="linkProcurarArtigos">
+                </div>
+
+                <div class="form-group">
+                    <label for="corSite">Cor do Site:</label>
+                    <input type="text" id="corSiteText" name="corSiteText" style="width: calc(100% - 100px); display: inline-block;">
+                    <input type="color" id="corSiteColor" name="corSiteColor" style="display: inline-block;">
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit">Gerar & Salvar no Firebase</button>
+                </div>
+            </form>
+
+            <div id="output">
+                Aguardando dados...
+            </div>
+            <button class="copy-button" id="copyButton" style="display: none;">Copiar JSON</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8" // Opcional, para Analytics
+        };
+
+        // Inicialize o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Variável para armazenar o ID do documento atualmente selecionado/editado
+        let currentConfigDocId = 'wikiConfig'; // Valor padrão inicial
+
+        // Referências aos elementos HTML
+        const authSection = document.getElementById('auth-section');
+        const editorSection = document.getElementById('editor-section');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginButton = document.getElementById('loginButton');
+        const logoutButton = document.getElementById('logoutButton');
+        const authError = document.getElementById('authError');
+        const currentUserEmailSpan = document.getElementById('currentUserEmail');
+
+        const documentIdInput = document.getElementById('documentIdInput');
+        const loadSpecificConfigButton = document.getElementById('loadSpecificConfigButton');
+        const createNewConfigButton = document.getElementById('createNewConfigButton');
+        const docMessage = document.getElementById('docMessage');
+
+        const form = document.getElementById('jsonForm');
+        const nomeCompletoWikiInput = document.getElementById('nomeCompletoWiki');
+        const nomePaginaDrawerInput = document.getElementById('nomePaginaDrawer');
+        const linkProcurarArtigosInput = document.getElementById('linkProcurarArtigos');
+        const corSiteTextInput = document.getElementById('corSiteText');
+        const corSiteColorInput = document.getElementById('corSiteColor');
+        const outputDiv = document.getElementById('output');
+        const copyButton = document.getElementById('copyButton');
+
+        // Função para preencher o formulário com os dados
+        function fillForm(data) {
+            if (data) {
+                nomeCompletoWikiInput.value = data.nomeCompletoWiki || '';
+                nomePaginaDrawerInput.value = data.nomePaginaDrawer || '';
+                linkProcurarArtigosInput.value = data.linkProcurarArtigos || '';
+                corSiteTextInput.value = data.corSite || '#000000';
+                corSiteColorInput.value = data.corSite || '#000000';
+            } else {
+                nomeCompletoWikiInput.value = '';
+                nomePaginaDrawerInput.value = '';
+                linkProcurarArtigosInput.value = '';
+                corSiteTextInput.value = '#000000';
+                corSiteColorInput.value = '#000000';
+            }
+        }
+
+        // Função para limpar e resetar o formulário
+        function resetForm() {
+            documentIdInput.value = '';
+            fillForm({});
+            outputDiv.textContent = 'Formulário limpo para nova configuração.';
+            copyButton.style.display = 'none';
+            docMessage.textContent = '';
+            currentConfigDocId = ''; // Limpa o ID atual para nova criação
+        }
+
+        // Função para sanitizar o ID do documento (domínio)
+        function cleanDocId(id) {
+            if (!id) return '';
+            let cleanedId = id.trim().toLowerCase();
+            if (cleanedId.startsWith('www.')) {
+                cleanedId = cleanedId.substring(4);
+            }
+            // Adicione outras regras de sanitização se necessário (ex: remover caminhos, portas)
+            return cleanedId.split('/')[0].split(':')[0]; // Remove paths and ports
+        }
+
+        // --- Funções de Autenticação ---
+
+        // Função para fazer login
+        loginButton.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authError.textContent = ''; // Limpa mensagens de erro anteriores
+
+            if (!email || !password) {
+                authError.textContent = 'Por favor, insira e-mail e senha.';
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // O observador onAuthStateChanged (abaixo) lidará com a atualização da UI
+            } catch (error) {
+                console.error("Erro de Login: ", error);
+                let errorMessage = 'Erro ao fazer login.';
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    errorMessage = 'E-mail ou senha inválidos.';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Formato de e-mail inválido.';
+                }
+                authError.textContent = errorMessage;
+            }
+        });
+
+        // Função para fazer logout
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await auth.signOut();
+                // O observador onAuthStateChanged lidará com a atualização da UI
+            } catch (error) {
+                console.error("Erro de Logout: ", error);
+                alert('Erro ao fazer logout.');
+            }
+        });
+
+        // Observador do estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Usuário logado
+                authSection.style.display = 'none';
+                editorSection.style.display = 'block';
+                currentUserEmailSpan.textContent = user.email;
+                // Não carrega automaticamente, espera o usuário clicar ou usar o ID
+                outputDiv.textContent = 'Usuário logado. Digite o domínio do site para carregar/criar uma configuração.';
+            } else {
+                // Usuário deslogado
+                authSection.style.display = 'block';
+                editorSection.style.display = 'none';
+                resetForm(); // Limpa o formulário e ID
+                outputDiv.textContent = 'Faça login para editar as configurações.';
+                copyButton.style.display = 'none';
+            }
+        });
+
+        // --- Funções de interação com Firebase Firestore ---
+
+        async function loadConfigFromFirebase(docId) {
+            if (!docId) {
+                docMessage.textContent = 'Por favor, insira um Domínio do Site (ID do Documento) para carregar.';
+                docMessage.style.color = 'red';
+                return;
+            }
+            const cleanedId = cleanDocId(docId);
+            if (!cleanedId) {
+                docMessage.textContent = 'ID do Documento inválido após limpeza.';
+                docMessage.style.color = 'red';
+                return;
+            }
+
+            currentConfigDocId = cleanedId; // Atualiza o ID do documento sendo editado
+            docMessage.textContent = `Carregando dados para: ${currentConfigDocId}...`;
+            docMessage.style.color = 'green';
+            outputDiv.textContent = 'Carregando dados do Firebase...';
+            
+            try {
+                const doc = await db.collection('configuracoes').doc(currentConfigDocId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    fillForm(data);
+                    const jsonString = JSON.stringify(data, null, 4);
+                    outputDiv.textContent = jsonString;
+                    copyButton.style.display = 'block';
+                    docMessage.textContent = `Configurações para "${currentConfigDocId}" carregadas com sucesso!`;
+                    docMessage.style.color = 'green';
+                } else {
+                    console.log(`Nenhum documento encontrado no Firebase para '${currentConfigDocId}'. Preenchendo com valores vazios.`);
+                    outputDiv.textContent = `Nenhum dado encontrado no Firebase para "${currentConfigDocId}". Preenchendo com valores vazios.`;
+                    fillForm({});
+                    copyButton.style.display = 'none';
+                    docMessage.textContent = `Documento "${currentConfigDocId}" não encontrado. Formulário pronto para nova criação.`;
+                    docMessage.style.color = 'orange';
+                }
+            } catch (error) {
+                console.error("Erro ao carregar do Firebase: ", error);
+                if (error.code === 'permission-denied' || error.code === 'missing-or-insufficient-permissions') {
+                    outputDiv.textContent = 'Permissão negada. Você pode não ter acesso para ler esses dados.';
+                    docMessage.textContent = 'Permissão negada. Verifique suas regras do Firestore ou se você está logado com a conta correta.';
+                } else {
+                    outputDiv.textContent = `Erro ao carregar dados: ${error.message}.`;
+                    docMessage.textContent = `Erro ao carregar: ${error.message}.`;
+                }
+                docMessage.style.color = 'red';
+            }
+        }
+
+        async function saveConfigToFirebase(data) {
+            if (!currentConfigDocId) {
+                docMessage.textContent = 'Por favor, insira um Domínio do Site (ID do Documento) ou carregue um para salvar.';
+                docMessage.style.color = 'red';
+                return;
+            }
+
+            docMessage.textContent = `Salvando dados para: ${currentConfigDocId}...`;
+            docMessage.style.color = 'green';
+            outputDiv.textContent = 'Salvando dados no Firebase...';
+
+            try {
+                await db.collection('configuracoes').doc(currentConfigDocId).set(data);
+                const jsonString = JSON.stringify(data, null, 4);
+                outputDiv.textContent = jsonString;
+                copyButton.style.display = 'block';
+                docMessage.textContent = `Configurações para "${currentConfigDocId}" salvas com sucesso!`;
+                docMessage.style.color = 'green';
+            } catch (error) {
+                console.error("Erro ao salvar no Firebase: ", error);
+                if (error.code === 'permission-denied' || error.code === 'missing-or-insufficient-permissions') {
+                    outputDiv.textContent = 'Permissão negada. Você não tem acesso para salvar esses dados.';
+                    docMessage.textContent = 'Permissão negada. Verifique suas regras do Firestore ou se você está logado com a conta correta.';
+                } else {
+                    outputDiv.textContent = `Erro ao salvar dados: ${error.message}.`;
+                    docMessage.textContent = `Erro ao salvar: ${error.message}.`;
+                }
+                docMessage.style.color = 'red';
+            }
+        }
+
+        // --- Event Listeners e Sincronização de Cores ---
+
+        corSiteColorInput.addEventListener('input', (event) => {
+            corSiteTextInput.value = event.target.value;
+        });
+
+        corSiteTextInput.addEventListener('input', (event) => {
+            if (/^#([0-9A-F]{3}){1,2}$/i.test(event.target.value)) {
+                corSiteColorInput.value = event.target.value;
+            }
+        });
+
+        // Event listener para carregar configuração específica
+        loadSpecificConfigButton.addEventListener('click', () => {
+            loadConfigFromFirebase(documentIdInput.value);
+        });
+
+        // Event listener para iniciar uma nova configuração
+        createNewConfigButton.addEventListener('click', () => {
+            resetForm();
+            outputDiv.textContent = 'Formulário limpo. Digite o Domínio do Site para criar uma nova configuração.';
+        });
+
+        // Event listener para o formulário de salvamento
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            // Certifica-se de que o currentConfigDocId está definido (do input ou de um carregamento anterior)
+            if (!currentConfigDocId) {
+                // Se o currentConfigDocId não foi definido por um carregamento, usa o valor do input
+                const inputDocId = cleanDocId(documentIdInput.value);
+                if (!inputDocId) {
+                    docMessage.textContent = 'Por favor, insira um Domínio do Site (ID do Documento) válido antes de salvar.';
+                    docMessage.style.color = 'red';
+                    return;
+                }
+                currentConfigDocId = inputDocId;
+            }
+
+            const updatedJson = {
+                "nomeCompletoWiki": nomeCompletoWikiInput.value,
+                "nomePaginaDrawer": nomePaginaDrawerInput.value,
+                "linkProcurarArtigos": linkProcurarArtigosInput.value,
+                "corSite": corSiteTextInput.value
+            };
+            await saveConfigToFirebase(updatedJson);
+        });
+
+        copyButton.addEventListener('click', () => {
+            const textToCopy = outputDiv.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('JSON copiado para a área de transferência!');
+            }).catch(err => {
+                console.error('Erro ao copiar: ', err);
+                alert('Falha ao copiar o JSON.');
+            });
+        });
+
+        // Não chamamos loadConfigFromFirebase() diretamente no início.
+        // Ele será chamado pelo usuário via botões ou pelo `onAuthStateChanged`
+        // apenas se houver um caso de uso para carregar algo automaticamente (não é o caso aqui).
+    </script>
+<a href="explicacao.html> Verificar tutorial </a>
+</body>
+</html>

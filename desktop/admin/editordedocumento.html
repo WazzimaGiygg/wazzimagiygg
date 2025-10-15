@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Documentos com Abas</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            margin: 20px;
+        }
+        #tab-container {
+            background-color: #ddd;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            padding: 10px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab {
+            padding: 8px 15px;
+            margin-right: 5px;
+            border: 1px solid #ccc;
+            border-bottom: none;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background-color: #fff;
+            font-weight: bold;
+        }
+        .tab input[type="text"] {
+            border: none;
+            background: none;
+            font-size: inherit;
+            padding: 0;
+            margin-left: 5px;
+            width: 100px;
+        }
+        #content-container {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 0 5px 5px 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .document-editor {
+            width: 100%;
+            min-height: 300px;
+            font-size: 16px;
+            line-height: 1.7;
+            border: none;
+            outline: none;
+            display: none; /* Initially hide all editors */
+        }
+        .document-editor.active {
+            display: block;
+        }
+        #toolbar {
+            background-color: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+        }
+        #toolbar > * {
+            margin-bottom: 5px; /* Add some space between rows of buttons */
+        }
+        #toolbar button, #toolbar select, #toolbar input[type="file"], #add-tab-btn, #save-all-btn {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #toolbar select {
+            padding: 7px;
+        }
+        #toolbar button:hover, #add-tab-btn:hover, #save-all-btn:hover {
+            background-color: #d0d0d0;
+        }
+        #import-label {
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        #link-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            border-radius: 5px;
+        }
+        #link-modal label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        #link-modal input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        #link-modal button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+        #link-modal button.confirm {
+            background-color: #5cb85c;
+            color: white;
+        }
+        #link-modal button.cancel {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Editor de Documentos com Abas</h1>
+
+    <div id="toolbar">
+        <button onclick="formatText('bold')"><i class="fas fa-bold"></i> Negrito</button>
+        <button onclick="formatText('italic')"><i class="fas fa-italic"></i> Itálico</button>
+        <button onclick="formatText('underline')"><i class="fas fa-underline"></i> Sublinhado</button>
+        <button onclick="formatText('strikeThrough')"><i class="fas fa-strikethrough"></i> Tachado</button>
+
+        <select onchange="formatText('fontName', this.value)">
+            <option value="">Fonte</option>
+            <option value="Arial">Arial</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Courier New">Courier New</option>
+        </select>
+
+        <select onchange="formatText('fontSize', this.value)">
+            <option value="">Tamanho</option>
+            <option value="1">Muito Pequeno</option>
+            <option value="2">Pequeno</option>
+            <option value="3">Normal</option>
+            <option value="4">Médio</option>
+            <option value="5">Grande</option>
+            <option value="6">Muito Grande</option>
+            <option value="7">Enorme</option>
+        </select>
+
+        <select onchange="formatText('heading', this.value)">
+            <option value="">Cabeçalho</option>
+            <option value="h1">Cabeçalho 1</option>
+            <option value="h2">Cabeçalho 2</option>
+            <option value="h3">Cabeçalho 3</option>
+            <option value="p">Parágrafo</option>
+        </select>
+
+        <button onclick="formatList('insertOrderedList')"><i class="fas fa-list-ol"></i> Lista Ordenada</button>
+        <button onclick="formatList('insertUnorderedList')"><i class="fas fa-list-ul"></i> Lista Não Ordenada</button>
+
+        <button onclick="alignText('justifyLeft')"><i class="fas fa-align-left"></i> Esquerda</button>
+        <button onclick="alignText('justifyCenter')"><i class="fas fa-align-center"></i> Centralizar</button>
+        <button onclick="alignText('justifyRight')"><i class="fas fa-align-right"></i> Direita</button>
+        <button onclick="alignText('justifyFull')"><i class="fas fa-align-justify"></i> Justificar</button>
+
+        <button onclick="indentText()"><i class="fas fa-indent"></i> Indentar</button>
+        <button onclick="outdentText()"><i class="fas fa-outdent"></i> Remover Indentação</button>
+
+        <button onclick="showLinkDialog()"><i class="fas fa-link"></i> Inserir Link</button>
+
+        <button id="add-tab-btn" onclick="addTab()">Adicionar Aba</button>
+        <label id="import-label" for="import-input">Importar JSON:</label>
+        <input type="file" id="import-input" accept=".json" onchange="loadAllDocuments(this)">
+        <button id="save-all-btn" onclick="saveAllDocuments()">Salvar Tudo como JSON</button>
+    </div>
+
+    <div id="tab-container">
+    </div>
+
+    <div id="content-container">
+    </div>
+
+    <div id="link-modal">
+        <label for="link-url">URL:</label>
+        <input type="text" id="link-url">
+        <button class="confirm" onclick="insertLink()">Inserir</button>
+        <button class="cancel" onclick="hideLinkDialog()">Cancelar</button>
+    </div>
+
+    <script>
+        let tabCounter = 1;
+        let activeTabId = null;
+
+        function addTab(name = `Documento ${tabCounter}`, content = "") {
+            const tabId = `tab-${tabCounter}`;
+            const editorId = `editor-${tabCounter}`;
+
+            const tabContainer = document.getElementById('tab-container');
+            const contentContainer = document.getElementById('content-container');
+
+            // Criar a aba
+            const tabDiv = document.createElement('div');
+            tabDiv.classList.add('tab');
+            tabDiv.setAttribute('data-tab-id', tabId);
+            tabDiv.innerHTML = `<input type="text" value="${name}" onchange="renameTab(this, '${tabId}')">`;
+            tabDiv.addEventListener('click', () => switchTab(tabId));
+            tabContainer.appendChild(tabDiv);
+
+            // Criar o editor de conteúdo
+            const editorDiv = document.createElement('div');
+            editorDiv.id = editorId;
+            editorDiv.classList.add('document-editor');
+            editorDiv.setAttribute('contenteditable', 'true');
+            editorDiv.innerHTML = content;
+            contentContainer.appendChild(editorDiv);
+
+            // Ativar a nova aba
+            switchTab(tabId);
+            tabCounter++;
+        }
+
+        function switchTab(tabId) {
+            // Desativar a aba e o editor ativos
+            const activeTab = document.querySelector('.tab.active');
+            const activeEditor = document.querySelector('.document-editor.active');
+
+            if (activeTab) {
+                activeTab.classList.remove('active');
+            }
+            if (activeEditor) {
+                activeEditor.classList.remove('active');
+            }
+
+            // Ativar a nova aba e o editor correspondente
+            const newActiveTab = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+            const newActiveEditor = document.getElementById(tabId.replace('tab', 'editor'));
+
+            if (newActiveTab) {
+                newActiveTab.classList.add('active');
+            }
+            if (newActiveEditor) {
+                newActiveEditor.classList.add('active');
+            }
+
+            activeTabId = tabId;
+        }
+
+        function renameTab(inputElement, tabId) {
+            // O nome já está sendo atualizado no input
+        }
+
+        function formatText(command, value = null) {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand(command, false, value);
+                }
+            }
+        }
+
+        function formatList(command) {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand(command, false, null);
+                }
+            }
+        }
+
+        function alignText(command) {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand('justify' + command.charAt(0).toUpperCase() + command.slice(1), false, null);
+                }
+            }
+        }
+
+        function indentText() {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand('indent', false, null);
+                }
+            }
+        }
+
+        function outdentText() {
+            if (activeTabId) {
+                const activeEditor = document.getElementById(activeTabId.replace('tab', 'editor'));
+                if (activeEditor) {
+                    activeEditor.focus();
+                    document.execCommand('outdent', false, null);
+                }
+            }
+        }
+
+        // Modal de Inserir Link
+        const linkModal = document.getElementById('link-modal');
+        const linkUrlInput = document.getElementById('link-url');
+
+        function showLinkDialog() {
+            linkModal.style.display = 'block';
+            linkUrlInput.value = '';
+            linkUrlInput.focus();
+        }
+
+        function hideLinkDialog() {
+            linkModal.style.display = 'none';
+        }
+
+        function insertLink() {
+            const url = linkUrlInput.value;
+            if (url) {
+                formatText('createLink', url);
+            }
+            hideLinkDialog();
+        }
+
+        function saveAllDocuments() {
+            const documents = [];
+            const tabElements = document.querySelectorAll('#tab-container .tab');
+
+            tabElements.forEach(tabElement => {
+                const tabId = tabElement.getAttribute('data-tab-id');
+                const nameInput = tabElement.querySelector('input[type="text"]');
+                const contentEditor = document.getElementById(tabId.replace('tab', 'editor'));
+
+                if (nameInput && contentEditor) {
+                    documents.push({
+                        name: nameInput.value,
+                        content: contentEditor.innerHTML
+                    });
+                }
+            });
+
+            const jsonData = JSON.stringify({ documents: documents });
+            const filename = 'todos_documentos.json';
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadAllDocuments(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data && Array.isArray(data.documents)) {
+                            // Limpar abas e editores existentes
+                            document.getElementById('tab-container').innerHTML = '';
+                            document.getElementById('content-container').innerHTML = '';
+                            tabCounter = 1;
+                            activeTabId = null;
+
+                            data.documents.forEach(doc => {
+                                addTab(doc.name, doc.content);
+                            });
+                        } else {
+                            alert('Arquivo JSON inválido: Formato de documentos incorreto.');
+                        }
+                    } catch (error) {
+                        alert('Erro ao ler o arquivo JSON.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // Adicionar a primeira aba ao carregar a página
+        addTab();
+    </script>
+    <script src="https://kit.fontawesome.com/your_fontawesome_kit.js" crossorigin="anonymous"></script>
+</body>
+</html>

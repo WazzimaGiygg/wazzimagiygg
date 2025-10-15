@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Administração - WZZM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tailwindcss/browser@latest"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #f3f4f6;
+        }
+        .admin-header {
+            background-color: #333;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .admin-header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .admin-header nav {
+            display: flex;
+            align-items: center;
+        }
+        .admin-header nav span {
+            margin-right: 16px;
+            font-weight: bold;
+        }
+        .admin-header button {
+            background-color: #f44336; /* Vermelho para logout */
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+        .admin-header button:hover {
+            background-color: #da190b;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            text-align: center;
+        }
+        .main-content h2 {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .main-content p {
+            font-size: 1.1rem;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <h1>Painel de Administração WZZM</h1>
+        <nav>
+            <span id="user-info"></span>
+            <button id="logout-button" style="display: none;">
+                Sair
+            </button>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <h2>Bem-vindo(a) à Área de Administração da WZZM!</h2>
+        <p>Aqui você pode gerenciar os recursos do seu painel.</p>
+        </main>
+
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.firebasestorage.app",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicialize o Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+        const analytics = firebase.analytics();
+
+        // Elementos da UI
+        const logoutButton = document.getElementById('logout-button');
+        const userInfo = document.getElementById('user-info');
+
+        // Listener de estado de autenticação
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Usuário logado
+                // Verificar se o perfil do usuário já existe no Firestore e está completo
+                const userProfileRef = firestore.collection('users').doc(user.uid);
+                const doc = await userProfileRef.get();
+
+                if (doc.exists && doc.data().cpf) { // Considera o CPF como indicador de perfil completo
+                    const userData = doc.data();
+                    userInfo.textContent = `Olá, ${userData.nome || user.displayName || user.email}!`;
+                    logoutButton.style.display = 'inline-block';
+                } else {
+                    // Perfil incompleto, redirecionar para a página de cadastro
+                    window.location.href = 'cadastro-perfil.html';
+                }
+            } else {
+                // Usuário deslogado, redirecionar para a página de login
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Evento de clique para o botão de Logout
+        logoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                console.log("Usuário deslogado.");
+                // Redireciona para a página de login após o logout
+                window.location.href = 'login.html';
+            }).catch((error) => {
+                console.error("Erro ao fazer logout:", error);
+                alert(`Erro ao fazer logout: ${error.message}`);
+            });
+        });
+    </script>
+</body>
+</html>

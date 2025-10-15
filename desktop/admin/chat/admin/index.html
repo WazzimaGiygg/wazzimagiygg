@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Administração - Chat Completo</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        /* Variáveis e Estilos de Base */
+        :root {
+            --color-primary: #4285F4; /* Azul Google */
+            --color-primary-dark: #3367D6;
+            --color-secondary: #0F9D58; /* Verde (para botão de resposta) */
+            --color-text-dark: #202124;
+            --color-text-light: #5f6368;
+            --color-background-card: #ffffff;
+            --shadow-elevation-2: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Top Bar e Login */
+        .admin-header {
+            background-color: var(--color-primary);
+            color: white;
+            padding: 15px 30px;
+            margin-bottom: 30px;
+            border-radius: var(--border-radius);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-elevation-2);
+        }
+
+        .admin-header h1 { margin: 0; font-weight: 400; }
+        #login-page { text-align: center; }
+        #app-content { display: none; }
+
+        /* Botão Sair */
+        #logout-btn {
+            background-color: white;
+            color: var(--color-primary);
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        /* --- Novo Layout de Duas Colunas --- */
+        .main-content {
+            display: flex;
+            gap: 20px;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: var(--color-background-card);
+            border-radius: var(--border-radius);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 15px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .chat-viewer {
+            flex-grow: 1;
+            background-color: var(--color-background-card);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Estilos para a Lista de Conversas */
+        #conversations-list {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .conversation-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 14px;
+        }
+
+        .conversation-item:last-child {
+            border-bottom: none;
+        }
+
+        .conversation-item:hover, .conversation-item.active {
+            background-color: #e8f0fe;
+            font-weight: 500;
+        }
+
+        .conversation-item strong {
+            display: block;
+            color: var(--color-primary-dark);
+        }
+
+        .last-message {
+            color: var(--color-text-light);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+            display: block;
+        }
+
+        /* --- Estilos do Chat Admin --- */
+        #chat-admin-container {
+            border: 1px solid #dadce0;
+            background-color: #f1f3f4; /* Fundo levemente cinza */
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            max-height: 350px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mensagem {
+            max-width: 80%;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            line-height: 1.4;
+            font-size: 15px;
+        }
+
+        .chat-remetente { /* Mensagens do Admin */
+            background-color: #e6f4ea; /* Verde clarinho */
+            color: var(--color-text-dark);
+            align-self: flex-end;
+            border-radius: 18px 18px 0 18px;
+        }
+
+        .chat-destinatario { /* Mensagens do Usuário */
+            background-color: #ffffff;
+            color: var(--color-text-dark);
+            align-self: flex-start;
+            border-radius: 18px 18px 18px 0;
+            border: 1px solid #dadce0;
+        }
+
+        .chat-info {
+            font-size: 0.7em !important;
+            margin-top: 5px !important;
+            text-align: right;
+            display: block;
+            color: var(--color-text-light);
+        }
+        .chat-destinatario .chat-info { text-align: left; }
+        .mensagem p.chat-text { margin: 0; }
+
+        /* Formulário de Resposta */
+        label { display: block; margin-top: 10px; font-weight: 500; color: var(--color-text-dark); }
+        input[type="url"], textarea {
+            width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #dadce0;
+            border-radius: 4px; box-sizing: border-box; resize: vertical;
+        }
+        #enviar-resposta-btn {
+            background-color: var(--color-secondary);
+            color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="login-page">
+            <h2>Acesso Restrito ao Painel de Admin</h2>
+            <p>Por favor, faça login com sua conta de administrador.</p>
+            <button id="google-login-btn" style="background-color: var(--color-primary); color: white; padding: 10px 20px; border: none; border-radius: 4px;">
+                Entrar com Google
+            </button>
+        </div>
+        
+        <div id="app-content">
+            <div class="admin-header">
+                <h1>Painel de Chat</h1>
+                <p>Logado como: <strong id="user-display-name"></strong> | <button id="logout-btn">Sair</button></p>
+            </div>
+            
+            <div class="main-content">
+                
+                <div class="sidebar">
+                    <h3>Caixa de Entrada de Chats</h3>
+                    <div id="conversations-list">
+                        <p style="text-align: center; color: var(--color-text-light);">Carregando usuários...</p>
+                    </div>
+                </div>
+
+                <div class="chat-viewer">
+                    <h2 id="chat-status-title">Nenhum Chat Selecionado</h2>
+                    
+                    <div id="chat-admin-container">
+                        <p>Selecione um usuário na lista ao lado para ver o histórico e responder.</p>
+                    </div>
+                    
+                    <h3>Enviar Resposta</h3>
+                    <form id="resposta-form" style="display: none;">
+                        <label for="resposta-mensagem">Mensagem de Resposta:</label><br>
+                        <textarea id="resposta-mensagem" name="resposta-mensagem" rows="3" required></textarea><br>
+
+                        <label for="resposta-midia">Link de Mídia (Opcional):</label><br>
+                        <input type="url" id="resposta-midia" name="resposta-midia"><br>
+
+                        <button type="submit" id="enviar-resposta-btn">Enviar Resposta</button>
+                        <p id="resposta-feedback" style="margin-top: 15px; font-weight: 500;"></p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🚨 CONFIGURAÇÕES E CONSTANTES - AJUSTE ESTES VALORES
+        // Use o UID real do seu administrador aqui
+        const ADMIN_UID = "sZxfMuOBPbXdR8nttVPXIN8QOOl1"; 
+        
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = app.auth();
+        const db = app.firestore();
+        const COLECAO_CONTATO = "contatowazzimagiygg";
+
+        // Elementos do DOM
+        const loginPage = document.getElementById('login-page');
+        const appContent = document.getElementById('app-content');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const chatAdminContainer = document.getElementById('chat-admin-container');
+        const respostaForm = document.getElementById('resposta-form');
+        const respostaFeedback = document.getElementById('resposta-feedback');
+        const userDisplayName = document.getElementById('user-display-name');
+        const conversationsList = document.getElementById('conversations-list');
+        
+        let ultimoUidAtivo = null; // Rastreia o usuário que o admin está conversando
+
+        // --- Funções de Autenticação ---
+        googleLoginBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => console.error("Erro no login:", error));
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Observa o estado da autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                if (user.uid === ADMIN_UID) {
+                    loginPage.style.display = 'none';
+                    appContent.style.display = 'block';
+                    userDisplayName.textContent = user.displayName || user.email;
+                    document.getElementById('chat-status-title').textContent = 'Carregando Chats...';
+                    
+                    ouvirConversas(); // Inicia a escuta de todas as conversas
+                } else {
+                    alert("Acesso negado. Você não é um administrador.");
+                    auth.signOut();
+                }
+            } else {
+                loginPage.style.display = 'block';
+                appContent.style.display = 'none';
+                chatAdminContainer.innerHTML = '<p>Faça login para acessar o painel.</p>';
+            }
+        });
+
+        // --- Lógica Principal: Ouvir Todas as Conversas (CORRIGIDA) ---
+        function ouvirConversas() {
+            conversationsList.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Ouvindo mensagens...</p>';
+            
+            // Escuta em tempo real todas as mensagens (Regra de Segurança do Admin permite)
+            db.collection(COLECAO_CONTATO)
+                .orderBy("dataEnvio", "desc") // Ordena do mais novo para o mais antigo
+                .limit(100)
+                .onSnapshot(snapshot => {
+                    const conversationsMap = new Map();
+                    let docs = snapshot.docs;
+
+                    // 1. Agrupar Mensagens por Usuário
+                    docs.forEach(doc => {
+                        const data = doc.data();
+                        
+                        // O UID da conversa é o UID do usuário (não o admin)
+                        const uidUsuario = data.uidRemetente !== ADMIN_UID
+                            ? data.uidRemetente
+                            : data.uidDestinatario;
+
+                        if (uidUsuario && uidUsuario !== ADMIN_UID) {
+                            
+                            // ✅ CORREÇÃO do TypeError: Verifica se o Timestamp é válido
+                            const dataEnvioValida = data.dataEnvio && typeof data.dataEnvio.toDate === 'function';
+                            
+                            // Se esta é a primeira ou a mensagem mais recente que encontramos para este UID
+                            if (!conversationsMap.has(uidUsuario)) {
+                                conversationsMap.set(uidUsuario, {
+                                    uid: uidUsuario,
+                                    displayName: data.displayNameRemetente || 'Usuário Desconhecido',
+                                    ultimaMensagem: data.mensagem,
+                                    // Usa new Date(0) como fallback para evitar o erro toDate em mensagens pendentes
+                                    dataUltimaMensagem: dataEnvioValida ? data.dataEnvio.toDate() : new Date(0), 
+                                    latestDoc: doc
+                                });
+                            }
+                        }
+                    });
+
+                    // 2. Renderizar a Lista de Conversas
+                    renderConversationsList(conversationsMap, docs);
+
+                    // 3. Inicializar ou Recarregar o Chat Ativo
+                    if (!ultimoUidAtivo && conversationsMap.size > 0) {
+                        // Seleciona o chat do usuário mais recente para abrir por padrão
+                        const sortedConversations = Array.from(conversationsMap.values()).sort((a, b) =>
+                            b.dataUltimaMensagem.getTime() - a.dataUltimaMensagem.getTime()
+                        );
+                        ultimoUidAtivo = sortedConversations[0].uid;
+                    }
+
+                    // Recarrega o chat ativo com o novo snapshot (se houver um)
+                    if (ultimoUidAtivo) {
+                        carregarChatAdmin(docs, ultimoUidAtivo);
+                    }
+
+                }, error => {
+                    console.error("Erro ao ouvir conversas:", error);
+                    conversationsList.innerHTML = '<p style="color: red; text-align: center;">Erro ao carregar lista de conversas.</p>';
+                });
+        }
+
+        // --- Função para Renderizar a Lista de Usuários na Sidebar ---
+        function renderConversationsList(conversationsMap, allDocs) {
+            conversationsList.innerHTML = '';
+
+            if (conversationsMap.size === 0) {
+                conversationsList.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Nenhuma conversa ativa.</p>';
+                return;
+            }
+
+            const sortedConversations = Array.from(conversationsMap.values()).sort((a, b) =>
+                b.dataUltimaMensagem.getTime() - a.dataUltimaMensagem.getTime()
+            );
+
+            sortedConversations.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = 'conversation-item';
+                item.setAttribute('data-uid', conv.uid);
+
+                if (conv.uid === ultimoUidAtivo) {
+                    item.classList.add('active');
+                }
+
+                const dataFormatada = conv.dataUltimaMensagem.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+
+                item.innerHTML = `
+                    <strong>${conv.displayName}</strong>
+                    <small class="last-message">${conv.ultimaMensagem}</small>
+                    <small style="float: right;">${dataFormatada}</small>
+                `;
+
+                item.addEventListener('click', () => {
+                    // 1. Atualizar UI da sidebar
+                    document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+
+                    // 2. Mudar o chat ativo e carregar
+                    ultimoUidAtivo = conv.uid;
+                    carregarChatAdmin(allDocs, ultimoUidAtivo); // Usa o snapshot já carregado
+                });
+
+                conversationsList.appendChild(item);
+            });
+        }
+
+        // --- Função para Carregar e Mostrar o Histórico do Chat (CORRIGIDA) ---
+        function carregarChatAdmin(docs, uidUsuario) {
+            chatAdminContainer.innerHTML = '';
+            let remetenteNome = 'Usuário';
+            let conversaEncontrada = false;
+
+            // Filtramos a conversa do usuário ativo
+            const conversa = docs.filter(doc => {
+                const data = doc.data();
+                return data.uidRemetente === uidUsuario || data.uidDestinatario === uidUsuario;
+            }).map(doc => doc.data()); // Mapeia para os dados (data)
+
+            conversa.forEach(data => {
+                conversaEncontrada = true;
+                const isAdmin = data.uidRemetente === ADMIN_UID;
+                const nomeDisplay = isAdmin ? 'Você (Admin)' : data.displayNameRemetente || 'Usuário';
+
+                if (!isAdmin) {
+                    remetenteNome = data.displayNameRemetente || 'Usuário';
+                }
+                
+                // ✅ CORREÇÃO: Verifica se o Timestamp é válido
+                const dataEnvioValida = data.dataEnvio && typeof data.dataEnvio.toDate === 'function';
+
+                const classeChat = isAdmin ? 'chat-remetente' : 'chat-destinatario';
+                const dataFormatada = dataEnvioValida ? new Date(data.dataEnvio.toDate()).toLocaleTimeString() : 'Aguardando...'; 
+                
+                const divMensagem = document.createElement('div');
+                divMensagem.className = 'mensagem ' + classeChat;
+                divMensagem.innerHTML = `
+                    <p class="chat-text">${data.mensagem}</p>
+                    ${data.midiaLink ? `<p><a href="${data.midiaLink}" target="_blank">Abrir Mídia/PDF</a></p>` : ''}
+                    <small class="chat-info">(${nomeDisplay}) - ${dataFormatada}</small>
+                `;
+                chatAdminContainer.appendChild(divMensagem);
+            });
+
+            // Lógica de exibição final
+            if (conversaEncontrada) {
+                document.getElementById('chat-status-title').textContent = `Chat Ativo com: ${remetenteNome}`;
+                respostaForm.style.display = 'block';
+            } else {
+                document.getElementById('chat-status-title').textContent = `Nenhum Chat Selecionado`;
+                respostaForm.style.display = 'none';
+                chatAdminContainer.innerHTML = '<p>Selecione um usuário para visualizar a conversa ou aguarde uma nova mensagem.</p>';
+            }
+
+            // Rola para o final
+            chatAdminContainer.scrollTop = chatAdminContainer.scrollHeight;
+        }
+
+        // --- Lógica de Envio de Resposta do Admin ---
+        respostaForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            respostaFeedback.textContent = 'Enviando...';
+            respostaFeedback.style.color = '#1a73e8';
+
+            if (!ultimoUidAtivo) {
+                respostaFeedback.textContent = 'Erro: Nenhum usuário ativo para responder.';
+                respostaFeedback.style.color = 'red';
+                return;
+            }
+
+            const user = auth.currentUser;
+            if (!user || user.uid !== ADMIN_UID) return;
+
+            const dadosResposta = {
+                uidRemetente: ADMIN_UID,
+                emailRemetente: user.email,
+                displayNameRemetente: user.displayName,
+                uidDestinatario: ultimoUidAtivo,
+                assunto: 'Resposta (Admin)',
+                mensagem: document.getElementById('resposta-mensagem').value,
+                midiaLink: document.getElementById('resposta-midia').value || null,
+                dataEnvio: firebase.firestore.FieldValue.serverTimestamp(),
+                status: 'resolvendo'
+            };
+
+            try {
+                // Se o erro de permissão persistir, o problema é 100% nas Regras do Firestore
+                await db.collection(COLECAO_CONTATO).add(dadosResposta);
+
+                respostaFeedback.textContent = 'Resposta enviada com sucesso!';
+                respostaFeedback.style.color = 'green';
+                respostaForm.reset();
+
+            } catch (error) {
+                console.error("Erro ao enviar resposta:", error);
+                respostaFeedback.textContent = `Erro: ${error.message}`;
+                respostaFeedback.style.color = 'red';
+            }
+        });
+    </script>
+</body>
+</html>

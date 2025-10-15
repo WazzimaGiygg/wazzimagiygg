@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso - Área de Administração WZZM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tailwindcss/browser@latest"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f3f4f6; /* bg-gray-100 */
+        }
+        .login-card {
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .google-login-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #4285F4; /* Cor do Google */
+            color: white;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s ease-in-out;
+            cursor: pointer;
+            border: none;
+        }
+        .google-login-button:hover {
+            background-color: #357ae8;
+        }
+        .google-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1 class="text-2xl font-semibold text-gray-800 mb-6">Área de Administração Única da WZZM</h1>
+        <p class="text-gray-600 mb-6">Faça login com sua conta Google para continuar.</p>
+
+        <div id="alert-container" class="mb-4"></div>
+
+        <button id="firebase-google-login" class="google-login-button">
+            <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                <path d="M12.24 10.211c-.247-.791-.563-1.572-.942-2.316h-.002c-1.341-2.404-3.568-3.957-6.079-4.225-.976-.11-1.956-.057-2.91.196C1.037 4.195.42 5.068.106 6.012-.208 6.957-.272 7.962.067 8.937c.339.975.986 1.84 1.792 2.477.806.637 1.705 1.055 2.628 1.189 1.155.155 2.274.032 3.332-.236.435-.11.87-.234 1.282-.379l-.001.002c-.221-.497-.376-1.02-.459-1.579h-.002zm9.155-.001c-.13-.306-.27-.611-.422-.915-.224-.46-.474-.911-.751-1.346-.277-.435-.58-.847-.908-1.238-.328-.391-.68-.751-1.054-1.077l.002.001c-.426-.358-.881-.68-1.353-.961-.472-.281-.971-.52-1.488-.716-.517-.196-1.049-.344-1.593-.443-.544-.099-1.101-.15-1.659-.15-.558 0-1.115.051-1.66.15-2.226.402-4.116 1.72-5.467 3.655-.386.54-.707 1.1-.962 1.677-.255.577-.428 1.17-.52 1.777-.092.607-.107 1.22-.045 1.83.062.61.22 1.206.46 1.78.24.574.566 1.127.964 1.65.398.523.87 1.011 1.406 1.458.536.447 1.122.846 1.75 1.183.628.337 1.29.625 1.97.852.68.227 1.38.396 2.09.502.71.106 1.428.149 2.146.126.718-.023 1.43-.12 2.12-.289.69-.169 1.353-.41 1.986-.719.633-.309 1.23-.692 1.782-1.144.552-.452 1.056-.976 1.503-1.569.447-.593.834-1.25 1.156-1.96.322-.71.577-1.472.766-2.268.189-.796.312-1.62.368-2.457l.001.002z" clip-rule="evenodd" />
+            </svg>
+            Entrar com Google
+        </button>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.firebasestorage.app",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicialize o Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+        const analytics = firebase.analytics();
+
+        // Elementos da UI
+        const firebaseGoogleLoginButton = document.getElementById('firebase-google-login');
+        const alertContainer = document.getElementById('alert-container');
+
+        // Função para exibir alertas
+        function showAlert(message, type = 'success') {
+            alertContainer.innerHTML = ''; // Limpa alertas anteriores
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `bg-${type === 'success' ? 'green' : 'red'}-100 border border-${type === 'success' ? 'green' : 'red'}-400 text-${type === 'success' ? 'green' : 'red'}-700 px-4 py-3 rounded relative mb-4`;
+            alertDiv.setAttribute('role', 'alert');
+            alertDiv.innerHTML = `
+                <strong class="font-bold">${type === 'success' ? 'Sucesso!' : 'Erro!'}</strong>
+                <span class="block sm:inline">${message}</span>
+                <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                    <svg class="fill-current h-6 w-6 text-${type === 'success' ? 'green' : 'red'}-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+                </span>
+            `;
+            alertContainer.appendChild(alertDiv);
+
+            const closeBtn = alertDiv.querySelector('svg');
+            closeBtn.addEventListener('click', () => {
+                alertDiv.remove();
+            });
+
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Listener de estado de autenticação
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Usuário logado
+                console.log("Usuário logado:", user);
+
+                // Verificar se o perfil do usuário já existe no Firestore
+                const userProfileRef = firestore.collection('users').doc(user.uid);
+                const doc = await userProfileRef.get();
+
+                if (doc.exists) {
+                    // Perfil existe, redirecionar para o painel de administração
+                    window.location.href = 'admin-dashboard.html';
+                } else {
+                    // Perfil não existe, redirecionar para a página de cadastro
+                    window.location.href = 'cadastro-perfil.html';
+                }
+            }
+            // Se não houver usuário, a página de login permanece visível
+        });
+
+        // Evento de clique para o botão de Login com Google
+        firebaseGoogleLoginButton.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    // O onAuthStateChanged vai lidar com o redirecionamento após o login
+                    // Não é necessário redirecionar aqui
+                })
+                .catch((error) => {
+                    console.error("Erro de login:", error);
+                    showAlert(`Erro ao fazer login: ${error.message}`, 'error');
+                });
+        });
+    </script>
+</body>
+</html>
