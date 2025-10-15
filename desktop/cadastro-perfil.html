@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Completar Perfil - WZZM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tailwindcss/browser@latest"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f3f4f6;
+        }
+        .profile-card {
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 500px;
+        }
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            margin-top: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        button[type="submit"] {
+            background-color: #2563eb;
+            color: white;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.25rem;
+            width: 100%;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            border: none;
+        }
+        button[type="submit"]:hover {
+            background-color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-card">
+        <h1 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Complete seu Perfil</h1>
+        <p class="text-gray-600 mb-6 text-center">Por favor, preencha as informações adicionais para continuar.</p>
+
+        <div id="alert-container" class="mb-4"></div>
+
+        <form id="profile-form">
+            <div>
+                <label for="nome" class="block text-gray-700 text-sm font-bold mb-2">Nome:</label>
+                <input type="text" id="nome" name="nome" placeholder="Seu nome" required>
+            </div>
+            <div>
+                <label for="sobrenome" class="block text-gray-700 text-sm font-bold mb-2">Sobrenome:</label>
+                <input type="text" id="sobrenome" name="sobrenome" placeholder="Seu sobrenome" required>
+            </div>
+            <div>
+                <label for="email" class="block text-gray-700 text-sm font-bold mb-2">E-mail:</label>
+                <input type="email" id="email" name="email" placeholder="seu.email@example.com" disabled> </div>
+            <div>
+                <label for="telefone" class="block text-gray-700 text-sm font-bold mb-2">Telefone:</label>
+                <input type="text" id="telefone" name="telefone" placeholder="(XX) XXXXX-XXXX" required>
+            </div>
+            <div>
+                <label for="cpf" class="block text-gray-700 text-sm font-bold mb-2">CPF:</label>
+                <input type="text" id="cpf" name="cpf" placeholder="XXX.XXX.XXX-XX" required>
+            </div>
+            <button type="submit">Salvar Perfil</button>
+        </form>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.firebasestorage.app",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicialize o Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+        const analytics = firebase.analytics();
+
+        // Elementos da UI
+        const profileForm = document.getElementById('profile-form');
+        const nomeInput = document.getElementById('nome');
+        const sobrenomeInput = document.getElementById('sobrenome');
+        const emailInput = document.getElementById('email');
+        const telefoneInput = document.getElementById('telefone');
+        const cpfInput = document.getElementById('cpf');
+        const alertContainer = document.getElementById('alert-container');
+
+        // Função para exibir alertas
+        function showAlert(message, type = 'success') {
+            alertContainer.innerHTML = '';
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `bg-${type === 'success' ? 'green' : 'red'}-100 border border-${type === 'success' ? 'green' : 'red'}-400 text-${type === 'success' ? 'green' : 'red'}-700 px-4 py-3 rounded relative mb-4`;
+            alertDiv.setAttribute('role', 'alert');
+            alertDiv.innerHTML = `
+                <strong class="font-bold">${type === 'success' ? 'Sucesso!' : 'Erro!'}</strong>
+                <span class="block sm:inline">${message}</span>
+                <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                    <svg class="fill-current h-6 w-6 text-${type === 'success' ? 'green' : 'red'}-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+                </span>
+            `;
+            alertContainer.appendChild(alertDiv);
+
+            const closeBtn = alertDiv.querySelector('svg');
+            closeBtn.addEventListener('click', () => {
+                alertDiv.remove();
+            });
+
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Listener de estado de autenticação para preencher e-mail e garantir que o usuário está logado
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                emailInput.value = user.email || '';
+                if (user.displayName) {
+                    const [firstName, ...lastNameParts] = user.displayName.split(' ');
+                    nomeInput.value = firstName || '';
+                    sobrenomeInput.value = lastNameParts.join(' ') || '';
+                }
+
+                // Verificar se o perfil já foi preenchido por algum motivo
+                // Isso evita que o usuário preencha de novo se ele voltar para esta página
+                firestore.collection('users').doc(user.uid).get().then(doc => {
+                    if (doc.exists && doc.data().cpf) { // Considerar CPF como um campo obrigatório para "perfil completo"
+                        window.location.href = 'admin-dashboard.html';
+                    }
+                }).catch(error => {
+                    console.error("Erro ao verificar perfil:", error);
+                    showAlert("Erro ao carregar perfil: " + error.message, "error");
+                });
+
+            } else {
+                // Se não houver usuário logado, redirecionar de volta para a página de login
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Lidar com o envio do formulário de perfil
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const user = auth.currentUser;
+            if (!user) {
+                showAlert('Você não está logado. Por favor, faça login novamente.', 'error');
+                return;
+            }
+
+            const userData = {
+                nome: nomeInput.value.trim(),
+                sobrenome: sobrenomeInput.value.trim(),
+                email: emailInput.value.trim(), // Já veio do Google
+                telefone: telefoneInput.value.trim(),
+                cpf: cpfInput.value.trim(),
+                createdAt: firebase.firestore.FieldValue.serverTimestamp() // Para saber quando foi criado
+            };
+
+            try {
+                await firestore.collection('users').doc(user.uid).set(userData);
+                showAlert('Perfil salvo com sucesso!', 'success');
+                // Redirecionar para o painel de administração
+                window.location.href = 'admin-dashboard.html';
+            } catch (error) {
+                console.error("Erro ao salvar perfil:", error);
+                showAlert(`Erro ao salvar perfil: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

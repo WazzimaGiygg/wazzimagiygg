@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Perfil - WZZM Escolar</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .mdl-textfield {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .mdl-button--colored {
+            background-color: #3f51b5 !important;
+        }
+        .mdl-button--raised.mdl-button--colored:hover {
+            background-color: #303f9f !important;
+        }
+        #status-message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .mdl-switch {
+            margin-bottom: 20px;
+        }
+        /* Estilo para esconder o campo de senha, já que o Firebase Auth gerencia */
+        #profile-password-field {
+            display: none; /* Geralmente não gerenciamos senhas diretamente no Firestore */
+        }
+        /* Adicione esta regra ou modifique a existente .mdl-textfield */
+.mdl-textfield {
+    width: 100%;
+    margin-bottom: 20px; /* Garante um espaço abaixo de cada campo */
+    padding-bottom: 0; /* Garante que o label flutuante não seja cortado por padding */
+}
+
+/* Garante que os containers de switch tenham espaço */
+.mdl-switch {
+    margin-bottom: 15px; /* Espaço entre os switches */
+    display: block; /* Garante que ocupem sua própria linha */
+    width: 100%; /* Ocupa a largura total para melhor organização */
+}
+
+/* Ajuste para o label flutuante do Material Design Lite */
+.mdl-textfield__label {
+    top: 0; /* Alinha o label ao topo do campo, para evitar sobreposição inicial */
+    position: absolute;
+    transition: all 0.2s ease-in-out; /* Transição suave */
+    transform-origin: left top; /* Para a animação de flutuação */
+    pointer-events: none; /* Garante que não interfira com o clique no input */
+}
+
+.mdl-textfield--floating-label.is-focused .mdl-textfield__label,
+.mdl-textfield--floating-label.is-dirty .mdl-textfield__label {
+    top: -18px; /* Onde o label flutua quando o campo está focado ou preenchido */
+    font-size: 12px; /* Tamanho da fonte quando flutuando */
+    color: #3f51b5; /* Cor do label flutuante (opcional) */
+}
+
+/* Se o problema persistir com o textfield, pode ser necessário ajustar a altura mínima */
+.mdl-textfield__input {
+    padding-bottom: 8px; /* Adiciona um pequeno padding na parte inferior do input */
+    box-sizing: border-box; /* Inclui padding e borda na largura/altura total */
+}
+
+/* Para garantir que o container do formulário se ajuste corretamente */
+.container {
+    padding: 30px;
+    /* Adicionar um min-height para garantir que o container tenha altura suficiente */
+    min-height: 500px; /* Ajuste conforme necessário */
+}
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-analytics-compat.js"></script> <div class="container">
+        <h1 id="page-title">Gerenciar Perfil</h1>
+
+        <div id="auth-status" style="text-align: center; margin-bottom: 20px;">
+            <p>Carregando status de autenticação...</p>
+        </div>
+
+        <form id="profile-form" style="display: none;">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="profile-name" required>
+                <label class="mdl-textfield__label" for="profile-name">Nome Completo</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="email" id="profile-email" disabled>
+                <label class="mdl-textfield__label" for="profile-email">Email (não editável)</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="tel" id="profile-telephone">
+                <label class="mdl-textfield__label" for="profile-telephone">Telefone</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="date" id="profile-birthday">
+                <label class="mdl-textfield__label" for="profile-birthday">Data de Nascimento</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" id="profile-password-field">
+                <input class="mdl-textfield__input" type="password" id="profile-password">
+                <label class="mdl-textfield__label" for="profile-password">Senha (Não armazene aqui!)</label>
+            </div>
+
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="profile-registration" disabled>
+                <label class="mdl-textfield__label" for="profile-registration">Data de Registro</label>
+            </div>
+
+            <div class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="profile-active">
+                <input type="checkbox" id="profile-active" class="mdl-switch__input" disabled>
+                <span class="mdl-switch__label">Conta Ativa</span>
+            </div>
+            
+            <div class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="profile-subscribedata">
+                <input type="checkbox" id="profile-subscribedata" class="mdl-switch__input">
+                <span class="mdl-switch__label">Aceitar Termos/Inscrições</span>
+            </div>
+
+            <div class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="profile-admin" id="admin-switch-container" style="display: none;">
+                <input type="checkbox" id="profile-admin" class="mdl-switch__input" disabled>
+                <span class="mdl-switch__label">Administrador</span>
+            </div>
+
+            <div class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="profile-banned" id="banned-switch-container" style="display: none;">
+                <input type="checkbox" id="profile-banned" class="mdl-switch__input" disabled>
+                <span class="mdl-switch__label">Usuário Banido</span>
+            </div>
+            
+            <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored mdl-js-ripple-effect">
+                <i class="material-icons">save</i> Salvar Perfil
+            </button>
+            <button type="button" id="logout-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect" style="margin-left: 10px;">
+                <i class="material-icons">exit_to_app</i> Sair
+            </button>
+        </form>
+
+        <div id="status-message"></div>
+
+        <div id="login-section" style="text-align: center; margin-top: 30px; display: none;">
+            <p>Você não está logado. Por favor, faça login para gerenciar seu perfil.</p>
+            <button id="google-login-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored mdl-js-ripple-effect">
+                <i class="material-icons">account_circle</i> Entrar com Google
+            </button>
+        </div>
+    </div>
+
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script>
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // SUBSTITUA PELO SEU VALOR REAL!
+            authDomain: "wzzm-ce3fc.firebaseapp.com", // SUBSTITUA PELO SEU VALOR REAL!
+            projectId: "wzzm-ce3fc", // SUBSTITUA PELO SEU VALOR REAL!
+            storageBucket: "wzzm-ce3fc.appspot.com", // SUBSTITUA PELO SEU VALOR REAL!
+            messagingSenderId: "249427877153", // SUBSTITUA PELO SEU VALOR REAL!
+            appId: "1:249427877153:web:0e4297294794a5aadeb260", // SUBSTITUA PELO SEU VALOR REAL!
+            measurementId: "G-XXXXXXXXXX" // Opcional, para Analytics
+        };
+
+        // Inicialize o Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const provider = new firebase.auth.GoogleAuthProvider();
+
+        // Referências aos elementos da UI
+        const pageTitle = document.getElementById('page-title');
+        const authStatusDiv = document.getElementById('auth-status');
+        const profileForm = document.getElementById('profile-form');
+        const loginSection = document.getElementById('login-section');
+        const googleLoginButton = document.getElementById('google-login-button');
+        const logoutButton = document.getElementById('logout-button');
+
+        const profileNameInput = document.getElementById('profile-name');
+        const profileEmailInput = document.getElementById('profile-email');
+        const profileTelephoneInput = document.getElementById('profile-telephone');
+        const profileBirthdayInput = document.getElementById('profile-birthday');
+        const profileRegistrationInput = document.getElementById('profile-registration');
+        const profileActiveSwitch = document.getElementById('profile-active');
+        const profileSubscribedataSwitch = document.getElementById('profile-subscribedata');
+        const profileAdminSwitchContainer = document.getElementById('admin-switch-container');
+        const profileAdminSwitch = document.getElementById('profile-admin');
+        const profileBannedSwitchContainer = document.getElementById('banned-switch-container');
+        const profileBannedSwitch = document.getElementById('profile-banned');
+        const statusMessageDiv = document.getElementById('status-message');
+
+        // Função para exibir mensagens de status
+        function showStatus(message, type) {
+            statusMessageDiv.textContent = message;
+            statusMessageDiv.className = type ? `status-message ${type}` : 'status-message';
+        }
+
+        // Função para carregar os dados do usuário no formulário
+        async function loadUserProfile(user) {
+            if (!user) {
+                showStatus('Nenhum usuário logado.', 'status-error');
+                return;
+            }
+
+            authStatusDiv.textContent = `Logado como: ${user.displayName || user.email}`;
+            profileForm.style.display = 'block';
+            loginSection.style.display = 'none';
+
+            profileEmailInput.value = user.email || '';
+            profileNameInput.value = user.displayName || '';
+
+            try {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    pageTitle.textContent = 'Gerenciar Perfil';
+                    
+                    profileNameInput.value = userData.Name || user.displayName || '';
+                    profileTelephoneInput.value = userData.Telephone || '';
+                    // Formata a data de nascimento para o campo de input type="date"
+                    if (userData.Birthday && userData.Birthday instanceof firebase.firestore.Timestamp) {
+                        const date = userData.Birthday.toDate();
+                        profileBirthdayInput.value = date.toISOString().split('T')[0];
+                    } else if (typeof userData.Birthday === 'string' && userData.Birthday.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                         profileBirthdayInput.value = userData.Birthday; // Se já estiver em formato YYYY-MM-DD
+                    }
+
+                    // Data de Registro
+                    if (userData.Registration && userData.Registration instanceof firebase.firestore.Timestamp) {
+                        profileRegistrationInput.value = userData.Registration.toDate().toLocaleDateString('pt-BR');
+                    } else if (typeof userData.Registration === 'string') {
+                        profileRegistrationInput.value = new Date(userData.Registration).toLocaleDateString('pt-BR');
+                    }
+                    
+                    profileActiveSwitch.checked = userData.Active || false;
+                    profileSubscribedataSwitch.checked = userData.Subscribedata || false;
+
+                    // Exibir e preencher switches de Admin/Banned se houver dados ou se for admin
+                    if (userData.Admin !== undefined) {
+                        profileAdminSwitchContainer.style.display = 'flex';
+                        profileAdminSwitch.checked = userData.Admin;
+                    }
+                    if (userData.Banned !== undefined) {
+                        profileBannedSwitchContainer.style.display = 'flex';
+                        profileBannedSwitch.checked = userData.Banned;
+                    }
+
+                    showStatus('Dados do perfil carregados.', '');
+
+                } else {
+                    // Usuário logado, mas não registrado na coleção 'users'
+                    pageTitle.textContent = 'Complete Seu Cadastro';
+                    profileRegistrationInput.value = new Date().toLocaleDateString('pt-BR'); // Data de registro atual
+                    profileActiveSwitch.checked = true; // Assume-se ativo ao registrar
+                    profileSubscribedataSwitch.checked = false; // Assume-se que precisa aceitar
+                    showStatus('Bem-vindo! Por favor, complete seu cadastro.', 'status-success');
+                }
+                // Garante que os componentes MDL são atualizados após preencher os inputs
+                componentHandler.upgradeDom();
+
+            } catch (error) {
+                console.error("Erro ao carregar perfil do usuário:", error);
+                showStatus(`Erro ao carregar perfil: ${error.message}`, 'status-error');
+            }
+        }
+
+        // Função para salvar/atualizar os dados do usuário
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+
+            if (!user) {
+                showStatus('Nenhum usuário logado para salvar o perfil.', 'status-error');
+                return;
+            }
+
+            showStatus('Salvando perfil...', '');
+
+            const userData = {
+                Name: profileNameInput.value.trim(),
+                Telephone: profileTelephoneInput.value.trim(),
+                Birthday: profileBirthdayInput.value ? new Date(profileBirthdayInput.value) : null, // Salva como Timestamp
+                Active: profileActiveSwitch.checked,
+                Subscribedata: profileSubscribedataSwitch.checked,
+                // Admin e Banned só são salvos se existirem ou forem modificados por admin
+                // No caso de um usuário comum, estes campos não devem ser alterados por ele.
+                // Se um admin estiver usando esta página, a lógica para editar admin/banned precisa ser mais robusta e segura (regras de segurança do Firestore).
+                // Por enquanto, eles são apenas para exibição
+            };
+
+            // Adiciona a data de registro apenas se for um novo usuário
+            const userDocRef = db.collection('users').doc(user.uid);
+            const userDoc = await userDocRef.get();
+
+            if (!userDoc.exists) {
+                userData.Registration = firebase.firestore.FieldValue.serverTimestamp();
+            }
+
+            try {
+                await userDocRef.set(userData, { merge: true }); // Usar merge para não sobrescrever outros campos
+                showStatus('Perfil salvo com sucesso!', 'status-success');
+                // Re-carregar para garantir que os campos desabilitados mostrem o valor correto
+                loadUserProfile(user); 
+            } catch (error) {
+                console.error("Erro ao salvar perfil:", error);
+                showStatus(`Erro ao salvar perfil: ${error.message}`, 'status-error');
+            }
+        });
+
+        // Listener para o botão de login com Google
+        googleLoginButton.addEventListener('click', async () => {
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error("Erro no login com Google:", error);
+                showStatus(`Erro no login: ${error.message}`, 'status-error');
+            }
+        });
+
+        // Listener para o botão de logout
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await auth.signOut();
+                showStatus('Desconectado com sucesso.', 'status-success');
+                // Redirecionar para uma página inicial ou login
+                window.location.reload(); // Recarrega a página para refletir o status de logout
+            } catch (error) {
+                console.error("Erro ao desconectar:", error);
+                showStatus(`Erro ao desconectar: ${error.message}`, 'status-error');
+            }
+        });
+
+        // Monitorar o estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Usuário logado
+                loadUserProfile(user);
+            } else {
+                // Usuário não logado
+                authStatusDiv.textContent = 'Você não está logado.';
+                profileForm.style.display = 'none';
+                loginSection.style.display = 'block';
+                showStatus('Faça login para gerenciar seu perfil.', '');
+            }
+            componentHandler.upgradeDom(); // Atualiza os componentes MDL
+        });
+
+        // Inicializa componentes MDL após o carregamento do DOM
+        document.addEventListener('DOMContentLoaded', () => {
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Visualizar Últimas Notícias - WZZM</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 30px;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 2px 0 rgba(0,0,0,.14),
+                  0 3px 1px -2px rgba(0,0,0,.2),
+                  0 1px 5px 0 rgba(0,0,0,.12);
+    }
+    h2 {
+      color: #3f51b5;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    .news-list {
+      margin-top: 20px;
+    }
+    .news-item {
+      background-color: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 1px 1px 0 rgba(0,0,0,.08);
+    }
+    .news-item h3 {
+      margin-top: 0;
+      color: #5c6bc0;
+    }
+    .news-item p {
+      color: #555;
+      line-height: 1.5;
+      margin: 10px 0;
+    }
+    .news-item small {
+      color: #888;
+      display: block;
+      margin-top: 6px;
+    }
+    .news-item img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 10px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Últimas Notícias</h2>
+    <div id="news-list-container" class="news-list">
+      <p>Carregando últimas notícias...</p>
+    </div>
+  </div>
+
+  <!-- MDL -->
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+
+  <script>
+    // --- Configuração do Firebase ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+      authDomain: "wzzm-ce3fc.firebaseapp.com",
+      projectId: "wzzm-ce3fc",
+      storageBucket: "wzzm-ce3fc.appspot.com",
+      messagingSenderId: "249427877153",
+      appId: "1:249427877153:web:0e4297294794a5aadeb260",
+      measurementId: "G-PLKNZNFCQ8"
+    };
+
+    // Inicializa Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const firestore = firebase.firestore();
+    // Opcional: firebase.analytics(); // Ative se estiver usando Analytics
+
+    // Referência ao contêiner onde as notícias serão exibidas
+    const newsListContainer = document.getElementById('news-list-container');
+
+    // -------- Utilitários --------
+
+    function safeDateFromFirestore(value) {
+      // Aceita Timestamp, Date, número (ms) ou string parseável
+      try {
+        if (!value) return null;
+        // Firestore Timestamp (compat)
+        if (typeof value.toDate === 'function') {
+          return value.toDate();
+        }
+        // Já é Date?
+        if (value instanceof Date) {
+          return value;
+        }
+        // Número (ms)
+        if (typeof value === 'number') {
+          return new Date(value);
+        }
+        // String
+        if (typeof value === 'string') {
+          const d = new Date(value);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        return null;
+      } catch (err) {
+        console.warn('Falha ao converter data Firestore:', err);
+        return null;
+      }
+    }
+
+    function formatDateLocale(dateObj) {
+      return dateObj
+        ? dateObj.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+        : 'N/A';
+    }
+
+    function formatTags(tags) {
+      if (!Array.isArray(tags) || tags.length === 0) return null;
+      return tags.join(', ');
+    }
+
+    // Render de um item de notícia (conteúdo textual protegido)
+    function renderNewsItem(news) {
+      const item = document.createElement('div');
+      item.classList.add('news-item');
+
+      // Título
+      const h3 = document.createElement('h3');
+      h3.textContent = news.title || '(Sem título)';
+      item.appendChild(h3);
+
+      // Descrição (texto simples)
+      const p = document.createElement('p');
+      p.textContent = news.description || '';
+      item.appendChild(p);
+
+      // Categoria
+      const cat = document.createElement('small');
+      cat.textContent = `Categoria: ${news.category || 'Sem categoria'}`;
+      item.appendChild(cat);
+
+      // Tags (opcional)
+      const tagsText = formatTags(news.tags);
+      if (tagsText) {
+        const tagsEl = document.createElement('small');
+        tagsEl.textContent = `Tags: ${tagsText}`;
+        item.appendChild(tagsEl);
+      }
+
+      // Data
+      const created = safeDateFromFirestore(news.createdAt);
+      const dateEl = document.createElement('small');
+      dateEl.textContent = `Publicado em: ${formatDateLocale(created)}`;
+      item.appendChild(dateEl);
+
+      // Imagem (opcional)
+      if (news.imageUrl) {
+        const img = document.createElement('img');
+        img.src = news.imageUrl;
+        img.alt = `Imagem da Notícia: ${news.title || ''}`;
+        item.appendChild(img);
+      }
+
+      return item;
+    }
+
+    // -------- Buscar últimas notícias --------
+    async function fetchLatestNews() {
+      newsListContainer.innerHTML = '<p>Carregando últimas notícias...</p>';
+
+      try {
+        const newsSnapshot = await firestore
+          .collection('news')
+          .orderBy('createdAt', 'desc')
+          .limit(10)
+          .get();
+
+        if (newsSnapshot.empty) {
+          newsListContainer.innerHTML = '<p>Nenhuma notícia encontrada.</p>';
+          return;
+        }
+
+        // Limpa
+        newsListContainer.innerHTML = '';
+
+        newsSnapshot.forEach(doc => {
+          const news = doc.data();
+          const newsItemEl = renderNewsItem(news);
+          newsListContainer.appendChild(newsItemEl);
+        });
+
+      } catch (error) {
+        console.error("Erro ao buscar últimas notícias:", error);
+        newsListContainer.innerHTML =
+          `<p style="color: red;">Erro ao carregar notícias: ${error.message}</p>`;
+      }
+    }
+
+    // -------- (Opcional) Atualizações em tempo real --------
+    // Se quiser que a lista atualize automaticamente quando novos docs forem adicionados / alterados,
+    // troque fetchLatestNews() por onSnapshot():
+    /*
+    function watchLatestNews() {
+      return firestore
+        .collection('news')
+        .orderBy('createdAt', 'desc')
+        .limit(10)
+        .onSnapshot(snapshot => {
+          if (snapshot.empty) {
+            newsListContainer.innerHTML = '<p>Nenhuma notícia encontrada.</p>';
+            return;
+          }
+          newsListContainer.innerHTML = '';
+          snapshot.forEach(doc => {
+            const news = doc.data();
+            newsListContainer.appendChild(renderNewsItem(news));
+          });
+        }, error => {
+          console.error("Erro em tempo real das notícias:", error);
+          newsListContainer.innerHTML =
+            `<p style="color: red;">Erro ao carregar notícias: ${error.message}</p>`;
+        });
+    }
+    */
+
+    // Chama a função para buscar as últimas notícias quando a página carrega
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.componentHandler && typeof window.componentHandler.upgradeDom === 'function') {
+        window.componentHandler.upgradeDom();
+      }
+      fetchLatestNews(); // Ou watchLatestNews();
+    });
+  </script>
+</body>
+</html>

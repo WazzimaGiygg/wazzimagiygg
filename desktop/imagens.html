@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>WZZM WIKI ZONE ZERO MOD - Artigos e Matérias</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+  <div class="max-w-6xl mx-auto px-4">
+    <h1 class="text-2xl font-semibold text-center text-gray-800 mb-8">Matérias de Graduação: Pesquisa e Análise de Dados</h1>
+
+    <div id="content-sections">
+      <p>Carregando conteúdo...</p>
+    </div>
+
+  </div>
+
+  <script>
+    const JSON_URL = './json/busca_imagens.json'; // OU 'https://admin.wzzm.org/json/artigos.json'
+
+    async function loadContent() {
+      const contentSectionsDiv = document.getElementById('content-sections');
+      contentSectionsDiv.innerHTML = '<p>Carregando conteúdo...</p>';
+
+      // Se não há controle de acesso, userRole e filtragem são simplificados ou removidos.
+      const userRole = 'publico'; // Assumimos que tudo é público ou não há usuários logados
+
+      try {
+        const response = await fetch(JSON_URL);
+        if (!response.ok) {
+          throw new Error(`Erro HTTP! status: ${response.status} - Verifique a URL e as permissões de CORS.`);
+        }
+        const data = await response.json();
+
+        const materias = Object.values(data.materias);
+
+        // Se todo o conteúdo é público, esta filtragem é redundante, mas não faz mal.
+        // Se você tiver certeza que NUNCA terá 'acesso: "admin"' no JSON, pode remover o .filter()
+        const filteredMaterias = materias.filter(materia => {
+            return !(materia.acesso === 'admin' && userRole !== 'admin');
+        });
+
+        const categorias = {};
+        filteredMaterias.forEach(materia => {
+          if (!categorias[materia.categoria]) {
+            categorias[materia.categoria] = [];
+          }
+          categorias[materia.categoria].push(materia);
+        });
+
+        contentSectionsDiv.innerHTML = '';
+
+        for (const categoria in categorias) {
+          const section = document.createElement('section');
+          section.className = 'mb-10';
+          section.innerHTML = `
+            <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">${categoria}</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="${categoria.replace(/\s+/g, '-').toLowerCase()}-container">
+            </div>
+          `;
+          contentSectionsDiv.appendChild(section);
+
+          const container = section.querySelector(`#${categoria.replace(/\s+/g, '-').toLowerCase()}-container`);
+
+          categorias[categoria].forEach(materia => {
+            const div = document.createElement('div');
+            div.className = 'bg-white rounded-lg shadow p-4';
+            div.innerHTML = `
+              <h3 class="font-semibold text-gray-800">${materia.titulo}</h3>
+              <p class="text-sm text-gray-600 mt-1">${materia.descricao}</p>
+              <a href="${materia.link}" class="text-blue-600 text-sm font-semibold hover:underline mt-2 inline-block">Ver mais</a>
+            `;
+            container.appendChild(div);
+          });
+        }
+
+      } catch (error) {
+        console.error("Erro ao carregar conteúdo:", error);
+        contentSectionsDiv.innerHTML = `<p class="text-red-500">Erro ao carregar o conteúdo: ${error.message}.</p>`;
+      }
+    }
+
+    // Chama a função para carregar o conteúdo uma vez quando a página carregar.
+    window.addEventListener('load', loadContent);
+  </script>
+</body>
+</html>
