@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravador de Notícias no Firebase</title>
+    <style>
+        /* (Seu CSS aqui - Não foi alterado) */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f7f7f7;
+        }
+        #news-form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="url"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+    
+    </head>
+<body>
+
+    <h1>Adicionar Nova Notícia (WZPZM)</h1>
+    
+    <form id="news-form">
+        <label for="news-title">Título:</label>
+        <input type="text" id="news-title" required>
+
+        <label for="news-url">URL (Link):</label>
+        <input type="url" id="news-url" required>
+        
+        <label for="news-author">Autor:</label>
+        <input type="text" id="news-author" value="Sistema" required>
+
+        <button type="submit" id="submit-button">Gravar Notícia</button>
+        
+        <div id="status-message" class="message" style="display: none;"></div>
+    </form>
+
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+
+    <script>
+        // 🚨 NOVO: Variável da coleção definida no escopo global
+        const COLLECTION_NAME = "WZPZM"; 
+
+        // --- Configuração do Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        
+        // Inicialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        // 🎯 CORREÇÃO: Variável do Firestore renomeada para 'db' para corresponder à função saveNews
+        const db = firebase.firestore(); 
+        firebase.analytics();
+
+        // Variáveis globais para estado do usuário (mantenha se você planeja usar Auth)
+        let currentUser = null;
+        let isCurrentUserBanned = false;
+        
+        /**
+         * Envia os dados do formulário para o Firebase Firestore.
+         */
+        async function saveNews(event) {
+            event.preventDefault(); 
+
+            const title = document.getElementById('news-title').value.trim();
+            const url = document.getElementById('news-url').value.trim();
+            const author = document.getElementById('news-author').value.trim();
+            const submitButton = document.getElementById('submit-button');
+            const statusMessage = document.getElementById('status-message');
+
+            if (!title || !url || !author) {
+                showMessage("Por favor, preencha todos os campos.", "error");
+                return;
+            }
+
+            const newsData = {
+                title: title,
+                url: url,
+                author: author,
+                // O 'firebase' está definido e acessível, então isso está correto
+                date: firebase.firestore.FieldValue.serverTimestamp() 
+            };
+
+            submitButton.disabled = true;
+            submitButton.textContent = "Gravando...";
+            showMessage("Enviando dados para o Firebase...", "");
+
+            try {
+                // ✅ CORREÇÃO APLICADA: 'db' está agora definido e acessível
+                const docRef = await db.collection(COLLECTION_NAME).add(newsData);
+                
+                showMessage(`Notícia gravada com sucesso! ID: ${docRef.id}`, "success");
+                
+                document.getElementById('news-form').reset();
+                document.getElementById('news-author').value = "Sistema"; 
+
+            } catch (error) {
+                // Se ainda houver erro, provavelmente é uma regra de segurança (Firestore Rules)
+                showMessage(`Erro ao gravar notícia: ${error.message}`, "error");
+                console.error("Erro ao adicionar documento: ", error);
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = "Gravar Notícia";
+            }
+        }
+
+        /**
+         * Exibe uma mensagem de status na tela.
+         */
+        function showMessage(text, type) {
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.style.display = 'block';
+            statusMessage.textContent = text;
+            statusMessage.className = `message ${type}`;
+        }
+
+        // Liga a função de gravação ao envio do formulário
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('news-form');
+            if (form) {
+                form.addEventListener('submit', saveNews);
+            } else {
+                console.error("Erro: Formulário 'news-form' não encontrado.");
+            }
+        });
+    </script>
+</body>
+</html>

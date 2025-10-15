@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pesquisar custos - WZZM Admin</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .mdl-textfield {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        #article-results {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .article-card {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .article-card:hover {
+            background-color: #e8eaf6; /* Light indigo */
+        }
+        .article-card h3 {
+            color: #3f51b5;
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+        .article-card p {
+            color: #555;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .article-card small {
+            color: #888;
+            font-size: 0.8em;
+            display: block; /* Para que cada small fique em sua própria linha */
+        }
+        .no-results {
+            text-align: center;
+            color: #888;
+            margin-top: 20px;
+        }
+        .error-message {
+            text-align: center;
+            padding: 15px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        /* Estilos para o conteúdo formatado */
+        .formatted-content-display {
+            max-height: 8em; /* Limita a altura para evitar cards muito longos */
+            overflow: hidden; /* Esconde o conteúdo que excede a altura */
+            text-overflow: ellipsis; /* Adiciona '...' se o texto for cortado */
+            white-space: normal; /* Permite quebras de linha */
+            margin-top: 10px;
+            margin-bottom: 10px;
+            border-left: 3px solid #3f51b5; /* Linha decorativa para o conteúdo */
+            padding-left: 10px;
+            background-color: #eef; /* Fundo leve para destacar */
+        }
+        /* Estilos para o link no formattedContent, se houver */
+        .formatted-content-display a {
+            color: #3f51b5;
+            text-decoration: none;
+        }
+        .formatted-content-display a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+    <div class="container">
+        <h1>Pesquisar custos para Edição</h1>
+
+        <div id="error-display" class="error-message"></div>
+
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <input class="mdl-textfield__input" type="text" id="search-input">
+            <label class="mdl-textfield__label" for="search-input">Pesquisar por Título ou UID...</label>
+        </div>
+        <div class="actions">
+            <button id="search-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                <i class="material-icons">search</i> Pesquisar
+            </button>
+            <button id="show-all-button" class="mdl-button mdl-js-button mdl-button--raised">
+                Mostrar Todos
+            </button>
+        </div>
+
+        <div id="article-results">
+        </div>
+    </div>
+
+    <script>
+        // --- Configuração do Firebase (Use as mesmas configurações do seu código original) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth();
+
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const showAllButton = document.getElementById('show-all-button');
+        const articleResultsDiv = document.getElementById('article-results');
+        const errorDisplay = document.getElementById('error-display');
+
+        let currentUser = null;
+
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+        }
+
+        // Listener para o estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                console.log("Usuário logado:", currentUser.uid);
+                // Opcional: Carregar todos os custos automaticamente ao carregar a página
+                // searchArticles(''); // Chame com string vazia para mostrar todos ao carregar
+            } else {
+                currentUser = null;
+                console.warn("Nenhum usuário logado. Redirecionando para login?");
+                alert("Você precisa estar logado para pesquisar custos.");
+                if (window.parent !== window && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'navigateIframe', url: './login.html' }, window.location.origin);
+                } else {
+                    window.location.href = './login.html';
+                }
+            }
+        });
+
+        // Função para exibir os resultados da pesquisa
+        function displayArticles(articles) {
+            articleResultsDiv.innerHTML = ''; // Limpa resultados anteriores
+
+            if (articles.length === 0) {
+                articleResultsDiv.innerHTML = '<p class="no-results">Nenhum custo encontrado.</p>';
+                return;
+            }
+
+            articles.forEach(article => {
+                const articleCard = document.createElement('div');
+                articleCard.className = 'article-card';
+                articleCard.setAttribute('data-id', article.id);
+
+                // Elemento para o formattedContent com HTML renderizado
+                const formattedContentDiv = document.createElement('div');
+                formattedContentDiv.className = 'formatted-content-display';
+                formattedContentDiv.innerHTML = article.formattedContent || 'Conteúdo não disponível.'; // Renderiza o HTML
+
+                articleCard.innerHTML = `
+                    <h3>${article.title || 'Título não disponível'}</h3>
+                    <p>${article.description || 'Nenhuma descrição.'}</p>
+                    <small>UID do Criador: ${article.userId || 'N/A'}</small>
+                    <small>ID do Documento: ${article.id}</small>
+                    <small>Tipo: ${article.articleType || 'N/A'}</small>
+                    <small>Idioma: ${article.language || 'N/A'}</small>
+                    <small>Fontes: ${(article.sources && Array.isArray(article.sources)) ? article.sources.join(', ') : 'N/A'}</small>
+                    <small>URL Original: ${article.originalUrl ? `<a href="${article.originalUrl}" target="_blank">${article.originalUrl}</a>` : 'N/A'}</small>
+                    <small>Status de Verificação: ${article.verificationStatus || 'N/A'}</small>
+                    <small>Criado em: ${article.timestamp ? new Date(article.timestamp.toDate()).toLocaleString() : 'N/A'}</small>
+                    <small>Última Modificação: ${article.lastModified ? new Date(article.lastModified.toDate()).toLocaleString() : 'N/A'}</small>
+                `;
+                // Insere o div do formattedContent após a descrição ou onde desejar no card
+                // A ordem de inserção aqui importa. Inserindo após a descrição.
+                articleCard.insertBefore(formattedContentDiv, articleCard.querySelector('small'));
+
+
+                articleCard.addEventListener('click', () => {
+                    // Redireciona para a página de edição, passando o ID do custo
+                    const editPageUrl = `add-edit-article.html?id=${article.id}`;
+                    if (window.parent !== window && window.parent.postMessage) {
+                        window.parent.postMessage({ type: 'navigateIframe', url: editPageUrl }, window.location.origin);
+                    } else {
+                        window.location.href = editPageUrl;
+                    }
+                });
+                articleResultsDiv.appendChild(articleCard);
+            });
+        }
+
+        // Função de pesquisa principal
+        async function searchArticles(searchTerm = '') {
+            errorDisplay.style.display = 'none';
+            articleResultsDiv.innerHTML = '<p class="no-results">Carregando...</p>';
+
+            try {
+                let query = firestore.collection('financialData');
+
+                if (searchTerm.trim()) {
+                    const termLower = searchTerm.trim().toLowerCase();
+                    // Firestore não suporta pesquisa "contém" ou "like" diretamente.
+                    // Para pesquisa de texto completo, você precisaria de uma solução como Algolia, ElasticSearch, etc.
+                    // Abaixo, faremos uma pesquisa por prefixo no título ou uma correspondência exata para o UID.
+                    // Para pesquisa de "contém" no título, você teria que baixar todos os títulos e filtrar no cliente,
+                    // o que não é recomendado para grandes volumes de dados.
+
+                    // Tentativa de pesquisa por prefixo no título ou UID exato
+                    // Se o termo parecer um UID (ex: comprimento específico, caracteres alfanuméricos),
+                    // tentamos a pesquisa por ID. Caso contrário, por título.
+                    if (searchTerm.length === 20 && /^[a-zA-Z0-9]+$/.test(searchTerm)) { // UID Firebase são geralmente 20 caracteres alfanuméricos
+                        const docRef = await query.doc(searchTerm).get();
+                        if (docRef.exists) {
+                            displayArticles([{ id: docRef.id, ...docRef.data() }]);
+                            return;
+                        } else {
+                            displayArticles([]); // Não encontrou por UID
+                            return;
+                        }
+                    } else {
+                        // Pesquisa por título (usando startAt/endAt para simular "começa com")
+                        // Não é uma pesquisa "contém" completa, mas pode ser útil.
+                        query = query.orderBy('title').startAt(searchTerm).endAt(searchTerm + '\uf8ff');
+                    }
+                }
+
+                const snapshot = await query.get();
+                const articles = [];
+                snapshot.forEach(doc => {
+                    articles.push({ id: doc.id, ...doc.data() });
+                });
+
+                displayArticles(articles);
+
+            } catch (error) {
+                displayError("Erro ao pesquisar custos: " + error.message);
+                console.error("Erro ao pesquisar custos:", error);
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            searchButton.addEventListener('click', () => {
+                searchArticles(searchInput.value);
+            });
+
+            showAllButton.addEventListener('click', () => {
+                searchInput.value = ''; // Limpa o campo de pesquisa
+                searchArticles(''); // Pesquisa sem termo, ou seja, todos
+            });
+
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchArticles(searchInput.value);
+                }
+            });
+
+            // Adiciona o carregamento inicial de todos os artigos ao carregar a página
+            searchArticles(''); // Chama a função para exibir todos os artigos ao carregar a página
+
+            if (window.componentHandler) {
+                window.componentHandler.upgradeDom();
+            }
+        });
+    </script>
+</body>
+</html>
