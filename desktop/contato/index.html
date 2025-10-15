@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fale Conosco - Chat</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        /* Estilos de Base */
+        :root {
+            --color-primary: #4285F4;
+            --color-secondary: #0F9D58;
+            --color-text-dark: #202124;
+            --color-text-light: #5f6368;
+            --border-radius: 8px;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Área de Mensagens */
+        #chat-window {
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: #f1f3f4;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mensagem {
+            max-width: 80%;
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            line-height: 1.4;
+            font-size: 15px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        .mensagem-usuario { /* Enviada pelo usuário (você) */
+            background-color: var(--color-primary);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 0;
+        }
+
+        .mensagem-admin { /* Recebida do Admin */
+            background-color: #ffffff;
+            color: var(--color-text-dark);
+            align-self: flex-start;
+            border: 1px solid #dadce0;
+            border-bottom-left-radius: 0;
+        }
+        
+        .chat-info {
+            font-size: 0.7em;
+            margin-top: 5px;
+            text-align: right;
+            display: block;
+            color: rgba(255, 255, 255, 0.7); /* Cor mais clara para o usuário */
+        }
+        .mensagem-admin .chat-info { 
+            color: var(--color-text-light); /* Cor escura para o admin */
+            text-align: left;
+        }
+        .mensagem p.chat-text { margin: 0; }
+        
+        /* Formulário de Envio */
+        #chat-form {
+            padding: 15px;
+            border-top: 1px solid #dadce0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #dadce0;
+            border-radius: 4px; 
+            box-sizing: border-box; 
+            resize: vertical;
+        }
+        
+        input[type="url"] {
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #dadce0;
+            border-radius: 4px; 
+            box-sizing: border-box;
+        }
+
+        #enviar-btn {
+            background-color: var(--color-secondary);
+            color: white; 
+            padding: 10px 15px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        #login-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .login-box {
+            background-color: white;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        
+        .login-box button {
+            background-color: var(--color-primary);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div id="login-overlay">
+            <div class="login-box">
+                <h2>Acesse para Conversar</h2>
+                <p>Por favor, faça login para iniciar seu chat de contato.</p>
+                <button id="google-login-btn">Entrar com Google</button>
+            </div>
+        </div>
+
+        <div id="chat-window">
+            <p style="text-align: center; color: var(--color-text-light);">Carregando histórico...</p>
+        </div>
+        
+        <form id="chat-form">
+            <label for="mensagem">Sua Mensagem:</label>
+            <textarea id="mensagem" name="mensagem" rows="2" required></textarea>
+            
+            <label for="midia">Link de Mídia (Opcional):</label>
+            <input type="url" id="midia" name="midia">
+            
+            <button type="submit" id="enviar-btn">Enviar Mensagem</button>
+            <p id="feedback" style="margin-top: 5px; font-weight: 500;"></p>
+        </form>
+    </div>
+
+    <script>
+        // 🚨 CONFIGURAÇÕES E CONSTANTES - AJUSTE ESTES VALORES
+        const ADMIN_UID = "sZxfMuOBPbXdR8nttVPXIN8QOOl1"; 
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = app.auth();
+        const db = app.firestore();
+        const COLECAO_CONTATO = "contatowazzimagiygg";
+
+        // Elementos do DOM
+        const loginOverlay = document.getElementById('login-overlay');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const chatWindow = document.getElementById('chat-window');
+        const chatForm = document.getElementById('chat-form');
+        const feedback = document.getElementById('feedback');
+
+        let userUid = null;
+        let messagesSent = [];
+        let messagesReceived = [];
+
+        // --- Funções de Autenticação ---
+        googleLoginBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => console.error("Erro no login:", error));
+        });
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                userUid = user.uid;
+                loginOverlay.style.display = 'none';
+                ouvirChatDoUsuario(user.uid);
+            } else {
+                userUid = null;
+                loginOverlay.style.display = 'flex';
+                // Certifica-se de que se desconectarmos listeners anteriores
+                // (Se você tiver a função unsubscribe, chame-a aqui)
+                chatWindow.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Faça login para começar a conversar.</p>';
+            }
+        });
+
+        // --- Lógica Principal: Ouvir Chat do Usuário (CORRIGIDA COM 2 LISTENERS) ---
+        function ouvirChatDoUsuario(uid) {
+            chatWindow.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Carregando histórico...</p>';
+
+            // 1. Listener para Mensagens ENVIADAS pelo usuário (uidRemetente == uid)
+            const listener1 = db.collection(COLECAO_CONTATO)
+                .where('uidRemetente', '==', uid)
+                .orderBy("dataEnvio", "asc")
+                .onSnapshot(snapshot => {
+                    messagesSent = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                    renderCombinedChat();
+                }, error => {
+                    console.error("Erro ao carregar mensagens enviadas:", error);
+                    // O erro de permissão é geralmente aqui se a regra de 'read' estiver errada.
+                });
+
+            // 2. Listener para Mensagens RECEBIDAS do Admin (uidRemetente == ADMIN_UID E uidDestinatario == uid)
+            const listener2 = db.collection(COLECAO_CONTATO)
+                .where('uidRemetente', '==', ADMIN_UID)
+                .where('uidDestinatario', '==', uid) // Filtra para garantir que seja SÓ para este usuário
+                .orderBy("dataEnvio", "asc")
+                .onSnapshot(snapshot => {
+                    messagesReceived = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                    renderCombinedChat();
+                }, error => {
+                    console.error("Erro ao carregar mensagens recebidas:", error);
+                });
+            
+            // Você pode querer armazenar listener1 e listener2 para desinscrever em auth.onAuthStateChanged(user => null)
+        }
+        
+        // --- Renderiza o Histórico de Mensagens (Combinando os dois arrays) ---
+        function renderCombinedChat() {
+            // Combina e ordena todas as mensagens pelo Timestamp
+            const mensagens = [...messagesSent, ...messagesReceived].sort((a, b) => {
+                // Tratamento de segurança contra 'null' em serverTimestamp
+                const timeA = a.dataEnvio && a.dataEnvio.toDate ? a.dataEnvio.toDate().getTime() : 0;
+                const timeB = b.dataEnvio && b.dataEnvio.toDate ? b.dataEnvio.toDate().getTime() : 0;
+                return timeA - timeB;
+            });
+
+            chatWindow.innerHTML = '';
+            
+            if (mensagens.length === 0) {
+                chatWindow.innerHTML = '<p style="text-align: center; color: var(--color-text-light);">Nenhuma mensagem ainda. Envie a primeira!</p>';
+                return;
+            }
+
+            mensagens.forEach(data => {
+                const isUser = data.uidRemetente === userUid;
+                const classeChat = isUser ? 'mensagem-usuario' : 'mensagem-admin';
+                
+                // ✅ CORREÇÃO do 'reading seconds': Verifica se o Timestamp é válido
+                const dataEnvioValida = data.dataEnvio && typeof data.dataEnvio.toDate === 'function';
+
+                const dataFormatada = dataEnvioValida 
+                    ? data.dataEnvio.toDate().toLocaleTimeString('pt-BR') 
+                    : 'Enviando...';
+                
+                const divMensagem = document.createElement('div');
+                divMensagem.className = 'mensagem ' + classeChat;
+                divMensagem.innerHTML = `
+                    <p class="chat-text">${data.mensagem}</p>
+                    ${data.midiaLink ? `<p><a href="${data.midiaLink}" target="_blank" style="color: ${isUser ? 'white' : 'var(--color-primary)'};">Abrir Mídia/PDF</a></p>` : ''}
+                    <small class="chat-info">${dataFormatada}</small>
+                `;
+                chatWindow.appendChild(divMensagem);
+            });
+            
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        // --- Lógica de Envio de Mensagem do Usuário ---
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            feedback.textContent = 'Enviando...';
+            feedback.style.color = '#1a73e8';
+
+            const user = auth.currentUser;
+            if (!user) {
+                feedback.textContent = 'Erro: Você precisa estar logado para enviar.';
+                feedback.style.color = 'red';
+                return;
+            }
+
+            const dadosMensagem = {
+                uidRemetente: user.uid,
+                emailRemetente: user.email,
+                displayNameRemetente: user.displayName,
+                uidDestinatario: ADMIN_UID,
+                assunto: 'Novo Contato',
+                mensagem: document.getElementById('mensagem').value,
+                midiaLink: document.getElementById('midia').value || null,
+                dataEnvio: firebase.firestore.FieldValue.serverTimestamp(),
+                status: 'pendente'
+            };
+
+            try {
+                // A mensagem é adicionada e o listener irá capturar a mudança em tempo real
+                await db.collection(COLECAO_CONTATO).add(dadosMensagem);
+                
+                feedback.textContent = 'Mensagem enviada!';
+                feedback.style.color = 'green';
+                chatForm.reset(); 
+                
+            } catch (error) {
+                console.error("Erro ao enviar mensagem:", error);
+                feedback.textContent = `Erro ao enviar: ${error.message}. Verifique as Regras de Segurança.`;
+                feedback.style.color = 'red';
+            }
+        });
+    </script>
+</body>
+</html>
