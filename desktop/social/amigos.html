@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiki Zone Zero Mod</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style id="custom-app-css">
+        /* Este será o local onde o CSS dos aplicativos do usuário será injetado */
+    </style>
+    <style>
+        /* Seus estilos CSS existentes aqui */
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+        }
+        .mdl-layout__content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column; /* Para iframe preencher o espaço */
+            padding: 0;
+        }
+        .page-content {
+            flex-grow: 1;
+            width: 100%; /* Garante que o iframe ou conteúdo interno ocupe a largura total */
+            border: none; /* Remove a borda padrão do iframe */
+        }
+        .mdl-layout__header-row {
+            padding: 0 16px; /* Ajusta o padding do cabeçalho */
+        }
+        .mdl-layout__drawer .mdl-navigation .mdl-navigation__link {
+            display: flex;
+            align-items: center;
+        }
+        .mdl-layout__drawer .mdl-navigation .mdl-navigation__link .material-icons {
+            margin-right: 16px;
+        }
+        .mdl-layout__drawer .mdl-navigation .mdl-navigation__link.disabled {
+            color: #b0b0b0; /* Cor para itens de menu desativados */
+            cursor: not-allowed;
+            pointer-events: none; /* Impede cliques */
+        }
+        #user-info {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 8px;
+        }
+        #user-profile-pic {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            margin-right: 16px;
+            object-fit: cover;
+            background-color: #eee; /* Placeholder background */
+        }
+        #user-display-name {
+            font-weight: bold;
+            color: #3f51b5;
+        }
+        #auth-buttons {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #auth-buttons button {
+            width: 100%;
+        }
+        .mdl-snackbar {
+            z-index: 10000; /* Garante que o snackbar fique acima de outros elementos */
+        }
+    </style>
+</head>
+<body>
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header">
+        <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title">Wiki Zone Zero Mod</span>
+                <div class="mdl-layout-spacer"></div>
+                </div>
+        </header>
+        <div class="mdl-layout__drawer">
+            <span class="mdl-layout-title">Menu</span>
+            <nav class="mdl-navigation">
+                <div id="user-info" style="display:none;">
+                    <img id="user-profile-pic" src="https://via.placeholder.com/48" alt="Profile Picture">
+                    <span id="user-display-name">Carregando...</span>
+                </div>
+                <div id="auth-buttons" style="display:block;">
+                    <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--colored" id="login-google">
+                        Login com Google
+                    </button>
+                </div>
+                <a class="mdl-navigation__link" href="#" data-page-src="recepcao.html" data-requires-auth="true">
+                    <i class="material-icons">home</i> Recepção
+                </a>
+                <a class="mdl-navigation__link" href="#" data-page-src="comunidades.html" data-requires-auth="true">
+                    <i class="material-icons">group</i> Comunidades
+                </a>
+                <a class="mdl-navigation__link" href="#" data-page-src="projetos.html" data-requires-auth="true">
+                    <i class="material-icons">folder</i> Projetos
+                </a>
+                <a class="mdl-navigation__link" href="#" data-page-src="POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf" data-requires-auth="false">
+                    <i class="material-icons">description</i> Políticas Gerais
+                </a>
+                <a class="mdl-navigation__link" href="#" id="logout-button" style="display:none;">
+                    <i class="material-icons">exit_to_app</i> Sair
+                </a>
+            </nav>
+        </div>
+        <main class="mdl-layout__content">
+            <iframe id="page-iframe" class="page-content" src="recepcao.html" frameborder="0"></iframe>
+        </main>
+    </div>
+
+    <div id="demo-snackbar" class="mdl-js-snackbar mdl-snackbar">
+        <div class="mdl-snackbar__text"></div>
+        <button type="button" class="mdl-snackbar__action"></button>
+    </div>
+
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script>
+        // Inicialização do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // **SUA CHAVE API AQUI**
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+        const analytics = firebase.analytics(); // Inicialize o Analytics
+
+        // Variáveis globais para o estado do usuário
+        let currentUser = null;
+        let isCurrentUserBanned = false; // Adicionar esta variável de controle
+
+        // Elementos do DOM
+        const pageIframe = document.getElementById('page-iframe');
+        const userInfoDiv = document.getElementById('user-info');
+        const userProfilePic = document.getElementById('user-profile-pic');
+        const userDisplayName = document.getElementById('user-display-name');
+        const authButtonsDiv = document.getElementById('auth-buttons');
+        const loginGoogleButton = document.getElementById('login-google');
+        const logoutButton = document.getElementById('logout-button');
+        const snackbarContainer = document.getElementById('demo-snackbar');
+        const navLinks = document.querySelectorAll('.mdl-navigation__link');
+
+        // Função para mostrar Snackbar
+        function showSnackbar(message, timeout = 2000) {
+            'use strict';
+            var data = {
+                message: message,
+                timeout: timeout
+            };
+            snackbarContainer.MaterialSnackbar.showSnackbar(data);
+        }
+
+        // Função para carregar uma página no iframe
+        function loadPage(src, requiresAuth = false) {
+            if (requiresAuth && !currentUser) {
+                showSnackbar('Você precisa estar logado para acessar esta página.');
+                return;
+            }
+
+            if (isCurrentUserBanned && !src.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZERO%20MOD.pdf')) {
+                 showSnackbar('Você está banido e não pode acessar esta funcionalidade.');
+                 return;
+            }
+
+            // Garante que o PDF seja aberto em uma nova aba para melhor visualização
+            if (src.includes('.pdf')) {
+                window.open(src, '_blank');
+                return;
+            }
+
+            pageIframe.src = src;
+        }
+
+        // --- Autenticação com Firebase ---
+        const provider = new firebase.auth.GoogleAuthProvider();
+
+        loginGoogleButton.addEventListener('click', () => {
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    // This gives you a Google Access Token. You can use it to access the Google API.
+                    // var token = result.credential.accessToken;
+                    // The signed-in user info.
+                    // var user = result.user;
+                    console.log('Login com Google bem-sucedido!', result.user);
+                    showSnackbar('Login realizado com sucesso!');
+                    // O onAuthStateChanged cuidará da atualização da UI
+                }).catch((error) => {
+                    // Handle Errors here.
+                    // var errorCode = error.code;
+                    var errorMessage = error.message;
+                    // The email of the user's account used.
+                    // var email = error.email;
+                    // The firebase.auth.AuthCredential type that was used.
+                    // var credential = error.credential;
+                    console.error('Erro no login com Google:', error);
+                    showSnackbar(`Erro ao logar: ${errorMessage}`, 5000);
+                });
+        });
+
+        logoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                console.log('Logout bem-sucedido!');
+                showSnackbar('Logout realizado com sucesso!');
+                // O onAuthStateChanged cuidará da atualização da UI
+            }).catch((error) => {
+                console.error('Erro ao fazer logout:', error);
+                showSnackbar('Erro ao fazer logout. Tente novamente.', 5000);
+            });
+        });
+
+
+        // Listener de mudança de estado de autenticação
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user; // Atualiza a variável global
+
+            if (user) {
+                // Usuário logado
+                userInfoDiv.style.display = 'flex';
+                authButtonsDiv.style.display = 'none';
+                logoutButton.style.display = 'flex';
+
+                userProfilePic.src = user.photoURL || 'https://via.placeholder.com/48';
+                userDisplayName.textContent = user.displayName || 'Usuário WZZM';
+
+                // Verifica status de banimento do usuário no Firestore
+                const userDocRef = firestore.collection('users').doc(user.uid);
+                try {
+                    const doc = await userDocRef.get();
+                    if (doc.exists && doc.data() && doc.data().banido === true) {
+                        isCurrentUserBanned = true;
+                        showSnackbar('Você está banido da plataforma.', 0); // Mostrar indefinidamente
+                        // Desativar links de navegação, exceto para políticas
+                        navLinks.forEach(link => {
+                            const actualPageSrc = link.dataset.pageSrc;
+                            if (actualPageSrc && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                                link.classList.add('disabled');
+                            }
+                        });
+                        // Redireciona para a página de políticas se não estiver nela
+                        if (!pageIframe.src.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                            loadPage('POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf', false);
+                        }
+
+                    } else {
+                        isCurrentUserBanned = false;
+                        // Reativar todos os links
+                        navLinks.forEach(link => {
+                            link.classList.remove('disabled');
+                        });
+                        // Criar ou atualizar o documento do usuário em 'social/users/{UID}/UID'
+                        const socialUserDocRef = firestore.collection('social').doc('users').collection(user.uid).doc(user.uid);
+                        await socialUserDocRef.set({
+                            displayName: user.displayName,
+                            email: user.email,
+                            photoURL: user.photoURL,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            // Inicialize arrays se não existirem
+                            comunidadesParticipantes: [],
+                            projetosParticipantes: [],
+                            amigos: [], // Novo campo
+                            bloqueados: [] // Novo campo
+                        }, { merge: true }); // Use merge:true para não sobrescrever campos existentes
+
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar status de banimento ou criar perfil social:", error);
+                    isCurrentUserBanned = false; // Assumir não banido em caso de erro
+                    showSnackbar('Erro ao carregar dados do usuário. Pode haver problemas.');
+                }
+
+                // Carrega a página inicial padrão para usuários logados
+                if (!isCurrentUserBanned) {
+                    // Evita recarregar se já estiver na página esperada
+                    const currentIframeSrc = pageIframe.src.substring(pageIframe.src.lastIndexOf('/') + 1);
+                    if (currentIframeSrc !== 'recepcao.html') {
+                        loadPage('recepcao.html', true);
+                    }
+                }
+
+            } else {
+                // Usuário deslogado
+                currentUser = null;
+                isCurrentUserBanned = false; // Reseta o status de banimento
+                userInfoDiv.style.display = 'none';
+                authButtonsDiv.style.display = 'block';
+                logoutButton.style.display = 'none';
+
+                // Desativar links que requerem autenticação
+                navLinks.forEach(link => {
+                    if (link.dataset.requiresAuth === 'true') {
+                        link.classList.add('disabled');
+                    } else {
+                        link.classList.remove('disabled'); // Garante que os links públicos estejam ativos
+                    }
+                });
+
+                // Carrega a página de políticas para usuários deslogados
+                const currentIframeSrc = pageIframe.src.substring(pageIframe.src.lastIndexOf('/') + 1);
+                if (currentIframeSrc !== 'POLÍTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf' && currentIframeSrc !== 'recepcao.html') { // Mantenha recepcao.html como fallback se preferir
+                    loadPage('recepcao.html', false); // Ou uma página de "Bem-vindo" pública
+                }
+            }
+            // Garante que os componentes MDL sejam atualizados após as mudanças no DOM
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
+
+
+        // Adiciona listeners para os links do menu lateral
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(event) {
+                const actualPageSrc = this.dataset.pageSrc;
+                const requiresAuth = this.dataset.requiresAuth === 'true';
+
+                // Apenas links permitidos para banidos são as políticas
+                if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    event.preventDefault();
+                    showSnackbar('Você está banido e não pode acessar esta funcionalidade.');
+                    return;
+                }
+
+                // Se o link está desativado (por exemplo, por não estar logado)
+                if (this.classList.contains('disabled') && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
+                    event.preventDefault();
+                    showSnackbar('Faça login para acessar esta funcionalidade.');
+                    return;
+                }
+
+                // O PDF deve ser tratado de forma diferente (abrir em nova aba)
+                if (actualPageSrc.includes('.pdf')) {
+                    event.preventDefault(); // Previne o carregamento no iframe
+                    window.open(actualPageSrc, '_blank');
+                    // Fecha o drawer do MDL se estiver aberto
+                    if (document.querySelector('.mdl-layout__drawer.is-visible')) {
+                        document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
+                        document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
+                    }
+                    return;
+                }
+
+                event.preventDefault(); // Impede o comportamento padrão do link
+                loadPage(actualPageSrc, requiresAuth); // Carrega a página no iframe
+
+                // Fecha o drawer do MDL se estiver aberto
+                if (document.querySelector('.mdl-layout__drawer.is-visible')) {
+                    document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
+                    document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
+                }
+            });
+        });
+
+
+        // Inicializa componentes MDL
+        document.addEventListener('DOMContentLoaded', () => {
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+            // Carrega a página inicial ao carregar o DOM,
+            // mas onAuthStateChanged irá sobrescrever se o usuário estiver logado
+            loadPage('recepcao.html', false);
+        });
+    </script>
+</body>
+</html>

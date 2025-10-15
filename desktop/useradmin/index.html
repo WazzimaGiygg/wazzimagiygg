@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Página - WZZM</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        h2 {
+            color: #3f51b5;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .profile-info p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        .profile-info strong {
+            color: #555;
+            margin-right: 5px;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        .action-buttons .mdl-button {
+            min-width: 200px;
+            text-align: center;
+        }
+        .data-list {
+            margin-top: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
+            /* Limita a altura para rolagem */
+            overflow-y: auto;
+            background-color: #fcfcfc;
+        }
+        .data-list p {
+            border-bottom: 1px dashed #eee;
+            padding: 8px 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .data-list p.unread {
+            font-weight: bold;
+            background-color: #e8eaf6;
+        }
+        .data-list p span.message-text {
+            flex-grow: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .data-list p:last-child {
+            border-bottom: none;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-style: italic;
+        }
+        .loading-message {
+            text-align: center;
+            padding: 20px;
+            color: #3f51b5;
+        }
+        .error-message {
+            text-align: center;
+            padding: 15px;
+            color: #d32f2f;
+            background-color: #ffebee;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        /* Estilos para o diálogo de denúncia/mensagem */
+        .mdl-dialog {
+            width: 80%;
+            max-width: 600px;
+            padding: 20px;
+        }
+        .mdl-dialog__content .mdl-textfield {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .mdl-dialog__content .mdl-textfield textarea {
+            min-height: 80px;
+        }
+        .message-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .message-read-btn {
+            min-width: 30px !important;
+        }
+
+        /* Estilos para a nova seção de busca de administrador */
+        .admin-search-container {
+            display: flex;
+            align-items: flex-end;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        .admin-search-container .mdl-textfield {
+            flex-grow: 1;
+            margin-bottom: 0; /* Remove bottom margin from textfield inside search container */
+        }
+        #admin-search-error-message {
+            color: red;
+            margin-top: 5px;
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+    <div class="container">
+        <h1>Minha Página de Usuário - Beta 0.70</h1>
+
+        <!-- Nova seção de busca para administradores -->
+        <div id="admin-search-section" style="display: none;">
+            <h2>Pesquisar Perfil de Usuário (Admin)</h2>
+            <div class="admin-search-container">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="admin-search-uid">
+                    <label class="mdl-textfield__label" for="admin-search-uid">Buscar por UID</label>
+                </div>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="admin-search-btn">
+                    Buscar
+                </button>
+            </div>
+            <div id="admin-search-error-message"></div>
+        </div>
+
+        <div id="loading-message" class="loading-message">Carregando dados do usuário...</div>
+        <div id="error-display" class="error-message" style="display: none;"></div>
+
+        <div id="user-info-section" style="display: none;">
+            <h2>Informações do Perfil</h2>
+            <div class="profile-info">
+                <p><strong>UID:</strong> <span id="user-uid"></span></p>
+                <p><strong>Email:</strong> <span id="user-email"></span></p>
+                <p><strong>Nome:</strong> <span id="user-name"></span></p>
+                <p><strong>Sobrenome:</strong> <span id="user-last-name"></span></p>
+                <p><strong>É Administrador:</strong> <span id="user-is-admin"></span></p>
+                <p><strong>É Professor:</strong> <span id="user-is-teacher"></span></p>
+                <p><strong>CPF:</strong> <span id="user-cpf"></span></p>
+                <p><strong>RG:</strong> <span id="user-rg"></span></p>
+            </div>
+
+            <h2>Ações Rápidas</h2>
+            <div class="action-buttons">
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-articles">
+                    <i class="material-icons">article</i> Artigos Cadastrados (<span id="articles-count">0</span>)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-materials">
+                    <i class="material-icons">folder_open</i> Matérias Cadastradas (<span id="materials-count">0</span>)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-personas">
+                    <i class="material-icons">face</i> Minhas Personas Cadastradas (<span id="personas-count">0</span>)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" id="btn-report">
+                    <i class="material-icons">flag</i> Denunciar Conteúdo
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-my-messages">
+                    <i class="material-icons">email</i> Minhas Mensagens (<span id="unread-messages-count">0</span> não lidas)
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--primary" id="btn-send-message">
+                    <i class="material-icons">send</i> Enviar Nova Mensagem
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" id="btn-manage-teacher" style="display: none;">
+                    <i class="material-icons">school</i> Gerenciar Meu Perfil de Professor
+                </button>
+            </div>
+
+            <h2 id="section-title"></h2>
+            <div id="data-display-list" class="data-list">
+                <p class="empty-state">Selecione uma opção acima para ver os dados.</p>
+            </div>
+        </div>
+    </div>
+
+    <dialog class="mdl-dialog" id="report-dialog">
+        <h4 class="mdl-dialog__title">Denunciar Conteúdo</h4>
+        <div class="mdl-dialog__content">
+            <p>Por favor, descreva o motivo da denúncia e especifique o tipo de conteúdo.</p>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="report-content-id" disabled>
+                <label class="mdl-textfield__label" for="report-content-id">ID do Conteúdo Denunciado</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <select class="mdl-textfield__input" id="report-content-type">
+                    <option value="article">Artigo</option>
+                    <option value="material">Material</option>
+                    <option value="persona">Persona</option>
+                    <option value="other">Outro</option>
+                </select>
+                <label class="mdl-textfield__label" for="report-content-type">Tipo de Conteúdo</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <textarea class="mdl-textfield__input" type="text" rows="3" id="report-description" required></textarea>
+                <label class="mdl-textfield__label" for="report-description">Descrição da Denúncia (obrigatório)</label>
+            </div>
+        </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button" id="submit-report-btn">Enviar</button>
+            <button type="button" class="mdl-button close-dialog">Cancelar</button>
+        </div>
+    </dialog>
+
+    <dialog class="mdl-dialog" id="send-message-dialog">
+        <h4 class="mdl-dialog__title">Enviar Nova Mensagem</h4>
+        <div class="mdl-dialog__content">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="recipient-uid-input" required>
+                <label class="mdl-textfield__label" for="recipient-uid-input">UID do Destinatário</label>
+                <span class="mdl-textfield__error">UID do destinatário é obrigatório!</span>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" id="message-subject-input" required maxlength="100">
+                <label class="mdl-textfield__label" for="message-subject-input">Assunto (máx. 100 caracteres)</label>
+                <span class="mdl-textfield__error">Assunto é obrigatório!</span>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <textarea class="mdl-textfield__input" type="text" rows="5" id="message-body-input" required maxlength="256"></textarea>
+                <label class="mdl-textfield__label" for="message-body-input">Mensagem (máx. 256 caracteres)</label>
+                <span class="mdl-textfield__error">Mensagem é obrigatória e deve ter até 256 caracteres!</span>
+            </div>
+        </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button mdl-button--colored" id="send-message-btn">Enviar</button>
+            <button type="button" class="mdl-button close-dialog">Cancelar</button>
+        </div>
+    </dialog>
+
+    <dialog class="mdl-dialog" id="message-detail-dialog">
+        <h4 class="mdl-dialog__title" id="message-dialog-subject"></h4>
+        <div class="mdl-dialog__content">
+            <p><strong>De:</strong> <span id="message-dialog-sender"></span></p>
+            <p><strong>Data:</strong> <span id="message-dialog-date"></span></p>
+            <hr>
+            <p id="message-dialog-body"></p>
+        </div>
+        <div class="mdl-dialog__actions">
+            <button type="button" class="mdl-button close-dialog">Fechar</button>
+        </div>
+    </dialog>
+
+    <script>
+        // --- Configuração do Firebase com suas chaves e dados originais ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth();
+        const firebaseFunctions = firebase.functions();
+
+        let currentUser = null;
+        let currentUserProfile = null;
+        let currentUserTeacherProfile = null;
+
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        const userInfoSection = document.getElementById('user-info-section');
+
+        const userUidSpan = document.getElementById('user-uid');
+        const userEmailSpan = document.getElementById('user-email');
+        const userNameSpan = document.getElementById('user-name');
+        const userLastNameSpan = document.getElementById('user-last-name');
+        const userIsAdminSpan = document.getElementById('user-is-admin');
+        const userIsTeacherSpan = document.getElementById('user-is-teacher');
+        const userCpfSpan = document.getElementById('user-cpf');
+        const userRgSpan = document.getElementById('user-rg');
+        const btnArticles = document.getElementById('btn-articles');
+        const btnMaterials = document.getElementById('btn-materials');
+        const btnPersonas = document.getElementById('btn-personas');
+        const btnManageTeacher = document.getElementById('btn-manage-teacher');
+        const btnReport = document.getElementById('btn-report');
+        const btnMyMessages = document.getElementById('btn-my-messages');
+
+        const articlesCountSpan = document.getElementById('articles-count');
+        const materialsCountSpan = document.getElementById('materials-count');
+        const personasCountSpan = document.getElementById('personas-count');
+        const unreadMessagesCountSpan = document.getElementById('unread-messages-count');
+
+        const sectionTitle = document.getElementById('section-title');
+        const dataDisplayList = document.getElementById('data-display-list');
+
+        const reportDialog = document.getElementById('report-dialog');
+        const submitReportBtn = document.getElementById('submit-report-btn');
+        const reportContentIdInput = document.getElementById('report-content-id');
+        const reportContentTypeSelect = document.getElementById('report-content-type');
+        const reportDescriptionTextarea = document.getElementById('report-description');
+        const messageDetailDialog = document.getElementById('message-detail-dialog');
+        const messageDialogSubject = document.getElementById('message-dialog-subject');
+        const messageDialogSender = document.getElementById('message-dialog-sender');
+        const messageDialogDate = document.getElementById('message-dialog-date');
+        const messageDialogBody = document.getElementById('message-dialog-body');
+        const btnSendMessage = document.getElementById('btn-send-message');
+        const sendMessageDialog = document.getElementById('send-message-dialog');
+        const recipientUidInput = document.getElementById('recipient-uid-input');
+        const messageSubjectInput = document.getElementById('message-subject-input');
+        const messageBodyInput = document.getElementById('message-body-input');
+        const sendMessageBtn = document.getElementById('send-message-btn');
+        const userNameCache = {};
+
+        // Elementos para a nova funcionalidade de busca (admin)
+        const adminSearchSection = document.getElementById('admin-search-section');
+        const adminSearchUidInput = document.getElementById('admin-search-uid');
+        const adminSearchBtn = document.getElementById('admin-search-btn');
+        const adminSearchErrorMessage = document.getElementById('admin-search-error-message');
+
+
+        // Função para exibir erros na interface
+        function displayError(message) {
+            // Check if the message is exactly "Erro" and replace it
+            if (message.trim().toLowerCase() === "erro") {
+                errorDisplay.textContent = "Conta não verificada";
+            } else {
+                errorDisplay.textContent = `Erro: ${message}`;
+            }
+            errorDisplay.style.display = 'block';
+            loadingMessage.style.display = 'none';
+            userInfoSection.style.display = 'none';
+            adminSearchErrorMessage.style.display = 'none'; // Esconde mensagem de erro de busca quando há erro geral
+        }
+
+        // Função para carregar o perfil do usuário
+        async function loadUserProfile(uid) {
+            loadingMessage.style.display = 'block';
+            errorDisplay.style.display = 'none';
+            userInfoSection.style.display = 'none';
+            adminSearchErrorMessage.style.display = 'none'; // Limpa mensagens de erro de busca ao carregar
+
+            try {
+                const userDoc = await firestore.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    currentUserProfile = userDoc.data();
+                    userUidSpan.textContent = uid;
+                    // Se o UID carregado é o do usuário logado, usa o email do auth.currentUser.
+                    // Caso contrário, tenta usar o email do documento do Firestore.
+                    userEmailSpan.textContent = (currentUser && currentUser.uid === uid) ? currentUser.email : currentUserProfile.email || 'N/A';
+                    userNameSpan.textContent = currentUserProfile.firstName || 'Não definido';
+                    userLastNameSpan.textContent = currentUserProfile.lastName || 'Não definido';
+                    userIsAdminSpan.textContent = currentUserProfile.isAdmin ? 'Sim' : 'Não';
+                } else {
+                    // Se o perfil não existe, e é o próprio usuário logado, cria um novo.
+                    if (currentUser && currentUser.uid === uid) {
+                        await firestore.collection('users').doc(uid).set({
+                            email: currentUser.email,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            isAdmin: false,
+                            isBan: false, // Garante que isBan é false por padrão
+                            firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : '',
+                            lastName: currentUser.displayName ? currentUser.displayName.split(' ').slice(1).join(' ') : ''
+                        });
+                        currentUserProfile = {
+                            email: currentUser.email,
+                            isAdmin: false,
+                            isBan: false,
+                            firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : '',
+                            lastName: currentUser.displayName ? currentUser.displayName.split(' ').slice(1).join(' ') : ''
+                        };
+                        userUidSpan.textContent = uid;
+                        userEmailSpan.textContent = currentUser.email;
+                        userNameSpan.textContent = currentUserProfile.firstName || 'Não definido';
+                        userLastNameSpan.textContent = currentUserProfile.lastName || 'Não definido';
+                        userIsAdminSpan.textContent = 'Não';
+                    } else {
+                        // Se não encontrar o perfil e não for o usuário logado, exibir mensagem e limpar dados.
+                        adminSearchErrorMessage.textContent = `Perfil do usuário com UID ${uid} não encontrado.`;
+                        adminSearchErrorMessage.style.display = 'block';
+                        clearUserProfileDisplay();
+                        return; // Sai da função após o erro
+                    }
+                }
+            } catch (error) {
+                console.error("Erro ao carregar/criar perfil de usuário:", error);
+                displayError("Erro ao carregar perfil: " + error.message);
+                clearUserProfileDisplay();
+                return; // Sai da função após o erro
+            }
+
+            try {
+                const teacherDocSnapshot = await firestore.collection('userteatcher')
+                    .where('googleUid', '==', uid)
+                    .get();
+                if (!teacherDocSnapshot.empty) {
+                    currentUserTeacherProfile = teacherDocSnapshot.docs[0].data();
+                    userIsTeacherSpan.textContent = 'Sim';
+                    userCpfSpan.textContent = currentUserTeacherProfile.cpf || 'Não definido';
+                    userRgSpan.textContent = currentUserTeacherProfile.rg || 'Não definido';
+                    // btnManageTeacher.style.display = 'inline-block'; // Só exibe se for o próprio usuário logado E professor
+                } else {
+                    currentUserTeacherProfile = null;
+                    userIsTeacherSpan.textContent = 'Não';
+                    userCpfSpan.textContent = 'Não aplicável';
+                    userRgSpan.textContent = 'Não aplicável';
+                }
+            } catch (error) {
+                console.error("Erro ao carregar perfil de professor:", error);
+                userIsTeacherSpan.textContent = 'Erro';
+                userCpfSpan.textContent = 'Erro';
+                userRgSpan.textContent = 'Erro';
+            }
+
+            // Apenas mostra o botão "Gerenciar Meu Perfil de Professor" se o perfil carregado for o do usuário logado E ele for professor
+            if (currentUser && currentUser.uid === uid && userIsTeacherSpan.textContent === 'Sim') {
+                btnManageTeacher.style.display = 'inline-block';
+            } else {
+                btnManageTeacher.style.display = 'none';
+            }
+
+
+            loadingMessage.style.display = 'none';
+            userInfoSection.style.display = 'block';
+
+            // Apenas atualiza as contagens para o próprio usuário logado
+            if (currentUser && currentUser.uid === uid) {
+                await updateCounts();
+                // Exibe as ações rápidas para o próprio usuário
+                document.querySelector('.action-buttons').style.display = 'flex';
+                document.getElementById('section-title').style.display = 'block';
+                document.getElementById('data-display-list').style.display = 'block';
+
+            } else {
+                // Limpa contagens e listas para um perfil pesquisado por admin
+                articlesCountSpan.textContent = 'N/A';
+                materialsCountSpan.textContent = 'N/A';
+                personasCountSpan.textContent = 'N/A';
+                unreadMessagesCountSpan.textContent = 'N/A';
+                sectionTitle.textContent = '';
+                dataDisplayList.innerHTML = '<p class="empty-state">Dados de artigos/matérias/personas/mensagens não disponíveis para perfis buscados por UID.</p>';
+                // Esconde as ações rápidas e as seções de conteúdo para perfis buscados
+                document.querySelector('.action-buttons').style.display = 'none';
+                document.getElementById('section-title').style.display = 'none';
+                document.getElementById('data-display-list').style.display = 'block'; // Manter visível para a mensagem "dados não disponíveis"
+            }
+
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElements(userInfoSection);
+                const actionButtonsDiv = document.querySelector('.action-buttons');
+                if (actionButtonsDiv) {
+                    window.componentHandler.upgradeElements(actionButtonsDiv.querySelectorAll('.mdl-button'));
+                }
+                // Reforça o upgrade para os textfields da seção de busca
+                componentHandler.upgradeElement(adminSearchUidInput.parentElement);
+                adminSearchUidInput.parentElement.MaterialTextfield.checkDirty();
+            }
+        }
+
+        // Função para limpar a exibição do perfil de usuário
+        function clearUserProfileDisplay() {
+            userUidSpan.textContent = '';
+            userEmailSpan.textContent = '';
+            userNameSpan.textContent = '';
+            userLastNameSpan.textContent = '';
+            userIsAdminSpan.textContent = '';
+            userIsTeacherSpan.textContent = '';
+            userCpfSpan.textContent = '';
+            userRgSpan.textContent = '';
+            articlesCountSpan.textContent = '0';
+            materialsCountSpan.textContent = '0';
+            personasCountSpan.textContent = '0';
+            unreadMessagesCountSpan.textContent = '0';
+            sectionTitle.textContent = '';
+            dataDisplayList.innerHTML = '<p class="empty-state">Selecione uma opção acima para ver os dados.</p>';
+            btnManageTeacher.style.display = 'none';
+            userInfoSection.style.display = 'none'; // Esconde a seção de informações do usuário
+            loadingMessage.style.display = 'none';
+            errorDisplay.style.display = 'none';
+            adminSearchUidInput.value = ''; // Limpa o campo de busca
+            adminSearchErrorMessage.style.display = 'none';
+            // Esconde as ações rápidas e as seções de conteúdo para um estado limpo
+            document.querySelector('.action-buttons').style.display = 'none';
+            document.getElementById('section-title').style.display = 'none';
+            document.getElementById('data-display-list').style.display = 'none'; // Esconde também a lista
+        }
+
+
+        // Função para atualizar as contagens de artigos, materiais, personas e mensagens
+        async function updateCounts() {
+            if (!currentUser || !currentUserProfile) return; // Garante que o perfil do usuário atual está carregado
+            try {
+                const articlesQuery = await firestore.collection('articlesdoc').where('userId', '==', currentUser.uid).get();
+                articlesCountSpan.textContent = articlesQuery.size;
+
+                const materialsQuery = await firestore.collection('materials').where('authorUid', '==', currentUser.uid).get();
+                materialsCountSpan.textContent = materialsQuery.size;
+
+                const personasQuery = await firestore.collection('minhapersona').where('authorUid', '==', currentUser.uid).get();
+                personasCountSpan.textContent = personasQuery.size;
+
+                const unreadMessagesQuery = await firestore.collection('userEmails')
+                    .where('recipientId', '==', currentUser.uid)
+                    .where('read', '==', false)
+                    .get();
+                unreadMessagesCountSpan.textContent = unreadMessagesQuery.size;
+
+            } catch (error) {
+                console.error("Erro ao atualizar contagens:", error);
+            }
+        }
+
+        // Função para abrir o diálogo de denúncia com o ID do conteúdo pré-preenchido
+        function openReportDialog(contentId, contentType) {
+            reportContentIdInput.value = contentId || '';
+            reportContentTypeSelect.value = contentType || 'other';
+            reportDescriptionTextarea.value = '';
+            reportDialog.showModal();
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElement(reportContentIdInput.parentElement);
+                reportContentIdInput.parentElement.MaterialTextfield.checkDirty();
+                window.componentHandler.upgradeElement(reportContentTypeSelect.parentElement);
+                reportContentTypeSelect.parentElement.MaterialTextfield.checkDirty();
+                window.componentHandler.upgradeElement(reportDescriptionTextarea.parentElement);
+                reportDescriptionTextarea.parentElement.MaterialTextfield.checkDirty();
+            }
+        }
+
+        // Função para enviar a denúncia
+        async function submitReport() {
+            if (!currentUser) {
+                alert("Você precisa estar logado para enviar denúncias.");
+                return;
+            }
+
+            const contentId = reportContentIdInput.value.trim();
+            const contentType = reportContentTypeSelect.value;
+            const description = reportDescriptionTextarea.value.trim();
+
+            let isValid = true;
+            if (!description) {
+                reportDescriptionTextarea.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                reportDescriptionTextarea.parentElement.classList.remove('is-invalid');
+            }
+            if (!contentId && contentType !== 'other') {
+                reportContentIdInput.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                reportContentIdInput.parentElement.classList.remove('is-invalid');
+            }
+
+            if (!isValid) {
+                alert("Por favor, preencha todos os campos obrigatórios corretamente.");
+                return;
+            }
+
+            try {
+                await firestore.collection('reports').add({
+                    reportedBy: currentUser.uid,
+                    contentId: contentId,
+                    contentType: contentType,
+                    description: description,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'pending'
+                });
+                alert("Denúncia enviada com sucesso! Agradecemos sua colaboração.");
+                reportDialog.close();
+            } catch (error) {
+                console.error("Erro ao enviar denúncia:", error);
+                alert("Ocorreu um erro ao enviar a denúncia. Tente novamente.");
+            }
+        }
+
+        // Nova função para abrir o diálogo de envio de mensagem
+        function openSendMessageDialog() {
+            recipientUidInput.value = '';
+            messageSubjectInput.value = '';
+            messageBodyInput.value = '';
+            if (window.componentHandler) {
+                window.componentHandler.upgradeElement(recipientUidInput.parentElement);
+                recipientUidInput.parentElement.MaterialTextfield.checkDirty();
+                recipientUidInput.parentElement.MaterialTextfield.checkValidity();
+
+                window.componentHandler.upgradeElement(messageSubjectInput.parentElement);
+                messageSubjectInput.parentElement.MaterialTextfield.checkDirty();
+                messageSubjectInput.parentElement.MaterialTextfield.checkValidity();
+
+                window.componentHandler.upgradeElement(messageBodyInput.parentElement);
+                messageBodyInput.parentElement.MaterialTextfield.checkDirty();
+                messageBodyInput.parentElement.MaterialTextfield.checkValidity();
+            }
+            sendMessageDialog.showModal();
+        }
+
+        // Nova função para enviar a mensagem
+        async function sendNewMessage() {
+            if (!currentUser) {
+                alert("Você precisa estar logado para enviar mensagens.");
+                return;
+            }
+
+            const recipientUid = recipientUidInput.value.trim();
+            const subject = messageSubjectInput.value.trim();
+            const message = messageBodyInput.value.trim();
+
+            let isValid = true;
+            if (!recipientUid) {
+                recipientUidInput.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                recipientUidInput.parentElement.classList.remove('is-invalid');
+            }
+            if (!subject) {
+                messageSubjectInput.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                messageSubjectInput.parentElement.classList.remove('is-invalid');
+            }
+            if (!message || message.length > 256) {
+                messageBodyInput.parentElement.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                messageBodyInput.parentElement.classList.remove('is-invalid');
+            }
+
+            if (!isValid) {
+                alert("Por favor, preencha todos os campos obrigatórios corretamente.");
+                return;
+            }
+
+            try {
+                const recipientUserDoc = await firestore.collection('users').doc(recipientUid).get();
+                if (!recipientUserDoc.exists) {
+                    alert("O UID do destinatário não corresponde a um usuário válido.");
+                    return;
+                }
+            } catch (error) {
+                console.error("Erro ao verificar UID do destinatário:", error);
+                alert("Erro ao verificar o destinatário. Tente novamente.");
+                return;
+            }
+
+            try {
+                await firestore.collection('userEmails').add({
+                    recipientId: recipientUid,
+                    senderId: currentUser.uid,
+                    senderEmail: currentUser.email,
+                    subject: subject,
+                    message: message,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false
+                });
+
+                alert("Mensagem enviada com sucesso!");
+                sendMessageDialog.close();
+                if (sectionTitle.textContent.includes('Mensagens')) {
+                    displayUserContent('userEmails', 'subject');
+                }
+            } catch (error) {
+                console.error("Erro ao enviar mensagem:", error);
+                alert("Erro ao enviar mensagem. Verifique o UID do destinatário e tente novamente.");
+            }
+        }
+
+        // Função para buscar o nome do usuário a partir do UID
+        async function getUserName(uid) {
+            if (userNameCache[uid]) {
+                return userNameCache[uid];
+            }
+            try {
+                const userDoc = await firestore.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    const name = data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : data.email || uid;
+                    userNameCache[uid] = name;
+                    return name;
+                }
+            } catch (error) {
+                console.error("Erro ao buscar nome do usuário:", error);
+            }
+            return uid;
+        }
+
+        // Função para exibir o conteúdo da mensagem em um diálogo e marcar como lida
+        async function displayMessageInDialog(messageData, messageId, isRead) {
+            messageDialogSubject.textContent = messageData.subject || 'Sem Assunto';
+            const senderName = await getUserName(messageData.senderId);
+            messageDialogSender.textContent = senderName;
+
+            messageDialogDate.textContent = messageData.timestamp ? new Date(messageData.timestamp.toDate()).toLocaleString('pt-BR') : 'Data Indefinida';
+            messageDialogBody.textContent = messageData.message || 'Mensagem vazia.';
+
+            messageDetailDialog.showModal();
+            if (!isRead) {
+                try {
+                    await firestore.collection('userEmails').doc(messageId).update({ read: true });
+                    await updateCounts();
+                    const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.classList.remove('unread');
+                        const icon = messageElement.querySelector('.message-text .material-icons');
+                        if (icon) {
+                            icon.textContent = 'drafts';
+                            icon.style.color = '';
+                        }
+                        const readBtn = messageElement.querySelector('.message-read-btn');
+                        if (readBtn) {
+                            readBtn.title = 'Marcar como não lida';
+                            readBtn.querySelector('.material-icons').textContent = 'visibility_off';
+                        }
+                    }
+                } catch (error) {
+                    console.error("Erro ao marcar mensagem como lida:", error);
+                }
+            }
+        }
+
+        // Função para alternar o status de lida/não lida de uma mensagem
+        async function toggleMessageReadStatus(messageId, currentReadStatus) {
+            try {
+                await firestore.collection('userEmails').doc(messageId).update({ read: !currentReadStatus });
+                await updateCounts();
+                const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
+                if (messageElement) {
+                    messageElement.classList.toggle('unread', !currentReadStatus);
+                    const icon = messageElement.querySelector('.message-text .material-icons');
+                    const readBtnIcon = messageElement.querySelector('.message-read-btn .material-icons');
+                    const readBtn = messageElement.querySelector('.message-read-btn');
+
+                    if (icon) {
+                        icon.textContent = !currentReadStatus ? 'mark_email_unread' : 'drafts';
+                        icon.style.color = !currentReadStatus ? '#ff9800' : '';
+                    }
+                    if (readBtnIcon) {
+                        readBtnIcon.textContent = !currentReadStatus ? 'visibility_off' : 'visibility';
+                    }
+                    if (readBtn) {
+                        readBtn.title = !currentReadStatus ? 'Marcar como lida' : 'Marcar como não lida';
+                    }
+                }
+            } catch (error) {
+                console.error("Erro ao alternar status de leitura da mensagem:", error);
+                alert("Ocorreu um erro ao atualizar o status da mensagem.");
+            }
+        }
+
+        // Função genérica para exibir conteúdo do usuário (artigos, materiais, personas, mensagens)
+        async function displayUserContent(collectionName, titleField) {
+            // Apenas permite exibir o conteúdo do próprio usuário logado.
+            // Para administradores, a busca por UID é apenas para ver o perfil, não os conteúdos detalhados.
+            if (!currentUser || (currentUser && currentUserProfile && adminSearchUidInput.value.trim() !== currentUser.uid)) {
+                dataDisplayList.innerHTML = '<p class="empty-state">Para visualizar o conteúdo detalhado, você deve estar logado no próprio perfil.</p>';
+                return;
+            }
+
+            dataDisplayList.innerHTML = '<p class="loading-message">Carregando...</p>';
+            let query;
+            let displayTitle = '';
+
+            try {
+                if (collectionName === 'articlesdoc') {
+                    query = firestore.collection(collectionName).where('userId', '==', currentUser.uid).orderBy('timestamp', 'desc');
+                    displayTitle = 'Meus Artigos Cadastrados';
+                } else if (collectionName === 'materials') {
+                    query = firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).orderBy('timestamp', 'desc');
+                    displayTitle = 'Minhas Matérias Cadastradas';
+                } else if (collectionName === 'minhapersona') {
+                    query = firestore.collection(collectionName).where('authorUid', '==', currentUser.uid).orderBy('timestamp', 'desc');
+                    displayTitle = 'Minhas Personas Cadastradas';
+                } else if (collectionName === 'userEmails') {
+                    query = firestore.collection(collectionName)
+                        .where('recipientId', '==', currentUser.uid)
+                        .orderBy('timestamp', 'desc');
+                    displayTitle = 'Minhas Mensagens Recebidas';
+                } else {
+                    dataDisplayList.innerHTML = '<p class="empty-state">Tipo de conteúdo desconhecido.</p>';
+                    return;
+                }
+
+                sectionTitle.textContent = displayTitle;
+                const snapshot = await query.get();
+
+                dataDisplayList.innerHTML = '';
+
+                if (snapshot.empty) {
+                    dataDisplayList.innerHTML = '<p class="empty-state">Nenhum dado encontrado.</p>';
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                for (const doc of snapshot.docs) {
+                    const data = doc.data();
+                    const p = document.createElement('p');
+                    p.setAttribute('data-id', doc.id);
+
+                    if (collectionName === 'userEmails') {
+                        p.classList.add('message-item');
+                        p.setAttribute('data-message-id', doc.id);
+                        if (!data.read) {
+                            p.classList.add('unread');
+                        }
+
+                        const messageTextSpan = document.createElement('span');
+                        messageTextSpan.classList.add('message-text');
+                        messageTextSpan.style.flexGrow = '1';
+                        messageTextSpan.style.cursor = 'pointer';
+
+                        const icon = document.createElement('i');
+                        icon.classList.add('material-icons');
+                        icon.textContent = data.read ? 'drafts' : 'mark_email_unread';
+                        if (!data.read) {
+                            icon.style.color = '#ff9800';
+                        }
+                        messageTextSpan.appendChild(icon);
+                        const subjectSpan = document.createElement('span');
+                        const senderName = await getUserName(data.senderId);
+                        subjectSpan.textContent = `De: ${senderName} - Assunto: ${data[titleField] || 'Sem Assunto'}`;
+                        messageTextSpan.appendChild(subjectSpan);
+
+                        messageTextSpan.addEventListener('click', () => displayMessageInDialog(data, doc.id, data.read));
+                        p.appendChild(messageTextSpan);
+
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.classList.add('message-actions');
+                        const toggleReadBtn = document.createElement('button');
+                        toggleReadBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon', 'message-read-btn');
+                        toggleReadBtn.title = data.read ? 'Marcar como não lida' : 'Marcar como lida';
+                        const toggleReadIcon = document.createElement('i');
+                        toggleReadIcon.classList.add('material-icons');
+                        toggleReadIcon.textContent = data.read ? 'visibility_off' : 'visibility';
+                        toggleReadBtn.appendChild(toggleReadIcon);
+                        toggleReadBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            toggleMessageReadStatus(doc.id, data.read);
+                        });
+                        actionsDiv.appendChild(toggleReadBtn);
+
+                        const reportBtn = document.createElement('button');
+                        reportBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon');
+                        reportBtn.title = 'Denunciar';
+                        const reportIcon = document.createElement('i');
+                        reportIcon.classList.add('material-icons');
+                        reportIcon.textContent = 'flag';
+                        reportBtn.appendChild(reportIcon);
+                        reportBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openReportDialog(doc.id, collectionName);
+                        });
+                        actionsDiv.appendChild(reportBtn);
+
+                        p.appendChild(actionsDiv);
+
+                    } else {
+                        const textContent = document.createElement('span');
+                        textContent.textContent = data[titleField] || 'Título Indefinido';
+                        p.appendChild(textContent);
+
+                        const reportBtn = document.createElement('button');
+                        reportBtn.classList.add('mdl-button', 'mdl-js-button', 'mdl-button--icon');
+                        reportBtn.title = 'Denunciar';
+                        const reportIcon = document.createElement('i');
+                        reportIcon.classList.add('material-icons');
+                        reportIcon.textContent = 'flag';
+                        reportBtn.appendChild(reportIcon);
+                        reportBtn.addEventListener('click', () => openReportDialog(doc.id, collectionName));
+                        p.appendChild(reportBtn);
+                    }
+                    fragment.appendChild(p);
+                }
+                dataDisplayList.appendChild(fragment);
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(dataDisplayList);
+                }
+
+            } catch (error) {
+                console.error(`Erro ao buscar ${collectionName}:`, error);
+                dataDisplayList.innerHTML = `<p class="error-message">Erro ao carregar dados: ${error.message}</p>`;
+            }
+        }
+
+        // Event Listeners
+        auth.onAuthStateChanged(async user => {
+            if (user) {
+                currentUser = user;
+                // Ao carregar a página, verifica se o usuário é admin para exibir a seção de busca
+                try {
+                    const userProfileRef = firestore.collection('users').doc(user.uid);
+                    const doc = await userProfileRef.get();
+                    if (doc.exists && doc.data() && doc.data().isAdmin) {
+                        adminSearchSection.style.display = 'block';
+                    } else {
+                        adminSearchSection.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar status de admin:", error);
+                    adminSearchSection.style.display = 'none';
+                }
+                loadUserProfile(user.uid); // Carrega o perfil do usuário logado por padrão
+            } else {
+                // Se não há usuário logado, redireciona para a página de login
+                window.location.href = '/login.html';
+            }
+        });
+
+        // Adiciona listener para o botão de busca do admin
+        adminSearchBtn.addEventListener('click', () => {
+            const uidToSearch = adminSearchUidInput.value.trim();
+            if (uidToSearch) {
+                adminSearchErrorMessage.style.display = 'none';
+                loadUserProfile(uidToSearch); // Chama loadUserProfile com o UID fornecido
+            } else {
+                adminSearchErrorMessage.textContent = 'Por favor, insira um UID para buscar.';
+                adminSearchErrorMessage.style.display = 'block';
+                clearUserProfileDisplay(); // Limpa a exibição do perfil se o campo estiver vazio
+            }
+        });
+
+        btnArticles.addEventListener('click', () => displayUserContent('articlesdoc', 'title'));
+        btnMaterials.addEventListener('click', () => displayUserContent('materials', 'title'));
+        btnPersonas.addEventListener('click', () => displayUserContent('minhapersona', 'name'));
+        btnMyMessages.addEventListener('click', () => displayUserContent('userEmails', 'subject'));
+        btnReport.addEventListener('click', () => openReportDialog());
+        btnSendMessage.addEventListener('click', openSendMessageDialog);
+
+        submitReportBtn.addEventListener('click', submitReport);
+        sendMessageBtn.addEventListener('click', sendNewMessage);
+        document.querySelectorAll('.close-dialog').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const dialog = event.target.closest('dialog');
+                if (dialog) {
+                    dialog.close();
+                }
+            });
+        });
+        if (window.componentHandler) {
+            window.componentHandler.upgradeElements(document.querySelectorAll('.mdl-dialog'));
+            window.componentHandler.upgradeElements(document.querySelectorAll('.mdl-dialog .mdl-textfield'));
+        }
+    </script>
+</body>
+</html>

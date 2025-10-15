@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar Imagem - WZZM</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+    <style>
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            line-height: 1.6;
+            margin: 2em;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background-color: #fff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #000;
+            font-size: 2em;
+            border-bottom: 1px solid #a2a9b1;
+            padding-bottom: 0.5em;
+        }
+        h2 {
+            font-size: 1.5em;
+            margin-top: 1.5em;
+            border-bottom: 1px solid #a2a9b1;
+            padding-bottom: 0.25em;
+        }
+        .file-name-display {
+            font-size: 0.8em;
+            font-style: italic;
+            color: #72777d;
+            margin-top: 0.5em;
+        }
+        #image-display {
+            max-width: 100%;
+            height: auto;
+            margin-top: 1em;
+            border: 1px solid #ddd;
+        }
+        .print-buttons {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        @media print {
+            body {
+                margin: 0;
+            }
+            .print-buttons {
+                display: none;
+            }
+            .container {
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="print-buttons">
+        <button onclick="window.print()">Imprimir</button>
+    </div>
+    <div id="image-container">
+        <p style="text-align: center; color: #666;">Carregando imagem...</p>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+        authDomain: "wzzm-ce3fc.firebaseapp.com",
+        projectId: "wzzm-ce3fc",
+        storageBucket: "wzzm-ce3fc.appspot.com",
+        messagingSenderId: "249427877153",
+        appId: "1:249427877153:web:0e4297294794a5aadeb260",
+        measurementId: "G-PLKNZNFCQ8"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const imageContainer = document.getElementById('image-container');
+
+    async function buscarEExibirImagem() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fileName = urlParams.get('uid'); // Pega o nome do arquivo da URL
+
+        if (!fileName) {
+            imageContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Nome do arquivo não fornecido na URL.</p>';
+            return;
+        }
+
+        try {
+            // Usa uma consulta para buscar o documento onde o campo 'file_name' é igual a 'fileName'
+            const querySnapshot = await db.collection('imagenscode').where('file_name', '==', fileName).limit(1).get();
+
+            if (!querySnapshot.empty) {
+                // Se um documento for encontrado, pega o primeiro
+                const doc = querySnapshot.docs[0];
+                const imageData = doc.data();
+
+                // Cria o conteúdo para exibir a imagem e suas informações
+                imageContainer.innerHTML = `
+                    <h1>${imageData.file_name}</h1>
+                    <p class="file-name-display">Nome do Arquivo: ${imageData.file_name}</p>
+                    <p><strong>UID do Documento:</strong> ${doc.id}</p>
+                    <img id="image-display" src="${imageData.base64_code}" alt="Imagem carregada">
+                `;
+            } else {
+                imageContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Imagem não encontrada.</p>';
+            }
+        } catch (error) {
+            console.error("Erro ao buscar imagem:", error);
+            imageContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro ao carregar a imagem: ' + error.message + '</p>';
+        }
+    }
+
+    // Chama a função ao carregar a página
+    window.onload = buscarEExibirImagem;
+</script>
+</body>
+</html>

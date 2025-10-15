@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório Diário de Artigos - WZZM Admin</title>
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 20px auto;
+            background: #fff;
+            border-radius: 8px;
+            padding: 30px 24px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+        }
+        h1 {
+            color: #3f51b5;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .date-group {
+            margin-bottom: 40px;
+        }
+        .date-title {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 16px;
+            border-left: 4px solid #3f51b5;
+            padding-left: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border-bottom: 1px solid #ddd;
+            padding: 7px 6px;
+            text-align: left;
+            font-size: 0.97em;
+        }
+        th {
+            background: #e3e7fa;
+            color: #222;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .empty-state {
+            text-align: center;
+            color: #888;
+            font-size: 1.1em;
+            margin-top: 50px;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .filter-bar input[type="date"], .filter-bar select {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+        }
+        .mdl-button {
+            min-width: 44px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Relatório Diário de Artigos</h1>
+        <div class="filter-bar">
+            <label for="filter-date">Filtrar por dia:</label>
+            <input type="date" id="filter-date">
+            <button id="filter-clear" class="mdl-button mdl-js-button mdl-button--raised">Limpar Filtro</button>
+        </div>
+        <div id="report-content">
+            <div class="empty-state">Carregando relatório...</div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        let app;
+        try { app = firebase.app(); } catch { app = firebase.initializeApp(firebaseConfig);}
+        const firestore = firebase.firestore();
+
+        const reportDiv = document.getElementById('report-content');
+        const filterDateInput = document.getElementById('filter-date');
+        const filterClearBtn = document.getElementById('filter-clear');
+
+        // Utilitário para agrupar artigos por dia (YYYY-MM-DD)
+        function groupByDate(articles) {
+            const groups = {};
+            articles.forEach(article => {
+                const date = article.timestamp ? article.timestamp.toDate() : null;
+                if (!date) return;
+                // Agrupa por data local (ano-mês-dia)
+                const dayStr = date.toLocaleDateString('sv-SE'); // yyyy-mm-dd
+                if (!groups[dayStr]) groups[dayStr] = [];
+                groups[dayStr].push(article);
+            });
+            return groups;
+        }
+
+        // Função para carregar todos artigos (ou por filtro de data)
+        async function loadReport(filterDay = null) {
+            reportDiv.innerHTML = '<div class="empty-state">Carregando relatório...</div>';
+            try {
+                let query = firestore.collection('articlesdoc').orderBy('timestamp', 'desc');
+                if (filterDay) {
+                    // Filtra apenas para aquele dia
+                    const start = new Date(filterDay + "T00:00:00");
+                    const end = new Date(filterDay + "T23:59:59.999");
+                    query = query.where('timestamp', '>=', start).where('timestamp', '<=', end);
+                }
+                const snapshot = await query.get();
+                if (snapshot.empty) {
+                    reportDiv.innerHTML = '<div class="empty-state">Nenhum artigo encontrado para o critério.</div>';
+                    return;
+                }
+                const articles = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    data.id = doc.id;
+                    articles.push(data);
+                });
+
+                let grouped = groupByDate(articles);
+
+                // Se filtrado por apenas um dia, deixa só esse grupo
+                if (filterDay) grouped = { [filterDay]: grouped[filterDay] || [] };
+
+                let html = '';
+                for (const [date, articlesOfDay] of Object.entries(grouped)) {
+                    if (!articlesOfDay || articlesOfDay.length === 0) continue;
+                    html += `<div class="date-group">
+                        <div class="date-title">${new Date(date).toLocaleDateString('pt-BR')}</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Título</th>
+                                    <th>ID Artigo</th>
+                                    <th>Autor (userId)</th>
+                                    <th>Idioma</th>
+                                    <th>Tipo</th>
+                                    <th>Assunto/Resumo</th>
+                                    <th>Hora de Criação</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                    for (const art of articlesOfDay) {
+                        const data = art;
+                        const title = data.title || '';
+                        const id = data.id || '';
+                        const userId = data.userId || '';
+                        const language = data.language || '';
+                        const articleType = data.articleType || '';
+                        const summary = data.summary || data.description || '';
+                        const createdAt = data.timestamp ? data.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+                        html += `<tr>
+                            <td>${title}</td>
+                            <td>${id}</td>
+                            <td>${userId}</td>
+                            <td>${language}</td>
+                            <td>${articleType}</td>
+                            <td>${summary}</td>
+                            <td>${createdAt}</td>
+                        </tr>`;
+                    }
+                    html += `</tbody></table></div>`;
+                }
+                reportDiv.innerHTML = html || '<div class="empty-state">Nenhum artigo encontrado para o critério.</div>';
+            } catch (e) {
+                reportDiv.innerHTML = `<div class="empty-state" style="color:#d32f2f">Erro ao carregar relatório: ${e.message}</div>`;
+            }
+        }
+
+        filterDateInput.addEventListener('change', () => {
+            const dateVal = filterDateInput.value;
+            loadReport(dateVal);
+        });
+        filterClearBtn.addEventListener('click', () => {
+            filterDateInput.value = '';
+            loadReport();
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadReport();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Mudanças Recentes - WikiNotPedia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        body {
+            background: #f5f5f5;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .mdl-layout__header {
+            background: #3f51b5;
+            color: #fff;
+        }
+        .main-content {
+            max-width: 700px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+            padding: 32px;
+        }
+        h2 {
+            color: #3f51b5;
+            margin-top: 0;
+        }
+        .changes-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .change-item {
+            border-bottom: 1px solid #eee;
+            padding: 18px 0 10px 0;
+        }
+        .change-item:last-child {
+            border-bottom: none;
+        }
+        .change-title {
+            font-weight: bold;
+            color: #222;
+        }
+        .change-meta {
+            color: #666;
+            font-size: 0.92em;
+            margin-bottom: 2px;
+        }
+        .change-desc {
+            color: #444;
+            margin: 6px 0 0 0;
+        }
+        .change-tags {
+            margin-top: 4px;
+            font-size: 0.9em;
+            color: #888;
+        }
+        #loading {
+            color: #888;
+            text-align: center;
+            margin-top: 30px;
+        }
+        #no-changes {
+            color: #b71c1c;
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+        <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title"><i class="material-icons">history</i> Mudanças Recentes - WikiNotPedia</span>
+                <div class="mdl-layout-spacer"></div>
+                <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" href="index.html">Início</a>
+            </div>
+        </header>
+        <main class="main-content">
+            <h2>Mudanças Recentes</h2>
+            <div id="loading">Carregando mudanças...</div>
+            <ul class="changes-list" id="changes-list" style="display: none;"></ul>
+            <div id="no-changes" style="display: none;">Nenhuma mudança recente encontrada.</div>
+        </main>
+    </div>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script>
+        // --- Configuração do Firebase (ajuste conforme seu index.html) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const firestore = firebase.firestore();
+
+        // --- Função para buscar mudanças recentes da coleção ---
+        async function loadRecentChanges() {
+            const changesList = document.getElementById('changes-list');
+            const loadingDiv = document.getElementById('loading');
+            const noChangesDiv = document.getElementById('no-changes');
+
+            try {
+                // A coleção será: aplicativo > wikinotpedia > mudancas (ou outro nome conforme Firestore)
+                // Para exemplo, vamos supor subcoleção "mudancas" em "wikinotpedia":
+                const snapshot = await firestore
+                    .collection("aplicativo")
+                    .doc("wikinotpedia")
+                    .collection("mudancas")
+                    .orderBy("data", "desc")
+                    .limit(20)
+                    .get();
+
+                loadingDiv.style.display = 'none';
+                changesList.innerHTML = '';
+                if (snapshot.empty) {
+                    noChangesDiv.style.display = 'block';
+                    changesList.style.display = 'none';
+                    return;
+                }
+                noChangesDiv.style.display = 'none';
+                changesList.style.display = 'block';
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.className = 'change-item';
+
+                    const title = data.titulo || 'Mudança sem título';
+                    const desc = data.descricao || '';
+                    const author = data.autor || 'Desconhecido';
+                    const dateStr = data.data && data.data.toDate ? data.data.toDate().toLocaleString('pt-BR') : '';
+                    const tags = (data.tags && Array.isArray(data.tags) && data.tags.length) ? `Tags: ${data.tags.join(", ")}` : '';
+
+                    li.innerHTML = `
+                        <div class="change-title">${title}</div>
+                        <div class="change-meta">Por ${author}${dateStr ? ' — ' + dateStr : ''}</div>
+                        <div class="change-desc">${desc}</div>
+                        ${tags ? `<div class="change-tags">${tags}</div>` : ''}
+                    `;
+                    changesList.appendChild(li);
+                });
+            } catch (e) {
+                loadingDiv.style.display = 'none';
+                noChangesDiv.style.display = 'block';
+                noChangesDiv.textContent = 'Erro ao carregar mudanças recentes: ' + e.message;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadRecentChanges);
+    </script>
+</body>
+</html>

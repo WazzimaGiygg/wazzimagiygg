@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projetos - Wiki Zone Zero Mod</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #3f51b5;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #auth-status-message {
+            text-align: center;
+            padding: 20px;
+            color: #e65100;
+            font-weight: bold;
+        }
+        #create-project-section, #project-list-section {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        #create-project-section h3, #project-list-section h3 {
+            margin-top: 0;
+            color: #5c6bc0;
+        }
+        #create-project-form .mdl-textfield {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        #create-project-form button {
+            width: 100%;
+            padding: 10px;
+            font-size: 1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #create-project-form button:hover {
+            background-color: #45a049;
+        }
+        .project-card {
+            display: flex;
+            align-items: center;
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .project-card .project-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%; /* You can use a square icon if preferred */
+            object-fit: cover;
+            margin-right: 15px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #bbdefb; /* Light blue background for icon */
+            color: #3f51b5;
+            font-size: 32px;
+        }
+        .project-card .project-details {
+            flex-grow: 1;
+        }
+        .project-card .project-details h4 {
+            margin: 0 0 5px 0;
+            color: #3f51b5;
+        }
+        .project-card .project-details p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #555;
+            line-height: 1.4;
+        }
+        .project-card .join-button {
+            background-color: #ffc107; /* Amber */
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            white-space: nowrap;
+        }
+        .project-card .join-button:hover {
+            background-color: #ffa000; /* Darker Amber */
+        }
+        .project-card .join-button.joined {
+            background-color: #757575; /* Gray */
+            cursor: default;
+        }
+        .loading-message, .no-projects-message {
+            text-align: center;
+            padding: 20px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Projetos</h2>
+
+        <div id="auth-status-message" style="display:none;">Por favor, faça login para ver e interagir com os projetos.</div>
+
+        <div id="create-project-section" style="display:none;">
+            <h3>Criar Novo Projeto</h3>
+            <form id="create-project-form">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <input class="mdl-textfield__input" type="text" id="project-name" required>
+                    <label class="mdl-textfield__label" for="project-name">Nome do Projeto</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                    <textarea class="mdl-textfield__input" type="text" rows="3" id="project-description"></textarea>
+                    <label class="mdl-textfield__label" for="project-description">Descrição do Projeto</label>
+                </div>
+                <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--colored">
+                    Criar Projeto
+                </button>
+            </form>
+        </div>
+
+        <div id="project-list-section">
+            <h3>Projetos Disponíveis</h3>
+            <div id="projects-list">
+                <p class="loading-message">Carregando projetos...</p>
+            </div>
+        </div>
+    </div>
+
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
+    <script>
+        // Inicialização do Firebase (MESMA CONFIGURAÇÃO DO INDEX.HTML/PÁGINA PRINCIPAL)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+
+        let currentUser = null; // Variável global para o usuário logado
+        let userProjects = []; // Armazenará os UIDs dos projetos que o usuário participa
+
+        // --- Elementos do DOM ---
+        const authStatusMessage = document.getElementById('auth-status-message');
+        const createProjectSection = document.getElementById('create-project-section');
+        const createProjectForm = document.getElementById('create-project-form');
+        const projectNameInput = document.getElementById('project-name');
+        const projectDescriptionInput = document.getElementById('project-description');
+        const projectsListDiv = document.getElementById('projects-list');
+
+        // --- Funções Auxiliares ---
+
+        // Função para carregar os projetos que o usuário participa
+        async function loadUserJoinedProjects(userId) {
+            userProjects = []; // Limpa antes de carregar
+            if (!userId) return;
+
+            try {
+                // Caminho para o documento do usuário
+                const userDocRef = firestore.collection('social').doc('users').collection(userId).doc(userId);
+                const userDoc = await userDocRef.get();
+
+                if (userDoc.exists && userDoc.data() && userDoc.data().projetosParticipantes) {
+                    userProjects = userDoc.data().projetosParticipantes;
+                }
+            } catch (error) {
+                console.error("Erro ao carregar projetos do usuário:", error);
+            }
+        }
+
+        // Função para criar um novo projeto
+        async function createProject(event) {
+            event.preventDefault(); // Impede o recarregamento da página
+
+            if (!currentUser) {
+                alert('Você precisa estar logado para criar um projeto.');
+                return;
+            }
+
+            const name = projectNameInput.value.trim();
+            const description = projectDescriptionInput.value.trim();
+
+            if (!name) {
+                alert('O nome do projeto é obrigatório.');
+                return;
+            }
+
+            try {
+                // Adiciona o projeto no Firestore
+                // Gera um UID automático para o novo projeto
+                const newProjectRef = firestore.collection('social').doc('projetos').collection(firestore.collection('social').doc('projetos').doc().id).doc(); // Gera um ID único para a subcoleção e para o documento
+                const newProjectId = newProjectRef.id;
+
+                await newProjectRef.set({
+                    nomeProjeto: name,
+                    uidAdmin: currentUser.uid,
+                    membros: [currentUser.uid], // O criador já é um membro
+                    descricao: description,
+                    status: 'ativo', // Status inicial padrão
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Adiciona o novo projeto à lista de projetos participantes do usuário
+                const userDocRef = firestore.collection('social').doc('users').collection(currentUser.uid).doc(currentUser.uid);
+                await userDocRef.update({
+                    projetosParticipantes: firebase.firestore.FieldValue.arrayUnion(newProjectId)
+                });
+
+                alert('Projeto criado e você se tornou um membro!');
+                createProjectForm.reset(); // Limpa o formulário
+                loadProjects(); // Recarrega a lista de projetos
+            } catch (error) {
+                console.error("Erro ao criar projeto:", error);
+                alert('Erro ao criar projeto. Tente novamente.');
+            }
+        }
+
+        // Função para renderizar um projeto
+        function renderProject(project) {
+            const projectCard = document.createElement('div');
+            projectCard.classList.add('project-card');
+            projectCard.dataset.projectId = project.id; // Armazena o ID do projeto
+
+            const isMember = userProjects.includes(project.id);
+            const buttonText = isMember ? 'Membro' : 'Participar';
+            const buttonClass = isMember ? 'join-button joined' : 'join-button';
+            const buttonDisabled = isMember ? 'disabled' : '';
+
+            projectCard.innerHTML = `
+                <div class="project-icon"><i class="material-icons">folder_open</i></div>
+                <div class="project-details">
+                    <h4>${project.nomeProjeto}</h4>
+                    <p>${project.descricao || 'Nenhuma descrição fornecida.'}</p>
+                    <p>Membros: ${project.membros ? project.membros.length : 0}</p>
+                    <p>Status: ${project.status || 'Não definido'}</p>
+                </div>
+                <button class="${buttonClass}" ${buttonDisabled} data-project-id="${project.id}">
+                    ${buttonText}
+                </button>
+            `;
+
+            const joinButton = projectCard.querySelector('.join-button');
+            if (!isMember) { // Apenas adiciona o listener se o usuário não for membro
+                joinButton.addEventListener('click', () => joinProject(project.id));
+            }
+            return projectCard;
+        }
+
+        // Função para carregar todos os projetos
+        async function loadProjects() {
+            projectsListDiv.innerHTML = '<p class="loading-message">Carregando projetos...</p>';
+            try {
+                // Busca todos os projetos
+                // Como cada projeto é uma subcoleção com um documento de mesmo UID, precisamos iterar as subcoleções
+                const projectsCollectionRef = firestore.collection('social').doc('projetos');
+                const projectSubcollections = await projectsCollectionRef.listCollections();
+
+                const projects = [];
+                for (const subcollectionRef of projectSubcollections) {
+                    const projectDocRef = subcollectionRef.doc(subcollectionRef.id);
+                    const projectDoc = await projectDocRef.get();
+                    if (projectDoc.exists && projectDoc.data()) {
+                        projects.push({ id: projectDoc.id, ...projectDoc.data() });
+                    }
+                }
+
+                if (projects.length === 0) {
+                    projectsListDiv.innerHTML = '<p class="no-projects-message">Nenhum projeto encontrado.</p>';
+                    return;
+                }
+
+                projectsListDiv.innerHTML = ''; // Limpa o "Carregando..."
+                for (const project of projects) {
+                    const projectElement = renderProject(project);
+                    projectsListDiv.appendChild(projectElement);
+                }
+
+                // Upgrade MDL components after adding new elements
+                if (componentHandler) {
+                    componentHandler.upgradeElements(projectsListDiv);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar projetos:", error);
+                projectsListDiv.innerHTML = '<p class="loading-message" style="color: red;">Erro ao carregar projetos. Tente novamente mais tarde.</p>';
+            }
+        }
+
+        // Função para o usuário entrar em um projeto
+        async function joinProject(projectId) {
+            if (!currentUser) {
+                alert('Você precisa estar logado para participar de um projeto.');
+                return;
+            }
+
+            try {
+                // 1. Adicionar o UID do usuário ao array 'membros' do projeto
+                const projectDocRef = firestore.collection('social').doc('projetos').collection(projectId).doc(projectId);
+                await projectDocRef.update({
+                    membros: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+
+                // 2. Adicionar o UID do projeto ao array 'projetosParticipantes' do perfil do usuário
+                const userDocRef = firestore.collection('social').doc('users').collection(currentUser.uid).doc(currentUser.uid);
+                await userDocRef.update({
+                    projetosParticipantes: firebase.firestore.FieldValue.arrayUnion(projectId)
+                });
+
+                alert('Você entrou no projeto com sucesso!');
+                // Recarrega a lista para atualizar o status do botão
+                await loadUserJoinedProjects(currentUser.uid); // Atualiza a lista local
+                loadProjects(); // Recarrega o display
+            } catch (error) {
+                console.error("Erro ao entrar no projeto:", error);
+                alert('Erro ao entrar no projeto. Tente novamente.');
+            }
+        }
+
+
+        // --- Event Listeners e Gerenciamento de Autenticação ---
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user; // Atualiza o usuário logado
+
+            if (user) {
+                authStatusMessage.style.display = 'none';
+                createProjectSection.style.display = 'block';
+                await loadUserJoinedProjects(user.uid); // Carrega os projetos que o usuário já participa
+            } else {
+                authStatusMessage.style.display = 'block';
+                createProjectSection.style.display = 'none';
+                userProjects = []; // Limpa os projetos do usuário se deslogado
+            }
+
+            // Sempre carrega a lista de projetos (visível para todos, mas o botão de "Participar" será condicional)
+            loadProjects();
+
+            // Atualiza o MDL DOM para os novos elementos/estados
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
+
+        // Adiciona o listener para o formulário de criação de projeto
+        createProjectForm.addEventListener('submit', createProject);
+
+        // Inicializa o MDL para os elementos estáticos
+        document.addEventListener('DOMContentLoaded', () => {
+            if (componentHandler) {
+                componentHandler.upgradeDom();
+            }
+        });
+    </script>
+</body>
+</html>
