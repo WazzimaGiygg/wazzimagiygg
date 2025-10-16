@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WZZM - Sistema Operacional Web</title>
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    
+    <style>
+        /* --------------------------------------------------------------------------------- */
+        /* ESTILOS DE TRANSFORMAÇÃO PARA WINDOWS (MANTIDOS) */
+        /* --------------------------------------------------------------------------------- */
+        
+        /* O corpo agora é o container do sistema operacional, oculto até o login */
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Garante que apenas o desktop apareça */
+        }
+        
+        /* 1. Desktop Background */
+        #windows-desktop {
+            width: 100vw;
+            height: 100vh;
+            background-color: #3f51b5; /* Azul do Windows */
+            background-image: linear-gradient(45deg, rgba(255,255,255,.05) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.05) 50%, rgba(255,255,255,.05) 75%, transparent 75%, transparent);
+            background-size: 40px 40px;
+            position: relative;
+            display: none; /* Oculto por padrão, ativado após o login */
+        }
+
+        /* 2. Taskbar (Barra de Tarefas) */
+        #windows-taskbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background-color: #c0c0c0; /* Cinza clássico */
+            border-top: 2px solid #fff;
+            display: flex;
+            align-items: center;
+            padding: 0 5px;
+            box-shadow: 0 -1px 3px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        #start-button {
+            background-color: #000080; /* Botão iniciar escuro */
+            color: white;
+            padding: 5px 10px;
+            border-right: 2px solid #000;
+            border-bottom: 2px solid #000;
+            border-left: 2px solid #fff;
+            border-top: 2px solid #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .taskbar-apps {
+            display: flex;
+            flex-grow: 1;
+        }
+
+        .taskbar-item {
+            background-color: #c0c0c0;
+            color: #000;
+            border: 1px solid #000;
+            padding: 5px 10px;
+            margin: 0 2px;
+            cursor: pointer;
+            font-size: 0.9em;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+            box-shadow: 1px 1px 0 #000; /* Borda 3D */
+            transition: none;
+        }
+
+        .taskbar-item:hover {
+            filter: brightness(1.1);
+        }
+
+        .taskbar-item.active {
+            /* Aparência de botão pressionado */
+            background-color: #f8f8f8;
+            border-style: inset;
+            border-color: #000 #fff #fff #000;
+            box-shadow: inset 1px 1px 1px rgba(0,0,0,0.3);
+        }
+
+        .logout-item {
+            background-color: #d32f2f;
+            color: white;
+            border: 1px solid #9a0007;
+            box-shadow: 1px 1px 0 #9a0007;
+        }
+        
+        /* 3. Window Frame (Janela) */
+        .window-frame {
+            position: absolute;
+            background-color: #f0f0f0; /* Fundo da janela */
+            border: 1px solid #000;
+            box-shadow: 5px 5px 10px rgba(0,0,0,0.5); /* Sombra de janela */
+            min-width: 300px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            resize: both; /* Permite redimensionamento */
+            overflow: hidden;
+        }
+        
+        .window-title-bar {
+            background-color: #005fb8; /* Windows 10 Blue */
+            color: white;
+            padding: 5px 10px;
+            cursor: move; /* Cursor para arrastar */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .window-controls button {
+            background-color: #c0c0c0;
+            border: 1px solid #000;
+            padding: 0 5px;
+            margin-left: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            line-height: 1;
+            width: 25px;
+            height: 25px;
+            font-weight: bold;
+            box-shadow: 1px 1px 0 #000;
+        }
+        
+        .window-controls button:active {
+            box-shadow: inset 1px 1px 1px rgba(0,0,0,0.5);
+        }
+
+        .close-btn {
+            background-color: #d32f2f !important;
+            color: white;
+            border-color: #9a0007;
+        }
+
+        .window-content {
+            padding: 10px;
+            overflow: auto;
+            flex-grow: 1;
+            /* O layout interno das janelas que contêm #artigos-pane (sidebar) */
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            grid-template-areas: "sidebar main-content";
+            gap: 20px;
+        }
+        
+        /* Garante que os painéis internos não tenham a altura fixa do CSS original */
+        .window-content .content-pane {
+            width: auto !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow-y: visible !important;
+            padding: 0; 
+            border: none;
+            box-shadow: none;
+            background-color: transparent;
+        }
+        
+        /* Garante que o painel da lista de artigos use o espaço na janela */
+        #artigos-pane {
+            grid-area: sidebar;
+        }
+        #conteudo-principal {
+            grid-area: main-content;
+        }
+        
+        /* Para janelas de conteúdo único (como Criar Artigo, Busca Avançada) */
+        #window-novo-artigo .window-content,
+        #window-buscar-artigos .window-content,
+        #window-minhas-contribuicoes .window-content,
+        #window-busca-avancada .window-content,
+        #window-pagina-usuario .window-content {
+            display: block; /* Remove o layout grid */
+        }
+
+        /* --------------------------------------------------------------------------------- */
+        /* ESTILOS DE LOGIN (MANTIDOS E MELHORADOS PARA O BOTÃO GOOGLE) */
+        /* --------------------------------------------------------------------------------- */
+        
+        /* Estilos do formulário de login */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+        }
+        
+        .login-form {
+            background-color: #ffffff;
+            padding: 40px;
+            border: 1px solid #a2a9b1;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 350px;
+            text-align: center;
+        }
+
+        /* Estilo do Botão Google (ADICIONADO) */
+        .google-btn {
+            background-color: #4285f4; /* Azul Google */
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        
+        .google-btn:hover {
+            background-color: #357ae8;
+        }
+
+        .google-icon {
+            /* Adiciona o ícone do Google como um elemento inline */
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M12.24 9.15c0-.66-.07-1.32-.2-1.96h-5.91v3.75h3.42c-.15.93-.65 1.77-1.42 2.37v2.45h3.15c1.84-1.69 2.89-4.17 2.89-7.01z" fill-rule="evenodd"/><path fill="#fbb03b" d="M4.33 11.23c-.27-.79-.43-1.63-.43-2.58s.16-1.79.43-2.58v-2.55h-3.15c-.66 1.32-1.04 2.85-1.04 4.49s.38 3.17 1.04 4.49l3.15-2.55z"/><path fill="#518ef8" d="M17.44 9.15c0-.62-.06-1.24-.16-1.83h-7.88v3.75h4.63c-.19 1.15-.75 2.16-1.59 2.9v2.45h3.15c1.84-1.69 2.89-4.17 2.89-7.01z" fill-rule="evenodd"/><path fill="#28b463" d="M4.33 11.23l-3.15 2.55c.66 1.32 1.54 2.39 2.68 3.12 1.14.73 2.45 1.09 3.82 1.09.91 0 1.79-.19 2.6-.57l-3.15-2.55c-.27-.79-.43-1.63-.43-2.58z"/><path fill="#f14336" d="M7.68 2.06c1.17 0 2.27.39 3.17 1.05l2.45-2.45c-1.3-.87-2.85-1.35-4.52-1.35-1.37 0-2.68.36-3.82 1.09l3.15 2.55z"/></svg>') no-repeat center center;
+            background-size: contain;
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div class="login-container" id="login-section">
+        <div class="login-form">
+            <h2>Entrar no WZZM OS</h2>
+            <p>Use sua conta Google para continuar.</p>
+            <button id="google-login-btn" class="google-btn">
+                <div class="google-icon"></div>
+                Entrar com Google
+            </button>
+        </div>
+    </div>
+
+    <div id="windows-desktop">
+    
+        <div id="windows-taskbar">
+            <div id="start-button">
+                <span class="material-icons">laptop_windows</span> WZZM OS
+            </div>
+            <div class="taskbar-apps">
+                <button id="artigos-btn" data-window-id="window-artigos" class="taskbar-item">Artigos Recentes</button>
+                <button id="criar-artigo-btn" data-window-id="window-novo-artigo" class="taskbar-item">Criar Artigo</button>
+                <button id="buscar-artigos-btn" data-window-id="window-buscar-artigos" class="taskbar-item">Buscar Artigos</button>
+                <button id="minhas-contribuicoes-btn" data-window-id="window-minhas-contribuicoes" class="taskbar-item">Contribuições</button>
+                <button id="busca-avancada-btn" data-window-id="window-busca-avancada" class="taskbar-item">Busca Avançada</button>
+                <button id="perfil-btn" data-window-id="window-pagina-usuario" class="taskbar-item">Meu Perfil</button>
+            </div>
+            <div class="taskbar-right">
+                <button id="logout-button" class="taskbar-item logout-item">Sair</button>
+            </div>
+        </div>
+
+        <div id="windows-container">
+
+            <div id="window-artigos" class="window-frame" data-content-id="artigos-pane" style="width: 800px; height: 500px; left: 50px; top: 50px; display: none;">
+                <div class="window-title-bar">
+                    <span class="window-title">Artigos Recentes e Detalhes - WZZM</span>
+                    <div class="window-controls">
+                        <button class="control-button minimize-btn" title="Minimizar">_</button>
+                        <button class="control-button close-btn" title="Fechar">X</button>
+                    </div>
+                </div>
+                <div class="window-content">
+                    <div id="artigos-pane" class="lista-artigos-pane">
+                        <h2 id="artigos-title">Artigos Recentes</h2>
+                        <div id="artigos-list">
+                            <p style="text-align: center; color: #666;">Carregando...</p>
+                        </div>
+                    </div>
+
+                    <div id="conteudo-principal">
+                        <div class="detalhes-artigo content-pane" id="detalhes-artigo" style="display: block;">
+                            <p style="text-align: center; color: #888;">Selecione um artigo na lista para ver os detalhes.</p>
+                        </div>
+
+                        <div id="editor-artigo" class="content-pane" style="display: none;">
+                            <form id="form-edicao-artigo"><h2>Editar Artigo</h2>...</form>
+                        </div>
+                        <div id="historico-artigo" class="content-pane" style="display: none;">
+                            <h2 style="border-bottom: 1px solid #a2a9b1;">Histórico de Edições</h2><div id="lista-historico"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="window-novo-artigo" class="window-frame" data-content-id="novo-artigo" style="width: 600px; height: 550px; left: 150px; top: 150px; display: none;">
+                <div class="window-title-bar">
+                    <span class="window-title">Criar Novo Artigo - WZZM</span>
+                    <div class="window-controls">
+                        <button class="control-button minimize-btn" title="Minimizar">_</button>
+                        <button class="control-button close-btn" title="Fechar">X</button>
+                    </div>
+                </div>
+                <div class="window-content">
+                    <div id="novo-artigo" class="content-pane" style="display: block;">
+                        <form id="form-novo-artigo"><h2>Criar Novo Artigo</h2>...</form>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="window-busca-avancada" class="window-frame" data-content-id="busca-avancada-pane" style="width: 500px; height: 400px; left: 250px; top: 250px; display: none;">
+                <div class="window-title-bar">
+                    <span class="window-title">Busca Avançada - WZZM</span>
+                    <div class="window-controls">
+                        <button class="control-button minimize-btn" title="Minimizar">_</button>
+                        <button class="control-button close-btn" title="Fechar">X</button>
+                    </div>
+                </div>
+                <div class="window-content">
+                    <div id="busca-avancada-pane" class="content-pane" style="display: block;">
+                        <h2>Busca Avançada</h2>
+                        <form id="busca-avancada-form" class="search-form">...</form>
+                    </div>
+                </div>
+            </div>
+
+            <div id="window-buscar-artigos" class="window-frame" data-content-id="buscar-artigos-pane" style="width: 900px; height: 600px; left: 100px; top: 100px; display: none;">
+                <div class="window-title-bar">
+                    <span class="window-title">Buscar Artigos e Trabalhos - WZZM</span>
+                    <div class="window-controls">
+                        <button class="control-button minimize-btn" title="Minimizar">_</button>
+                        <button class="control-button close-btn" title="Fechar">X</button>
+                    </div>
+                </div>
+                <div class="window-content">
+                    <div id="buscar-artigos-pane" class="content-pane" style="display: block;">
+                        <div class="container">
+                            <h1>Wiki Zero - Busca de Artigos e Trabalhos</h1>
+                            <div class="search-container">...</div>
+                            <div id="articles-list" class="mdl-grid">...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="window-minhas-contribuicoes" class="window-frame" data-content-id="minhas-contribuicoes" style="width: 600px; height: 500px; left: 300px; top: 300px; display: none;">
+                <div class="window-title-bar">
+                    <span class="window-title">Minhas Contribuições - WZZM</span>
+                    <div class="window-controls">
+                        <button class="control-button minimize-btn" title="Minimizar">_</button>
+                        <button class="control-button close-btn" title="Fechar">X</button>
+                    </div>
+                </div>
+                <div class="window-content">
+                    <div id="minhas-contribuicoes" class="content-pane" style="display: block;">
+                        <h2>Minhas Contribuições</h2>
+                        <ul id="contribuicoesListaPrincipal"> <p style="text-align: center; color: #888;">Carregando contribuições...</p> </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="window-pagina-usuario" class="window-frame" data-content-id="pagina-usuario" style="width: 700px; height: 550px; left: 200px; top: 200px; display: none;">
+                <div class="window-title-bar">
+                    <span class="window-title" id="user-window-title">Meu Perfil - WZZM</span>
+                    <div class="window-controls">
+                        <button class="control-button minimize-btn" title="Minimizar">_</button>
+                        <button class="control-button close-btn" title="Fechar">X</button>
+                    </div>
+                </div>
+                <div class="window-content">
+                    <div id="pagina-usuario" class="content-pane" style="display: block;">
+                           <div class="user-header"> 
+                                <h1 id="user-display-name" style="margin: 0;"></h1> 
+                                <p id="user-role" style="color: #72777d; margin: 5px 0 0 0;"></p>
+                                <div class="user-tabs" style="margin-top: 1em;"> 
+                                    <button class="tab-button active" data-tab="contribuicoes">Minhas Contribuições</button> 
+                                    <button class="tab-button" data-tab="pagina-pessoal">Página Pessoal</button> 
+                                    <button class="tab-button" data-tab="discussao">Discussão</button> 
+                                </div> 
+                           </div>  
+                           <div id="contribuicoes-tab" class="tab-content" style="display: block;"> <h3 style="margin-top: 0;">Últimas Contribuições</h3> <ul id="contribuicoesLista"> <p style="text-align: center; color: #888;">Carregando contribuições...</p> </ul> </div>  
+                           <div id="pagina-pessoal-tab" class="tab-content" style="display: none;"> <h3 style="margin-top: 0;">Minha Página</h3> <textarea id="pagina-pessoal-textarea" rows="20"></textarea> <div style="margin-top: 10px;"> <button id="salvar-pagina-pessoal">Salvar</button> <button id="cancelar-pagina-pessoal">Cancelar</button> </div> </div>  
+                           <div id="discussao-tab" class="tab-content" style="display: none;"> <h3 style="margin-top: 0;">Mensagens e Notificações</h3> <div id="lista-mensagens"> <p style="text-align: center; color: #888;">Nenhuma mensagem nova.</p> </div> </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    
+    <script>
+    // Funções placeholder que precisam existir para o código não quebrar
+    function buscarArtigos() { console.log('Buscando artigos...'); }
+    function loadMinhasContribuicoes() { console.log('Carregando contribuições...'); }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // 🚨 1. CONFIGURAÇÃO DO FIREBASE (SUBSTITUA PELO SEU OBJETO REAL)
+        const firebaseConfig = {
+apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
+authDomain: "wzzm-ce3fc.firebaseapp.com",
+projectId: "wzzm-ce3fc",a
+storageBucket: "wzzm-ce3fc.appspot.com",
+messagingSenderId: "249427877153",
+appId: "1:249427877153:web:0e4297294794a5aadeb260",
+measurementId: "G-PLKNZNFCQ8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+        // Elementos da interface
+        const loginSection = document.getElementById('login-section');
+        const windowsDesktop = document.getElementById('windows-desktop'); // O novo container principal
+        const logoutButton = document.getElementById('logout-button');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        
+        // Botões da Taskbar
+        const taskbarItems = document.querySelectorAll('.taskbar-apps .taskbar-item');
+
+        // Referências internas das janelas
+        const detalhesArtigo = document.getElementById('detalhes-artigo');
+        const artigosList = document.getElementById('artigos-list');
+        const formEdicaoArtigo = document.getElementById('form-edicao-artigo');
+        const formNovoArtigo = document.getElementById('form-novo-artigo');
+        
+        let currentUserRole = 'guest';
+        let artigoSelecionado = null;
+        let zIndexCounter = 10;
+        
+        // --- FUNÇÕES DE GERENCIAMENTO DE JANELAS (MANTIDAS) ---
+        
+        function bringToFront(windowElement) {
+            zIndexCounter++;
+            windowElement.style.zIndex = zIndexCounter;
+            
+            // Gerenciamento do estado 'active' na Taskbar
+            document.querySelectorAll('.taskbar-apps .taskbar-item').forEach(btn => btn.classList.remove('active'));
+            const windowId = windowElement.id;
+            const taskbarButton = document.querySelector(`.taskbar-apps [data-window-id="${windowId}"]`);
+            if (taskbarButton) {
+                taskbarButton.classList.add('active');
+            }
+        }
+        
+        function openWindow(windowId) {
+            const windowElement = document.getElementById(windowId);
+            if (!windowElement) return;
+
+            // Se for o botão de um item na taskbar já aberto, minimiza (toggle visibility)
+            if (windowElement.style.display === 'flex' && windowElement.style.zIndex === zIndexCounter.toString()) {
+                windowElement.style.display = 'none';
+                document.querySelector(`.taskbar-apps [data-window-id="${windowId}"]`).classList.remove('active');
+                return;
+            }
+            
+            windowElement.style.display = 'flex';
+            bringToFront(windowElement);
+            
+            // Lógica específica para o conteúdo da janela
+            if (windowId === 'window-artigos') {
+                // ...
+            }
+            if (windowId === 'window-minhas-contribuicoes' && auth.currentUser) {
+                loadMinhasContribuicoes(); 
+            }
+        }
+        
+        function makeWindowDraggableAndResizable(windowElement) {
+            const titleBar = windowElement.querySelector('.window-title-bar');
+            
+            // Clique para trazer para frente
+            windowElement.addEventListener('mousedown', (e) => {
+                if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                   bringToFront(windowElement);
+                }
+            });
+
+            // Lógica de Arrastar (Mantida)
+            titleBar.addEventListener('mousedown', (e) => {
+                if (e.target.tagName !== 'BUTTON') {
+                    bringToFront(windowElement);
+                    e.preventDefault();
+                    let shiftX = e.clientX - windowElement.getBoundingClientRect().left;
+                    let shiftY = e.clientY - windowElement.getBoundingClientRect().top;
+
+                    function moveAt(pageX, pageY) {
+                        let newLeft = pageX - shiftX;
+                        let newTop = pageY - shiftY;
+                        
+                        // Limites do desktop
+                        const desktop = document.getElementById('windows-desktop');
+                        const desktopRect = desktop.getBoundingClientRect();
+                        
+                        if (newLeft < -windowElement.offsetWidth + 50) newLeft = -windowElement.offsetWidth + 50;
+                        if (newTop < 0) newTop = 0;
+                        if (newLeft + windowElement.offsetWidth > desktopRect.width) newLeft = desktopRect.width - windowElement.offsetWidth;
+                        if (newTop + windowElement.offsetHeight > desktopRect.height - 40) newTop = desktopRect.height - 40; // 40px da taskbar
+
+                        windowElement.style.left = newLeft + 'px';
+                        windowElement.style.top = newTop + 'px';
+                    }
+
+                    function onMouseMove(e) {
+                        moveAt(e.pageX, e.pageY);
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+
+                    titleBar.onmouseup = function() {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        titleBar.onmouseup = null;
+                    };
+                }
+            });
+            titleBar.ondragstart = () => false; // Previne o drag default
+
+            // Lógica de Controles (Fechamento/Minimização)
+            windowElement.querySelector('.close-btn').addEventListener('click', () => {
+                windowElement.style.display = 'none';
+                document.querySelector(`.taskbar-apps [data-window-id="${windowElement.id}"]`).classList.remove('active');
+            });
+            
+            windowElement.querySelector('.minimize-btn').addEventListener('click', () => {
+                windowElement.style.display = 'none';
+                // O item da taskbar fica 'ativo' mesmo minimizado (opcional)
+            });
+        }
+        
+        // --- Lógica de Autenticação (Implementação do Google Login) ---
+
+        // 🚨 2. FUNÇÃO DE LOGIN DO GOOGLE
+        googleLoginBtn.addEventListener('click', async () => {
+            try {
+                // Abre o pop-up de login do Google
+                const result = await auth.signInWithPopup(googleProvider);
+                // O onAuthStateChanged tratará o resto
+                console.log('Usuário logado com Google:', result.user.displayName);
+            } catch (error) {
+                // Tratar erros (ex: pop-up bloqueado, usuário cancelou)
+                console.error("Erro no login do Google:", error.message);
+                alert(`Erro ao tentar login com Google: ${error.message}`);
+            }
+        });
+
+        // 🚨 3. VERIFICAÇÃO DO ESTADO DE AUTENTICAÇÃO
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Usuário logado
+                loginSection.style.display = 'none';
+                windowsDesktop.style.display = 'block'; // Mostra o Desktop
+                
+                // Exemplo de como obter e setar a role (necessário configurar no seu Firestore/Backend)
+                // const userDoc = await db.collection('users').doc(user.uid).get();
+                // currentUserRole = userDoc.exists ? (userDoc.data().role || 'user') : 'user';
+                currentUserRole = 'user'; // Valor padrão para demonstração
+
+                // Inicializa todas as janelas para serem arrastáveis/redimensionáveis
+                document.querySelectorAll('.window-frame').forEach(makeWindowDraggableAndResizable);
+
+                // Abre a janela padrão (Artigos Recentes)
+                openWindow('window-artigos'); 
+                
+                // Exibe o nome do usuário na janela de Perfil
+                document.getElementById('user-display-name').textContent = user.displayName || user.email;
+                document.getElementById('user-role').textContent = `Cargo: ${currentUserRole}`;
+                
+                // Carrega os artigos iniciais
+                buscarArtigos(); 
+            } else {
+                // Usuário deslogado
+                loginSection.style.display = 'flex';
+                windowsDesktop.style.display = 'none'; // Oculta o Desktop
+                currentUserRole = 'guest';
+            }
+        });
+
+        // Event Listener de Logout (Mantido)
+        logoutButton.addEventListener('click', () => { 
+            auth.signOut(); 
+        });
+
+        // Event Listeners dos botões da Taskbar (Mantidos)
+        taskbarItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                const windowId = e.currentTarget.getAttribute('data-window-id');
+                if (windowId) {
+                    openWindow(windowId);
+                }
+            });
+        });
+        
+        // Listener para o botão de Perfil (Mantido)
+        document.getElementById('perfil-btn').addEventListener('click', () => {
+            openWindow('window-pagina-usuario');
+        });
+        
+        // Exemplo de refatoração para navegação interna de detalhes/edição (Mantida)
+        function exibirArtigoDetalhes(artigo) {
+            openWindow('window-artigos'); // Garante que a janela principal esteja aberta
+            // ... (lógica de exibição) ...
+        }
+        
+    });
+    </script>
+
+</body>
+</html>
