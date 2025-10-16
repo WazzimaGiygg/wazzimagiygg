@@ -11,7 +11,7 @@
         /* 1. ESTILOS DO DESKTOP (SIMULAÇÃO WINDOWS) */
         /* ======================================= */
         :root {
-            --desktop-bg: #008080; /* Cor de fundo Windows 95/XP */
+            --desktop-bg: #008080;
             --taskbar-bg: #c0c0c0;
             --taskbar-border: #ffffff;
             --menu-bg: #c0c0c0;
@@ -25,20 +25,18 @@
             margin: 0;
             padding: 0;
             height: 100%;
-            overflow: hidden; /* Garante que apenas o desktop seja visível */
+            overflow: hidden;
             font-family: var(--desktop-font);
             color: var(--menu-text-color);
             background-color: var(--desktop-bg);
         }
 
-        /* Área de Conteúdo Principal (Desktop) */
         #desktop {
-            height: calc(100vh - 40px); /* Altura total menos a barra de tarefas */
+            height: calc(100vh - 40px);
             width: 100%;
             position: relative;
         }
 
-        /* Barra de Tarefas */
         #taskbar {
             position: fixed;
             bottom: 0;
@@ -53,7 +51,6 @@
             z-index: 1000;
         }
 
-        /* Botão Iniciar */
         #start-button {
             height: 100%;
             padding: 0 15px;
@@ -75,17 +72,16 @@
             padding-right: 13px;
         }
 
-        /* Menu Iniciar */
         #start-menu {
             position: absolute;
-            bottom: 40px; /* Acima da barra de tarefas */
+            bottom: 40px;
             left: 0;
             width: 200px;
             background-color: var(--menu-bg);
             border: 2px solid var(--taskbar-border);
             border-right: 2px solid #000;
             border-bottom: 2px solid #000;
-            display: none; /* Inicialmente oculto */
+            display: none;
             z-index: 999;
             box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
         }
@@ -110,7 +106,6 @@
             margin: 4px 0;
         }
         
-        /* Área de Conteúdo (Janela principal de trabalho) */
         #desktop-content-area {
             position: absolute;
             top: 20px;
@@ -126,21 +121,16 @@
         }
 
         /* ======================================= */
-        /* 2. ESTILOS DO PAINEL DE ARTIGOS */
-        /* (Extraídos e ajustados para o novo layout) */
+        /* 2. ESTILOS DO PAINEL DE ARTIGOS (DO MODELO ORIGINAL) */
         /* ======================================= */
 
         #artigos-pane {
             height: 100%;
             overflow-y: auto;
-            display: grid;
-            grid-template-columns: 300px 1fr; /* Coluna para lista e coluna para detalhes */
+            /* Usamos um grid simulando o 'content-split' */
+            display: grid; 
+            grid-template-columns: 350px 1fr; /* Coluna 1: Lista (350px), Coluna 2: Detalhes */
             gap: 10px;
-        }
-        #artigos-list-container {
-            border-right: 1px solid #ccc;
-            padding-right: 10px;
-            overflow-y: auto;
         }
         #artigos-title {
             grid-column: 1 / 3;
@@ -162,7 +152,7 @@
         }
         
         .artigo-item {
-            padding: 8px;
+            padding: 1em;
             border-bottom: 1px solid #eaecf0;
             cursor: pointer;
             transition: background-color 0.2s;
@@ -232,60 +222,109 @@
         const artigosList = document.getElementById('artigos-list');
         const detalhesArtigo = document.getElementById('detalhes-artigo');
         let artigoSelecionado = null;
+        
+        // Variável de simulação do Firestore para evitar erros no navegador
+        // SUBSTITUA ESTE BLOCO PELO SEU CÓDIGO DE INICIALIZAÇÃO DO FIREBASE REAL
+        const db = {
+            collection: (name) => ({
+                orderBy: (field, direction) => ({
+                    limit: (num) => ({
+                        get: async () => ({
+                            docs: [
+                                { id: "a1", data: () => ({ title: "Artigo Mock 1", description: "Simulação de busca de artigos.", lastModified: { toDate: () => new Date() }, createdAt: { toDate: () => new Date() } }) },
+                                { id: "a2", data: () => ({ title: "Artigo Mock 2", description: "Dados simulados para teste.", lastModified: { toDate: () => new Date(Date.now() - 86400000) }, createdAt: { toDate: () => new Date(Date.now() - 86400000) } }) },
+                            ],
+                            // Implementação do where para simular o filtro de busca
+                            where: (field, operator, value) => {
+                                // Apenas simula o comportamento de sucesso/falha
+                                if(value === 'teste') {
+                                    return { get: async () => ({ docs: [] }) }; 
+                                }
+                                return { get: async () => ({ docs: [{ id: "a_uid", data: () => ({ title: "Busca por UID", description: "Resultado do filtro UID.", lastModified: { toDate: () => new Date() }, createdAt: { toDate: () => new Date() } }) }] }) }; 
+                            }
+                        })
+                    })
+                }),
+                doc: (uid) => ({
+                    get: async () => {
+                        if (uid === 'simulacao_uid') {
+                            return { 
+                                exists: true, 
+                                id: uid, 
+                                data: () => ({ title: "Artigo Buscado por UID", description: "Este é o artigo específico.", lastModified: { toDate: () => new Date() }, createdAt: { toDate: () => new Date() } }) 
+                            };
+                        }
+                        return { exists: false };
+                    }
+                })
+            })
+        };
+
+        // Função de simulação necessária para exibir o conteúdo detalhado
+        function exibirDetalhesArtigo(artigo) {
+            detalhesArtigo.innerHTML = `
+                <h2>${artigo.title}</h2>
+                <p><strong>Descrição:</strong> ${artigo.description}</p>
+                <p>Conteúdo completo do artigo ${artigo.id} seria carregado aqui.</p>
+                <hr>
+                <p style="font-size: 0.8em;">Última Edição: ${new Date(artigo.lastModified.toDate()).toLocaleString('pt-BR')}</p>
+            `;
+        }
+        
+        // Função de simulação necessária para exibir o painel principal (se usada)
+        function exibirPainel(panelId) {
+            // No nosso desktop, apenas garantimos que o artigos-pane está visível
+            if (panelId === 'detalhes-artigo') {
+                 // NOP: detalhes-artigo já está visível dentro de artigos-pane
+            }
+        }
+        
 
         // --- LÓGICA DO MENU INICIAR ---
         startButton.addEventListener('click', () => {
             startMenu.style.display = startMenu.style.display === 'block' ? 'none' : 'block';
         });
 
-        // Oculta o menu ao clicar em qualquer lugar fora dele (opcional, mas recomendado)
+        // Oculta o menu ao clicar fora
         document.addEventListener('click', (event) => {
             if (!taskbar.contains(event.target) && startMenu.style.display === 'block') {
                 startMenu.style.display = 'none';
             }
         });
 
-        // --- MOCK DE DEPENDÊNCIAS (SUBSTITUIR PELO SEU FIREBASE REAL) ---
-        
-        // 1. Mock do Firebase Firestore
-        const db = {
-            collection: (name) => ({
-                orderBy: () => ({
-                    limit: () => ({
-                        get: async () => ({
-                            docs: [
-                                { id: "a1", data: () => ({ title: "Introdução ao Desktop", description: "Primeiro artigo sobre a simulação da área de trabalho.", lastModified: { toDate: () => new Date() }, createdAt: { toDate: () => new Date() } }) },
-                                { id: "a2", data: () => ({ title: "Personalizando a Barra de Tarefas", description: "Dicas e truques para customizar a barra de tarefas no seu novo ambiente.", lastModified: { toDate: () => new Date(Date.now() - 86400000) }, createdAt: { toDate: () => new Date(Date.now() - 86400000) } }) },
-                                { id: "a3", data: () => ({ title: "O Segredo do CSS", description: "Como o CSS consegue simular o visual do Windows 95/XP.", lastModified: { toDate: () => new Date(Date.now() - 3 * 86400000) }, createdAt: { toDate: () => new Date(Date.now() - 3 * 86400000) } }) },
-                            ]
-                        })
-                    })
-                })
-            })
-        };
+        // ===============================================
+        // CÓDIGO DE BUSCA E LISTAGEM DE ARTIGOS (DO MODELO ORIGINAL)
+        // ===============================================
 
-        // 2. Mock da função de exibir detalhes no painel principal
-        function exibirDetalhesArtigo(artigo) {
-            detalhesArtigo.innerHTML = `
-                <h2>${artigo.title}</h2>
-                <p><strong>Descrição:</strong> ${artigo.description}</p>
-                <p>Conteúdo completo do artigo ${artigo.id} aqui...</p>
-                <hr>
-                <p style="font-size: 0.8em;">Dados de Simulação: Data de Edição: ${new Date(artigo.lastModified.toDate()).toLocaleString('pt-BR')}</p>
-            `;
-        }
-
-        // --- LÓGICA DA LISTAGEM DE ARTIGOS (Código Extraído) ---
-        
         async function buscarArtigos(filtros = {}) {
             artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
-            detalhesArtigo.innerHTML = '<p style="text-align: center;">Carregando detalhes...</p>';
-            
             try {
-                // Aqui o código real usaria a consulta do Firestore (MOCK ABAIXO)
                 let query = db.collection('articles')
                     .orderBy('lastModified', 'desc')
                     .limit(25);
+
+                // Aplica filtro de busca avançada
+                if (filtros.titulo) {
+                    query = query.where('title', '==', filtros.titulo);
+                }
+                if (filtros.descricao) {
+                    // Nota: Firestore não permite busca parcial sem um índice de texto completo,
+                    // estamos usando a busca por igualdade para simplificar.
+                    query = query.where('description', '==', filtros.descricao);
+                }
+                if (filtros.uid) {
+                    // Busca por documento específico
+                    const doc = await db.collection('articles').doc(filtros.uid).get();
+                    if (doc.exists) {
+                        renderizarArtigos([{
+                            id: doc.id,
+                            ...doc.data()
+                        }]);
+                    } else {
+                        renderizarArtigos([]);
+                    }
+                    return;
+                }
 
                 const snapshot = await query.get();
                 const artigos = snapshot.docs.map(doc => ({
@@ -297,7 +336,7 @@
             } catch (error) {
                 console.error("Erro ao buscar artigos:", error);
                 artigosList.innerHTML = `<p style="text-align: center; color: red;">Erro ao carregar artigos: ${error.message}</p>`;
-                detalhesArtigo.innerHTML = '';
+                detalhesArtigo.innerHTML = '<p style="text-align: center;">Não foi possível carregar os detalhes.</p>';
             }
         }
 
@@ -311,6 +350,7 @@
             }
 
             artigos.forEach(artigo => {
+                // Assume-se que 'artigo.lastModified' e 'artigo.createdAt' são Timestamps do Firebase
                 const lastModifiedDate = artigo.lastModified ? new Date(artigo.lastModified.toDate()) : new Date(artigo.createdAt.toDate());
                 const formattedDate = lastModifiedDate.toLocaleDateString('pt-BR') + ' ' + lastModifiedDate.toLocaleTimeString('pt-BR');
 
@@ -319,7 +359,7 @@
                 item.setAttribute('data-id', artigo.id);
                 item.innerHTML = `
                     <h3>${artigo.title}</h3>
-                    <p>${artigo.description.substring(0, 70)}...</p>
+                    <p>${artigo.description.substring(0, 100)}...</p>
                     <p style="font-size: 0.8em; color: #72777d; margin-top: 5px;">Última edição: ${formattedDate}</p>
                 `;
 
@@ -328,34 +368,41 @@
                     // Remove a classe 'ativo' de todos os itens e adiciona ao selecionado
                     document.querySelectorAll('.artigo-item').forEach(i => i.classList.remove('ativo'));
                     item.classList.add('ativo');
-                    exibirDetalhesArtigo(artigo); 
+                    exibirDetalhesArtigo(artigo); // Função externa para exibir o conteúdo principal
                 });
 
                 artigosList.appendChild(item);
             });
 
-            // Lógica para selecionar o primeiro artigo após renderização
-            if (artigos.length > 0) {
+            // Ajustes de layout para a visualização (Simulação de content-split)
+            // No nosso modelo, o grid-template-columns é definido no CSS do #artigos-pane
+
+            // Lógica para selecionar o primeiro artigo ou re-selecionar o ativo
+            if (artigoSelecionado) {
+                // Se um artigo já estava selecionado, tenta re-selecioná-lo
+                document.querySelector(`.artigo-item[data-id="${artigoSelecionado.id}"]`)?.classList.add('ativo');
+                exibirDetalhesArtigo(artigoSelecionado);
+            } else if (artigos.length > 0) {
+                // Caso contrário, seleciona e exibe o primeiro
                 artigoSelecionado = artigos[0];
                 document.querySelector(`.artigo-item[data-id="${artigoSelecionado.id}"]`)?.classList.add('ativo');
                 exibirDetalhesArtigo(artigoSelecionado);
+            } else {
+                // Se não houver artigos, exibe a mensagem de seleção
+                exibirPainel('detalhes-artigo'); 
+                detalhesArtigo.innerHTML = '<p style="text-align: center; color: #888;">Nenhum artigo recente. Selecione um artigo na lista para ver os detalhes.</p>';
             }
         }
 
         // --- AÇÃO DO MENU INICIAR: BUSCAR ARTIGOS ---
         menuBuscarArtigos.addEventListener('click', () => {
-            // 1. Oculta o Menu Iniciar
             startMenu.style.display = 'none';
-
-            // 2. Limpa a área de conteúdo (texto de boas-vindas)
             desktopContentArea.innerHTML = '';
-
-            // 3. Exibe o painel de artigos e ajusta o título
             desktopContentArea.appendChild(artigosPane);
             artigosPane.style.display = 'grid';
             document.getElementById('artigos-title').textContent = 'Lista de Artigos (Módulo Ativo)';
 
-            // 4. Executa a função de busca e renderização dos artigos
+            // Executa a função de busca e renderização
             buscarArtigos();
         });
         
