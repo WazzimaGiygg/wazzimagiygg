@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebOS - Explorador de Subdomínios</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* ==================================== */
+        /* GERAL & DESKTOP */
+        /* ==================================== */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Fonte moderna */
+            background-color: #0078D4;
+            overflow: hidden;
+        }
+
+        #desktop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 40px;
+        }
+
+        /* Ícones do Desktop (Vertical) */
+        .desktop-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+            margin: 10px;
+            padding: 8px; /* Aumentado */
+            text-align: center;
+            color: white;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.1s;
+            border-radius: 4px;
+        }
+        .desktop-icon i { /* Estilo para o ícone Font Awesome */
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        .desktop-icon span {
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Sombra para melhorar a leitura */
+        }
+        .desktop-icon:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            outline: 1px solid rgba(255, 255, 255, 0.5); /* Borda de foco sutil */
+        }
+        
+        /* ==================================== */
+        /* TASKBAR & MENU DE ÍCONES (NOVO INICIAR) */
+        /* ==================================== */
+        #taskbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 48px; /* Aumentado para melhor toque */
+            background-color: #2b2b2b; /* Tema escuro para a Taskbar */
+            color: white;
+            display: flex;
+            justify-content: center; /* Centraliza os ícones */
+            align-items: center;
+            padding: 0 10px;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        #taskbar-icons {
+            display: flex;
+            gap: 5px;
+            flex-grow: 1;
+            justify-content: center; /* Centraliza ícones na taskbar */
+        }
+        
+        #taskbar-clock {
+            position: absolute; /* Posiciona o relógio à direita */
+            right: 10px;
+            padding: 0 10px;
+            line-height: 48px;
+            font-size: 14px;
+            cursor: default;
+        }
+
+        .taskbar-icon {
+            background: none;
+            border: none;
+            padding: 5px 8px;
+            cursor: pointer;
+            height: 40px;
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            border-radius: 4px;
+            transition: background-color 0.1s;
+        }
+        .taskbar-icon i {
+            font-size: 20px;
+        }
+        .taskbar-icon:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        .taskbar-icon.active-app {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-bottom: 3px solid #00BFFF; /* Foco azul claro */
+        }
+
+        /* ==================================== */
+        /* JANELAS */
+        /* ==================================== */
+        .window {
+            position: absolute;
+            background-color: #f0f0f0;
+            border: 1px solid #aaa;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+            resize: both;
+            overflow: auto;
+            min-width: 250px;
+            min-height: 150px;
+            z-index: 10;
+            border-radius: 6px;
+        }
+        .window.minimized { display: none; }
+
+        .window-header {
+            height: 35px; /* Altura do cabeçalho */
+            background-color: #0078D4;
+            color: white;
+            padding: 0 5px;
+            display: flex;
+            align-items: center;
+            cursor: move;
+            user-select: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+        }
+
+        .window-controls button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            height: 35px;
+            width: 40px;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        .close-btn:hover { background-color: #e81123; }
+        .minimize-btn:hover, .maximize-btn:hover { background-color: rgba(255, 255, 255, 0.2); }
+
+        .window-content {
+            height: calc(100% - 35px);
+            overflow: auto;
+            box-sizing: border-box;
+            background-color: white;
+        }
+
+        /* ==================================== */
+        /* EXPLORADOR DE ARQUIVOS (File Explorer) */
+        /* ==================================== */
+        .explorer-view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .explorer-toolbar { /* Nova barra de ícones (menu) acima */
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 10px;
+            background-color: #e6e6e6;
+            border-bottom: 1px solid #ccc;
+        }
+        .explorer-toolbar button {
+            background: none;
+            border: none;
+            padding: 5px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            border-radius: 4px;
+        }
+        .explorer-toolbar button:hover {
+            background-color: #d1d1d1;
+        }
+        .explorer-toolbar i {
+            margin-right: 5px;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .explorer-path {
+            padding: 5px 10px;
+            background-color: #f7f7f7;
+            border-bottom: 1px solid #ddd;
+        }
+        .explorer-list {
+            flex-grow: 1;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background-color: white;
+        }
+        .explorer-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.1s;
+        }
+        .explorer-item:hover {
+            background-color: #e0f0ff; /* Azul claro ao passar o mouse */
+        }
+        .explorer-item i { /* Ícone Font Awesome para item */
+            margin-right: 10px;
+            font-size: 16px;
+            color: #0078D4; /* Cor azul para pastas e arquivos */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="desktop">
+        <div class="desktop-icon" data-app="explorer" data-title="Explorador de Arquivos">
+            <i class="fas fa-folder-open"></i>
+            <span>Explorador</span>
+        </div>
+        <div class="desktop-icon" data-app="browser" data-title="Navegador Web">
+            <i class="fas fa-globe"></i>
+            <span>Navegador</span>
+        </div>
+    </div>
+
+    <div id="taskbar">
+        <div id="taskbar-icons">
+            <button id="explorer-icon" class="taskbar-icon" data-app="explorer" data-title="Explorador de Arquivos">
+                <i class="fas fa-folder"></i>
+            </button>
+            <button id="browser-icon" class="taskbar-icon" data-app="browser" data-title="Navegador Web">
+                <i class="fas fa-globe"></i>
+            </button>
+            </div>
+        
+        <div id="taskbar-clock">
+            <span id="current-time"></span>
+        </div>
+    </div>
+
+    <div id="window-area">
+        </div>
+
+    <template id="window-template">
+        <div class="window" style="width: 700px; height: 500px; top: 50px; left: 50px;">
+            <div class="window-header">
+                <span class="window-title">Título da Janela</span>
+                <div class="window-controls">
+                    <button class="minimize-btn" title="Minimizar"><i class="fas fa-window-minimize"></i></button>
+                    <button class="maximize-btn" title="Maximizar"><i class="far fa-window-maximize"></i></button>
+                    <button class="close-btn" title="Fechar"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="window-content">
+                </div>
+        </div>
+    </template>
+
+    <script>
+// --- Estrutura de Dados Simulado (Subdomínios/Repositório) ---
+const fileSystem = {
+    'subdominio-web': {
+        type: 'folder',
+        content: {
+            'index.html': { type: 'file', content: 'Conteúdo do Index HTML.' },
+            'assets': {
+                type: 'folder',
+                content: {
+                    'style.css': { type: 'file', content: 'Conteúdo CSS de estilo.' },
+                    'logo.png': { type: 'file', content: 'Imagem Binária (simulação).' }
+                }
+            },
+            'docs': {
+                type: 'folder',
+                content: {
+                    'readme.md': { type: 'file', content: 'Documentação do projeto.' }
+                }
+            }
+        }
+    },
+    'blog-pessoal': {
+        type: 'folder',
+        content: {
+            'post1.html': { type: 'file', content: 'Primeiro post do blog.' },
+            'post2.html': { type: 'file', content: 'Segundo post do blog.' }
+        }
+    },
+    'config.json': { type: 'file', content: '{ "version": "1.0" }' }
+};
+
+// --- Controle de Janelas ---
+let windowZIndex = 10;
+let windowCounter = 0;
+let activeWindows = {}; // { 'app-id': { element: node, state: 'open' } }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const desktop = document.getElementById('desktop');
+    const taskbarIcons = document.getElementById('taskbar-icons');
+    const windowArea = document.getElementById('window-area');
+    const windowTemplate = document.getElementById('window-template');
+
+    // Inicializa o relógio
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // Tratamento de cliques para abrir aplicativos (Desktop e Taskbar)
+    document.querySelectorAll('[data-app]').forEach(element => {
+        element.addEventListener('dblclick', (e) => {
+            if (element.classList.contains('desktop-icon')) {
+                openApp(element.getAttribute('data-app'), element.getAttribute('data-title'));
+            }
+        });
+        element.addEventListener('click', (e) => {
+            const appId = element.getAttribute('data-app');
+            if (element.id.includes('icon')) {
+                toggleWindow(appId);
+            }
+        });
+    });
+
+    // Função para obter o ícone Font Awesome para um aplicativo
+    function getAppIcon(appId) {
+        switch(appId) {
+            case 'explorer': return '<i class="fas fa-folder"></i>';
+            case 'browser': return '<i class="fas fa-globe"></i>';
+            default: return '<i class="fas fa-cube"></i>';
+        }
+    }
+
+    /**
+     * Abre ou foca um aplicativo (janela).
+     */
+    function openApp(appId, title) {
+        if (activeWindows[appId] && activeWindows[appId].state === 'open') {
+            focusWindow(activeWindows[appId].element);
+            return;
+        }
+
+        // 1. Cria a Janela
+        const newWindow = windowTemplate.content.cloneNode(true).querySelector('.window');
+        const windowId = `window-${windowCounter++}`;
+        newWindow.id = windowId;
+        newWindow.setAttribute('data-app-id', appId);
+        
+        newWindow.style.zIndex = ++windowZIndex;
+        newWindow.querySelector('.window-title').textContent = title;
+        newWindow.style.top = `${Math.floor(Math.random() * 50) + 100}px`; // Ajuste para melhor visualização
+        newWindow.style.left = `${Math.floor(Math.random() * 50) + 100}px`;
+
+        // 2. Adiciona o Conteúdo Específico
+        if (appId === 'explorer') {
+            renderExplorer(newWindow.querySelector('.window-content'), fileSystem, 'Raiz do Repositório');
+        } else {
+            newWindow.querySelector('.window-content').innerHTML = `
+                <div style="padding: 20px;">
+                    <h1><i class="${appId === 'browser' ? 'fas fa-globe' : 'fas fa-cube'}"></i> ${title}</h1>
+                    <p>Este é o conteúdo do aplicativo ${appId}.</p>
+                </div>
+            `;
+        }
+
+        // 3. Adiciona ao DOM e foca
+        windowArea.appendChild(newWindow);
+        focusWindow(newWindow);
+        
+        // 4. Cria e Adiciona o Ícone na Taskbar (se não existir)
+        let taskIcon = document.getElementById(`${appId}-task-icon`);
+        if (!taskIcon) {
+             taskIcon = document.createElement('button');
+             taskIcon.id = `${appId}-task-icon-dynamic`; // ID diferente para ícones dinâmicos
+             taskIcon.className = 'taskbar-icon active-app';
+             taskIcon.setAttribute('data-app', appId);
+             taskIcon.innerHTML = getAppIcon(appId);
+             taskbarIcons.appendChild(taskIcon);
+             taskIcon.addEventListener('click', () => toggleWindow(appId));
+        } else {
+            taskIcon.classList.add('active-app');
+        }
+
+        // 5. Adiciona Eventos
+        addWindowEvents(newWindow);
+
+        // 6. Atualiza o estado
+        activeWindows[appId] = { element: newWindow, state: 'open', taskIcon: taskIcon };
+    }
+
+    /**
+     * Foca uma janela (traz para frente e marca na taskbar).
+     */
+    function focusWindow(windowElement) {
+        document.querySelectorAll('.window').forEach(win => win.style.border = '1px solid #aaa');
+        windowElement.style.zIndex = ++windowZIndex;
+        windowElement.style.border = '1px solid #0078D4';
+
+        document.querySelectorAll('.taskbar-icon').forEach(icon => icon.classList.remove('active-app'));
+        const appId = windowElement.getAttribute('data-app-id');
+        
+        // Foca o ícone fixo ou o dinâmico
+        let taskIcon = document.getElementById(`${appId}-icon`) || document.getElementById(`${appId}-task-icon-dynamic`);
+        if (taskIcon) {
+            taskIcon.classList.add('active-app');
+        }
+    }
+
+    /**
+     * Alterna o estado (minimizar/restaurar) da janela.
+     */
+    function toggleWindow(appId) {
+        const appState = activeWindows[appId];
+        if (!appState) return;
+
+        const win = appState.element;
+
+        if (win.classList.contains('minimized')) {
+            win.classList.remove('minimized');
+            appState.state = 'open';
+            win.style.zIndex = ++windowZIndex;
+            focusWindow(win); // Chama focusWindow para garantir o destaque e zIndex
+        } else {
+            win.classList.add('minimized');
+            appState.state = 'minimized';
+            appState.taskIcon.classList.remove('active-app');
+        }
+    }
+
+    /**
+     * Adiciona eventos de arrastar, redimensionar e controle.
+     */
+    function addWindowEvents(windowElement) {
+        const header = windowElement.querySelector('.window-header');
+        const appId = windowElement.getAttribute('data-app-id');
+        
+        windowElement.addEventListener('mousedown', () => focusWindow(windowElement));
+
+        windowElement.querySelector('.minimize-btn').addEventListener('click', () => {
+            windowElement.classList.add('minimized');
+            activeWindows[appId].state = 'minimized';
+            // Usa o ID fixo ou dinâmico
+            let taskIcon = document.getElementById(`${appId}-icon`) || document.getElementById(`${appId}-task-icon-dynamic`);
+            if (taskIcon) taskIcon.classList.remove('active-app');
+        });
+
+        windowElement.querySelector('.close-btn').addEventListener('click', () => {
+            windowElement.remove();
+            let taskIcon = document.getElementById(`${appId}-icon`) || document.getElementById(`${appId}-task-icon-dynamic`);
+            if (taskIcon) taskIcon.remove(); // Remove o ícone da taskbar
+            delete activeWindows[appId];
+            
+            // Foca a próxima janela aberta, se houver
+            const remainingApps = Object.keys(activeWindows);
+            if (remainingApps.length > 0) {
+                focusWindow(activeWindows[remainingApps[0]].element);
+            }
+        });
+
+        // Lógica de arrastar (mantida do código original)
+        let isDragging = false;
+        let offset = { x: 0, y: 0 };
+
+        header.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            offset.x = e.clientX - windowElement.offsetLeft;
+            offset.y = e.clientY - windowElement.offsetTop;
+            windowElement.style.zIndex = ++windowZIndex;
+            windowElement.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            let newX = e.clientX - offset.x;
+            let newY = e.clientY - offset.y;
+
+            newX = Math.max(0, newX);
+            newY = Math.max(0, Math.min(newY, window.innerHeight - 48 - windowElement.offsetHeight)); 
+
+            windowElement.style.left = `${newX}px`;
+            windowElement.style.top = `${newY}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            windowElement.style.cursor = 'default';
+        });
+    }
+
+    // --- Lógica do Explorador de Arquivos Aprimorado ---
+    /**
+     * Renderiza o conteúdo do explorador na janela.
+     */
+    function renderExplorer(container, currentDir, currentPath) {
+        container.innerHTML = `
+            <div class="explorer-view">
+                <div class="explorer-toolbar">
+                    <button onclick="console.log('Botão Voltar Clicado')"><i class="fas fa-arrow-left"></i> Voltar</button>
+                    <button onclick="console.log('Botão Novo Clicado')"><i class="fas fa-plus"></i> Novo</button>
+                    <button onclick="alert('Funcionalidade de Visualização não implementada.')"><i class="fas fa-eye"></i> Visualizar</button>
+                    <button onclick="alert('Funcionalidade de Configurações não implementada.')"><i class="fas fa-cog"></i> Configs</button>
+                </div>
+                <div class="explorer-path">Caminho: <span>${currentPath}</span></div>
+                <ul class="explorer-list"></ul>
+            </div>
+        `;
+        
+        const listContainer = container.querySelector('.explorer-list');
+        const pathSpan = container.querySelector('.explorer-path span');
+
+        // Adiciona ".." para voltar
+        if (currentPath !== 'Raiz do Repositório') {
+            const backItem = document.createElement('li');
+            backItem.className = 'explorer-item folder';
+            backItem.innerHTML = '<i class="fas fa-level-up-alt"></i> .. (Voltar)';
+            backItem.addEventListener('click', () => {
+                // Simplificação: volta para a raiz (em um sistema real, calcularia o caminho pai)
+                renderExplorer(container, fileSystem, 'Raiz do Repositório');
+            });
+            listContainer.appendChild(backItem);
+        }
+
+        // Renderiza o conteúdo do diretório
+        for (const name in currentDir) {
+            const item = currentDir[name];
+            const listItem = document.createElement('li');
+            listItem.className = `explorer-item ${item.type}`;
+
+            let iconClass = '';
+            if (item.type === 'folder') {
+                iconClass = 'fas fa-folder';
+            } else if (name.endsWith('.html') || name.endsWith('.css') || name.endsWith('.js')) {
+                iconClass = 'fas fa-file-code';
+            } else if (name.endsWith('.png') || name.endsWith('.jpg')) {
+                iconClass = 'fas fa-image';
+            } else {
+                iconClass = 'fas fa-file';
+            }
+
+            listItem.innerHTML = `<i class="${iconClass}"></i> ${name}`;
+
+            if (item.type === 'folder') {
+                listItem.addEventListener('click', () => {
+                    renderExplorer(container, item.content, `${currentPath}/${name}`);
+                });
+            } else if (item.type === 'file') {
+                listItem.addEventListener('dblclick', () => {
+                    alert(`Conteúdo do arquivo ${name}:\n\n${item.content.substring(0, 100)}...`);
+                });
+            }
+
+            listContainer.appendChild(listItem);
+        }
+    }
+
+    // --- Utilidades ---
+    function updateTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const dateString = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); // Remove o ano para economizar espaço
+        document.getElementById('current-time').textContent = `${timeString} ${dateString}`;
+    }
+
+});
+    </script>
+</body>
+</html>
