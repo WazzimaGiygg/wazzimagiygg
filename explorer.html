@@ -477,22 +477,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function toggleWindow(appId) {
-        const appState = activeWindows[appId];
-        if (!appState) return;
+function toggleWindow(appId) {
+    const appState = activeWindows[appId];
+    if (!appState) return;
 
-        const win = appState.element;
+    const win = appState.element;
 
-        if (win.classList.contains('minimized')) {
-            win.classList.remove('minimized');
-            appState.state = 'open';
-            focusWindow(win);
-        } else {
-            win.classList.add('minimized');
-            appState.state = 'minimized';
-            appState.taskIcon.classList.remove('active-app');
-        }
+    if (appState.state === 'minimized') {
+        win.classList.remove('minimized');
+        win.style.display = 'block';
+        appState.state = 'open';
+        focusWindow(win);
+    } else if (appState.state === 'open') {
+        win.classList.add('minimized');
+        win.style.display = 'none';
+        appState.state = 'minimized';
+        appState.taskIcon.classList.remove('active-app');
     }
+}
+
 
     function addWindowEvents(windowElement) {
         const header = windowElement.querySelector('.window-header');
@@ -519,6 +522,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        windowElement.querySelector('.maximize-btn').addEventListener('click', () => {
+    const isMaximized = windowElement.classList.toggle('maximized');
+
+    if (isMaximized) {
+        // Salva tamanho e posição original
+        const rect = windowElement.getBoundingClientRect();
+        windowElement.dataset.prevLeft = rect.left;
+        windowElement.dataset.prevTop = rect.top;
+        windowElement.dataset.prevWidth = rect.width;
+        windowElement.dataset.prevHeight = rect.height;
+
+        // Maximiza
+        windowElement.style.top = '0';
+        windowElement.style.left = '0';
+        windowElement.style.width = '100%';
+        windowElement.style.height = 'calc(100% - 48px)';
+        windowElement.style.borderRadius = '0';
+    } else {
+        // Restaura
+        windowElement.style.left = `${windowElement.dataset.prevLeft}px`;
+        windowElement.style.top = `${windowElement.dataset.prevTop}px`;
+        windowElement.style.width = `${windowElement.dataset.prevWidth}px`;
+        windowElement.style.height = `${windowElement.dataset.prevHeight}px`;
+        windowElement.style.borderRadius = '6px';
+    }
+});
+
+        
         // Lógica de arrastar (mantida)
         let isDragging = false;
         let offset = { x: 0, y: 0 };
@@ -560,6 +591,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 <ul class="explorer-list"></ul>
             </div>
         `;
+
+        const openBtn = container.querySelector('#open-file-btn');
+openBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+
+    input.addEventListener('change', (e) => {
+        const files = e.target.files;
+        const listContainer = container.querySelector('.explorer-list');
+        listContainer.innerHTML = '';
+
+        [...files].forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'explorer-item file';
+            li.innerHTML = `<i class="fas fa-file"></i> ${file.name}`;
+            
+            li.addEventListener('dblclick', () => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    alert(`Conteúdo do arquivo ${file.name}:\n\n${event.target.result.substring(0,200)}...`);
+                };
+                reader.readAsText(file);
+            });
+            listContainer.appendChild(li);
+        });
+    });
+
+    input.click();
+});
         
         const listContainer = container.querySelector('.explorer-list');
 
