@@ -1,1 +1,358 @@
-<!DOCTYPE html> <html lang="pt-BR"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>WebOS - Explorador de Subdomínios</title> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"> <style> /* ==================================== */ /* GERAL & DESKTOP */ /* ==================================== */ body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0078D4; overflow: hidden; } #desktop { position: absolute; top: 0; left: 0; right: 0; bottom: 48px; /* Espaço para a Taskbar */ } /* Ícones do Desktop */ .desktop-icon { display: flex; flex-direction: column; align-items: center; width: 80px; margin: 10px; padding: 8px; text-align: center; color: white; cursor: pointer; user-select: none; transition: background-color 0.1s; border-radius: 4px; } .desktop-icon i { font-size: 32px; margin-bottom: 5px; } .desktop-icon span { font-size: 12px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); } .desktop-icon:hover { background-color: rgba(255, 255, 255, 0.2); outline: 1px solid rgba(255, 255, 255, 0.5); } /* ==================================== */ /* TASKBAR & ÍCONE DO MENU */ /* ==================================== */ #taskbar { position: fixed; bottom: 0; left: 0; right: 0; height: 48px; background-color: #2b2b2b; color: white; display: flex; justify-content: flex-start; align-items: center; padding: 0 10px; box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.3); z-index: 1000; } #menu-button { /* Botão Menu "Iniciar" */ margin-right: 10px; padding: 0 10px; height: 40px; width: auto; border-radius: 4px; } #menu-button i { font-size: 24px; color: #00BFFF; /* Cor do logo */ } #taskbar-icons { display: flex; gap: 5px; flex-grow: 1; justify-content: flex-start; } #taskbar-clock { margin-left: auto; padding: 0 10px; line-height: 48px; font-size: 14px; cursor: default; } .taskbar-icon { background: none; border: none; padding: 5px 8px; cursor: pointer; height: 40px; width: 40px; display: flex; align-items: center; justify-content: center; color: white; border-radius: 4px; transition: background-color 0.1s; } .taskbar-icon i { font-size: 20px; } .taskbar-icon:hover { background-color: rgba(255, 255, 255, 0.15); } .taskbar-icon.active-app { background-color: rgba(255, 255, 255, 0.1); border-bottom: 3px solid #00BFFF; } /* ==================================== */ /* MENU DE APLICATIVOS (Menu Inicial) */ /* ==================================== */ #app-menu { position: fixed; bottom: 48px; left: 10px; width: 300px; background-color: #f7f7f7; border: 1px solid #ccc; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); padding: 10px; border-radius: 6px; max-height: 80vh; overflow-y: auto; z-index: 999; display: none; } #app-menu a { display: flex; align-items: center; padding: 10px; margin-bottom: 5px; background-color: white; border-radius: 4px; text-decoration: none; color: #333; transition: background-color 0.1s; font-size: 14px; } #app-menu a:hover { background-color: #e0f0ff; } #app-menu a i { margin-right: 10px; font-size: 18px; color: #0078D4; } /* ==================================== */ /* JANELAS (Inclui Browser/iFrame) */ /* ==================================== */ .window { position: absolute; background-color: #f0f0f0; border: 1px solid #aaa; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4); resize: both; overflow: hidden; min-width: 250px; min-height: 150px; z-index: 10; border-radius: 6px; } .window-content { height: calc(100% - 35px); overflow: auto; box-sizing: border-box; background-color: white; padding: 0; /* Remove padding para o iFrame */ } /* Estilo para o iFrame do Navegador */ .window-content iframe { width: 100%; height: 100%; border: none; display: block; } /* [Estilos do Header e Explorer mantidos do exemplo anterior...] */ .window-header { height: 35px; background-color: #0078D4; color: white; padding: 0 5px; display: flex; align-items: center; cursor: move; user-select: none; border-top-left-radius: 6px; border-top-right-radius: 6px; } .explorer-toolbar { /* Barra de menu no explorador */ display: flex; align-items: center; gap: 10px; padding: 5px 10px; background-color: #e6e6e6; border-bottom: 1px solid #ccc; } .explorer-path { padding: 5px 10px; background-color: #f7f7f7; border-bottom: 1px solid #ddd; } .explorer-list { flex-grow: 1; list-style: none; padding: 0; margin: 0; background-color: white; } .explorer-item { padding: 8px 10px; cursor: pointer; display: flex; align-items: center; transition: background-color 0.1s; } .explorer-item:hover { background-color: #e0f0ff; } .explorer-item i { margin-right: 10px; font-size: 16px; color: #0078D4; } </style> </head> <body> <div id="desktop"> <div class="desktop-icon" data-app="explorer" data-title="Explorador de Arquivos"> <i class="fas fa-folder-open"></i> <span>Explorador</span> </div> </div> <div id="taskbar"> <button id="menu-button" class="taskbar-icon" title="Menu de Aplicativos"> <i class="fas fa-th-large"></i> </button> <div id="taskbar-icons"> <button id="explorer-icon" class="taskbar-icon" data-app="explorer" data-title="Explorador de Arquivos"> <i class="fas fa-folder"></i> </button> </div> <div id="taskbar-clock"> <span id="current-time"></span> </div> </div> <div id="app-menu"> </div> <div id="window-area"> </div> <template id="window-template"> <div class="window" style="width: 800px; height: 600px; top: 50px; left: 50px;"> <div class="window-header"> <span class="window-title">Título da Janela</span> <div class="window-controls"> <button class="minimize-btn" title="Minimizar"><i class="fas fa-window-minimize"></i></button> <button class="maximize-btn" title="Maximizar"><i class="far fa-window-maximize"></i></button> <button class="close-btn" title="Fechar"><i class="fas fa-times"></i></button> </div> </div> <div class="window-content"> </div> </div> </template> <script> // --- Dados Simulado do menu.json (com ícones Font Awesome) --- const appMenuData = [ { "label": "Mudanças Recentes", "href": "./wikinotpedia/", "requiresAuth": true, "icon": "fas fa-history" }, { "label": "Procurar artigo WNPX", "href": "simplearticles/", "requiresAuth": true, "icon": "fas fa-search" }, { "label": "Chat Online interno", "href": "chat/", "requiresAuth": true, "icon": "fas fa-comments" }, { "label": "Upload de Imagem", "href": "uploadimagem/", "requiresAuth": true, "icon": "fas fa-images" }, { "label": "Upload PDF", "href": "uploadpdf.html", "requiresAuth": true, "icon": "fas fa-file-pdf" }, { "label": "Hub de Aplicativos", "href": "forumapplication/", "requiresAuth": true, "icon": "fas fa-th" }, { "label": "Ferramentas adicionais", "href": "menu.html", "requiresAuth": true, "icon": "fas fa-tools" } ]; // --- Estrutura de Arquivos Simulado (Mantida) --- const fileSystem = { 'subdominio-web': { type: 'folder', content: { 'index.html': { type: 'file', content: 'Conteúdo do Index HTML.' }, 'assets': { type: 'folder', content: { 'style.css': { type: 'file', content: 'Conteúdo CSS de estilo.' }, 'logo.png': { type: 'file', content: 'Imagem Binária (simulação).' } } }, 'docs': { type: 'folder', content: { 'readme.md': { type: 'file', content: 'Documentação do projeto.' } } } } }, 'blog-pessoal': { type: 'folder', content: { 'post1.html': { type: 'file', content: 'Primeiro post do blog.' }, 'post2.html': { type: 'file', content: 'Segundo post do blog.' } } }, 'config.json': { type: 'file', content: '{ "version": "1.0" }' } }; // --- Controle de Janelas --- let windowZIndex = 10; let windowCounter = 0; let activeWindows = {}; document.addEventListener('DOMContentLoaded', () => { const taskbarIcons = document.getElementById('taskbar-icons'); const windowArea = document.getElementById('window-area'); const windowTemplate = document.getElementById('window-template'); const appMenu = document.getElementById('app-menu'); const menuButton = document.getElementById('menu-button'); // Inicializa o relógio updateTime(); setInterval(updateTime, 1000); // 1. Inicializa o Menu de Aplicativos renderAppMenu(); // 2. Evento para abrir/fechar o Menu menuButton.addEventListener('click', () => { appMenu.style.display = appMenu.style.display === 'block' ? 'none' : 'block'; // Tira o foco de todas as janelas ao abrir o menu document.querySelectorAll('.window').forEach(win => win.style.border = '1px solid #aaa'); document.querySelectorAll('.taskbar-icon').forEach(icon => icon.classList.remove('active-app')); }); // Fecha o menu se clicar fora document.addEventListener('mousedown', (e) => { if (appMenu.style.display === 'block' && !appMenu.contains(e.target) && !menuButton.contains(e.target)) { appMenu.style.display = 'none'; } }); // 3. Eventos para ícones fixos e desktop (mantidos) document.querySelectorAll('[data-app]').forEach(element => { element.addEventListener('dblclick', (e) => { if (element.classList.contains('desktop-icon')) { openApp(element.getAttribute('data-app'), element.getAttribute('data-title')); } }); element.addEventListener('click', (e) => { const appId = element.getAttribute('data-app'); if (element.id.includes('icon')) { toggleWindow(appId); } }); }); // --- Funções de Renderização --- function renderAppMenu() { appMenu.innerHTML = '<h4>Aplicações Internas</h4>'; appMenuData.forEach((item, index) => { // O ID único da aplicação será baseado no 'href' (URL). const appId = browser-${btoa(item.href)}; const link = document.createElement('a'); link.href = '#'; link.innerHTML = <i class="${item.icon || 'fas fa-external-link-alt'}"></i> ${item.label}; link.title = item.href; link.addEventListener('click', (e) => { e.preventDefault(); // Usa a URL (href) para abrir a nova janela openBrowserWindow(item.href, item.label, appId, item.icon); appMenu.style.display = 'none'; // Fecha o menu }); appMenu.appendChild(link); }); } /** * Abre uma janela que simula um navegador com um iFrame, carregando um link relativo. * @param {string} url - O caminho relativo (href) a ser carregado. * @param {string} title - O título da janela. * @param {string} appId - ID único para rastrear a janela. * @param {string} iconClass - A classe do ícone Font Awesome. */ function openBrowserWindow(url, title, appId, iconClass) { // Verifica se a janela já está aberta if (activeWindows[appId]) { focusWindow(activeWindows[appId].element); return; } // 1. Cria a Janela const newWindow = windowTemplate.content.cloneNode(true).querySelector('.window'); const windowId = window-${windowCounter++}; newWindow.id = windowId; newWindow.setAttribute('data-app-id', appId); newWindow.style.zIndex = ++windowZIndex; newWindow.querySelector('.window-title').textContent = title; newWindow.style.top = ${Math.floor(Math.random() * 50) + 100}px; newWindow.style.left = ${Math.floor(Math.random() * 50) + 100}px; // 2. Adiciona o iFrame // O caminho relativo será resolvido pelo navegador a partir da localização da página principal. newWindow.querySelector('.window-content').innerHTML = <iframe src="${url}" title="${title} Content"></iframe> ; // 3. Adiciona ao DOM e foca windowArea.appendChild(newWindow); focusWindow(newWindow); // 4. Cria e Adiciona o Ícone na Taskbar let taskIcon = document.createElement('button'); taskIcon.id = task-icon-${appId}; taskIcon.className = 'taskbar-icon active-app'; taskIcon.setAttribute('data-app', appId); taskIcon.innerHTML = <i class="${iconClass || 'fas fa-external-link-alt'}"></i>; taskbarIcons.appendChild(taskIcon); taskIcon.addEventListener('click', () => toggleWindow(appId)); // 5. Adiciona Eventos addWindowEvents(newWindow); // 6. Atualiza o estado activeWindows[appId] = { element: newWindow, state: 'open', taskIcon: taskIcon }; } /** * Abre ou foca um aplicativo padrão (como o explorador). */ function openApp(appId, title) { if (activeWindows[appId] && activeWindows[appId].state === 'open') { focusWindow(activeWindows[appId].element); return; } const newWindow = windowTemplate.content.cloneNode(true).querySelector('.window'); const windowId = window-${windowCounter++}; newWindow.id = windowId; newWindow.setAttribute('data-app-id', appId); newWindow.style.zIndex = ++windowZIndex; newWindow.querySelector('.window-title').textContent = title; newWindow.style.top = ${Math.floor(Math.random() * 50) + 100}px; newWindow.style.left = ${Math.floor(Math.random() * 50) + 100}px; if (appId === 'explorer') { renderExplorer(newWindow.querySelector('.window-content'), fileSystem, 'Raiz do Repositório'); } else { newWindow.querySelector('.window-content').innerHTML = <div style="padding: 20px;"><h1>App Padrão</h1><p>Conteúdo.</p></div>; } windowArea.appendChild(newWindow); focusWindow(newWindow); addWindowEvents(newWindow); // Lógica de ícone fixo vs dinâmico para o explorador let taskIcon = document.getElementById(${appId}-icon); if (taskIcon) { taskIcon.classList.add('active-app'); } else { taskIcon = document.createElement('button'); taskIcon.id = task-icon-${appId}; taskIcon.className = 'taskbar-icon active-app'; taskIcon.setAttribute('data-app', appId); taskIcon.innerHTML = <i class="fas fa-cube"></i>; taskbarIcons.appendChild(taskIcon); taskIcon.addEventListener('click', () => toggleWindow(appId)); } activeWindows[appId] = { element: newWindow, state: 'open', taskIcon: taskIcon }; } // --- Funções Auxiliares (Focus, Toggle, Events) --- function focusWindow(windowElement) { document.querySelectorAll('.window').forEach(win => win.style.border = '1px solid #aaa'); windowElement.style.zIndex = ++windowZIndex; windowElement.style.border = '1px solid #0078D4'; document.querySelectorAll('.taskbar-icon').forEach(icon => icon.classList.remove('active-app')); const appId = windowElement.getAttribute('data-app-id'); let taskIcon = document.getElementById(${appId}-icon) || document.getElementById(task-icon-${appId}); if (taskIcon) { taskIcon.classList.add('active-app'); } } function toggleWindow(appId) { const appState = activeWindows[appId]; if (!appState) return; const win = appState.element; if (appState.state === 'minimized') { win.classList.remove('minimized'); win.style.display = 'block'; appState.state = 'open'; focusWindow(win); } else if (appState.state === 'open') { win.classList.add('minimized'); win.style.display = 'none'; appState.state = 'minimized'; appState.taskIcon.classList.remove('active-app'); } } function addWindowEvents(windowElement) { const header = windowElement.querySelector('.window-header'); const appId = windowElement.getAttribute('data-app-id'); windowElement.addEventListener('mousedown', () => focusWindow(windowElement)); windowElement.querySelector('.minimize-btn').addEventListener('click', () => { windowElement.classList.add('minimized'); activeWindows[appId].state = 'minimized'; let taskIcon = document.getElementById(${appId}-icon) || document.getElementById(task-icon-${appId}); if (taskIcon) taskIcon.classList.remove('active-app'); }); windowElement.querySelector('.close-btn').addEventListener('click', () => { windowElement.remove(); let taskIcon = document.getElementById(${appId}-icon) || document.getElementById(task-icon-${appId}); if (taskIcon) taskIcon.remove(); delete activeWindows[appId]; const remainingApps = Object.keys(activeWindows); if (remainingApps.length > 0) { focusWindow(activeWindows[remainingApps[0]].element); } }); windowElement.querySelector('.maximize-btn').addEventListener('click', () => { const isMaximized = windowElement.classList.toggle('maximized'); if (isMaximized) { // Salva tamanho e posição original const rect = windowElement.getBoundingClientRect(); windowElement.dataset.prevLeft = rect.left; windowElement.dataset.prevTop = rect.top; windowElement.dataset.prevWidth = rect.width; windowElement.dataset.prevHeight = rect.height; // Maximiza windowElement.style.top = '0'; windowElement.style.left = '0'; windowElement.style.width = '100%'; windowElement.style.height = 'calc(100% - 48px)'; windowElement.style.borderRadius = '0'; } else { // Restaura windowElement.style.left = ${windowElement.dataset.prevLeft}px; windowElement.style.top = ${windowElement.dataset.prevTop}px; windowElement.style.width = ${windowElement.dataset.prevWidth}px; windowElement.style.height = ${windowElement.dataset.prevHeight}px; windowElement.style.borderRadius = '6px'; } }); // Lógica de arrastar (mantida) let isDragging = false; let offset = { x: 0, y: 0 }; header.addEventListener('mousedown', (e) => { isDragging = true; offset.x = e.clientX - windowElement.offsetLeft; offset.y = e.clientY - windowElement.offsetTop; windowElement.style.zIndex = ++windowZIndex; windowElement.style.cursor = 'grabbing'; }); document.addEventListener('mousemove', (e) => { if (!isDragging) return; let newX = e.clientX - offset.x; let newY = e.clientY - offset.y; newX = Math.max(0, newX); newY = Math.max(0, Math.min(newY, window.innerHeight - 48 - windowElement.offsetHeight)); windowElement.style.left = ${newX}px; windowElement.style.top = ${newY}px; }); document.addEventListener('mouseup', () => { isDragging = false; windowElement.style.cursor = 'default'; }); } // --- Lógica do Explorador de Arquivos (Mantida) --- function renderExplorer(container, currentDir, currentPath) { container.innerHTML = <div class="explorer-view"> <div class="explorer-toolbar"> <button onclick="console.log('Voltar')"><i class="fas fa-arrow-left"></i> Voltar</button> <button onclick="console.log('Novo')"><i class="fas fa-plus"></i> Novo</button> <button onclick="alert('Visualização não implementada.')"><i class="fas fa-eye"></i> Visualizar</button> </div> <div class="explorer-path">Caminho: <span>${currentPath}</span></div> <ul class="explorer-list"></ul> </div> ; const openBtn = container.querySelector('#open-file-btn'); openBtn.addEventListener('click', () => { const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.addEventListener('change', (e) => { const files = e.target.files; const listContainer = container.querySelector('.explorer-list'); listContainer.innerHTML = ''; [...files].forEach(file => { const li = document.createElement('li'); li.className = 'explorer-item file'; li.innerHTML = <i class="fas fa-file"></i> ${file.name}; li.addEventListener('dblclick', () => { const reader = new FileReader(); reader.onload = (event) => { alert(Conteúdo do arquivo ${file.name}:\n\n${event.target.result.substring(0,200)}...); }; reader.readAsText(file); }); listContainer.appendChild(li); }); }); input.click(); }); const listContainer = container.querySelector('.explorer-list'); if (currentPath !== 'Raiz do Repositório') { const backItem = document.createElement('li'); backItem.className = 'explorer-item folder'; backItem.innerHTML = '<i class="fas fa-level-up-alt"></i> .. (Voltar)'; backItem.addEventListener('click', () => { renderExplorer(container, fileSystem, 'Raiz do Repositório'); }); listContainer.appendChild(backItem); } for (const name in currentDir) { const item = currentDir[name]; const listItem = document.createElement('li'); listItem.className = explorer-item ${item.type}; let iconClass = item.type === 'folder' ? 'fas fa-folder' : 'fas fa-file'; if (name.endsWith('.html') || name.endsWith('.css')) iconClass = 'fas fa-file-code'; listItem.innerHTML = <i class="${iconClass}"></i> ${name}; if (item.type === 'folder') { listItem.addEventListener('click', () => { renderExplorer(container, item.content, ${currentPath}/${name}); }); } else if (item.type === 'file') { listItem.addEventListener('dblclick', () => { alert(Conteúdo do arquivo ${name}:\n\n${item.content.substring(0, 100)}...); }); } listContainer.appendChild(listItem); } } // --- Utilidades --- function updateTime() { const now = new Date(); const timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); const dateString = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); document.getElementById('current-time').textContent = ${timeString} ${dateString}; } }); </script> </body> </html>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebOS Simulado</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #1a1a1a, #333);
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+  color: white;
+}
+
+/* Desktop */
+#desktop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 40px;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 10px;
+  gap: 10px;
+}
+
+.desktop-icon {
+  width: 80px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.desktop-icon:hover { transform: scale(1.1); }
+.desktop-icon i {
+  font-size: 28px;
+  color: #00bcd4;
+}
+.desktop-icon span {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Taskbar */
+#taskbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: rgba(20, 20, 20, 0.9);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  z-index: 10000;
+}
+
+#start-button {
+  background: #0078d7;
+  border: none;
+  color: white;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+#taskbar-icons {
+  flex-grow: 1;
+  display: flex;
+  gap: 10px;
+}
+
+.task-icon {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+.task-icon:hover { background: rgba(255,255,255,0.2); }
+
+#clock {
+  font-size: 12px;
+}
+
+/* Menu de Aplicativos */
+#app-menu {
+  position: fixed;
+  bottom: 50px;
+  left: 10px;
+  width: 220px;
+  background: rgba(30,30,30,0.95);
+  border-radius: 10px;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 9999;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+#app-menu a {
+  color: white;
+  padding: 10px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#app-menu a:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+/* Janelas */
+.window {
+  position: absolute;
+  background: rgba(40,40,40,0.95);
+  border: 1px solid #555;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  min-width: 400px;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.window.show {
+  opacity: 1;
+  transform: scale(1);
+}
+.window-header {
+  background: #0078d7;
+  padding: 6px 10px;
+  color: white;
+  display: flex;
+  align-items: center;
+  border-radius: 10px 10px 0 0;
+  cursor: move;
+}
+.window-header h2 {
+  flex-grow: 1;
+  font-size: 14px;
+  margin: 0;
+}
+.window-controls {
+  margin-left: auto;
+  display: flex;
+}
+.window-controls button {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  margin-left: 6px;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+.window-controls button:hover {
+  color: #ffd700;
+}
+.window-content {
+  flex-grow: 1;
+  background: #222;
+  overflow: auto;
+  border-radius: 0 0 10px 10px;
+}
+.window-content iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Explorador de Arquivos */
+.explorer-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: #111;
+}
+.explorer-toolbar button {
+  background: #444;
+  border: none;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.explorer-toolbar button:hover {
+  background: #666;
+}
+.explorer-path {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: #222;
+}
+.explorer-list {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+}
+.explorer-item {
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.explorer-item:hover {
+  background: rgba(255,255,255,0.1);
+}
+</style>
+</head>
+<body>
+
+<div id="desktop"></div>
+
+<div id="taskbar">
+  <button id="start-button"><i class="fa fa-bars"></i></button>
+  <div id="taskbar-icons"></div>
+  <div id="clock"></div>
+</div>
+
+<div id="app-menu"></div>
+
+<script>
+let windowCounter = 0;
+
+/* ==== Aplicativos simulados ==== */
+const apps = [
+  { label: "Navegador", icon: "fa fa-globe", href: "https://example.com" },
+  { label: "Explorador", icon: "fa fa-folder", href: "explorer" },
+  { label: "Sobre", icon: "fa fa-info-circle", href: "about" }
+];
+
+/* ==== Renderizar Ícones na Área de Trabalho ==== */
+const desktop = document.getElementById("desktop");
+apps.forEach(app => {
+  const icon = document.createElement("div");
+  icon.className = "desktop-icon";
+  icon.innerHTML = `<i class="${app.icon}"></i><span>${app.label}</span>`;
+  icon.addEventListener("dblclick", () => openApp(app));
+  desktop.appendChild(icon);
+});
+
+/* ==== Menu de Aplicativos ==== */
+const appMenu = document.getElementById("app-menu");
+apps.forEach(app => {
+  const link = document.createElement("a");
+  link.href = "#";
+  link.innerHTML = `<i class="${app.icon}"></i>${app.label}`;
+  link.addEventListener("click", () => {
+    appMenu.style.display = "none";
+    openApp(app);
+  });
+  appMenu.appendChild(link);
+});
+
+document.getElementById("start-button").addEventListener("click", () => {
+  appMenu.style.display = appMenu.style.display === "flex" ? "none" : "flex";
+});
+
+/* ==== Relógio ==== */
+function updateClock() {
+  const now = new Date();
+  const time = now.toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"});
+  const date = now.toLocaleDateString("pt-BR");
+  document.getElementById("clock").textContent = `${time} ${date}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ==== Abrir Aplicativo ==== */
+function openApp(app) {
+  if (app.href === "explorer") {
+    createWindow("Explorador de Arquivos", "explorer");
+  } else if (app.href === "about") {
+    createWindow("Sobre", "about");
+  } else {
+    createWindow(app.label, "iframe", app.href);
+  }
+}
+
+/* ==== Criar Janela ==== */
+function createWindow(title, type, contentURL = "") {
+  const win = document.createElement("div");
+  const id = `window-${windowCounter++}`;
+  win.className = "window";
+  win.style.top = `${100 + Math.random() * 50}px`;
+  win.style.left = `${100 + Math.random() * 50}px`;
+  win.id = id;
+  win.innerHTML = `
+    <div class="window-header">
+      <h2>${title}</h2>
+      <div class="window-controls">
+        <button class="minimize"><i class="fa fa-minus"></i></button>
+        <button class="maximize"><i class="fa fa-square"></i></button>
+        <button class="close"><i class="fa fa-times"></i></button>
+      </div>
+    </div>
+    <div class="window-content"></div>
+  `;
+  document.body.appendChild(win);
+  setTimeout(() => win.classList.add("show"), 10);
+
+  const content = win.querySelector(".window-content");
+  if (type === "iframe") {
+    content.innerHTML = `<iframe src="${contentURL}" title="${title}"></iframe>`;
+  } else if (type === "about") {
+    content.innerHTML = `<div style="padding:10px;">Este é um sistema WebOS simulado.</div>`;
+  } else if (type === "explorer") {
+    renderExplorer(content, fileSystem, "Raiz");
+  }
+
+  win.querySelector(".close").onclick = () => win.remove();
+}
+
+/* ==== Explorador de Arquivos ==== */
+const fileSystem = {
+  "Documentos": {type: "folder", content: {"arquivo1.txt": {type: "file", content: "Conteúdo do arquivo 1"}}},
+  "Imagens": {type: "folder", content: {}},
+  "Notas.txt": {type: "file", content: "Anotações gerais."}
+};
+
+function renderExplorer(container, currentDir, currentPath) {
+  container.innerHTML = `
+    <div class="explorer-toolbar">
+      <button><i class="fa fa-arrow-left"></i> Voltar</button>
+      <button><i class="fa fa-plus"></i> Novo</button>
+      <button><i class="fa fa-eye"></i> Visualizar</button>
+    </div>
+    <div class="explorer-path">Caminho: <span>${currentPath}</span></div>
+    <ul class="explorer-list"></ul>
+  `;
+
+  const list = container.querySelector(".explorer-list");
+  Object.entries(currentDir).forEach(([name, item]) => {
+    const li = document.createElement("li");
+    li.className = "explorer-item";
+    li.innerHTML = `<i class="fa ${item.type === 'folder' ? 'fa-folder' : 'fa-file'}"></i> ${name}`;
+    li.addEventListener("dblclick", () => {
+      if (item.type === "folder") {
+        renderExplorer(container, item.content, `${currentPath}/${name}`);
+      } else {
+        alert(item.content);
+      }
+    });
+    list.appendChild(li);
+  });
+}
+</script>
+</body>
+</html>
