@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Desktop WazzimaGiygg - Simulador</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --panel:#0b1220;
+    --accent:#0078d4;
+    --glass: rgba(255,255,255,0.04);
+    --text:#e6eef8;
+    --muted:#9fb3d6;
+    --taskbar:#071127;
+    --window-shadow: 0 10px 30px rgba(2,6,23,0.6);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#071226 0%, #071127 60%, #0b1530 100%);color:var(--text);overflow:hidden}
+  /* Desktop area */
+  .desktop{
+    position:relative;
+    height:calc(100vh - 40px);
+    padding:18px;
+    box-sizing:border-box;
+    user-select:none;
+  }
+
+  /* Start button & taskbar */
+  .taskbar{
+    position:fixed;
+    bottom:0;left:0;right:0;height:40px;
+    background:var(--taskbar);
+    display:flex;align-items:center;gap:8px;padding:6px;
+    box-shadow:0 -2px 12px rgba(0,0,0,0.6);
+    z-index:50;
+  }
+  .start-btn{
+    display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04));
+    cursor:pointer;
+  }
+  .start-btn img{width:20px;height:20px;display:block}
+  .taskbar-center{flex:1;display:flex;align-items:center;gap:8px;padding-left:8px}
+  .taskbar .tb-item{height:28px;padding:4px 6px;border-radius:4px;display:flex;align-items:center;gap:8px;cursor:pointer}
+  .tb-item img{width:20px;height:20px;display:block}
+
+  /* Start menu */
+  .start-menu{
+    position:fixed;left:8px;bottom:48px;width:320px;background:var(--panel);
+    border-radius:8px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,0.6);display:none;z-index:60;
+  }
+  .start-menu .title{font-weight:600;margin-bottom:8px;color:var(--muted)}
+  .start-list{display:grid;grid-template-columns:1fr;gap:6px;max-height:60vh;overflow:auto;padding-right:4px}
+  .start-item{
+    display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer;
+    transition:background .12s;
+  }
+  .start-item:hover{background:var(--glass)}
+  .start-item img{width:28px;height:28px;border-radius:4px}
+
+  /* Window style */
+  .window{
+    position:absolute;min-width:300px;min-height:180px;background:#fff;border-radius:6px;overflow:hidden;
+    box-shadow:var(--window-shadow);display:flex;flex-direction:column;color:#0b1220;
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  .titlebar{
+    display:flex;align-items:center;gap:8px;padding:6px 10px;background:linear-gradient(180deg,#f5f8fb,#eef6ff);
+    cursor:grab;
+  }
+  .titlebar .title{flex:1;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .titlebar img.icon{width:18px;height:18px;border-radius:3px}
+  .titlebar .controls{display:flex;gap:6px}
+  .btn{
+    width:30px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;
+  }
+  .btn:hover{background:rgba(0,0,0,0.06)}
+  .content{flex:1;background:white;display:flex;flex-direction:column;overflow:hidden}
+  .content iframe{border:0;width:100%;height:100%}
+  .resizer{width:12px;height:12px;position:absolute;right:2px;bottom:2px;cursor:nwse-resize;opacity:.2}
+
+  /* minimized style (keeps hidden, represented in taskbar) */
+  .minimized{display:none}
+
+  /* z-order helper */
+  .window[data-active="true"]{box-shadow: 0 18px 40px rgba(2,6,23,0.7);transform:translateY(-2px)}
+
+  /* small responsive */
+  @media (max-width:600px){
+    .start-menu{width:92vw;left:4vw}
+  }
+
+  /* scrollbar style for start list */
+  .start-list::-webkit-scrollbar{width:8px;height:8px}
+  .start-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.2);border-radius:6px}
+</style>
+</head>
+<body>
+  <div class="desktop" id="desktop" aria-label="Área de trabalho">
+    <!-- Optional wallpaper / widgets could go here -->
+  </div>
+
+  <!-- Start menu -->
+  <div class="start-menu" id="startMenu" role="menu" aria-hidden="true">
+    <div class="title">Iniciar</div>
+    <div class="start-list" id="startList"></div>
+  </div>
+
+  <!-- Taskbar -->
+  <div class="taskbar" role="toolbar">
+    <div class="start-btn" id="startBtn" title="Iniciar">
+      <img src="iconmagic.png" alt="Iniciar"/>
+      <div style="font-weight:600">Iniciar</div>
+    </div>
+    <div class="taskbar-center" id="taskbarCenter" aria-label="Barra de tarefas"></div>
+    <div style="color:var(--muted);padding-right:12px">WazzimaGiygg</div>
+  </div>
+
+<script>
+/* -------------------------
+   Lista de apps (do usuário)
+   ------------------------- */
+const APPS = [
+  { name: 'Termos de Serviço', url: 'https://wazzimagiygg.com/Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png' },
+  { name: 'Política de Privacidade', url: 'https://wazzimagiygg.com/Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png' },
+  { name: 'Termos de Serviço da WIKI WAZZIMAGIYGG BRASIL', url: 'https://wazzimagiygg.com/html/?uid=42LLRmne0HAgdFtzzgwG', iconUrl: 'iconmagic.png' },
+  { name: 'Manual de Políticas de Privacidade e Moderação', url: 'https://wazzimagiygg.com/html/?uid=9oD5c9P1uWmjI2C3bZSu', iconUrl: 'iconmagic.png' },
+  { name: 'Manual de Políticas de direito de privacidade', url: 'https://wazzimagiygg.com/html/?uid=F5CmMQDbrTpipTZoqd2x', iconUrl: 'iconmagic.png' },
+  { name: 'Direito de privacidade sobre WazzimaGiygg', url: 'https://wazzimagiygg.com/html/?uid=ik1hWPxqHKLjA13MIqVW', iconUrl: 'iconmagic.png' },
+  { name: 'Voltar para WazzimaGiygg (site)', url: 'https://wazzimagiygg.com/', iconUrl: 'iconmagic.png' },
+  { name: 'Voltar para WazzimaGiygg (admin)', url: 'https://wazzimagiygg.com/admin/nkpx.html', iconUrl: 'iconmagic.png' }
+];
+
+/* -------------------------
+   Elementos base
+   ------------------------- */
+const desktop = document.getElementById('desktop');
+const startBtn = document.getElementById('startBtn');
+const startMenu = document.getElementById('startMenu');
+const startList = document.getElementById('startList');
+const taskbarCenter = document.getElementById('taskbarCenter');
+
+let zIndexCounter = 100;
+let openWindows = []; // {id, app, el, taskBtn}
+
+/* Build start menu items */
+function buildStartMenu(){
+  startList.innerHTML = '';
+  APPS.forEach((app, idx) => {
+    const item = document.createElement('div');
+    item.className = 'start-item';
+    item.title = app.url;
+    item.innerHTML = `<img src="${app.iconUrl}" alt=""><div style="flex:1"><div style="font-weight:600">${escapeHtml(app.name)}</div><div style="font-size:12px;color:var(--muted)">${shortUrl(app.url)}</div></div>`;
+    item.addEventListener('click', () => {
+      createWindow(app);
+      hideStartMenu();
+    });
+    startList.appendChild(item);
+  });
+}
+
+/* escape */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function shortUrl(u){
+  try {
+    const p = new URL(u);
+    return p.hostname + p.pathname.slice(0,18) + (p.pathname.length>18? '…':'');
+  } catch(e){ return u.slice(0,28) + (u.length>28?'…':''); }
+}
+
+/* Show/hide start menu */
+function toggleStartMenu(){
+  const visible = startMenu.style.display === 'block';
+  if(visible) hideStartMenu(); else showStartMenu();
+}
+function showStartMenu(){
+  startMenu.style.display = 'block';
+  startMenu.setAttribute('aria-hidden','false');
+}
+function hideStartMenu(){
+  startMenu.style.display = 'none';
+  startMenu.setAttribute('aria-hidden','true');
+}
+
+startBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  toggleStartMenu();
+});
+document.addEventListener('click', (e) => {
+  // clique fora fecha o start menu
+  if(!startMenu.contains(e.target) && !startBtn.contains(e.target)) hideStartMenu();
+});
+
+/* Create a new window */
+function createWindow(app){
+  const id = 'win_' + Date.now() + Math.floor(Math.random()*9999);
+  const win = document.createElement('div');
+  win.className = 'window';
+  win.style.left = '60px';
+  win.style.top = '60px';
+  win.style.width = '960px';
+  win.style.height = '640px';
+  win.dataset.active = 'true';
+  win.dataset.winId = id;
+  win.style.zIndex = ++zIndexCounter;
+
+  win.innerHTML = `
+    <div class="titlebar" data-drag-handle>
+      <img class="icon" src="${app.iconUrl}" alt="">
+      <div class="title" title="${escapeHtml(app.name)}">${escapeHtml(app.name)}</div>
+      <div class="controls">
+        <div class="btn" title="Minimizar" data-action="min">—</div>
+        <div class="btn" title="Maximizar" data-action="max">▢</div>
+        <div class="btn" title="Fechar" data-action="close">✕</div>
+      </div>
+    </div>
+    <div class="content">
+      <iframe src="${app.url}" sandbox="allow-forms allow-scripts allow-same-origin allow-popups"></iframe>
+      <div class="resizer" aria-hidden="true"></div>
+    </div>
+  `;
+
+  desktop.appendChild(win);
+  makeDraggable(win);
+  makeResizable(win);
+  attachControls(win, app);
+
+  // create taskbar button
+  const tbBtn = document.createElement('div');
+  tbBtn.className = 'tb-item';
+  tbBtn.title = app.name;
+  tbBtn.innerHTML = `<img src="${app.iconUrl}" alt=""><div style="font-size:12px;margin-left:6px">${app.name}</div>`;
+  taskbarCenter.appendChild(tbBtn);
+
+  tbBtn.addEventListener('click', () => {
+    const isMin = win.classList.contains('minimized');
+    if(isMin) restoreWindow(win);
+    focusWindow(win);
+  });
+
+  openWindows.push({ id, el: win, app, taskBtn: tbBtn });
+  focusWindow(win);
+}
+
+/* Focus window (z-order) */
+function focusWindow(win){
+  // mark active
+  document.querySelectorAll('.window').forEach(w => { w.dataset.active = 'false' });
+  win.dataset.active = 'true';
+  win.style.zIndex = ++zIndexCounter;
+  win.classList.remove('minimized');
+}
+
+/* Minimize / Restore / Maximize / Close handlers */
+function attachControls(win, app){
+  const btns = win.querySelectorAll('.btn');
+  btns.forEach(b => {
+    b.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const action = b.dataset.action;
+      if(action === 'min') minimizeWindow(win);
+      if(action === 'max') toggleMaximize(win);
+      if(action === 'close') closeWindow(win);
+    });
+  });
+
+  // double-click titlebar toggles maximize
+  const tb = win.querySelector('.titlebar');
+  tb.addEventListener('dblclick', () => toggleMaximize(win));
+
+  // click focuses
+  win.addEventListener('mousedown', () => focusWindow(win));
+}
+
+/* Minimize: hide window, keep taskbar button*/
+function minimizeWindow(win){
+  win.classList.add('minimized');
+  win.dataset.active = 'false';
+}
+
+/* Restore (from minimized) */
+function restoreWindow(win){
+  win.classList.remove('minimized');
+  focusWindow(win);
+}
+
+/* Maximize toggle */
+function toggleMaximize(win){
+  if(win.dataset.max === 'true'){
+    // restore
+    const left = win.dataset.prevLeft, top = win.dataset.prevTop, width = win.dataset.prevWidth, height = win.dataset.prevHeight;
+    if(left) win.style.left = left;
+    if(top) win.style.top = top;
+    if(width) win.style.width = width;
+    if(height) win.style.height = height;
+    win.dataset.max = 'false';
+    win.style.transition = 'all .12s';
+    setTimeout(()=> win.style.transition = '', 140);
+  } else {
+    // save previous
+    win.dataset.prevLeft = win.style.left;
+    win.dataset.prevTop  = win.style.top;
+    win.dataset.prevWidth= win.style.width;
+    win.dataset.prevHeight= win.style.height;
+    win.style.left = '6px';
+    win.style.top  = '6px';
+    win.style.width = `calc(100% - 12px)`;
+    win.style.height = `calc(100% - 56px)`;
+    win.dataset.max = 'true';
+  }
+}
+
+/* Close: remove window and its taskbar button */
+function closeWindow(win){
+  const id = win.dataset.winId;
+  // remove from openWindows list
+  const idx = openWindows.findIndex(o=>o.id === id);
+  if(idx !== -1){
+    const obj = openWindows[idx];
+    if(obj.taskBtn && obj.taskBtn.parentNode) obj.taskBtn.parentNode.removeChild(obj.taskBtn);
+    openWindows.splice(idx,1);
+  }
+  if(win.parentNode) win.parentNode.removeChild(win);
+}
+
+/* Dragging */
+function makeDraggable(win){
+  const handle = win.querySelector('[data-drag-handle]');
+  let dragging = false;
+  let offsetX=0, offsetY=0;
+
+  handle.addEventListener('pointerdown', (e)=>{
+    handle.setPointerCapture(e.pointerId);
+    dragging = true;
+    offsetX = e.clientX - win.getBoundingClientRect().left;
+    offsetY = e.clientY - win.getBoundingClientRect().top;
+    win.style.cursor = 'grabbing';
+  });
+
+  document.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    // prevent dragging off-screen too far (basic clamp)
+    const desktopRect = desktop.getBoundingClientRect();
+    let left = e.clientX - offsetX;
+    let top = e.clientY - offsetY;
+    // clamp
+    left = Math.max(desktopRect.left + 6, Math.min(left, desktopRect.right - 100));
+    top  = Math.max(desktopRect.top + 6, Math.min(top, desktopRect.bottom - 80));
+    win.style.left = left + 'px';
+    win.style.top  = top + 'px';
+  });
+
+  document.addEventListener('pointerup', (e)=>{
+    if(dragging){
+      dragging = false;
+      win.style.cursor = '';
+    }
+  });
+}
+
+/* Resizing */
+function makeResizable(win){
+  const resizer = win.querySelector('.resizer');
+  let resizing = false;
+  let startX, startY, startW, startH;
+
+  resizer.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    resizer.setPointerCapture(e.pointerId);
+    resizing = true;
+    const rect = win.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY;
+    startW = rect.width; startH = rect.height;
+    document.body.style.cursor = 'nwse-resize';
+  });
+
+  document.addEventListener('pointermove', (e)=>{
+    if(!resizing) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    let newW = Math.max(300, startW + dx);
+    let newH = Math.max(180, startH + dy);
+    win.style.width = newW + 'px';
+    win.style.height = newH + 'px';
+  });
+
+  document.addEventListener('pointerup', (e)=>{
+    if(resizing){
+      resizing = false;
+      document.body.style.cursor = '';
+    }
+  });
+}
+
+/* Clicking on desktop hides start menu */
+desktop.addEventListener('click', () => hideStartMenu());
+
+/* Keyboard: Esc hides start menu, Ctrl+W closes top window */
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape') hideStartMenu();
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='w'){
+    // close active window
+    const active = document.querySelector('.window[data-active="true"]');
+    if(active) closeWindow(active);
+  }
+});
+
+/* Initialize start menu */
+buildStartMenu();
+
+/* Accessibility: attempt to focus topmost on window click */
+document.addEventListener('mousedown', (e)=>{
+  const w = e.target.closest('.window');
+  if(w) focusWindow(w);
+});
+
+/* Prevent drag of images (icons) messing gestures */
+document.querySelectorAll('img').forEach(img => { img.draggable = false; });
+
+/* On load: optional welcome window */
+window.addEventListener('load', ()=>{
+  // create a small welcome/info window (optional)
+  const welcome = {
+    name: 'Bem-vindo ao Desktop WazzimaGiygg',
+    url: 'data:text/html;charset=utf-8,' + encodeURIComponent(`
+      <html><body style="font-family:Inter,system-ui,Arial;background:white;color:#0b1220;padding:18px">
+      <h2>Bem-vindo</h2>
+      <p>Use o menu Iniciar (canto inferior esquerdo) para abrir os documentos e manuais dentro de janelas no navegador.</p>
+      <p>Dicas: duplo clique na barra de título para maximizar; arraste a borda inferior direita para redimensionar; clique no ícone na barra de tarefas para restaurar janelas minimizadas.</p>
+      <p style="font-size:12px;color:#556">Feche esta janela com Ctrl+W ou clicando em Fechar.</p>
+      </body></html>
+    `),
+    iconUrl: 'iconmagic.png'
+  };
+  // createWindow(welcome); // comente/descomente se quiser que abra automaticamente
+});
+</script>
+</body>
+</html>
