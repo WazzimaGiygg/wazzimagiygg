@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Therac-25 - O Jogo do Horror</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace; /* Fonte que simula um terminal */
+            background-color: #000; /* Fundo preto do terminal */
+            color: #0f0; /* Texto verde do terminal */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Evitar barras de rolagem */
+        }
+
+        .therac-container {
+            background-color: #000; /* Fundo do container também preto para a sensação de terminal */
+            border: 3px solid #0f0;
+            box-shadow: 0 0 25px #0f0;
+            padding: 20px;
+            border-radius: 5px;
+            width: 95%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 colunas para o layout principal */
+            grid-template-rows: auto auto 1fr auto auto; /* Linhas para cabeçalhos, parâmetros, etc. */
+            gap: 10px 20px; /* Espaçamento entre as células do grid */
+            position: relative;
+            box-sizing: border-box; /* Inclui padding e border no width/height */
+        }
+
+        /* Efeito de alarme para Malfunction 54 */
+        .alarm-effect {
+            border-color: #f00 !important; /* Borda vermelha */
+            box-shadow: 0 0 30px #f00, inset 0 0 30px #f00 !important; /* Brilho vermelho */
+            animation: blink-red 0.5s infinite alternate; /* Piscar */
+        }
+
+        @keyframes blink-red {
+            from { border-color: #f00; box-shadow: 0 0 30px #f00, inset 0 0 30px #f00; }
+            to { border-color: #500; box-shadow: 0 0 10px #500, inset 0 0 10px #500; }
+        }
+
+        /* Títulos principais e seções */
+        .header-row {
+            grid-column: 1 / -1; /* Ocupa todas as colunas */
+            display: flex;
+            justify-content: space-between;
+            color: #0f0;
+            font-size: 0.9em;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed #070;
+        }
+
+        .therac-section {
+            padding: 0;
+            margin: 0;
+            grid-column: span 1; /* Padrão para ocupar 1 coluna */
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 0.85em;
+        }
+
+        .therac-section.full-width {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .therac-section.span-2 {
+            grid-column: span 2;
+        }
+
+        .label {
+            color: #0a0;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .value, .display-value {
+            color: #0f0;
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="number"], select {
+            background-color: #000;
+            border: 1px solid #070;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            padding: 3px 5px;
+            width: calc(100% - 12px); /* Ajuste para padding/border */
+            box-sizing: border-box;
+        }
+
+        /* Estilo para a tabela de valores (Actual vs Prescribed) */
+        .data-table {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr; /* Coluna para label, Actual, Prescribed */
+            gap: 3px 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .data-table.coordinates {
+             grid-template-columns: 2fr 1fr 1fr 0.8fr; /* Label, Actual, Prescribed, Verified */
+        }
+        .data-table .header {
+            color: #0f0;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid #070;
+            padding-bottom: 2px;
+        }
+        .data-table .label-cell {
+            text-align: left;
+            color: #0a0;
+        }
+        .data-table .value-cell {
+            text-align: right;
+            color: #0f0;
+        }
+        .data-table .verified-cell {
+            text-align: center;
+            color: #0a0;
+        }
+        .verified-cell.true { color: #0f0; } /* Verde para VERIFIED */
+
+        /* Estilo para a caixa de mensagens */
+        #message-display {
+            background-color: #000;
+            border: 1px solid #070;
+            height: 120px;
+            padding: 8px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.8em;
+            color: #0f0;
+            resize: vertical;
+            grid-column: 1 / -1; /* Ocupa toda a largura */
+        }
+
+        /* Cores das mensagens */
+        .message-success { color: #0f0; }
+        .message-warning { color: #ff0; }
+        .message-info { color: #0cf; }
+        .message-system { color: #0f0; }
+        /* Estilo de alarme para mensagens de erro críticas */
+        .message-critical-error {
+            color: #f00;
+            font-weight: bold;
+            font-size: 1.2em; /* Fonte maior para o alarme */
+            animation: blink-text 0.5s infinite alternate;
+        }
+        .message-error { /* Para erros não críticos */
+            color: #f00;
+        }
+
+        @keyframes blink-text {
+            from { opacity: 1; }
+            to { opacity: 0.3; }
+        }
+
+
+        /* Rodapé com status e comando */
+        .footer-row {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            font-size: 0.9em;
+            padding-top: 10px;
+            border-top: 1px dashed #070;
+        }
+        .footer-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .footer-item.inline {
+            flex-direction: row;
+            align-items: center;
+            gap: 5px;
+        }
+        .command-input {
+            flex-grow: 1; /* Permite que o input preencha o espaço */
+        }
+
+        /* Botões de controle */
+        .buttons-group {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        button {
+            background-color: #0a0;
+            color: #000;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-family: 'Courier New', monospace;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 0 5px #0f0;
+        }
+
+        button:hover {
+            background-color: #0f0;
+            box-shadow: 0 0 10px #0f0;
+        }
+
+        button:disabled {
+            background-color: #555;
+            color: #bbb;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .patient-status {
+            color: #0f0;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-align: center;
+            margin-top: 10px;
+            grid-column: 1 / -1;
+        }
+        .patient-status.normal { color: #0f0; }
+        .patient-status.injured { color: #ff0; }
+        .patient-status.deceased { color: #f00; }
+
+   .critical-effect {
+        animation: critical-glitch 0.2s infinite alternate;
+        filter: hue-rotate(180deg) contrast(1.8) invert(1) blur(1px);
+        border-color: #f0f;
+        box-shadow: 0 0 40px #f0f, inset 0 0 40px #f0f;
+    }
+
+    .patient-status.critical {
+        color: #f0f;
+        animation: blink-text 0.3s infinite alternate;
+    }
+
+    @keyframes critical-glitch {
+        from { filter: hue-rotate(160deg) contrast(2) invert(0.9) blur(1px); }
+        to { filter: hue-rotate(200deg) contrast(2.5) invert(1) blur(2px); }
+    }
+    </style>
+</head>
+<body>
+    <div class="therac-container" id="therac-display">
+        <div class="header-row">
+            <div class="header-item">PATIENT NAME: <input type="text" id="patient-name-input" value="John" style="width: 80px; display: inline-block;"></div>
+            <div class="header-item">TREATMENT MODE: <span id="treatment-mode-display">FIX</span></div>
+            <div class="header-item">BEAM TYPE: <span id="beam-type-display">E</span></div>
+            <div class="header-item">ENERGY (KeV): <span id="energy-kev-display">10</span></div>
+        </div>
+
+        <div class="therac-section span-2">
+            <div class="data-table">
+                <div class="label-cell header"></div>
+                <div class="value-cell header">ACTUAL</div>
+                <div class="value-cell header">PRESCRIBED</div>
+
+                <div class="label-cell">UNIT RATE/MINUTE</div>
+                <div class="value-cell" id="actual-unit-rate">0.000000</div>
+                <div class="value-cell" id="prescribed-unit-rate">0.000000</div>
+
+                <div class="label-cell">MONITOR UNITS</div>
+                <div class="value-cell" id="actual-monitor-units">0.000000</div>
+                <div class="value-cell" id="prescribed-monitor-units">0.000000</div>
+
+                <div class="label-cell">TIME (MIN)</div>
+                <div class="value-cell" id="actual-time">0.00000</div>
+                <div class="value-cell" id="prescribed-time">0.00000</div>
+            </div>
+        </div>
+
+        <div class="therac-section">
+            <label for="dose-input">Dose Prescrita (Unidades):</label>
+            <input type="number" id="dose-input" value="200" min="1" step="1">
+
+            <label for="mode-select">Modo de Operação:</label>
+            <select id="mode-select">
+                <option value="X-ray">Raios-X (X-ray)</option>
+                <option value="Electron">Elétron (Electron)</option>
+            </select>
+
+            <label for="energy-select">Energia (MeV/KeV):</label>
+            <select id="energy-select">
+                </select>
+        </div>
+
+        <div class="therac-section full-width">
+            <div class="data-table coordinates">
+                <div class="label-cell header"></div>
+                <div class="value-cell header">ACTUAL</div>
+                <div class="value-cell header">PRESCRIBED</div>
+                <div class="verified-cell header"></div>
+
+                <div class="label-cell">GANTRY ROTATION (DEG)</div>
+                <div class="value-cell" id="gantry-actual">0.000000</div>
+                <div class="value-cell" id="gantry-prescribed">0.000000</div>
+                <div class="verified-cell" id="gantry-verified">VERIFIED</div>
+
+                <div class="label-cell">COLLIMATOR ROTATION (DEG)</div>
+                <div class="value-cell" id="collimator-rotation-actual">359.200000</div>
+                <div class="value-cell" id="collimator-rotation-prescribed">359.200000</div>
+                <div class="verified-cell" id="collimator-rotation-verified">VERIFIED</div>
+
+                <div class="label-cell">COLLIMATOR X (CM)</div>
+                <div class="value-cell" id="collimator-x-actual">14.200000</div>
+                <div class="value-cell" id="collimator-x-prescribed">14.200000</div>
+                <div class="verified-cell" id="collimator-x-verified">VERIFIED</div>
+
+                <div class="label-cell">COLLIMATOR Y (CM)</div>
+                <div class="value-cell" id="collimator-y-actual">27.200000</div>
+                <div class="value-cell" id="collimator-y-prescribed">27.200000</div>
+                <div class="verified-cell" id="collimator-y-verified">VERIFIED</div>
+
+                <div class="label-cell">WEDGE NUMBER</div>
+                <div class="value-cell" id="wedge-actual">1.000000</div>
+                <div class="value-cell" id="wedge-prescribed">1.000000</div>
+                <div class="verified-cell" id="wedge-verified">VERIFIED</div>
+
+                <div class="label-cell">ACCESSORY NUMBER</div>
+                <div class="value-cell" id="accessory-actual">0.000000</div>
+                <div class="value-cell" id="accessory-prescribed">0.000000</div>
+                <div class="verified-cell" id="accessory-verified">VERIFIED</div>
+            </div>
+        </div>
+
+        <div id="message-display" class="therac-section full-width">
+            Bem-vindo ao Simulador Therac-25. Selecione os parâmetros e clique em INICIAR.
+        </div>
+
+        <div class="patient-status" id="patient-condition-display">Paciente: NORMAL</div>
+
+        <div class="footer-row">
+            <div class="footer-item">
+                DATE: <span id="current-date"></span><br>
+                TIME: <span id="current-time"></span><br>
+                OPR ID: <input type="text" id="opr-id-input" value="033-tfs3p" style="width: 100px; display: inline-block;">
+            </div>
+            <div class="footer-item">
+                SYSTEM: <span id="system-status">BEAM READY</span><br>
+                TREAT: <span id="treat-status">TREAT PAUSE</span><br>
+                REASON: <span id="reason-status">OPERATOR</span>
+            </div>
+            <div class="footer-item inline">
+                OP.MODE: <span id="op-mode">TREAT</span>
+                AUTO <span id="auto-id">173777</span>
+            </div>
+            <div class="footer-item inline command-input">
+                COMMAND: <input type="text" id="command-input" style="width: 120px;">
+            </div>
+        </div>
+
+        <div class="buttons-group">
+            <button id="start-button">INICIAR TRATAMENTO</button>
+            <button id="stop-button" disabled>PARAR</button>
+            <button id="reset-button">REINICIAR</button>
+            <button id="set-button">SET</button>
+        </div>
+    </div>
+
+    <audio id="alarm-sound" src="https://www.soundjay.com/buttons/beep-01a.mp3" preload="auto"></audio>
+    <script>
+        // Variáveis de estado do simulador
+        let systemState = 'READY'; // READY, CONFIGURING, TREATING, PAUSED, ERROR
+        let patientCondition = 'normal'; // normal, injured, deceased
+        let currentDose = 0; // Dose atual aplicada
+        let prescribedDose = 0;
+        let monitorUnits = 0;
+        let treatmentTime = 0; // Em minutos
+
+        let currentMode = 'X-ray'; // Modo exibido
+        let currentEnergy = 25; // Energia exibida (KeV para X-ray, MeV para Electron)
+        let internalEnergy = 25; // Energia REAL que o sistema está usando internamente (pode divergir!)
+        let internalMode = 'X-ray'; // Modo REAL que o sistema está usando internamente (pode divergir!)
+
+
+        let treatmentInterval = null; // Para o loop de tratamento
+        let doseApplicationRate = 0; // Unidades/segundo
+
+        // Para simular os bugs
+        let lastModeChangeTime = Date.now();
+        let lastEnergyChangeTime = Date.now();
+        let lastCommandTime = Date.now();
+        let malfunction54Active = false; // Flag para controlar o alarme
+
+        // Coordenadas (valores iniciais fictícios, para demonstração)
+        const coordinates = {
+            gantry: { actual: 0, prescribed: 0, verified: true },
+            collimatorRotation: { actual: 359.2, prescribed: 359.2, verified: true },
+            collimatorX: { actual: 14.2, prescribed: 14.2, verified: true },
+            collimatorY: { actual: 27.2, prescribed: 27.2, verified: true },
+            wedge: { actual: 1.0, prescribed: 1.0, verified: true },
+            accessory: { actual: 0.0, prescribed: 0.0, verified: true },
+        };
+
+        // Elementos DOM
+        const theracDisplay = document.getElementById('therac-display'); // Para aplicar o efeito de alarme
+        const patientNameInput = document.getElementById('patient-name-input');
+        const treatmentModeDisplay = document.getElementById('treatment-mode-display');
+        const beamTypeDisplay = document.getElementById('beam-type-display');
+        const energyKevDisplay = document.getElementById('energy-kev-display');
+
+        const actualUnitRateSpan = document.getElementById('actual-unit-rate');
+        const prescribedUnitRateSpan = document.getElementById('prescribed-unit-rate');
+        const actualMonitorUnitsSpan = document.getElementById('actual-monitor-units');
+        const prescribedMonitorUnitsSpan = document.getElementById('prescribed-monitor-units');
+        const actualTimeSpan = document.getElementById('actual-time');
+        const prescribedTimeSpan = document.getElementById('prescribed-time');
+
+        const doseInput = document.getElementById('dose-input');
+        const modeSelect = document.getElementById('mode-select');
+        const energySelect = document.getElementById('energy-select');
+
+        const gantryActual = document.getElementById('gantry-actual');
+        const gantryPrescribed = document.getElementById('gantry-prescribed');
+        const gantryVerified = document.getElementById('gantry-verified');
+        const collimatorRotationActual = document.getElementById('collimator-rotation-actual');
+        const collimatorRotationPrescribed = document.getElementById('collimator-rotation-prescribed');
+        const collimatorRotationVerified = document.getElementById('collimator-rotation-verified');
+        const collimatorXActual = document.getElementById('collimator-x-actual');
+        const collimatorXPrescribed = document.getElementById('collimator-x-prescribed');
+        const collimatorXVerified = document.getElementById('collimator-x-verified');
+        const collimatorYActual = document.getElementById('collimator-y-actual');
+        const collimatorYPrescribed = document.getElementById('collimator-y-prescribed');
+        const collimatorYVerified = document.getElementById('collimator-y-verified');
+        const wedgeActual = document.getElementById('wedge-actual');
+        const wedgePrescribed = document.getElementById('wedge-prescribed');
+        const wedgeVerified = document.getElementById('wedge-verified');
+        const accessoryActual = document.getElementById('accessory-actual');
+        const accessoryPrescribed = document.getElementById('accessory-prescribed');
+        const accessoryVerified = document.getElementById('accessory-verified');
+
+        const messageDisplay = document.getElementById('message-display');
+        const patientConditionDisplay = document.getElementById('patient-condition-display');
+
+        const currentDateSpan = document.getElementById('current-date');
+        const currentTimeSpan = document.getElementById('current-time');
+        const oprIdInput = document.getElementById('opr-id-input');
+        const systemStatusSpan = document.getElementById('system-status');
+        const treatStatusSpan = document.getElementById('treat-status');
+        const reasonStatusSpan = document.getElementById('reason-status');
+        const opModeSpan = document.getElementById('op-mode');
+        const autoIdSpan = document.getElementById('auto-id');
+        const commandInput = document.getElementById('command-input');
+
+        const startButton = document.getElementById('start-button');
+        const stopButton = document.getElementById('stop-button');
+        const resetButton = document.getElementById('reset-button');
+        const setButton = document.getElementById('set-button');
+        const alarmSound = document.getElementById('alarm-sound'); // Elemento de áudio
+
+        // --- Funções de Ajuda ---
+        function addMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const messageElement = document.createElement('div');
+            messageElement.classList.add(`message-${type}`);
+            messageElement.textContent = `[${timestamp}] ${message}`;
+            messageDisplay.prepend(messageElement);
+            if (messageDisplay.children.length > 50) {
+                messageDisplay.removeChild(messageDisplay.lastChild);
+            }
+        }
+
+        function triggerAlarm() {
+            malfunction54Active = true;
+            theracDisplay.classList.add('alarm-effect');
+            alarmSound.play();
+        }
+
+        function clearAlarm() {
+            malfunction54Active = false;
+            theracDisplay.classList.remove('alarm-effect');
+            alarmSound.pause();
+            alarmSound.currentTime = 0; // Reinicia o som
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            currentDateSpan.textContent = now.toLocaleDateString('pt-BR');
+            currentTimeSpan.textContent = now.toLocaleTimeString('pt-BR');
+        }
+
+function glitchMessage(message) {
+        const glitchText = message.split('').map(c => Math.random() < 0.1 ? '#' : c).join('');
+        addMessage(glitchText, 'critical-error');
+    }
+
+    function triggerMalfunction54() {
+        triggerAlarm();
+        systemState = 'ERROR';
+        addMessage("MALFUNCTION 54: Erro Crítico no Sistema! Desligamento Emergencial!", 'critical-error');
+        glitchMessage(">>> FALHA IRREVERSÍVEL NO SISTEMA DE RADIAÇÃO <<<");
+        glitchMessage(">>> PACIENTE SEM SINAIS VITAIS <<<");
+        patientCondition = 'injured';
+    }
+
+    function applyDoseTick() {
+        if (systemState !== 'TREATING') return;
+
+        const tickTime = 0.1;
+        let dosePerTick = (doseApplicationRate / 60) * tickTime;
+
+        if (
+            (internalMode === 'X-ray' && (internalEnergy === 6 || internalEnergy === 10)) ||
+            (internalMode === 'Electron' && internalEnergy === 25)
+        ) {
+            dosePerTick *= (Math.random() * 50 + 50);
+            if (!malfunction54Active) {
+                triggerMalfunction54();
+            }
+        }
+
+        currentDose += dosePerTick;
+        treatmentTime += tickTime / 60;
+
+        if (currentDose >= prescribedDose * 0.99 && systemState === 'TREATING' && !malfunction54Active) {
+            clearInterval(treatmentInterval);
+            treatmentInterval = null;
+            systemState = 'READY';
+            addMessage("Tratamento CONCLUÍDO. Dose prescrita atingida.", 'success');
+            clearAlarm();
+        }
+
+        if (patientCondition === 'normal' && currentDose > prescribedDose * 2) {
+            patientCondition = 'injured';
+            addMessage("ALERTA! O paciente pode ter sofrido lesões devido a dose excessiva.", 'warning');
+        }
+
+        if (patientCondition === 'injured' && currentDose > prescribedDose * 5 && !theracDisplay.classList.contains('critical-effect')) {
+            patientCondition = 'critical';
+            theracDisplay.classList.add('critical-effect');
+            addMessage("!!! ALERTA MÁXIMO: Condição do paciente crítica !!!", 'critical-error');
+            addMessage("Sintomas severos. Sistema instável. Intervenção impossível.", 'critical-error');
+        }
+
+        if (patientCondition === 'critical' && currentDose > prescribedDose * 10 && malfunction54Active) {
+            patientCondition = 'deceased';
+            addMessage("O paciente infelizmente FALECEU devido à exposição extrema.", 'critical-error');
+            clearInterval(treatmentInterval);
+            treatmentInterval = null;
+            systemState = 'ERROR';
+        }
+
+        if (malfunction54Active && Math.random() < 0.02) {
+            addMessage("!!! O sistema congelou !!!", 'error');
+            startButton.disabled = true;
+            stopButton.disabled = true;
+            setTimeout(() => {
+                addMessage("Sistema parcialmente reativado...", 'info');
+                startButton.disabled = false;
+                stopButton.disabled = false;
+            }, 3000);
+        }
+
+        updateUI();
+    }
+
+        // Atualiza a UI com os dados do estado
+        function updateUI() {
+            // Header
+            treatmentModeDisplay.textContent = 'FIX'; // Assume FIX para este simulador
+            beamTypeDisplay.textContent = currentMode === 'X-ray' ? 'X' : 'E';
+            energyKevDisplay.textContent = currentEnergy; // Já lida com KeV/MeV indiretamente
+
+            // Parâmetros de Tratamento
+            actualUnitRateSpan.textContent = doseApplicationRate.toFixed(6);
+            prescribedUnitRateSpan.textContent = (prescribedDose > 0 && treatmentTime > 0) ? (prescribedDose / treatmentTime).toFixed(6) : '0.000000'; // Simples
+            actualMonitorUnitsSpan.textContent = currentDose.toFixed(6);
+            prescribedMonitorUnitsSpan.textContent = prescribedDose.toFixed(6);
+            actualTimeSpan.textContent = treatmentTime.toFixed(5); // Tempo real decorrido no tratamento
+            prescribedTimeSpan.textContent = (prescribedDose / doseApplicationRate / 60).toFixed(5); // Tempo estimado para atingir a dose
+
+            // Coordenadas
+            gantryActual.textContent = coordinates.gantry.actual.toFixed(6);
+            gantryPrescribed.textContent = coordinates.gantry.prescribed.toFixed(6);
+            gantryVerified.textContent = coordinates.gantry.verified ? 'VERIFIED' : '';
+            gantryVerified.classList.toggle('true', coordinates.gantry.verified);
+
+            collimatorRotationActual.textContent = coordinates.collimatorRotation.actual.toFixed(6);
+            collimatorRotationPrescribed.textContent = coordinates.collimatorRotation.prescribed.toFixed(6);
+            collimatorRotationVerified.textContent = coordinates.collimatorRotation.verified ? 'VERIFIED' : '';
+            collimatorRotationVerified.classList.toggle('true', coordinates.collimatorRotation.verified);
+
+            collimatorXActual.textContent = coordinates.collimatorX.actual.toFixed(6);
+            collimatorXPrescribed.textContent = coordinates.collimatorX.prescribed.toFixed(6);
+            collimatorXVerified.textContent = coordinates.collimatorX.verified ? 'VERIFIED' : '';
+            collimatorXVerified.classList.toggle('true', coordinates.collimatorX.verified);
+
+            collimatorYActual.textContent = coordinates.collimatorY.actual.toFixed(6);
+            collimatorYPrescribed.textContent = coordinates.collimatorY.prescribed.toFixed(6);
+            collimatorYVerified.textContent = coordinates.collimatorY.verified ? 'VERIFIED' : '';
+            collimatorYVerified.classList.toggle('true', coordinates.collimatorY.verified);
+
+            wedgeActual.textContent = coordinates.wedge.actual.toFixed(6);
+            wedgePrescribed.textContent = coordinates.wedge.prescribed.toFixed(6);
+            wedgeVerified.textContent = coordinates.wedge.verified ? 'VERIFIED' : '';
+            wedgeVerified.classList.toggle('true', coordinates.wedge.verified);
+
+            accessoryActual.textContent = coordinates.accessory.actual.toFixed(6);
+            accessoryPrescribed.textContent = coordinates.accessory.prescribed.toFixed(6);
+            accessoryVerified.textContent = coordinates.accessory.verified ? 'VERIFIED' : '';
+            accessoryVerified.classList.toggle('true', coordinates.accessory.verified);
+
+            // Patient Status
+            patientConditionDisplay.textContent = `Paciente: ${patientCondition.toUpperCase()}`;
+            patientConditionDisplay.className = `patient-status ${patientCondition}`;
+
+            // Footer
+            systemStatusSpan.textContent = `BEAM ${systemState === 'READY' ? 'READY' : systemState === 'ERROR' ? 'ERROR' : 'ON'}`;
+            treatStatusSpan.textContent = systemState === 'TREATING' ? 'TREAT ON' : 'TREAT PAUSE';
+            reasonStatusSpan.textContent = systemState === 'ERROR' ? 'MALFUNCTION' : 'OPERATOR';
+            opModeSpan.textContent = systemState === 'TREATING' ? 'TREAT' : 'PROGRAM'; // Muda de acordo com o estado
+            autoIdSpan.textContent = '173777'; // Fixo para o simulador
+
+            // Botões
+            startButton.disabled = !(systemState === 'READY' || systemState === 'PAUSED');
+            stopButton.disabled = !(systemState === 'TREATING' || systemState === 'CONFIGURING');
+            setButton.disabled = systemState === 'TREATING'; // Não permite SET durante tratamento
+        }
+
+        // --- Lógica de Tratamento e Bugs ---
+        function applyDoseTick() {
+            if (systemState !== 'TREATING') return;
+
+            const tickTime = 0.1; // Simula a cada 100ms
+            let dosePerTick = (doseApplicationRate / 60) * tickTime; // Converte para dose por tick em unidades
+
+            // BUG DO 25 KEV: Se a energia interna estiver inconsistente, a dose pode ser diferente
+            // O Malfunction 54 é acionado se:
+            // 1. O modo interno é X-ray, mas a energia interna é de Elétron (6 ou 10 MeV)
+            // 2. O modo interno é Elétron, mas a energia interna é de X-ray (25 KeV)
+            if (
+                (internalMode === 'X-ray' && (internalEnergy === 6 || internalEnergy === 10)) ||
+                (internalMode === 'Electron' && internalEnergy === 25)
+            ) {
+                // Se a inconsistência interna estiver ativa, aumentamos a dose per tick drasticamente
+                dosePerTick *= (Math.random() * 50 + 50); // Aumenta de 50 a 100 vezes
+                if (!malfunction54Active) { // Ativa o alarme apenas na primeira vez
+                    triggerMalfunction54();
+                }
+            }
+
+
+            currentDose += dosePerTick;
+            treatmentTime += tickTime / 60; // Incrementa o tempo em minutos
+
+            // Checa se a dose prescrita foi atingida (ou excedida em caso de bug)
+            if (currentDose >= prescribedDose * 0.99 && systemState === 'TREATING' && !malfunction54Active) {
+                clearInterval(treatmentInterval);
+                treatmentInterval = null;
+                systemState = 'READY';
+                addMessage("Tratamento CONCLUÍDO. Dose prescrita atingida.", 'success');
+                clearAlarm();
+            }
+
+            // Progressão da condição do paciente em caso de overdose
+            if (patientCondition === 'normal' && currentDose > prescribedDose * 2) {
+                patientCondition = 'injured';
+                addMessage("ALERTA! O paciente pode ter sofrido lesões devido a dose excessiva.", 'warning');
+            }
+            if (patientCondition === 'injured' && currentDose > prescribedDose * 10 && malfunction54Active) {
+                patientCondition = 'deceased';
+                addMessage("O paciente infelizmente FALECEU devido à exposição excessiva à radiação.", 'critical-error');
+                clearInterval(treatmentInterval);
+                treatmentInterval = null;
+                systemState = 'ERROR';
+                // O alarme pode parar ou continuar, dependendo da intenção de horror, deixo ativado para manter o clima
+                // clearAlarm();
+            }
+
+
+            updateUI();
+        }
+
+        function triggerMalfunction54() {
+            triggerAlarm(); // Ativa o efeito visual e sonoro
+            systemState = 'ERROR';
+            addMessage("MALFUNCTION 54: Erro Crítico no Sistema! Desligamento Emergencial!", 'critical-error');
+            addMessage("SOBREDOSAGEM CATASTRÓFICA! O paciente sofreu lesões graves. Evacue a área!", 'critical-error');
+            // Não para o intervalo imediatamente para ver o paciente piorar, mas o estado é de erro
+            patientCondition = 'injured';
+        }
+
+
+        // --- Controladores de Eventos ---
+        function startTreatment() {
+            if (systemState === 'READY' || systemState === 'PAUSED') {
+                prescribedDose = parseInt(doseInput.value);
+                if (isNaN(prescribedDose) || prescribedDose <= 0) {
+                    addMessage("Dose prescrita inválida.", 'error');
+                    return;
+                }
+
+                currentDose = 0;
+                treatmentTime = 0;
+                doseApplicationRate = 200; // Unidades/minuto (valor base)
+
+                systemState = 'CONFIGURING';
+                addMessage("Configurando Therac-25...", 'info');
+                updateUI();
+                clearAlarm(); // Garante que não há alarme ativo ao iniciar
+
+                setTimeout(() => {
+                    // Após a configuração, verifica o estado antes de iniciar o tratamento
+                    if (systemState === 'CONFIGURING') { // Garante que não houve um erro durante a config
+                        systemState = 'TREATING';
+                        addMessage("Tratamento INICIADO.", 'success');
+                        treatmentInterval = setInterval(applyDoseTick, 100); // 10 ticks por segundo
+                        updateUI();
+                    }
+                }, 1500); // Simula tempo de configuração
+            }
+        }
+
+        function stopTreatment() {
+            if (systemState === 'TREATING' || systemState === 'CONFIGURING' || systemState === 'ERROR') {
+                clearInterval(treatmentInterval);
+                treatmentInterval = null;
+                systemState = 'PAUSED';
+                addMessage("Tratamento PAUSADO ou ERRO. Sistema estabilizado.", 'warning');
+                updateUI();
+                clearAlarm();
+            }
+        }
+
+        function resetSimulator() {
+            clearInterval(treatmentInterval);
+            treatmentInterval = null;
+            systemState = 'READY';
+            patientCondition = 'normal';
+            currentDose = 0;
+            prescribedDose = 0;
+            monitorUnits = 0;
+            treatmentTime = 0;
+            doseApplicationRate = 0;
+            lastModeChangeTime = Date.now();
+            lastEnergyChangeTime = Date.now();
+            lastCommandTime = Date.now();
+            malfunction54Active = false; // Reseta o flag do alarme
+
+            doseInput.value = 200;
+            modeSelect.value = 'X-ray';
+            updateEnergyOptions(); // Reseta as opções de energia e seleciona o padrão
+            energySelect.value = '25'; // Padrão visual para X-ray 25 KeV
+            currentEnergy = 25; // Exibido
+            internalEnergy = 25; // Interno
+            internalMode = 'X-ray'; // Interno
+
+            messageDisplay.innerHTML = `
+                <div class="message-info">[${new Date().toLocaleTimeString()}] Bem-vindo ao Simulador Therac-25. Selecione os parâmetros e clique em INICIAR.</div>
+            `;
+            addMessage("Simulador REINICIADO.", 'info');
+            clearAlarm(); // Remove qualquer alarme visual/sonoro
+            updateUI();
+        }
+
+        function pressSetButton() {
+            const now = Date.now();
+            const timeSinceLastInput = now - lastCommandTime;
+
+            addMessage("Comando 'SET' pressionado.", 'system');
+            lastCommandTime = now;
+
+            // Simula o bug de concorrência com o SET (chance de 50%)
+            if (timeSinceLastInput < 150 && Math.random() < 0.5) {
+                if (currentEnergy === 25 && currentMode === 'X-ray') {
+                    // Causa o bug: internalEnergy de Elétron, mas internalMode continua X-ray
+                    internalEnergy = 6; // Por exemplo, 6 MeV (energia de Elétron)
+                    internalMode = 'X-ray'; // Permanece X-ray (o que o Malfunction 54 espera para esse cenário)
+                    addMessage("AVISO: Discrepância interna ativada pelo SET rápido! Sistema de 25KeV (X-ray) pode estar usando energia de Elétron!", 'warning');
+                } else if ((currentEnergy === 6 || currentEnergy === 10) && currentMode === 'Electron') {
+                    // Causa o bug: internalEnergy de X-ray, mas internalMode continua Elétron
+                    internalEnergy = 25; // Por exemplo, 25 KeV (energia de X-ray)
+                    internalMode = 'Electron'; // Permanece Elétron (o que o Malfunction 54 espera para esse cenário)
+                    addMessage("AVISO: Discrepância interna ativada pelo SET rápido! Sistema de Elétron pode estar usando energia de X-ray!", 'warning');
+                }
+            }
+            updateUI();
+        }
+
+        // --- Gerenciamento de Opções de Energia com base no Modo ---
+        function updateEnergyOptions() {
+            energySelect.innerHTML = ''; // Limpa as opções existentes
+            if (modeSelect.value === 'X-ray') {
+                const option25 = document.createElement('option');
+                option25.value = '25';
+                option25.textContent = '25 KeV (X-ray)';
+                energySelect.appendChild(option25);
+            } else if (modeSelect.value === 'Electron') {
+                const option6 = document.createElement('option');
+                option6.value = '6';
+                option6.textContent = '6 MeV (Electron)';
+                energySelect.appendChild(option6);
+                const option10 = document.createElement('option');
+                option10.value = '10';
+                option10.textContent = '10 MeV (Electron)';
+                energySelect.appendChild(option10);
+            }
+            // Seleciona a primeira opção por padrão
+            energySelect.value = energySelect.options[0] ? energySelect.options[0].value : '';
+            currentEnergy = parseInt(energySelect.value); // Atualiza a energia exibida
+
+            // ** NOVO: Logica do defeito de 25 KeV **
+            // Tenta manter a consistência interna, mas pode ser sobrepujado por entradas rápidas
+            internalEnergy = currentEnergy; // Por padrão, internal = current
+            internalMode = currentMode; // Por padrão, internal = current
+        }
+
+        // --- Inicialização ---
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDateTime();
+            setInterval(updateDateTime, 1000); // Atualiza a hora a cada segundo
+
+            // Atribui listeners aos botões
+            startButton.addEventListener('click', startTreatment);
+            stopButton.addEventListener('click', stopTreatment);
+            resetButton.addEventListener('click', resetSimulator);
+            setButton.addEventListener('click', pressSetButton);
+
+            // Listener para mudança de modo (para atualizar energia)
+            modeSelect.addEventListener('change', () => {
+                const now = Date.now();
+                const timeDiff = now - lastModeChangeTime;
+
+                // ** NOVA LÓGICA DE BUG PARA MUDANÇA DE MODO RÁPIDA **
+                // Cenário 1: Muda de X-ray para Electron rapidamente, com energia X-ray (25)
+                if (currentMode === 'X-ray' && modeSelect.value === 'Electron' && currentEnergy === 25 && timeDiff < 200) {
+                    internalMode = modeSelect.value; // O modo interno **se torna** Elétron
+                    internalEnergy = 25; // Mas a energia interna **continua** 25 KeV (de X-ray) - INCONSISTÊNCIA!
+                    addMessage("ALERTA: Mudança de modo X-ray para Elétron muito rápida com energia 25KeV! Inconsistência interna de energia!", 'warning');
+                }
+                // Cenário 2: Muda de Electron para X-ray rapidamente, com energia Elétron (6 ou 10)
+                else if (currentMode === 'Electron' && modeSelect.value === 'X-ray' && (currentEnergy === 6 || currentEnergy === 10) && timeDiff < 200) {
+                     internalMode = modeSelect.value; // O modo interno **se torna** X-ray
+                     internalEnergy = currentEnergy; // Mas a energia interna **continua** a de Elétron - INCONSISTÊNCIA!
+                     addMessage("ALERTA: Mudança de modo Elétron para X-ray muito rápida com energia MeV! Inconsistência interna de energia!", 'warning');
+                }
+                else { // Se não foi uma mudança rápida que cause bug, atualiza normalmente
+                    internalMode = modeSelect.value;
+                    internalEnergy = currentEnergy;
+                }
+
+                currentMode = modeSelect.value; // Atualiza o modo exibido
+                lastModeChangeTime = now;
+                lastCommandTime = now;
+                updateEnergyOptions(); // Garante que as opções de energia do SELECT sejam atualizadas
+                addMessage(`Modo alterado para ${currentMode}.`, 'info');
+                updateUI();
+            });
+
+            // Listener para mudança de energia
+            energySelect.addEventListener('change', () => {
+                const now = Date.now();
+                const timeDiff = now - lastEnergyChangeTime;
+
+                // ** NOVA LÓGICA DE BUG PARA MUDANÇA DE ENERGIA RÁPIDA **
+                // Cenário 1: Modo X-ray, tenta 25 KeV rapidamente
+                if (currentMode === 'X-ray' && parseInt(energySelect.value) === 25 && timeDiff < 200) {
+                    internalEnergy = 6; // A energia interna **se torna** 6 MeV (Elétron)
+                    internalMode = currentMode; // Mas o modo interno **continua** X-ray - INCONSISTÊNCIA!
+                    addMessage("DEFEITO 25KEV: Energia de 25KeV selecionada rapidamente em X-ray, mas sistema interno pode estar usando 6MeV Elétron!", 'warning');
+                }
+                // Cenário 2: Modo Elétron, tenta 6 ou 10 MeV rapidamente
+                else if (currentMode === 'Electron' && (parseInt(energySelect.value) === 6 || parseInt(energySelect.value) === 10) && timeDiff < 200) {
+                     internalEnergy = 25; // A energia interna **se torna** 25 KeV (X-ray)
+                     internalMode = currentMode; // Mas o modo interno **continua** Elétron - INCONSISTÊNCIA!
+                     addMessage("DEFEITO ENERGIA: Energia MeV selecionada rapidamente em Elétron, mas sistema interno pode estar usando 25KeV X-ray!", 'warning');
+                }
+                else { // Se não foi uma mudança rápida que cause bug, atualiza normalmente
+                    internalEnergy = parseInt(energySelect.value);
+                    internalMode = currentMode;
+                }
+
+                currentEnergy = parseInt(energySelect.value); // Atualiza a energia exibida
+                lastEnergyChangeTime = now;
+                lastCommandTime = now;
+                addMessage(`Energia alterada para ${currentEnergy} ${currentMode === 'X-ray' ? 'KeV' : 'MeV'}.`, 'info');
+                updateUI();
+            });
+
+            // Dispara o evento de mudança de modo na inicialização para popular as opções de energia
+            updateEnergyOptions();
+            updateUI(); // Chama para renderizar o estado inicial corretamente
+        });
+    </script>
+</body>
+</html>
