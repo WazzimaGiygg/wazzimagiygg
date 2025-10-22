@@ -8,7 +8,6 @@
     <style>
         body {
             margin: 0;
-            /* SEU PLANO DE FUNDO ESTÁ DEFINIDO AQUI: */
             background: url('condedmonddantès.png') center/cover no-repeat;
             font-family: 'Segoe UI', sans-serif;
             height: 100vh;
@@ -24,25 +23,43 @@
             background: rgba(20, 20, 20, 0.8);
             display: flex;
             align-items: center;
-            /* Adicionado espaço entre elementos na taskbar */
-            justify-content: space-between; 
+            justify-content: space-between;
             padding: 0 10px;
             color: white;
             box-sizing: border-box;
         }
 
-        /* Container dos botões Iniciar, Admin e Ferramentas */
-        .taskbar-left { /* Alterado para incluir o novo botão */
+        .taskbar-left {
             display: flex;
             align-items: center;
         }
-        
-        /* Estilo para o relógio na direita */
+
+        .taskbar-windows {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .taskbar-window-button {
+            background: rgba(50, 50, 50, 0.9);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+
+        .taskbar-window-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
         #clock {
             padding: 0 10px;
             text-align: right;
             line-height: 1.2;
             font-size: 0.85em;
+            cursor: pointer;
         }
 
         .start-button {
@@ -55,16 +72,16 @@
             cursor: pointer;
         }
 
-        .menu {
+        .menu, .admin-popup, .tools-popup {
             position: absolute;
             bottom: 40px;
-            left: 10px;
             background: rgba(30, 30, 30, 0.95);
             color: white;
             border-radius: 8px;
             padding: 10px;
             width: 280px;
             display: none;
+            z-index: 200;
         }
 
         .menu-item {
@@ -100,7 +117,7 @@
             resize: both;
             overflow: hidden;
             border-radius: 8px;
-            z-index: 100; /* Garante que a janela fique sobre os menus */
+            z-index: 300;
         }
 
         .window-header {
@@ -123,13 +140,32 @@
             margin-left: 5px;
         }
 
+        .window-toolbar {
+            background: #f0f0f0;
+            display: flex;
+            padding: 4px;
+            gap: 5px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .window-toolbar button {
+            border: none;
+            background: #e0e0e0;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .window-toolbar button:hover {
+            background: #d0d0d0;
+        }
+
         .window iframe {
             width: 100%;
             height: 100%;
             border: none;
         }
 
-        /* Tela de login */
         #login-screen {
             position: fixed;
             top: 0;
@@ -145,14 +181,6 @@
             z-index: 9999;
         }
 
-        #login-screen h2 {
-            /* Título alterado no HTML */
-        }
-
-        #login-screen p {
-            /* Parágrafo alterado no HTML */
-        }
-
         #login-screen button {
             padding: 10px 20px;
             background: #0078d7;
@@ -163,34 +191,29 @@
             margin-top: 15px;
         }
 
-        /* Popup admin e novo popup ferramentas */
-        .admin-popup, .tools-popup { /* Adicionado .tools-popup */
+        #clock-popup {
             position: absolute;
             bottom: 50px;
-            /* Ajuste o left para posicionar os menus de forma coerente */
-            left: 100px; /* Será ajustado para o tools-popup no JS */
+            right: 10px;
             width: 320px;
-            background: rgba(40, 40, 40, 0.95);
+            background: rgba(40,40,40,0.95);
             color: white;
             border-radius: 8px;
             padding: 10px;
             display: none;
-        }
-        
-        /* NOVO: Estilo para o menu de ferramentas para garantir que os links se pareçam com itens de menu */
-        .tools-popup a {
-            display: block;
-            color: white;
-            padding: 6px;
-            border-radius: 6px;
-            text-decoration: none;
-            margin-bottom: 2px;
-            cursor: pointer;
-            transition: background 0.2s;
+            z-index: 400;
         }
 
-        .tools-popup a:hover {
-            background: rgba(255, 255, 255, 0.15);
+        #clock-popup iframe {
+            width: 100%;
+            height: 100px;
+            border: none;
+        }
+
+        #clock-popup small {
+            display: block;
+            margin-top: 6px;
+            color: #ccc;
         }
     </style>
 </head>
@@ -209,21 +232,32 @@
                 <button class="start-button" id="adminBtn">Wiki Not Pédia</button>
                 <button class="start-button" id="toolsBtn">Ferramentas</button>
             </div>
+            <div class="taskbar-windows" id="taskbarWindows"></div>
             <div id="clock"></div>
         </div>
 
         <div class="menu" id="startMenu"></div>
         <div class="admin-popup" id="adminMenu"></div>
         <div class="admin-popup tools-popup" id="toolsMenu"></div>
+
+        <div id="clock-popup">
+            <h4>Previsão do tempo</h4>
+            <iframe src="https://wttr.in/?format=3"></iframe>
+            <small>
+                <b>Outros fusos horários:</b><br>
+                Nova York: <span id="ny"></span><br>
+                Londres: <span id="ldn"></span><br>
+                Tóquio: <span id="tokyo"></span>
+            </small>
+        </div>
     </div>
 
     <script type="module">
-    // 🔹 Firebase Auth Config
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
     const firebaseConfig = {
-        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Chave de API removida por segurança
+        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
         authDomain: "wzzm-ce3fc.firebaseapp.com",
         projectId: "wzzm-ce3fc",
         storageBucket: "wzzm-ce3fc.appspot.com",
@@ -236,188 +270,122 @@
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
 
-    // ❌ REMOVIDO: adminUIDs não é mais necessário
-    // const adminUIDs = [ "6aPqWVh8JVYL5NqEb78iDGPD7dH3", "sZxfMuOBPbXdR8nttVPXIN8QOOl1" ];
-
-
     const loginScreen = document.getElementById("login-screen");
     const loginBtn = document.getElementById("loginBtn");
     const desktop = document.getElementById("desktop");
     const startMenu = document.getElementById("startMenu");
     const adminMenu = document.getElementById("adminMenu");
-    // ✅ NOVO: Elemento do Menu de Ferramentas
     const toolsMenu = document.getElementById("toolsMenu");
     const clockElement = document.getElementById("clock");
+    const clockPopup = document.getElementById("clock-popup");
+    const taskbarWindows = document.getElementById("taskbarWindows");
 
     loginBtn.addEventListener("click", () => {
         signInWithPopup(auth, provider);
     });
 
-    // ✅ Lógica Alterada: Qualquer usuário logado (user) terá acesso
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            // Se houver um usuário logado (qualquer um), exibe o desktop
             loginScreen.style.display = "none";
             desktop.style.display = "block";
-            updateClock(); 
+            updateClock();
         } else {
-            // Se não houver usuário logado, exibe a tela de login
             loginScreen.style.display = "flex";
             desktop.style.display = "none";
         }
     });
 
-    // 🔹 Itens do menu principal (com a opção Logoff)
     const links = [
-        { name: 'Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png' },
-        { name: 'Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png' },
-        { name: 'Area do colaborador', url: 'html/?uid=CKWtV1wmyHKNw6ie7qAh', iconUrl: 'iconmagic.png' },  
-        { name: 'Area escolar', url: 'html/?uid=2yvd72xTNYB4RH3jv9jY', iconUrl: 'iconmagic.png' },  
-        { name: 'Manual de Políticas de direito de privacidade ', url: 'pdf/?uid=TermosDeUsoWNP.pdf', iconUrl: 'iconmagic.png' },
-        { name: 'Direito de privacidade a honra pessoal de WazzimaGiygg', url: 'https://wazzimagiygg.com/pdf/?uid=Termo%20de%20Ci%C3%AAncia%20e%20Acordo%20sobre%20Identidade%20e%20prote%C3%A7%C3%A3o%20moral%20e%20intelectual%20de%20WazzimaGiygg.pdf', iconUrl: 'iconmagic.png' }, 
-        { name: 'Quem somos nós?', url: 'html/?uid=84TOyGBBxrsuzjWLyLwU', iconUrl: 'iconmagic.png' }, 
-        { name: 'Blog Leia e Compreenda', url: 'https://leiacompreenda.blogspot.com/', iconUrl: 'iconmagic.png' },
-        { name: 'Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
+        { name: 'Termos de Serviço', url: 'Termos%20de%20Serviço.pdf', iconUrl: 'iconmagic.png' },
+        { name: 'Política de Privacidade', url: 'Política%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png' },
         { name: 'Wiki Not Pedia', url: 'wnpx.html', iconUrl: 'iconmagic.png' },
-        { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' } //
+        { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' }
     ];
 
-    // 🔹 Menu admin separado
-    const adminLinks = [
-        { label: "Chat (Contato)", href: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }
-    ];
-
-    // ✅ NOVO: Lista de links para o menu de Ferramentas (filtrados no JS)
-    const rawToolLinks = [
-        { name: 'Procurar Artigos Cientificos', url: 'html/?uid=BMczNyGHmEsMJSHWJrF2' }, //BMczNyGHmEsMJSHWJrF2
-        { name: 'Espaço Cliente', url: 'html/?uid=4rLaz9tcyoxZJYOVMf0s' }, //4rLaz9tcyoxZJYOVMf0s
-        { name: 'Chat (Contato)', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve' },
-        { name: 'Buscar Artigos WNP', url: 'ferramentasuteis.html' },
-        { name: 'Acessórios', url: './tools/' },
-        { name: 'Adicionar novo Artigo Wiki Not Pédia', url: 'html/?uid=p3RYhfyYqNDNjDP3KAFs' },
-        { name: 'Editar artigos', url: 'html/?uid=6cbY8bU3BKFQdH8MWzjw' }, //6cbY8bU3BKFQdH8MWzjw
-        { name: 'Editor na Base 44', url: 'https://wiki-zone-zero-mod-copy-2a26f6a1.base44.app' },
-        { name: 'Upload de Imagem', url: 'html/?uid=RYln5EVrsPY9khlMvnfY' }, //p3RYhfyYqNDNjDP3KAFs
-        { name: 'Upload PDF', url: 'html/?uid=BgeAuPIBfmJPxi5Xyy2v' }, //RYln5EVrsPY9khlMvnfY
-        { name: 'Novo artigo cientifico', url: 'html/?uid=Bl8ZxEiAXxCIIw73xEEb' } //Bl8ZxEiAXxCIIw73xEEb
-
-    ];
-
-    // ✅ NOVO: Filtrar links, removendo aqueles com 'base44.app' ou 'base44.com'
-    const filteredToolLinks = rawToolLinks.filter(link => 
-        !link.url.includes('base44.app') && !link.url.includes('base44.com')
-    );
-
-    // ✅ NOVO: Função para preencher o menu de ferramentas
-    function populateToolsMenu() {
-        toolsMenu.innerHTML = ''; // Limpa o menu primeiro
-        filteredToolLinks.forEach(link => {
-            const a = document.createElement("a");
-            a.textContent = link.name;
-            a.href = link.url; // Embora não use, é bom ter no elemento <a>
-            a.onclick = (e) => {
-                e.preventDefault(); 
-                openWindow(link.name, link.url); 
-                toolsMenu.style.display = "none"; 
-            };
-            toolsMenu.appendChild(a);
-        });
-    }
-
-    // Preenche o menu de ferramentas ao carregar
-    populateToolsMenu();
-
-    // 🔹 Preenche o Menu Iniciar
     links.forEach(item => {
         const div = document.createElement("div");
         div.className = "menu-item";
         div.innerHTML = `<img src="${item.iconUrl}" alt="icon"> ${item.name}`;
-        
         div.onclick = () => {
-            if (item.action === 'logout') {
-                handleLogout(); 
-            } else {
-                openWindow(item.name, item.url);
-            }
-            startMenu.style.display = "none"; 
+            if (item.action === 'logout') handleLogout();
+            else openWindow(item.name, item.url);
+            startMenu.style.display = "none";
         };
         startMenu.appendChild(div);
     });
 
-    // 🔹 Preenche o Menu Admin
+    const adminLinks = [{ label: "Chat (Contato)", href: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }];
     adminLinks.forEach(link => {
         const a = document.createElement("a");
         a.textContent = link.label;
-        a.style.cursor = 'pointer'; 
+        a.style.cursor = 'pointer';
         a.onclick = (e) => {
-            e.preventDefault(); 
-            openWindow(link.label, link.href); 
-            adminMenu.style.display = "none"; 
+            e.preventDefault();
+            openWindow(link.label, link.href);
+            adminMenu.style.display = "none";
         };
         adminMenu.appendChild(a);
     });
 
-    const startBtn = document.getElementById("startBtn");
-    const adminBtn = document.getElementById("adminBtn");
-    // ✅ NOVO: Botão Ferramentas
-    const toolsBtn = document.getElementById("toolsBtn");
+    const toolsLinks = [
+        { name: 'Buscar Artigos WNP', url: 'ferramentasuteis.html' },
+        { name: 'Acessórios', url: './tools/' },
+        { name: 'Editor na Base 44', url: 'https://wiki-zone-zero-mod-copy-2a26f6a1.base44.app' }
+    ];
+
+    toolsLinks.forEach(link => {
+        const a = document.createElement("a");
+        a.textContent = link.name;
+        a.style.cursor = 'pointer';
+        a.onclick = (e) => {
+            e.preventDefault();
+            openWindow(link.name, link.url);
+            toolsMenu.style.display = "none";
+        };
+        toolsMenu.appendChild(a);
+    });
 
     startBtn.onclick = () => {
         startMenu.style.display = startMenu.style.display === "block" ? "none" : "block";
-        adminMenu.style.display = "none";
-        toolsMenu.style.display = "none"; // Garante que o menu de ferramentas feche
+        adminMenu.style.display = "none"; toolsMenu.style.display = "none";
     };
-
     adminBtn.onclick = () => {
         adminMenu.style.display = adminMenu.style.display === "block" ? "none" : "block";
-        startMenu.style.display = "none";
-        toolsMenu.style.display = "none"; // Garante que o menu de ferramentas feche
+        startMenu.style.display = "none"; toolsMenu.style.display = "none";
     };
-
-    // ✅ NOVO: Lógica de clique para o botão Ferramentas
     toolsBtn.onclick = () => {
-        // Posição para o toolsMenu (exemplo: ao lado do adminMenu)
-        const adminBtnWidth = adminBtn.offsetWidth;
-        toolsMenu.style.left = `${10 + startBtn.offsetWidth + adminBtnWidth + 10}px`; 
-
         toolsMenu.style.display = toolsMenu.style.display === "block" ? "none" : "block";
-        startMenu.style.display = "none";
-        adminMenu.style.display = "none"; 
+        startMenu.style.display = "none"; adminMenu.style.display = "none";
     };
 
     function handleLogout() {
-        signOut(auth).then(() => {
-            // O onAuthStateChanged listener cuidará de mostrar a tela de login
-        }).catch((error) => {
-            console.error("Erro ao sair:", error);
-            alert("Erro ao tentar fazer logoff.");
-        });
+        signOut(auth).catch(() => alert("Erro ao sair."));
     }
 
-    // Função para atualizar o relógio 
     function updateClock() {
         const now = new Date();
-        
-        // Formato da hora (HH:MM)
-        const timeString = now.toLocaleTimeString('pt-BR', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            hour12: false // Formato 24h
-        });
-        
-        // Formato da data (DD/MM)
-        const dateString = now.toLocaleDateString('pt-BR', { 
-            day: '2-digit', 
-            month: '2-digit' 
-        });
-
-        // Atualiza o conteúdo do elemento #clock
-        clockElement.innerHTML = `<span>${timeString}</span><br><span>${dateString}</span>`;
-
-        // Agenda a próxima atualização em 1 segundo
-        setTimeout(updateClock, 1000);
+        clockElement.innerHTML = `${now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}<br>${now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}`;
+        document.getElementById("ny").textContent = new Date().toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:'2-digit',minute:'2-digit'});
+        document.getElementById("ldn").textContent = new Date().toLocaleTimeString("en-GB",{timeZone:"Europe/London",hour:'2-digit',minute:'2-digit'});
+        document.getElementById("tokyo").textContent = new Date().toLocaleTimeString("ja-JP",{timeZone:"Asia/Tokyo",hour:'2-digit',minute:'2-digit'});
+        setTimeout(updateClock,1000);
     }
 
+    clockElement.onclick = () => {
+        clockPopup.style.display = clockPopup.style.display === "block" ? "none" : "block";
+    };
+
+    function createTaskButton(win, title) {
+        const btn = document.createElement("button");
+        btn.className = "taskbar-window-button";
+        btn.textContent = title;
+        btn.onclick = () => {
+            if (win.style.display === "none") win.style.display = "flex";
+            else win.style.display = "none";
+        };
+        taskbarWindows.appendChild(btn);
+        return btn;
+    }
 
     function openWindow(title, url) {
         const win = document.createElement("div");
@@ -431,49 +399,55 @@
                     <button class="close">✖</button>
                 </div>
             </div>
+            <div class="window-toolbar">
+                <button class="back">⮌ Voltar</button>
+                <button class="refresh">⟳ Atualizar</button>
+                <button class="check">⚙ Verificar Erros</button>
+            </div>
             <iframe src="${url}"></iframe>
         `;
         document.body.appendChild(win);
-
-        // ... (código de drag, resize e controles da janela) ...
+        const iframe = win.querySelector("iframe");
         const header = win.querySelector(".window-header");
-        // const iframe = win.querySelector("iframe"); // Não usado diretamente, removido
-        let isDragging = false;
-        let offsetX, offsetY;
-        let maximized = false;
-        let prev = { top: 0, left: 0, width: 0, height: 0 };
+        const taskButton = createTaskButton(win, title);
+        let isDragging = false, offsetX, offsetY, maximized = false, prev = {};
 
-        header.addEventListener("mousedown", (e) => {
+        header.addEventListener("mousedown", e => {
             isDragging = true;
             offsetX = e.clientX - win.offsetLeft;
             offsetY = e.clientY - win.offsetTop;
         });
-
-        document.addEventListener("mousemove", (e) => {
+        document.addEventListener("mousemove", e => {
             if (isDragging && !maximized) {
                 win.style.left = e.clientX - offsetX + "px";
                 win.style.top = e.clientY - offsetY + "px";
             }
         });
-
         document.addEventListener("mouseup", () => isDragging = false);
 
-        win.querySelector(".close").onclick = () => win.remove();
+        win.querySelector(".close").onclick = () => { taskButton.remove(); win.remove(); };
         win.querySelector(".minimize").onclick = () => win.style.display = "none";
         win.querySelector(".maximize").onclick = () => {
             if (!maximized) {
                 prev = { top: win.offsetTop, left: win.offsetLeft, width: win.offsetWidth, height: win.offsetHeight };
-                win.style.top = "0";
-                win.style.left = "0";
-                win.style.width = "100%";
-                win.style.height = "calc(100% - 40px)";
+                win.style.top = "0"; win.style.left = "0"; win.style.width = "100%"; win.style.height = "calc(100% - 40px)";
                 maximized = true;
             } else {
-                win.style.top = prev.top + "px";
-                win.style.left = prev.left + "px";
-                win.style.width = prev.width + "px";
-                win.style.height = prev.height + "px";
+                win.style.top = prev.top + "px"; win.style.left = prev.left + "px";
+                win.style.width = prev.width + "px"; win.style.height = prev.height + "px";
                 maximized = false;
+            }
+        };
+
+        win.querySelector(".back").onclick = () => iframe.contentWindow.history.back();
+        win.querySelector(".refresh").onclick = () => iframe.src = iframe.src;
+        win.querySelector(".check").onclick = () => {
+            try {
+                const doc = iframe.contentDocument;
+                if (!doc || doc.readyState !== "complete") throw "Página não carregada.";
+                alert("Nenhum erro detectado!");
+            } catch (err) {
+                alert("Erro detectado: " + err);
             }
         };
     }
