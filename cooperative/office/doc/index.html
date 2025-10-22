@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -53,6 +52,16 @@
         .btn-auth { background-color: #dc3545 !important; }
         .btn-success { background-color: #28a745 !important; }
         .btn-info { background-color: #17a2b8 !important; }
+        .btn-delete { background-color: #dc3545 !important; } /* Novo estilo para botão de remover */
+        #documentsList ul { list-style: none; padding: 0; }
+        #documentsList li { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 8px 0; 
+            border-bottom: 1px dashed #eee; 
+        }
+        #documentsList li:last-child { border-bottom: none; }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -84,13 +93,13 @@
         <p>A formatação é preservada no Firestore.</p>
     </div>
 
-    <div id="loadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center;">
+    <div id="loadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;">
         <div style="background: white; padding: 20px; border-radius: 5px; width: 90%; max-width: 600px;">
             <h2>Seus Documentos na Coleção 'officewzzm'</h2>
             <div id="documentsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
                 Carregando...
             </div>
-            <button onclick="document.getElementById('loadModal').style.display = 'none';">Fechar</button>
+            <button onclick="document.getElementById('loadModal').style.display = 'none';" style="margin-top: 15px;">Fechar</button>
         </div>
     </div>
 
@@ -101,41 +110,38 @@
         const authStatus = document.getElementById('auth-status');
         const saveBtn = document.getElementById('saveBtn');
         const loadBtn = document.getElementById('loadBtn');
-        let currentUser = null; // O objeto do usuário logado
+        let currentUser = null; 
 
         // 3.1. Configuração do Firebase
-        // SUBSTITUA PELAS SUAS PRÓPRIAS CONFIGURAÇÕES DO FIREBASE
-         const firebaseConfig = {
-        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Chave de API removida por segurança
-        authDomain: "wzzm-ce3fc.firebaseapp.com",
-        projectId: "wzzm-ce3fc",
-        storageBucket: "wzzm-ce3fc.appspot.com",
-        messagingSenderId: "249427877153",
-        appId: "1:249427877153:web:0e4297294794a5aadeb260",
-        measurementId: "G-PLKNZNFCQ8"
-    };
+        // NOTE: A API Key foi removida do código, certifique-se de que a que você está usando é válida.
+        const firebaseConfig = {
+            apiKey: "YOUR_FIREBASE_API_KEY", // Chave de API REAL
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
 
 
         // Inicializa o Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        const COLLECTION_NAME = "officewzzm"; // Coleção de destino
+        const COLLECTION_NAME = "officewzzm";
 
         // 3.2. Funções de Autenticação
         document.getElementById('loginBtn').onclick = () => {
-            // Usa login Anônimo para simplicidade. Você pode mudar para Google/Email.
-            auth.signInAnonymously()
-                .catch((error) => {
-                    alert("Erro de Login: " + error.message);
-                });
+            auth.signInAnonymously().catch((error) => {
+                alert("Erro de Login: " + error.message);
+            });
         };
 
         document.getElementById('logoutBtn').onclick = () => {
             auth.signOut();
         };
 
-        // Ouvinte de estado de autenticação (IMPORTANTE)
         auth.onAuthStateChanged((user) => {
             if (user) {
                 currentUser = user;
@@ -155,14 +161,14 @@
             }
         });
 
-        // 3.3. Funções do Editor (Formatação)
+        // 3.3. Funções do Editor
         function formatDoc(command, value = null) {
             document.execCommand(command, false, value);
             editorElement.focus();
         }
 
         function insertImagePrompt() {
-            const url = prompt("Digite a URL da imagem (Lembre-se: Imagens precisam ser salvas em um serviço público como o Firebase Storage para aparecerem depois de recarregadas):");
+            const url = prompt("Digite a URL da imagem:");
             if (url) {
                 formatDoc('insertImage', url);
             }
@@ -188,11 +194,9 @@
                 title: docTitle,
                 html_content: editorElement.innerHTML,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                // Aqui você adicionaria o JSON dos metadados das imagens, se estivessem no Firebase Storage
             };
 
             try {
-                // Adiciona um novo documento na coleção "officewzzm"
                 const docRef = await db.collection(COLLECTION_NAME).add(documentData);
                 alert(`Documento salvo com sucesso! ID: ${docRef.id}`);
             } catch (error) {
@@ -200,17 +204,31 @@
                 alert("Erro ao salvar documento no Firebase.");
             }
         }
+        
+        // ===========================================
+        // 3.5. Funções de Carregar e Remover (ATUALIZADAS)
+        // ===========================================
 
-        // 3.5. CARREGAR do Firestore
+        /**
+         * Abre o modal e carrega a lista de documentos do usuário.
+         */
         async function openLoadModal() {
             if (!currentUser) return;
 
             const documentsList = document.getElementById('documentsList');
             documentsList.innerHTML = "Carregando seus documentos...";
             document.getElementById('loadModal').style.display = 'flex';
-
-            try {
-                // Busca APENAS documentos onde authorId é igual ao UID do usuário logado
+            
+            await listUserDocuments();
+        }
+        
+        /**
+         * Carrega e lista os documentos do usuário. Chamada por openLoadModal e deleteDocument.
+         */
+        async function listUserDocuments() {
+             const documentsList = document.getElementById('documentsList');
+             
+             try {
                 const snapshot = await db.collection(COLLECTION_NAME)
                                          .where("authorId", "==", currentUser.uid)
                                          .orderBy("lastUpdated", "desc")
@@ -228,8 +246,14 @@
                     
                     html += `
                         <li>
-                            <strong>${data.title}</strong> (Última Edição: ${date})
-                            <button onclick="loadDocument('${doc.id}')" style="margin-left: 10px;">Abrir</button>
+                            <div>
+                                <strong>${data.title}</strong><br>
+                                <small>Última Edição: ${date}</small>
+                            </div>
+                            <div>
+                                <button onclick="loadDocument('${doc.id}')" class="btn-info">Abrir</button>
+                                <button onclick="deleteDocument('${doc.id}')" class="btn-delete" style="margin-left: 5px;">Remover</button>
+                            </div>
                         </li>
                     `;
                 });
@@ -242,6 +266,9 @@
             }
         }
 
+        /**
+         * Carrega o documento selecionado no editor.
+         */
         async function loadDocument(docId) {
             try {
                 const docRef = db.collection(COLLECTION_NAME).doc(docId);
@@ -249,6 +276,7 @@
 
                 if (!doc.exists) {
                     alert("Documento não encontrado!");
+                    await listUserDocuments(); // Atualiza a lista caso o doc tenha sido deletado em outro lugar
                     return;
                 }
 
@@ -260,6 +288,24 @@
             } catch (error) {
                 console.error("Erro ao carregar documento:", error);
                 alert("Erro ao carregar o documento do Firebase.");
+            }
+        }
+
+        /**
+         * Remove o documento selecionado do Firestore.
+         */
+        async function deleteDocument(docId) {
+            if (!confirm("Tem certeza que deseja remover este documento? Esta ação é irreversível.")) {
+                return;
+            }
+
+            try {
+                await db.collection(COLLECTION_NAME).doc(docId).delete();
+                alert("Documento removido com sucesso!");
+                await listUserDocuments(); // Recarrega a lista para mostrar a alteração
+            } catch (error) {
+                console.error("Erro ao remover documento:", error);
+                alert("Erro ao remover o documento. Verifique as regras de segurança do Firestore (allow delete: if request.auth.uid == resource.data.authorId).");
             }
         }
     </script>
