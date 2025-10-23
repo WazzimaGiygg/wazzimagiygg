@@ -278,11 +278,10 @@
         <div id="notificationPopup"></div>
     </div>
 
-    <script type="module">
+   <script type="module">
 // 🔹 Firebase Auth & Firestore Config
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-// 🆕 IMPORTAÇÕES DO FIRESTORE
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -297,22 +296,16 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-// 🆕 INSTÂNCIA DO FIRESTORE
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// 🆕 CONSTANTE: ID do documento na coleção 'keymenulista' que contém o array
-const KEY_DOCUMENT_ID = "main_menu_list"; 
-// 🆕 CONSTANTE: Nome do campo ARRAY dentro do documento
-const KEY_ARRAY_FIELD = "itens_menu"; 
+// CONSTANTES DO FIRESTORE
+const KEY_ARRAY_FIELD = "itens_menu"; // Nome do campo ARRAY dentro do documento
 
-// 🆕 NOVOS ELEMENTOS GLOBAIS
+// CONSTANTES DE ELEMENTOS
 const notificationIcon = document.getElementById("notificationIcon");
 const notificationPopup = document.getElementById("notificationPopup");
-
-// 🆕 CONSTANTE DE URL DO JSON
-const JSON_URL = 'cidades_sancionadas.json'; // Certifique-se de que este arquivo existe!
-
+const JSON_URL = 'cidades_sancionadas.json'; 
 
 const loginScreen = document.getElementById("login-screen");
 const loginBtn = document.getElementById("loginBtn");
@@ -322,44 +315,41 @@ const adminMenu = document.getElementById("adminMenu");
 const toolsMenu = document.getElementById("toolsMenu");
 const clockElement = document.getElementById("clock");
 
+// BOTOES DA TASKBAR
+const startBtn = document.getElementById("startBtn");
+const adminBtn = document.getElementById("adminBtn");
+const toolsBtn = document.getElementById("toolsBtn");
+
 loginBtn.addEventListener("click", () => {
     signInWithPopup(auth, provider);
 });
 
-// 📌 AJUSTE 1: Lógica de clique do ícone, fechando os outros menus.
+// 📌 Lógica de clique do ícone, fechando os outros menus.
 notificationIcon.onclick = () => {
     const isVisible = notificationPopup.style.display === "block";
-    
-    // Fecha todos os outros menus
     startMenu.style.display = "none";
     adminMenu.style.display = "none";
     toolsMenu.style.display = "none";
-    
-    // Alterna a visibilidade do popup de notificação
     notificationPopup.style.display = isVisible ? "none" : "block";
 };
 
 // ✅ Lógica Alterada: Qualquer usuário logado (user) terá acesso
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        // Se houver um usuário logado (qualquer um), exibe o desktop
         loginScreen.style.display = "none";
         desktop.style.display = "block";
-        updateClock(); 
+        updateClock();
         
         // 🆕 CHAMA A FUNÇÃO DE CARREGAMENTO DE LINKS DO FIRESTORE
-        loadDynamicLinks(user.uid); 
+        loadDynamicLinks(user.uid);
         
         // 📌 AJUSTE 2: Chama a função para buscar IP e verificar sanção aqui, APÓS o login.
         buscarIpELocalizacao();
     } else {
-        // Se não houver usuário logado, exibe a tela de login
         loginScreen.style.display = "flex";
         desktop.style.display = "none";
-        
-        // Limpa o popup se o usuário deslogar
         notificationPopup.innerHTML = '';
-        notificationIcon.style.color = 'white'; 
+        notificationIcon.style.color = 'white';
     }
 });
 
@@ -369,7 +359,7 @@ onAuthStateChanged(auth, (user) => {
 async function loadDynamicLinks(userId) {
     try {
         const SITE_ID = "wazzimagiygg"; // Defina o ID do site
-        const KEY_DOCUMENT_ID = `${SITE_ID}_menu_list`; // Agora será, por exemplo, 'wazzimagiygg_menu_list'
+        const KEY_DOCUMENT_ID = `${SITE_ID}_menu_list`; // Ex: 'wazzimagiygg_menu_list'
         const docRef = doc(db, "keymenulista", KEY_DOCUMENT_ID);
         const docSnap = await getDoc(docRef);
 
@@ -383,54 +373,37 @@ async function loadDynamicLinks(userId) {
                     name: item.titulo,
                     url: item.link_url,
                     iconUrl: item.url_imagem || 'iconmagic.png', 
-                    // 🚨 CHAVE ESSENCIAL: Onde o link deve aparecer
                     menu_target: item.menu_target || 'outros' 
                 }));
             }
         }
         
-        // O código que você forneceu:
-// ... (carregamento e mapeamento de allLinksFromDB) ...
+        // 1. FILTRAGEM DOS LINKS DINÂMICOS POR CATEGORIA (menu_target)
+        const linksParaIniciar = allLinksFromDB.filter(item => item.menu_target === 'menu_iniciar');
+        const linksParaAdmin = allLinksFromDB.filter(item => item.menu_target === 'wiki_pedia');
+        const linksParaFerramentas = allLinksFromDB.filter(item => item.menu_target === 'ferramentas');
 
-// 1. FILTRAGEM DOS LINKS DINÂMICOS POR CATEGORIA (menu_target)
-const linksParaIniciar = allLinksFromDB.filter(item => item.menu_target === 'menu_iniciar');
-const linksParaAdmin = allLinksFromDB.filter(item => item.menu_target === 'wiki_pedia');
-const linksParaFerramentas = allLinksFromDB.filter(item => item.menu_target === 'ferramentas');
+        // 2. LINKS ESTÁTICOS
+        const staticStartLinks = [
+            { name: 'Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+            { name: 'Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+            { name: 'Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+            { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' }
+        ];
 
-// 2. ADICIONA LINKS ESTÁTICOS AOS MENUS
+        const staticAdminLinks = [
+            { name: "Chat (Contato)", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", menu_target: 'wiki_pedia' }
+        ];
 
-// 🔹 Links Estáticos do Menu Iniciar (Termos, Logoff, etc.)
-const staticStartLinks = [
-    { name: 'Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-    { name: 'Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-    { name: 'Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-    // Logoff é SEMPRE o último no Iniciar
-    { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' }
-];
+        // 3. MONTAGEM FINAL DAS LISTAS
+        const finalStartLinks = [...linksParaIniciar, ...staticStartLinks];
+        const finalAdminLinks = [...linksParaAdmin, ...staticAdminLinks];
+        const finalToolLinks = linksParaFerramentas; // Links dinâmicos para ferramentas
 
-// 🔹 Links Estáticos do Menu Admin (Wiki Not Pédia)
-const staticAdminLinks = [
-    { name: "Chat (Contato)", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", menu_target: 'wiki_pedia' }
-];
-
-// 3. MONTAGEM FINAL DAS LISTAS
-
-// Menu Iniciar: Links Dinâmicos + Links Estáticos
-const finalStartLinks = [...linksParaIniciar, ...staticStartLinks];
-
-// Menu Admin: Links Dinâmicos + Links Estáticos
-const finalAdminLinks = [...linksParaAdmin, ...staticAdminLinks];
-
-// Menu Ferramentas: Apenas Links Dinâmicos
-const finalToolLinks = linksParaFerramentas;
-
-
-// 4. CHAMA AS FUNÇÕES PARA MONTAR CADA MENU
-populateMenu(startMenu, finalStartLinks);
-populateMenu(adminMenu, finalAdminLinks);
-
-
-// ... (Restante do bloco try-catch) ...
+        // 4. CHAMA AS FUNÇÕES PARA MONTAR CADA MENU
+        populateMenu(startMenu, finalStartLinks); // Usa a função de item de menu normal
+        populateMenu(adminMenu, finalAdminLinks); // Usa a função de item de menu normal
+        populateToolsMenu(finalToolLinks); // Usa a função específica para links <a>
 
     } catch (error) {
         console.error("Erro ao carregar links do Firebase:", error);
@@ -439,18 +412,16 @@ populateMenu(adminMenu, finalAdminLinks);
              { name: 'Fale com a Administração (Erro)', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
              { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' }
         ]);
-        // Garante que os outros menus fiquem vazios ou com itens estáticos mínimos se houver erro
         populateMenu(adminMenu, [{ name: "Chat (Erro)", url: "#" }]);
         populateToolsMenu([]);
     }
 }
 // -------------------------------------------------------------
-// FIM DA NOVA FUNÇÃO
-// --------
+// FIM DA FUNÇÃO loadDynamicLinks
+// -------------------------------------------------------------
 
-// 🆕 NOVA FUNÇÃO UNIFICADA: PARA MONTAR MENUS EM GERAL (Iniciar e Admin)
+// 🆕 FUNÇÃO UNIFICADA: PARA MONTAR MENUS EM GERAL (Iniciar e Admin)
 function populateMenu(menuElement, linksArray) {
-    // Limpa o menu antes de preenchê-lo
     menuElement.innerHTML = ''; 
 
     linksArray.forEach(item => {
@@ -462,10 +433,8 @@ function populateMenu(menuElement, linksArray) {
             if (item.action === 'logout') {
                 handleLogout(); 
             } else {
-                // Se não tem action, abre a janela com o URL
                 openWindow(item.name, item.url);
             }
-            // Fecha o menu atual
             menuElement.style.display = "none"; 
         };
         menuElement.appendChild(div);
@@ -473,11 +442,17 @@ function populateMenu(menuElement, linksArray) {
 }
 
 // -------------------------------------------------------------
-// 🆕 NOVA FUNÇÃO: PARA MONTAR O MENU DE FERRAMENTAS (que tem estilo de link <a>)
+// 🆕 FUNÇÃO ÚNICA: PARA MONTAR O MENU DE FERRAMENTAS (usando links <a>)
 // -------------------------------------------------------------
 function populateToolsMenu(linksArray) {
     toolsMenu.innerHTML = ''; 
-    linksArray.forEach(link => {
+    
+    // Filtro para remover links que incluem 'base44.app' ou 'base44.com'
+    const filteredLinks = linksArray.filter(link => 
+        !link.url.includes('base44.app') && !link.url.includes('base44.com')
+    );
+    
+    filteredLinks.forEach(link => {
         const a = document.createElement("a");
         a.textContent = link.name;
         a.href = link.url;
@@ -491,71 +466,8 @@ function populateToolsMenu(linksArray) {
 }
 
 
-// 🔹 Menu admin separado (MANTIDO INTACTO)
-// const adminLinks = [
-    //{ label: "Chat (Contato)", href: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }
-//];
+// O código estático (rawToolLinks, adminLinks) e a lógica duplicada foram removidos daqui.
 
-// ✅ Lista de links para o menu de Ferramentas (filtrados no JS)
-//const rawToolLinks = [
-    //{ name: 'Procurar Artigos Cientificos', url: 'html/?uid=BMczNyGHmEsMJSHWJrF2' }, 
-    //{ name: 'Espaço Cliente', url: 'html/?uid=4rLaz9tcyoxZJYOVMf0s' }, 
-    //{ name: 'Chat (Contato)', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve' },
-    //{ name: 'Buscar Artigos WNP', url: 'ferramentasuteis.html' },
-    //{ name: 'Acessórios', url: './tools/' },
-    //{ name: 'Adicionar novo Artigo Wiki Not Pédia', url: 'html/?uid=p3RYhfyYqNDNjDP3KAFs' },
-    //{ name: 'Editar artigos', url: 'html/?uid=6cbY8bU3BKFQdH8MWzjw' }, 
-    //{ name: 'Editor na Base 44', url: 'https://wiki-zone-zero-mod-copy-2a26f6a1.base44.app' },
-    //{ name: 'Upload de Imagem', url: 'html/?uid=RYln5EVrsPY9khlMvnfY' }, 
-    //{ name: 'Upload PDF', url: 'html/?uid=BgeAuPIBfmJPxi5Xyy2v' }, 
-    //{ name: 'Novo artigo cientifico', url: 'html/?uid=Bl8ZxEiAXxCIIw73xEEb' } 
-//];
-
-// ✅ Filtrar links, removendo aqueles com 'base44.app' ou 'base44.com'
-const filteredToolLinks = rawToolLinks.filter(link => 
-    !link.url.includes('base44.app') && !link.url.includes('base44.com')
-);
-
-// ✅ Função para preencher o menu de ferramentas (MANTIDA INTACTA)
-function populateToolsMenu() {
-    toolsMenu.innerHTML = ''; 
-    filteredToolLinks.forEach(link => {
-        const a = document.createElement("a");
-        a.textContent = link.name;
-        a.href = link.url;
-        a.onclick = (e) => {
-            e.preventDefault(); 
-            openWindow(link.name, link.url); 
-            toolsMenu.style.display = "none"; 
-        };
-        toolsMenu.appendChild(a);
-    });
-}
-
-// Preenche o menu de ferramentas ao carregar
-populateToolsMenu();
-
-
-// 🔹 Preenche o Menu Admin (MANTIDO INTACTO)
-adminLinks.forEach(link => {
-    const a = document.createElement("a");
-    a.textContent = link.label;
-    a.style.cursor = 'pointer'; 
-    a.onclick = (e) => {
-        e.preventDefault(); 
-        openWindow(link.label, link.href); 
-        adminMenu.style.display = "none"; 
-    };
-    adminMenu.appendChild(a);
-});
-
-const startBtn = document.getElementById("startBtn");
-const adminBtn = document.getElementById("adminBtn");
-const toolsBtn = document.getElementById("toolsBtn");
-
-// -------------------------------------------------------------
-// ... (O restante das funções e eventos permanecem inalterados)
-// -------------------------------------------------------------
 
 startBtn.onclick = () => {
     startMenu.style.display = startMenu.style.display === "block" ? "none" : "block";
@@ -573,6 +485,10 @@ adminBtn.onclick = () => {
 
 toolsBtn.onclick = () => {
     const adminBtnWidth = adminBtn.offsetWidth;
+    // A tag toolsMenu tem a classe .admin-popup que a posiciona.
+    // O ajuste do 'left' precisa ser preciso, mas se a classe CSS for usada,
+    // o cálculo do left pode ser feito dinamicamente.
+    // Uma aproximação é: (startBtn + adminBtn + 10px de margin)
     toolsMenu.style.left = `${10 + startBtn.offsetWidth + adminBtnWidth + 10}px`; 
 
     toolsMenu.style.display = toolsMenu.style.display === "block" ? "none" : "block";
