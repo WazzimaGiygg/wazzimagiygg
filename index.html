@@ -279,12 +279,14 @@
     </div>
 
     <script type="module">
-// 🔹 Firebase Auth Config
+// 🔹 Firebase Auth & Firestore Config
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
- 
+// 🆕 IMPORTAÇÕES DO FIRESTORE
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
 const firebaseConfig = {
-    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Chave de API removida por segurança
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Chave de API, mantenha a sua real
     authDomain: "wzzm-ce3fc.firebaseapp.com",
     projectId: "wzzm-ce3fc",
     storageBucket: "wzzm-ce3fc.appspot.com",
@@ -295,7 +297,14 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+// 🆕 INSTÂNCIA DO FIRESTORE
+const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
+
+// 🆕 CONSTANTE: ID do documento na coleção 'keymenulista' que contém o array
+const KEY_DOCUMENT_ID = "main_menu_list"; 
+// 🆕 CONSTANTE: Nome do campo ARRAY dentro do documento
+const KEY_ARRAY_FIELD = "itens_menu"; 
 
 // 🆕 NOVOS ELEMENTOS GLOBAIS
 const notificationIcon = document.getElementById("notificationIcon");
@@ -310,7 +319,6 @@ const loginBtn = document.getElementById("loginBtn");
 const desktop = document.getElementById("desktop");
 const startMenu = document.getElementById("startMenu");
 const adminMenu = document.getElementById("adminMenu");
-// ✅ Elemento do Menu de Ferramentas
 const toolsMenu = document.getElementById("toolsMenu");
 const clockElement = document.getElementById("clock");
 
@@ -337,7 +345,10 @@ onAuthStateChanged(auth, (user) => {
         // Se houver um usuário logado (qualquer um), exibe o desktop
         loginScreen.style.display = "none";
         desktop.style.display = "block";
-        updateClock(); 
+        updateClock(); 
+        
+        // 🆕 CHAMA A FUNÇÃO DE CARREGAMENTO DE LINKS DO FIRESTORE
+        loadDynamicLinks(user.uid); 
         
         // 📌 AJUSTE 2: Chama a função para buscar IP e verificar sanção aqui, APÓS o login.
         buscarIpELocalizacao();
@@ -352,23 +363,90 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// 🔹 Itens do menu principal (com a opção Logoff)
-const links = [
-    { name: 'Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png' },
-    // ... (restante dos links)
-    { name: 'Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png' },
-    { name: 'Area do colaborador', url: 'html/?uid=CKWtV1wmyHKNw6ie7qAh', iconUrl: 'iconmagic.png' },  
-    { name: 'Area escolar', url: 'html/?uid=2yvd72xTNYB4RH3jv9jY', iconUrl: 'iconmagic.png' },  
-    { name: 'Manual de Políticas de direito de privacidade ', url: 'pdf/?uid=TermosDeUsoWNP.pdf', iconUrl: 'iconmagic.png' },
-    { name: 'Direito de privacidade a honra pessoal de WazzimaGiygg', url: 'https://wazzimagiygg.com/pdf/?uid=Termo%20de%20Ci%C3%AAncia%20e%20Acordo%20sobre%20Identidade%20e%20prote%C3%A7%C3%A3o%20moral%20e%20intelectual%20de%20WazzimaGiygg.pdf', iconUrl: 'iconmagic.png' }, 
-    { name: 'Quem somos nós?', url: 'html/?uid=84TOyGBBxrsuzjWLyLwU', iconUrl: 'iconmagic.png' }, 
-    { name: 'Blog Leia e Compreenda', url: 'https://leiacompreenda.blogspot.com/', iconUrl: 'iconmagic.png' },
-    { name: 'Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
-    { name: 'Wiki Not Pedia', url: 'wnpx.html', iconUrl: 'iconmagic.png' },
-    { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' } 
-];
+// -------------------------------------------------------------
+// 🚀 NOVA FUNÇÃO: CARREGA OS LINKS DO FIRESTORE E MONTA O MENU
+// -------------------------------------------------------------
+async function loadDynamicLinks(userId) {
+    try {
+        const docRef = doc(db, "keymenulista", KEY_DOCUMENT_ID);
+        const docSnap = await getDoc(docRef);
 
-// 🔹 Menu admin separado
+        let dynamicLinks = [];
+
+        if (docSnap.exists()) {
+            // Se o documento existe, tenta obter o array de itens
+            const data = docSnap.data();
+            if (data[KEY_ARRAY_FIELD] && Array.isArray(data[KEY_ARRAY_FIELD])) {
+                dynamicLinks = data[KEY_ARRAY_FIELD].map(item => ({
+                    name: item.titulo,
+                    url: item.link_url,
+                    iconUrl: item.url_imagem || 'iconmagic.png' // Usa iconmagic.png se a imagem não for fornecida
+                }));
+            }
+        }
+        
+        // 🔹 Lista Estática Mínima (Logoff e outros itens essenciais)
+        // O item Logoff deve SEMPRE estar no final da lista.
+        const staticLinks = [
+            { name: 'Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png' },
+            { name: 'Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png' },
+            { name: 'Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
+            { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' }
+        ];
+
+        // Combina os links dinâmicos e os links estáticos.
+        // Remove a lista estática original para evitar duplicação.
+        // Garantimos que o Logoff seja o último.
+        const allLinks = [
+            ...dynamicLinks.filter(item => item.name !== 'Logoff (Sair)'), // Filtra Logoff duplicado
+            ...staticLinks.filter(item => item.name !== 'Logoff (Sair)')
+        ];
+        
+        // Adiciona o Logoff como o último item
+        allLinks.push({ name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' });
+
+        // Chama a função para montar o menu Iniciar com a lista completa
+        populateStartMenu(allLinks);
+
+    } catch (error) {
+        console.error("Erro ao carregar links do Firebase:", error);
+        // Em caso de erro, ainda monta o menu com os links estáticos
+        populateStartMenu([
+             { name: 'Fale com a Administração (Erro)', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
+             { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' }
+        ]);
+    }
+}
+// -------------------------------------------------------------
+// FIM DA NOVA FUNÇÃO
+// -------------------------------------------------------------
+
+// 🆕 NOVA FUNÇÃO: PARA MONTAR O MENU INICIAR
+function populateStartMenu(linksArray) {
+    // Limpa o menu antes de preenchê-lo
+    startMenu.innerHTML = ''; 
+
+    linksArray.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "menu-item";
+        // Usa o campo 'name' como título, 'iconUrl' como ícone
+        div.innerHTML = `<img src="${item.iconUrl}" alt="icon"> ${item.name}`;
+        
+        div.onclick = () => {
+            if (item.action === 'logout') {
+                handleLogout(); 
+            } else {
+                // Se não tem action, abre a janela com o URL
+                openWindow(item.name, item.url);
+            }
+            startMenu.style.display = "none"; 
+        };
+        startMenu.appendChild(div);
+    });
+}
+
+
+// 🔹 Menu admin separado (MANTIDO INTACTO)
 const adminLinks = [
     { label: "Chat (Contato)", href: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }
 ];
@@ -389,11 +467,11 @@ const rawToolLinks = [
 ];
 
 // ✅ Filtrar links, removendo aqueles com 'base44.app' ou 'base44.com'
-const filteredToolLinks = rawToolLinks.filter(link => 
+const filteredToolLinks = rawToolLinks.filter(link => 
     !link.url.includes('base44.app') && !link.url.includes('base44.com')
 );
 
-// ✅ Função para preencher o menu de ferramentas
+// ✅ Função para preencher o menu de ferramentas (MANTIDA INTACTA)
 function populateToolsMenu() {
     toolsMenu.innerHTML = ''; 
     filteredToolLinks.forEach(link => {
@@ -401,9 +479,9 @@ function populateToolsMenu() {
         a.textContent = link.name;
         a.href = link.url;
         a.onclick = (e) => {
-            e.preventDefault(); 
-            openWindow(link.name, link.url); 
-            toolsMenu.style.display = "none"; 
+            e.preventDefault(); 
+            openWindow(link.name, link.url); 
+            toolsMenu.style.display = "none"; 
         };
         toolsMenu.appendChild(a);
     });
@@ -412,65 +490,50 @@ function populateToolsMenu() {
 // Preenche o menu de ferramentas ao carregar
 populateToolsMenu();
 
-// 🔹 Preenche o Menu Iniciar
-links.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "menu-item";
-    div.innerHTML = `<img src="${item.iconUrl}" alt="icon"> ${item.name}`;
-     
-    div.onclick = () => {
-        if (item.action === 'logout') {
-            handleLogout(); 
-        } else {
-            openWindow(item.name, item.url);
-        }
-        startMenu.style.display = "none"; 
-    };
-    startMenu.appendChild(div);
-});
 
-// 🔹 Preenche o Menu Admin
+// 🔹 Preenche o Menu Admin (MANTIDO INTACTO)
 adminLinks.forEach(link => {
     const a = document.createElement("a");
     a.textContent = link.label;
-    a.style.cursor = 'pointer'; 
+    a.style.cursor = 'pointer'; 
     a.onclick = (e) => {
-        e.preventDefault(); 
-        openWindow(link.label, link.href); 
-        adminMenu.style.display = "none"; 
+        e.preventDefault(); 
+        openWindow(link.label, link.href); 
+        adminMenu.style.display = "none"; 
     };
     adminMenu.appendChild(a);
 });
 
 const startBtn = document.getElementById("startBtn");
 const adminBtn = document.getElementById("adminBtn");
-// ✅ Botão Ferramentas
 const toolsBtn = document.getElementById("toolsBtn");
+
+// -------------------------------------------------------------
+// ... (O restante das funções e eventos permanecem inalterados)
+// -------------------------------------------------------------
 
 startBtn.onclick = () => {
     startMenu.style.display = startMenu.style.display === "block" ? "none" : "block";
     adminMenu.style.display = "none";
-    toolsMenu.style.display = "none"; // Garante que o menu de ferramentas feche
-    notificationPopup.style.display = "none"; // Fecha o popup de notificação
+    toolsMenu.style.display = "none"; 
+    notificationPopup.style.display = "none"; 
 };
 
 adminBtn.onclick = () => {
     adminMenu.style.display = adminMenu.style.display === "block" ? "none" : "block";
     startMenu.style.display = "none";
-    toolsMenu.style.display = "none"; // Garante que o menu de ferramentas feche
-    notificationPopup.style.display = "none"; // Fecha o popup de notificação
+    toolsMenu.style.display = "none"; 
+    notificationPopup.style.display = "none"; 
 };
 
-// ✅ Lógica de clique para o botão Ferramentas
 toolsBtn.onclick = () => {
-    // Posição para o toolsMenu (exemplo: ao lado do adminMenu)
     const adminBtnWidth = adminBtn.offsetWidth;
-    toolsMenu.style.left = `${10 + startBtn.offsetWidth + adminBtnWidth + 10}px`; 
+    toolsMenu.style.left = `${10 + startBtn.offsetWidth + adminBtnWidth + 10}px`; 
 
     toolsMenu.style.display = toolsMenu.style.display === "block" ? "none" : "block";
     startMenu.style.display = "none";
-    adminMenu.style.display = "none"; 
-    notificationPopup.style.display = "none"; // Fecha o popup de notificação
+    adminMenu.style.display = "none"; 
+    notificationPopup.style.display = "none"; 
 };
 
 function handleLogout() {
@@ -482,27 +545,12 @@ function handleLogout() {
     });
 }
 
-// Função para atualizar o relógio 
+// Função para atualizar o relógio 
 function updateClock() {
     const now = new Date();
-     
-    // Formato da hora (HH:MM)
-    const timeString = now.toLocaleTimeString('pt-BR', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: false // Formato 24h
-    });
-     
-    // Formato da data (DD/MM)
-    const dateString = now.toLocaleDateString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit' 
-    });
-
-    // Atualiza o conteúdo do elemento #clock
+    const timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const dateString = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     clockElement.innerHTML = `<span>${timeString}</span><br><span>${dateString}</span>`;
-
-    // Agenda a próxima atualização em 1 segundo
     setTimeout(updateClock, 1000);
 }
 
@@ -523,7 +571,6 @@ function openWindow(title, url) {
     `;
     document.body.appendChild(win);
 
-    // ... (código de drag, resize e controles da janela) ...
     const header = win.querySelector(".window-header");
     let isDragging = false;
     let offsetX, offsetY;
@@ -565,9 +612,8 @@ function openWindow(title, url) {
     };
 }
 
-// 🔹 1. Função principal para buscar IP e Localização
+// 🔹 1. Função principal para buscar IP e Localização (MANTIDA INTACTA)
 async function buscarIpELocalizacao() {
-    // Limpa as notificações antigas antes de buscar novas informações
     notificationPopup.innerHTML = ''; 
     notificationIcon.style.color = 'white';
     
@@ -579,11 +625,9 @@ async function buscarIpELocalizacao() {
         const cidadeDoUsuario = data.city || 'Desconhecida';
         const paisDoUsuario = data.country || ''; 
         
-        // Adiciona a primeira notificação no popup (Exibição do IP)
         addNotification(`Seu IP Público: <strong>${ip}</strong>`, 'info');
         addNotification(`Localização Detectada: ${cidadeDoUsuario}, ${paisDoUsuario}`, 'info');
 
-        // Verifica se o local está sancionado
         verificarSancao(cidadeDoUsuario, paisDoUsuario);
         
     } catch (error) {
@@ -592,23 +636,22 @@ async function buscarIpELocalizacao() {
     }
 }
 
-// 🔹 2. Função para adicionar uma notificação ao popup
+// 🔹 2. Função para adicionar uma notificação ao popup (MANTIDA INTACTA)
 function addNotification(message, type = 'info') {
     const div = document.createElement("div");
     div.className = `notification-item ${type === 'error' ? 'sancao-alerta' : ''}`;
     div.innerHTML = message;
     
-    // Adiciona a notificação no topo da lista (mais recente primeiro)
     notificationPopup.prepend(div); 
 }
 
-// 🔹 3. Função para carregar o JSON e verificar sanção
+// 🔹 3. Função para carregar o JSON e verificar sanção (MANTIDA INTACTA)
 async function verificarSancao(cidadeUsuario, paisDoUsuario) {
     try {
         const jsonResponse = await fetch(JSON_URL);
         
         if (!jsonResponse.ok) {
-             throw new Error(`Erro HTTP! Status: ${jsonResponse.status}`);
+            throw new Error(`Erro HTTP! Status: ${jsonResponse.status}`);
         }
         
         const cidadesSancionadasData = await jsonResponse.json();
@@ -616,14 +659,12 @@ async function verificarSancao(cidadeUsuario, paisDoUsuario) {
         const cidadeFormatada = cidadeUsuario.trim().toLowerCase();
         const paisFormatado = paisDoUsuario.trim().toLowerCase();
 
-        // Procura a correspondência por CIDADE OU PAÍS na lista de objetos
         const alertaEncontrado = cidadesSancionadasData.cidades_sancionadas.find(item => 
             item.cidade.trim().toLowerCase() === cidadeFormatada || 
             item.cidade.trim().toLowerCase() === paisFormatado      
         );
         
         if (alertaEncontrado) {
-            // Se a cidade/país for encontrado, adiciona o alerta de sanção
             const alertaHTML = `
                 🚨 Alerta de Sanção! 🚨<br>Região com possíveis usuários sancionados.
                 <br>
@@ -631,8 +672,7 @@ async function verificarSancao(cidadeUsuario, paisDoUsuario) {
             `;
             addNotification(alertaHTML, 'error');
             
-            // Adiciona um ícone visual de alerta no ícone de notificação
-            notificationIcon.style.color = '#cc0000'; // Cor vermelha de alerta
+            notificationIcon.style.color = '#cc0000';
         }
         
     } catch (error) {
