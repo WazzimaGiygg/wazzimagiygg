@@ -36,7 +36,7 @@
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            box-sizing: border-box; /* Garante que o padding não aumente a largura total */
+            box-sizing: border-box;
         }
         button {
             display: block;
@@ -65,65 +65,86 @@
             color: #155724;
             border-color: #c3e6cb;
         }
+        .erro {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Adicionar Novo Item de Menu</h1>
+    <h1>Adicionar Novo Item de Menu</h1>
+
+    <form id="formAdicionarItem">
+
+        <div class="form-group">
+            <label for="menuTarget">Onde o link será exibido?</label>
+            <select id="menuTarget" name="menuTarget" required>
+                <option value="menu_iniciar">Menu Iniciar (Principal)</option>
+                <option value="wiki_pedia">Menu Wiki Not Pédia (Admin)</option>
+                <option value="ferramentas">Menu Ferramentas</option>
+                <option value="menu_lateral">Menu Lateral (Se houver)</option>
+                <option value="outros">Outros / Uso Geral</option>
+            </select>
+        </div>
         
-        <form id="formAdicionarItem">
-            
-            <div class="form-group">
-                <label for="titulo">Título:</label>
-                <input type="text" id="titulo" name="titulo" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="linkUrl">Link URL:</label>
-                <input type="url" id="linkUrl" name="linkUrl" placeholder="Ex: https://seusite.com/pagina" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="urlImagem">URL Imagem:</label>
-                <input type="url" id="urlImagem" name="urlImagem" placeholder="Ex: https://seusite.com/imagem.jpg" required>
-            </div>
-            
-            <button type="submit">Salvar Item no Firebase</button>
-        </form>
+        <div class="form-group">
+            <label for="titulo">Título:</label>
+            <input type="text" id="titulo" name="titulo" required>
+        </div>
 
-        <div id="mensagem"></div>
+        <div class="form-group">
+            <label for="linkUrl">Link URL:</label>
+            <input type="url" id="linkUrl" name="linkUrl" placeholder="Ex: https://seusite.com/pagina" required>
+        </div>
 
-    </div>
+        <div class="form-group">
+            <label for="urlImagem">URL Imagem:</label>
+            <input type="url" id="urlImagem" name="urlImagem" placeholder="Ex: https://seusite.com/imagem.jpg" required>
+        </div>
+
+        <button type="submit">Salvar Item no Firebase</button>
+    </form>
+
+    <div id="mensagem"></div>
+</div>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    
-    <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Chave de API removida por segurança
-        authDomain: "wzzm-ce3fc.firebaseapp.com",
-        projectId: "wzzm-ce3fc",
-        storageBucket: "wzzm-ce3fc.appspot.com",
-        messagingSenderId: "249427877153",
-        appId: "1:249427877153:web:0e4297294794a5aadeb260",
-        measurementId: "G-PLKNZNFCQ8"
-    };
 
-        const db = null; // Placeholder: Substitua pela sua instância do Firestore
+    <script>
+        // Suas credenciais do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        
+        // 1. Inicializa o Firebase e o Firestore
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = app.firestore();
+        
+        // 2. DEFINE O ID FIXO DO DOCUMENTO
+        // Deve ser o mesmo ID que o código que exibe o menu usa para buscar a lista
+        const ID_DO_SEU_DOCUMENTO = "main_menu_list"; 
 
         const form = document.getElementById('formAdicionarItem');
         const mensagemDiv = document.getElementById('mensagem');
 
-        form.addEventListener('submit', async (e) => {
+       form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (!db) {
-                alert("Erro: O Firebase não está configurado. Verifique o console.");
-                console.error("A variável 'db' do Firestore não foi inicializada.");
-                return;
-            }
+            // ... (restante do código de verificação)
 
+            // 🆕 Captura o novo campo
+            const menuTarget = document.getElementById('menuTarget').value;
+            
             const titulo = document.getElementById('titulo').value;
             const linkUrl = document.getElementById('linkUrl').value;
             const urlImagem = document.getElementById('urlImagem').value;
@@ -132,14 +153,14 @@
                 titulo: titulo,
                 link_url: linkUrl,
                 url_imagem: urlImagem,
+                // 🆕 ADICIONA O CAMPO DE CATEGORIA
+                menu_target: menuTarget, 
                 // Opcional: Adicionar um timestamp
                 criado_em: firebase.firestore.FieldValue.serverTimestamp() 
             };
             
-            const ID_DO_SEU_DOCUMENTO = "ID_DA_LISTA_PRINCIPAL"; // Substitua pelo ID do seu documento
-
             // ==========================================================
-            // LÓGICA DE SALVAMENTO NO FIREBASE (Opção 1 - Array Union)
+            // LÓGICA DE SALVAMENTO NO FIREBASE (Array Union)
             // ==========================================================
             try {
                 const docRef = db.collection("keymenulista").doc(ID_DO_SEU_DOCUMENTO);
@@ -150,11 +171,11 @@
 
                 // Limpar o formulário e mostrar sucesso
                 form.reset();
-                mostrarMensagem('Item salvo com sucesso!', 'sucesso');
+                mostrarMensagem('Item salvo com sucesso! ✅', 'sucesso');
                 
             } catch (error) {
-                // Se o documento ainda não existir, ele falhará no 'update'.
-                // Você pode tentar criar o documento com o array inicial.
+                // Se o documento não existir, ele falha com 'not-found'. 
+                // Tentamos criar o documento com o array inicial.
                 if (error.code === 'not-found') {
                     try {
                         const docRef = db.collection("keymenulista").doc(ID_DO_SEU_DOCUMENTO);
@@ -162,13 +183,13 @@
                             itens_menu: [novoItem]
                         });
                         form.reset();
-                        mostrarMensagem('Lista e Item criados com sucesso!', 'sucesso');
+                        mostrarMensagem('Lista e primeiro item criados com sucesso! ✨', 'sucesso');
                     } catch (e) {
-                         mostrarMensagem('Erro ao salvar no Firebase. Verifique o console.', 'erro');
-                         console.error("Erro ao tentar SET: ", e);
+                         mostrarMensagem('Erro ao criar a lista. Verifique o console.', 'erro');
+                         console.error("Erro ao tentar SET (criação): ", e);
                     }
                 } else {
-                    mostrarMensagem('Erro ao salvar no Firebase. Verifique o console.', 'erro');
+                    mostrarMensagem('Erro ao adicionar item. Verifique o console.', 'erro');
                     console.error("Erro ao tentar UPDATE: ", error);
                 }
             }
@@ -176,11 +197,10 @@
 
         function mostrarMensagem(texto, tipo) {
             mensagemDiv.textContent = texto;
-            mensagemDiv.className = ''; // Limpa classes anteriores
+            mensagemDiv.className = ''; 
             mensagemDiv.classList.add(tipo);
             mensagemDiv.style.display = 'block';
             
-            // Opcional: Esconder a mensagem após alguns segundos
             setTimeout(() => {
                 mensagemDiv.style.display = 'none';
             }, 5000);
