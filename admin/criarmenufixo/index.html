@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adicionar Item ao Menu (Firebase)</title>
+    <title>Adicionar Itens ao Menu (Firebase)</title>
     <style>
         /* Estilos básicos para o formulário */
         body {
@@ -31,12 +31,23 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        input[type="text"], input[type="url"] {
+        input[type="text"], input[type="url"], select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
+        }
+        .link-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            background-color: #fcfcfc;
+        }
+        .add-link-btn {
+            background-color: #5bc0de !important;
+            margin-bottom: 15px;
         }
         button {
             display: block;
@@ -51,7 +62,7 @@
             transition: background-color 0.3s;
         }
         button:hover {
-            background-color: #45a049;
+            opacity: 0.9;
         }
         #mensagem {
             margin-top: 15px;
@@ -73,138 +84,193 @@
     </style>
 </head>
 <body>
-
     <div class="container">
-    <h1>Adicionar Novo Item de Menu</h1>
+        <h1>Adicionar Novos Itens de Menu</h1>
 
-    <form id="formAdicionarItem">
+        <form id="formAdicionarItem">
 
-        <div class="form-group">
-            <label for="menuTarget">Onde o link será exibido?</label>
-            <select id="menuTarget" name="menuTarget" required>
-                <option value="menu_iniciar">Menu Iniciar (Principal)</option>
-                <option value="wiki_pedia">Menu Wiki Not Pédia (Admin)</option>
-                <option value="ferramentas">Menu Ferramentas</option>
-                <option value="menu_lateral">Menu Lateral (Se houver)</option>
-                <option value="outros">Outros / Uso Geral</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label for="titulo">Título:</label>
-            <input type="text" id="titulo" name="titulo" required>
-        </div>
+            <div class="form-group">
+                <label for="siteId">Identificador do Site:</label>
+                <input type="text" id="siteId" name="siteId" value="wazzimagiygg" placeholder="Ex: wazzimagiygg" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="menuTarget">Onde os links serão exibidos?</label>
+                <select id="menuTarget" name="menuTarget" required>
+                    <option value="menu_iniciar">Menu Iniciar (Principal)</option>
+                    <option value="wiki_pedia">Menu Wiki Not Pédia (Admin)</option>
+                    <option value="ferramentas">Menu Ferramentas</option>
+                    <option value="menu_lateral">Menu Lateral (Se houver)</option>
+                    <option value="outros">Outros / Uso Geral</option>
+                </select>
+            </div>
 
-        <div class="form-group">
-            <label for="linkUrl">Link URL:</label>
-            <input type="url" id="linkUrl" name="linkUrl" placeholder="Ex: https://seusite.com/pagina" required>
-        </div>
+            <hr>
 
-        <div class="form-group">
-            <label for="urlImagem">URL Imagem:</label>
-            <input type="url" id="urlImagem" name="urlImagem" placeholder="Ex: https://seusite.com/imagem.jpg" required>
-        </div>
+            <h2>Links a Adicionar:</h2>
+            <div id="linksContainer">
+                </div>
 
-        <button type="submit">Salvar Item no Firebase</button>
-    </form>
+            <button type="button" id="addLinkBtn" class="add-link-btn">Adicionar Outro Link</button>
 
-    <div id="mensagem"></div>
-</div>
+            <button type="submit">Salvar Todos os Itens no Firebase</button>
+        </form>
 
+        <div id="mensagem"></div>
+    </div>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script>
 
     <script>
-        // Suas credenciais do Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
+        const firebaseConfig = {            
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",             
+    authDomain: "wzzm-ce3fc.firebaseapp.com",            
+    projectId: "wzzm-ce3fc",            
+    storageBucket: "wzzm-ce3fc.appspot.com",            
+    messagingSenderId: "249427877153",            
+    appId: "1:249427877153:web:0e4297294794a5aadeb260",            
+    measurementId: "G-PLKNZNFCQ8"        
+};
         
-        // 1. Inicializa o Firebase e o Firestore
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = app.firestore();
-        
-        // 2. DEFINE O ID FIXO DO DOCUMENTO
-        // Deve ser o mesmo ID que o código que exibe o menu usa para buscar a lista
-        const ID_DO_SEU_DOCUMENTO = "main_menu_list"; 
+// 1. Inicializa o Firebase e o Firestore        
+const app = firebase.initializeApp(firebaseConfig);        
+const db = app.firestore();                
 
-        const form = document.getElementById('formAdicionarItem');
-        const mensagemDiv = document.getElementById('mensagem');
+// 2. O ID do documento agora deve incluir o ID do site!
+// A lista principal do site WAZZIMAGIYGG será: 'wazzimagiygg_menu_list'
+const ID_DO_SEU_DOCUMENTO = "main_menu_list"; // ID FIXO PADRÃO (será alterado)
+ 
+const form = document.getElementById('formAdicionarItem');
+const mensagemDiv = document.getElementById('mensagem');
+const linksContainer = document.getElementById('linksContainer');
+const addLinkBtn = document.getElementById('addLinkBtn');
 
-       form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+let linkCounter = 0;
 
-            // ... (restante do código de verificação)
+// Função para adicionar um novo conjunto de campos de link
+function addLinkInput() {
+    linkCounter++;
+    const linkDiv = document.createElement('div');
+    linkDiv.className = 'link-item';
+    linkDiv.innerHTML = `
+        <label>Link #${linkCounter}:</label>
+        <div class="form-group">
+            <label for="titulo_${linkCounter}">Título:</label>
+            <input type="text" id="titulo_${linkCounter}" name="titulo" required>
+        </div>
+        <div class="form-group">
+            <label for="linkUrl_${linkCounter}">Link URL:</label>
+            <input type="url" id="linkUrl_${linkCounter}" name="linkUrl" placeholder="Ex: https://seusite.com/pagina" required>
+        </div>
+        <div class="form-group">
+            <label for="urlImagem_${linkCounter}">URL Imagem (Opcional):</label>
+            <input type="url" id="urlImagem_${linkCounter}" name="urlImagem" placeholder="Ex: https://seusite.com/imagem.jpg">
+        </div>
+        <button type="button" onclick="this.parentNode.remove();">Remover Link</button>
+    `;
+    linksContainer.appendChild(linkDiv);
+}
 
-            // 🆕 Captura o novo campo
-            const menuTarget = document.getElementById('menuTarget').value;
-            
-            const titulo = document.getElementById('titulo').value;
-            const linkUrl = document.getElementById('linkUrl').value;
-            const urlImagem = document.getElementById('urlImagem').value;
+// Adiciona o primeiro campo de link ao carregar a página
+document.addEventListener('DOMContentLoaded', addLinkInput);
 
-            const novoItem = {
+// Evento do botão para adicionar mais links
+addLinkBtn.addEventListener('click', addLinkInput);
+
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const siteId = document.getElementById('siteId').value.trim();
+    const menuTarget = document.getElementById('menuTarget').value;
+    
+    // Constrói o ID do documento único usando o ID do site
+    const FINAL_DOC_ID = `${siteId}_menu_list`; // Ex: wazzimagiygg_menu_list
+
+    const linksElements = linksContainer.querySelectorAll('.link-item');
+    const linksToSave = [];
+
+    if (linksElements.length === 0) {
+        mostrarMensagem('Adicione pelo menos um link para salvar.', 'erro');
+        return;
+    }
+
+    // Processa todos os campos de link dinamicamente
+    linksElements.forEach(linkDiv => {
+        const titulo = linkDiv.querySelector('input[name="titulo"]').value;
+        const linkUrl = linkDiv.querySelector('input[name="linkUrl"]').value;
+        const urlImagem = linkDiv.querySelector('input[name="urlImagem"]').value;
+
+        if (titulo && linkUrl) {
+            linksToSave.push({
                 titulo: titulo,
                 link_url: linkUrl,
-                url_imagem: urlImagem,
-                // 🆕 ADICIONA O CAMPO DE CATEGORIA
-                menu_target: menuTarget, 
-                // Opcional: Adicionar um timestamp
-                criado_em: firebase.firestore.FieldValue.serverTimestamp() 
-            };
-            
-            // ==========================================================
-            // LÓGICA DE SALVAMENTO NO FIREBASE (Array Union)
-            // ==========================================================
-            try {
-                const docRef = db.collection("keymenulista").doc(ID_DO_SEU_DOCUMENTO);
+                url_imagem: urlImagem || 'iconmagic.png', // Fallback para ícone
+                menu_target: menuTarget, // Categoria (Menu Iniciar, Ferramentas, etc.)
+                site_id: siteId, // 🆕 NOVO CAMPO: Identifica o site
+                criado_em: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+    });
 
-                await docRef.update({
-                    itens_menu: firebase.firestore.FieldValue.arrayUnion(novoItem)
-                });
+    if (linksToSave.length === 0) {
+        mostrarMensagem('Nenhum link válido encontrado para salvar.', 'erro');
+        return;
+    }
 
-                // Limpar o formulário e mostrar sucesso
-                form.reset();
-                mostrarMensagem('Item salvo com sucesso! ✅', 'sucesso');
-                
-            } catch (error) {
-                // Se o documento não existir, ele falha com 'not-found'. 
-                // Tentamos criar o documento com o array inicial.
-                if (error.code === 'not-found') {
-                    try {
-                        const docRef = db.collection("keymenulista").doc(ID_DO_SEU_DOCUMENTO);
-                        await docRef.set({
-                            itens_menu: [novoItem]
-                        });
-                        form.reset();
-                        mostrarMensagem('Lista e primeiro item criados com sucesso! ✨', 'sucesso');
-                    } catch (e) {
-                         mostrarMensagem('Erro ao criar a lista. Verifique o console.', 'erro');
-                         console.error("Erro ao tentar SET (criação): ", e);
-                    }
-                } else {
-                    mostrarMensagem('Erro ao adicionar item. Verifique o console.', 'erro');
-                    console.error("Erro ao tentar UPDATE: ", error);
-                }
-            }
+    // ==========================================================
+    // LÓGICA DE SALVAMENTO NO FIREBASE (Array Union de Múltiplos Itens)
+    // ==========================================================
+    try {
+        const docRef = db.collection("keymenulista").doc(FINAL_DOC_ID);
+        
+        // Adiciona múltiplos itens ao array 'itens_menu'
+        await docRef.update({
+            itens_menu: firebase.firestore.FieldValue.arrayUnion(...linksToSave)
         });
 
-        function mostrarMensagem(texto, tipo) {
-            mensagemDiv.textContent = texto;
-            mensagemDiv.className = ''; 
-            mensagemDiv.classList.add(tipo);
-            mensagemDiv.style.display = 'block';
-            
-            setTimeout(() => {
-                mensagemDiv.style.display = 'none';
-            }, 5000);
+        form.reset();
+        linksContainer.innerHTML = ''; // Limpa os campos
+        linkCounter = 0;
+        addLinkInput(); // Adiciona um novo campo vazio
+        mostrarMensagem(`${linksToSave.length} item(s) salvo(s) com sucesso para o site ${siteId}! ✅`, 'sucesso');
+        
+    } catch (error) {
+        // Se o documento não existir, tentamos criá-lo
+        if (error.code === 'not-found') {
+            try {
+                const docRef = db.collection("keymenulista").doc(FINAL_DOC_ID);
+                await docRef.set({
+                    itens_menu: linksToSave
+                });
+                form.reset();
+                linksContainer.innerHTML = ''; 
+                linkCounter = 0;
+                addLinkInput();
+                mostrarMensagem(`Lista e ${linksToSave.length} item(s) criados com sucesso para o site ${siteId}! ✨`, 'sucesso');
+            } catch (e) {
+                 mostrarMensagem('Erro ao criar a lista. Verifique o console.', 'erro');
+                 console.error("Erro ao tentar SET (criação): ", e);
+            }
+        } else {
+            mostrarMensagem('Erro ao adicionar itens. Verifique o console.', 'erro');
+            console.error("Erro ao tentar UPDATE: ", error);
         }
+    }
+});
+
+// Função de mensagem (mantida)
+function mostrarMensagem(texto, tipo) {
+    mensagemDiv.textContent = texto;
+    mensagemDiv.className = ''; 
+    mensagemDiv.classList.add(tipo);
+    mensagemDiv.style.display = 'block';
+    
+    setTimeout(() => {
+        mensagemDiv.style.display = 'none';
+    }, 5000);
+}
     </script>
 
 </body>
