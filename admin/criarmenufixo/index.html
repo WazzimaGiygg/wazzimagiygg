@@ -45,6 +45,11 @@
             border-radius: 6px;
             background-color: #fcfcfc;
         }
+        .link-item button {
+            width: auto;
+            background-color: #dc3545; /* Cor para o botão Remover */
+            margin-top: 10px;
+        }
         .add-link-btn {
             background-color: #5bc0de !important;
             margin-bottom: 15px;
@@ -88,7 +93,6 @@
         <h1>Adicionar Novos Itens de Menu</h1>
 
         <form id="formAdicionarItem">
-
             <div class="form-group">
                 <label for="siteId">Identificador do Site:</label>
                 <input type="text" id="siteId" name="siteId" value="wazzimagiygg" placeholder="Ex: wazzimagiygg" required>
@@ -112,166 +116,160 @@
                 </div>
 
             <button type="button" id="addLinkBtn" class="add-link-btn">Adicionar Outro Link</button>
-
             <button type="submit">Salvar Todos os Itens no Firebase</button>
         </form>
 
         <div id="mensagem"></div>
     </div>
+    
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script>
-
-    <script>
-        const firebaseConfig = {            
-    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",             
-    authDomain: "wzzm-ce3fc.firebaseapp.com",            
-    projectId: "wzzm-ce3fc",            
-    storageBucket: "wzzm-ce3fc.appspot.com",            
-    messagingSenderId: "249427877153",            
-    appId: "1:249427877153:web:0e4297294794a5aadeb260",            
-    measurementId: "G-PLKNZNFCQ8"        
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
         
-// 1. Inicializa o Firebase e o Firestore        
-const app = firebase.initializeApp(firebaseConfig);        
-const db = app.firestore();                
+        // 1. Inicializa o Firebase e o Firestore
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = app.firestore();
+        
+        // 2. Elementos e Variáveis Globais
+        // ID_DO_SEU_DOCUMENTO não é mais usado; o ID é construído dinamicamente
+        const form = document.getElementById('formAdicionarItem');
+        const mensagemDiv = document.getElementById('mensagem');
+        const linksContainer = document.getElementById('linksContainer');
+        const addLinkBtn = document.getElementById('addLinkBtn');
+        
+        let linkCounter = 0;
 
-// 2. O ID do documento agora deve incluir o ID do site!
-// A lista principal do site WAZZIMAGIYGG será: 'wazzimagiygg_menu_list'
-const ID_DO_SEU_DOCUMENTO = "main_menu_list"; // ID FIXO PADRÃO (será alterado)
- 
-const form = document.getElementById('formAdicionarItem');
-const mensagemDiv = document.getElementById('mensagem');
-const linksContainer = document.getElementById('linksContainer');
-const addLinkBtn = document.getElementById('addLinkBtn');
-
-let linkCounter = 0;
-
-// Função para adicionar um novo conjunto de campos de link
-function addLinkInput() {
-    linkCounter++;
-    const linkDiv = document.createElement('div');
-    linkDiv.className = 'link-item';
-    linkDiv.innerHTML = `
-        <label>Link #${linkCounter}:</label>
-        <div class="form-group">
-            <label for="titulo_${linkCounter}">Título:</label>
-            <input type="text" id="titulo_${linkCounter}" name="titulo" required>
-        </div>
-        <div class="form-group">
-            <label for="linkUrl_${linkCounter}">Link URL:</label>
-            <input type="url" id="linkUrl_${linkCounter}" name="linkUrl" placeholder="Ex: https://seusite.com/pagina" required>
-        </div>
-        <div class="form-group">
-            <label for="urlImagem_${linkCounter}">URL Imagem (Opcional):</label>
-            <input type="url" id="urlImagem_${linkCounter}" name="urlImagem" placeholder="Ex: https://seusite.com/imagem.jpg">
-        </div>
-        <button type="button" onclick="this.parentNode.remove();">Remover Link</button>
-    `;
-    linksContainer.appendChild(linkDiv);
-}
-
-// Adiciona o primeiro campo de link ao carregar a página
-document.addEventListener('DOMContentLoaded', addLinkInput);
-
-// Evento do botão para adicionar mais links
-addLinkBtn.addEventListener('click', addLinkInput);
-
-
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const siteId = document.getElementById('siteId').value.trim();
-    const menuTarget = document.getElementById('menuTarget').value;
-    
-    // Constrói o ID do documento único usando o ID do site
-    const FINAL_DOC_ID = `${siteId}_menu_list`; // Ex: wazzimagiygg_menu_list
-
-    const linksElements = linksContainer.querySelectorAll('.link-item');
-    const linksToSave = [];
-
-    if (linksElements.length === 0) {
-        mostrarMensagem('Adicione pelo menos um link para salvar.', 'erro');
-        return;
-    }
-
-    // Processa todos os campos de link dinamicamente
-    linksElements.forEach(linkDiv => {
-        const titulo = linkDiv.querySelector('input[name="titulo"]').value;
-        const linkUrl = linkDiv.querySelector('input[name="linkUrl"]').value;
-        const urlImagem = linkDiv.querySelector('input[name="urlImagem"]').value;
-
-        if (titulo && linkUrl) {
-            linksToSave.push({
-                titulo: titulo,
-                link_url: linkUrl,
-                url_imagem: urlImagem || 'iconmagic.png', // Fallback para ícone
-                menu_target: menuTarget, // Categoria (Menu Iniciar, Ferramentas, etc.)
-                site_id: siteId, // 🆕 NOVO CAMPO: Identifica o site
-                criado_em: firebase.firestore.FieldValue.serverTimestamp()
-            });
+        // Função para adicionar um novo conjunto de campos de link
+        function addLinkInput() {
+            linkCounter++;
+            const linkDiv = document.createElement('div');
+            linkDiv.className = 'link-item';
+            linkDiv.innerHTML = `
+                <label>Link #${linkCounter}:</label>
+                <div class="form-group">
+                    <label for="titulo_${linkCounter}">Título:</label>
+                    <input type="text" id="titulo_${linkCounter}" name="titulo" required>
+                </div>
+                <div class="form-group">
+                    <label for="linkUrl_${linkCounter}">Link URL:</label>
+                    <input type="url" id="linkUrl_${linkCounter}" name="linkUrl" placeholder="Ex: https://seusite.com/pagina" required>
+                </div>
+                <div class="form-group">
+                    <label for="urlImagem_${linkCounter}">URL Imagem (Opcional):</label>
+                    <input type="url" id="urlImagem_${linkCounter}" name="urlImagem" placeholder="Ex: https://seusite.com/imagem.jpg">
+                </div>
+                <button type="button" onclick="this.parentNode.remove();">Remover Link</button>
+            `;
+            linksContainer.appendChild(linkDiv);
         }
-    });
 
-    if (linksToSave.length === 0) {
-        mostrarMensagem('Nenhum link válido encontrado para salvar.', 'erro');
-        return;
-    }
+        // Adiciona o primeiro campo de link ao carregar a página
+        document.addEventListener('DOMContentLoaded', addLinkInput);
 
-    // ==========================================================
-    // LÓGICA DE SALVAMENTO NO FIREBASE (Array Union de Múltiplos Itens)
-    // ==========================================================
-    try {
-        const docRef = db.collection("keymenulista").doc(FINAL_DOC_ID);
-        
-        // Adiciona múltiplos itens ao array 'itens_menu'
-        await docRef.update({
-            itens_menu: firebase.firestore.FieldValue.arrayUnion(...linksToSave)
-        });
+        // Evento do botão para adicionar mais links
+        addLinkBtn.addEventListener('click', addLinkInput);
 
-        form.reset();
-        linksContainer.innerHTML = ''; // Limpa os campos
-        linkCounter = 0;
-        addLinkInput(); // Adiciona um novo campo vazio
-        mostrarMensagem(`${linksToSave.length} item(s) salvo(s) com sucesso para o site ${siteId}! ✅`, 'sucesso');
-        
-    } catch (error) {
-        // Se o documento não existir, tentamos criá-lo
-        if (error.code === 'not-found') {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const siteId = document.getElementById('siteId').value.trim();
+            const menuTarget = document.getElementById('menuTarget').value;
+            
+            // Constrói o ID do documento único usando o ID do site
+            const FINAL_DOC_ID = `${siteId}_menu_list`; // Ex: wazzimagiygg_menu_list
+
+            const linksElements = linksContainer.querySelectorAll('.link-item');
+            const linksToSave = [];
+
+            if (linksElements.length === 0) {
+                mostrarMensagem('Adicione pelo menos um link para salvar.', 'erro');
+                return;
+            }
+
+            // Processa todos os campos de link dinamicamente
+            linksElements.forEach(linkDiv => {
+                const titulo = linkDiv.querySelector('input[name="titulo"]').value;
+                const linkUrl = linkDiv.querySelector('input[name="linkUrl"]').value;
+                const urlImagem = linkDiv.querySelector('input[name="urlImagem"]').value;
+
+                if (titulo && linkUrl) {
+                    linksToSave.push({
+                        titulo: titulo,
+                        link_url: linkUrl,
+                        url_imagem: urlImagem || 'iconmagic.png', // Fallback para ícone
+                        menu_target: menuTarget, // Categoria (Menu Iniciar, Ferramentas, etc.)
+                        site_id: siteId, // NOVO CAMPO: Identifica o site
+                        criado_em: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            });
+
+            if (linksToSave.length === 0) {
+                mostrarMensagem('Nenhum link válido encontrado para salvar.', 'erro');
+                return;
+            }
+
+            // ==========================================================
+            // LÓGICA DE SALVAMENTO NO FIRESTORE (Array Union de Múltiplos Itens)
+            // ==========================================================
             try {
                 const docRef = db.collection("keymenulista").doc(FINAL_DOC_ID);
-                await docRef.set({
-                    itens_menu: linksToSave
+                
+                // Adiciona múltiplos itens ao array 'itens_menu'
+                await docRef.update({
+                    itens_menu: firebase.firestore.FieldValue.arrayUnion(...linksToSave)
                 });
+
                 form.reset();
-                linksContainer.innerHTML = ''; 
+                linksContainer.innerHTML = ''; // Limpa os campos
                 linkCounter = 0;
-                addLinkInput();
-                mostrarMensagem(`Lista e ${linksToSave.length} item(s) criados com sucesso para o site ${siteId}! ✨`, 'sucesso');
-            } catch (e) {
-                 mostrarMensagem('Erro ao criar a lista. Verifique o console.', 'erro');
-                 console.error("Erro ao tentar SET (criação): ", e);
+                addLinkInput(); // Adiciona um novo campo vazio
+                mostrarMensagem(`${linksToSave.length} item(s) salvo(s) com sucesso para o site ${siteId}! ✅`, 'sucesso');
+                
+            } catch (error) {
+                // Se o documento não existir, tentamos criá-lo
+                if (error.code === 'not-found') {
+                    try {
+                        const docRef = db.collection("keymenulista").doc(FINAL_DOC_ID);
+                        await docRef.set({
+                            itens_menu: linksToSave
+                        });
+                        form.reset();
+                        linksContainer.innerHTML = ''; 
+                        linkCounter = 0;
+                        addLinkInput();
+                        mostrarMensagem(`Lista e ${linksToSave.length} item(s) criados com sucesso para o site ${siteId}! ✨`, 'sucesso');
+                    } catch (e) {
+                         mostrarMensagem('Erro ao criar a lista. Verifique o console.', 'erro');
+                         console.error("Erro ao tentar SET (criação): ", e);
+                    }
+                } else {
+                    mostrarMensagem('Erro ao adicionar itens. Verifique o console.', 'erro');
+                    console.error("Erro ao tentar UPDATE: ", error);
+                }
             }
-        } else {
-            mostrarMensagem('Erro ao adicionar itens. Verifique o console.', 'erro');
-            console.error("Erro ao tentar UPDATE: ", error);
+        });
+
+        // Função de mensagem (mantida)
+        function mostrarMensagem(texto, tipo) {
+            mensagemDiv.textContent = texto;
+            mensagemDiv.className = ''; 
+            mensagemDiv.classList.add(tipo);
+            mensagemDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                mensagemDiv.style.display = 'none';
+            }, 5000);
         }
-    }
-});
-
-// Função de mensagem (mantida)
-function mostrarMensagem(texto, tipo) {
-    mensagemDiv.textContent = texto;
-    mensagemDiv.className = ''; 
-    mensagemDiv.classList.add(tipo);
-    mensagemDiv.style.display = 'block';
-    
-    setTimeout(() => {
-        mensagemDiv.style.display = 'none';
-    }, 5000);
-}
     </script>
-
 </body>
 </html>
