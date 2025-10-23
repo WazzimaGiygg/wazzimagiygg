@@ -371,66 +371,91 @@ async function loadDynamicLinks(userId) {
         const docRef = doc(db, "keymenulista", KEY_DOCUMENT_ID);
         const docSnap = await getDoc(docRef);
 
-        let dynamicLinks = [];
+        let allLinksFromDB = []; // Todos os links dinâmicos do Firebase
 
         if (docSnap.exists()) {
-            // Se o documento existe, tenta obter o array de itens
             const data = docSnap.data();
             if (data[KEY_ARRAY_FIELD] && Array.isArray(data[KEY_ARRAY_FIELD])) {
-                dynamicLinks = data[KEY_ARRAY_FIELD].map(item => ({
+                // Mapeia os dados do Firebase
+                allLinksFromDB = data[KEY_ARRAY_FIELD].map(item => ({
                     name: item.titulo,
                     url: item.link_url,
-                    iconUrl: item.url_imagem || 'iconmagic.png' // Usa iconmagic.png se a imagem não for fornecida
+                    iconUrl: item.url_imagem || 'iconmagic.png', 
+                    // 🚨 CHAVE ESSENCIAL: Onde o link deve aparecer
+                    menu_target: item.menu_target || 'outros' 
                 }));
             }
         }
         
-        // 🔹 Lista Estática Mínima (Logoff e outros itens essenciais)
-        // O item Logoff deve SEMPRE estar no final da lista.
-        const staticLinks = [
-            { name: 'Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png' },
-            { name: 'Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png' },
-            { name: 'Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
-            { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' }
-        ];
-
-        // Combina os links dinâmicos e os links estáticos.
-        // Remove a lista estática original para evitar duplicação.
-        // Garantimos que o Logoff seja o último.
-        const allLinks = [
-            ...dynamicLinks.filter(item => item.name !== 'Logoff (Sair)'), // Filtra Logoff duplicado
-            ...staticLinks.filter(item => item.name !== 'Logoff (Sair)')
-        ];
+        // 1. FILTRAGEM DOS LINKS DINÂMICOS POR CATEGORIA (menu_target)
+        const linksParaIniciar = allLinksFromDB.filter(item => item.menu_target === 'menu_iniciar');
+        const linksParaAdmin = allLinksFromDB.filter(item => item.menu_target === 'wiki_pedia');
+        const linksParaFerramentas = allLinksFromDB.filter(item => item.menu_target === 'ferramentas');
         
-        // Adiciona o Logoff como o último item
-        allLinks.push({ name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' });
+        // 2. ADICIONA LINKS ESTÁTICOS AOS MENUS
+        
+        // 🔹 Links Estáticos do Menu Iniciar (Termos, Logoff, etc.)
+        const staticStartLinks = [
+            { name: 'Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+            { name: 'Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+            { name: 'Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+            // Logoff é SEMPRE o último no Iniciar
+            { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' }
+        ];
 
-        // Chama a função para montar o menu Iniciar com a lista completa
-        populateStartMenu(allLinks);
+        // 🔹 Links Estáticos do Menu Admin (Wiki Not Pédia)
+        const staticAdminLinks = [
+            // Como este menu só tinha o Chat antes, vamos mantê-lo estático aqui
+            { name: "Chat (Contato)", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", menu_target: 'wiki_pedia' }
+        ];
+
+        // 🔹 Links Estáticos do Menu Ferramentas (Usados para filtrar a lista rawToolLinks original)
+        // NOTA: Os links originais do seu Menu Ferramentas ERAM todos estáticos e estavam fora do Firebase.
+        // Para migrar, você precisaria inseri-los no Firebase com menu_target='ferramentas'. 
+        // Por agora, vamos usar SÓ os links DINÂMICOS do Firebase + os estáticos do Admin e Iniciar.
+        
+        // 3. MONTAGEM FINAL DAS LISTAS
+
+        // Menu Iniciar: Links Dinâmicos + Links Estáticos
+        const finalStartLinks = [...linksParaIniciar, ...staticStartLinks];
+        
+        // Menu Admin: Links Dinâmicos + Links Estáticos
+        const finalAdminLinks = [...linksParaAdmin, ...staticAdminLinks];
+
+        // Menu Ferramentas: Apenas Links Dinâmicos
+        const finalToolLinks = linksParaFerramentas;
+
+
+        // 4. CHAMA AS FUNÇÕES PARA MONTAR CADA MENU
+        populateMenu(startMenu, finalStartLinks);
+        populateMenu(adminMenu, finalAdminLinks);
+        populateToolsMenu(finalToolLinks); // Reutiliza a função de ferramentas, mas agora com a lista dinâmica
 
     } catch (error) {
         console.error("Erro ao carregar links do Firebase:", error);
-        // Em caso de erro, ainda monta o menu com os links estáticos
-        populateStartMenu([
+        // Em caso de erro, monta o menu Iniciar apenas com os essenciais para não quebrar
+        populateMenu(startMenu, [
              { name: 'Fale com a Administração (Erro)', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
              { name: 'Logoff (Sair)', action: 'logout', iconUrl: 'iconmagic.png' }
         ]);
+        // Garante que os outros menus fiquem vazios ou com itens estáticos mínimos se houver erro
+        populateMenu(adminMenu, [{ name: "Chat (Erro)", url: "#" }]);
+        populateToolsMenu([]);
     }
 }
 // -------------------------------------------------------------
 // FIM DA NOVA FUNÇÃO
-// -------------------------------------------------------------
+// --------
 
-// 🆕 NOVA FUNÇÃO: PARA MONTAR O MENU INICIAR
-function populateStartMenu(linksArray) {
+// 🆕 NOVA FUNÇÃO UNIFICADA: PARA MONTAR MENUS EM GERAL (Iniciar e Admin)
+function populateMenu(menuElement, linksArray) {
     // Limpa o menu antes de preenchê-lo
-    startMenu.innerHTML = ''; 
+    menuElement.innerHTML = ''; 
 
     linksArray.forEach(item => {
         const div = document.createElement("div");
         div.className = "menu-item";
-        // Usa o campo 'name' como título, 'iconUrl' como ícone
-        div.innerHTML = `<img src="${item.iconUrl}" alt="icon"> ${item.name}`;
+        div.innerHTML = `<img src="${item.iconUrl || 'iconmagic.png'}" alt="icon"> ${item.name}`;
         
         div.onclick = () => {
             if (item.action === 'logout') {
@@ -439,32 +464,51 @@ function populateStartMenu(linksArray) {
                 // Se não tem action, abre a janela com o URL
                 openWindow(item.name, item.url);
             }
-            startMenu.style.display = "none"; 
+            // Fecha o menu atual
+            menuElement.style.display = "none"; 
         };
-        startMenu.appendChild(div);
+        menuElement.appendChild(div);
+    });
+}
+
+// -------------------------------------------------------------
+// 🆕 NOVA FUNÇÃO: PARA MONTAR O MENU DE FERRAMENTAS (que tem estilo de link <a>)
+// -------------------------------------------------------------
+function populateToolsMenu(linksArray) {
+    toolsMenu.innerHTML = ''; 
+    linksArray.forEach(link => {
+        const a = document.createElement("a");
+        a.textContent = link.name;
+        a.href = link.url;
+        a.onclick = (e) => {
+            e.preventDefault(); 
+            openWindow(link.name, link.url); 
+            toolsMenu.style.display = "none"; 
+        };
+        toolsMenu.appendChild(a);
     });
 }
 
 
 // 🔹 Menu admin separado (MANTIDO INTACTO)
-const adminLinks = [
-    { label: "Chat (Contato)", href: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }
-];
+// const adminLinks = [
+    //{ label: "Chat (Contato)", href: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }
+//];
 
 // ✅ Lista de links para o menu de Ferramentas (filtrados no JS)
-const rawToolLinks = [
-    { name: 'Procurar Artigos Cientificos', url: 'html/?uid=BMczNyGHmEsMJSHWJrF2' }, 
-    { name: 'Espaço Cliente', url: 'html/?uid=4rLaz9tcyoxZJYOVMf0s' }, 
-    { name: 'Chat (Contato)', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve' },
-    { name: 'Buscar Artigos WNP', url: 'ferramentasuteis.html' },
-    { name: 'Acessórios', url: './tools/' },
-    { name: 'Adicionar novo Artigo Wiki Not Pédia', url: 'html/?uid=p3RYhfyYqNDNjDP3KAFs' },
-    { name: 'Editar artigos', url: 'html/?uid=6cbY8bU3BKFQdH8MWzjw' }, 
-    { name: 'Editor na Base 44', url: 'https://wiki-zone-zero-mod-copy-2a26f6a1.base44.app' },
-    { name: 'Upload de Imagem', url: 'html/?uid=RYln5EVrsPY9khlMvnfY' }, 
-    { name: 'Upload PDF', url: 'html/?uid=BgeAuPIBfmJPxi5Xyy2v' }, 
-    { name: 'Novo artigo cientifico', url: 'html/?uid=Bl8ZxEiAXxCIIw73xEEb' } 
-];
+//const rawToolLinks = [
+    //{ name: 'Procurar Artigos Cientificos', url: 'html/?uid=BMczNyGHmEsMJSHWJrF2' }, 
+    //{ name: 'Espaço Cliente', url: 'html/?uid=4rLaz9tcyoxZJYOVMf0s' }, 
+    //{ name: 'Chat (Contato)', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve' },
+    //{ name: 'Buscar Artigos WNP', url: 'ferramentasuteis.html' },
+    //{ name: 'Acessórios', url: './tools/' },
+    //{ name: 'Adicionar novo Artigo Wiki Not Pédia', url: 'html/?uid=p3RYhfyYqNDNjDP3KAFs' },
+    //{ name: 'Editar artigos', url: 'html/?uid=6cbY8bU3BKFQdH8MWzjw' }, 
+    //{ name: 'Editor na Base 44', url: 'https://wiki-zone-zero-mod-copy-2a26f6a1.base44.app' },
+    //{ name: 'Upload de Imagem', url: 'html/?uid=RYln5EVrsPY9khlMvnfY' }, 
+    //{ name: 'Upload PDF', url: 'html/?uid=BgeAuPIBfmJPxi5Xyy2v' }, 
+    //{ name: 'Novo artigo cientifico', url: 'html/?uid=Bl8ZxEiAXxCIIw73xEEb' } 
+//];
 
 // ✅ Filtrar links, removendo aqueles com 'base44.app' ou 'base44.com'
 const filteredToolLinks = rawToolLinks.filter(link => 
