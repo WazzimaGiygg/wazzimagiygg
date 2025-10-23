@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adicionar Item ao Menu (Firebase)</title>
+    <style>
+        /* Estilos básicos para o formulário */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Garante que o padding não aumente a largura total */
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #mensagem {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+            text-align: center;
+        }
+        .sucesso {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Adicionar Novo Item de Menu</h1>
+        
+        <form id="formAdicionarItem">
+            
+            <div class="form-group">
+                <label for="titulo">Título:</label>
+                <input type="text" id="titulo" name="titulo" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="linkUrl">Link URL:</label>
+                <input type="url" id="linkUrl" name="linkUrl" placeholder="Ex: https://seusite.com/pagina" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="urlImagem">URL Imagem:</label>
+                <input type="url" id="urlImagem" name="urlImagem" placeholder="Ex: https://seusite.com/imagem.jpg" required>
+            </div>
+            
+            <button type="submit">Salvar Item no Firebase</button>
+        </form>
+
+        <div id="mensagem"></div>
+
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // SEU CÓDIGO DE CONFIGURAÇÃO DO FIREBASE VAI AQUI
+        // Exemplo (substitua pelas suas credenciais):
+        // const firebaseConfig = { apiKey: "...", authDomain: "...", projectId: "..." };
+        // const app = firebase.initializeApp(firebaseConfig);
+        // const db = app.firestore();
+
+        const db = null; // Placeholder: Substitua pela sua instância do Firestore
+
+        const form = document.getElementById('formAdicionarItem');
+        const mensagemDiv = document.getElementById('mensagem');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!db) {
+                alert("Erro: O Firebase não está configurado. Verifique o console.");
+                console.error("A variável 'db' do Firestore não foi inicializada.");
+                return;
+            }
+
+            const titulo = document.getElementById('titulo').value;
+            const linkUrl = document.getElementById('linkUrl').value;
+            const urlImagem = document.getElementById('urlImagem').value;
+
+            const novoItem = {
+                titulo: titulo,
+                link_url: linkUrl,
+                url_imagem: urlImagem,
+                // Opcional: Adicionar um timestamp
+                criado_em: firebase.firestore.FieldValue.serverTimestamp() 
+            };
+            
+            const ID_DO_SEU_DOCUMENTO = "ID_DA_LISTA_PRINCIPAL"; // Substitua pelo ID do seu documento
+
+            // ==========================================================
+            // LÓGICA DE SALVAMENTO NO FIREBASE (Opção 1 - Array Union)
+            // ==========================================================
+            try {
+                const docRef = db.collection("keymenulista").doc(ID_DO_SEU_DOCUMENTO);
+
+                await docRef.update({
+                    itens_menu: firebase.firestore.FieldValue.arrayUnion(novoItem)
+                });
+
+                // Limpar o formulário e mostrar sucesso
+                form.reset();
+                mostrarMensagem('Item salvo com sucesso!', 'sucesso');
+                
+            } catch (error) {
+                // Se o documento ainda não existir, ele falhará no 'update'.
+                // Você pode tentar criar o documento com o array inicial.
+                if (error.code === 'not-found') {
+                    try {
+                        const docRef = db.collection("keymenulista").doc(ID_DO_SEU_DOCUMENTO);
+                        await docRef.set({
+                            itens_menu: [novoItem]
+                        });
+                        form.reset();
+                        mostrarMensagem('Lista e Item criados com sucesso!', 'sucesso');
+                    } catch (e) {
+                         mostrarMensagem('Erro ao salvar no Firebase. Verifique o console.', 'erro');
+                         console.error("Erro ao tentar SET: ", e);
+                    }
+                } else {
+                    mostrarMensagem('Erro ao salvar no Firebase. Verifique o console.', 'erro');
+                    console.error("Erro ao tentar UPDATE: ", error);
+                }
+            }
+        });
+
+        function mostrarMensagem(texto, tipo) {
+            mensagemDiv.textContent = texto;
+            mensagemDiv.className = ''; // Limpa classes anteriores
+            mensagemDiv.classList.add(tipo);
+            mensagemDiv.style.display = 'block';
+            
+            // Opcional: Esconder a mensagem após alguns segundos
+            setTimeout(() => {
+                mensagemDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+
+</body>
+</html>
