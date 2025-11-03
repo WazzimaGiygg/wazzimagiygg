@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grokipédia WZZM Editor</title>
+    <style>
+        /* Estilos baseados no seu tema Dark/Light */
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            padding: 20px; 
+            background-color: #f0f0f0; 
+            color: #333;
+            line-height: 1.5;
+        }
+        h1 { 
+            color: #0078d7; 
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+        }
+        p { 
+            margin-bottom: 20px; 
+            font-size: 0.9em;
+        }
+        form { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            background-color: #fff; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input, textarea { 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            font-size: 1em; 
+            transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus {
+            border-color: #0078d7;
+            outline: none;
+        }
+        textarea { 
+            height: 150px; 
+            resize: vertical; 
+        }
+        button { 
+            padding: 10px; 
+            background-color: #0078d7; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover { 
+            background-color: #005bb5; 
+        }
+        button:active {
+            transform: scale(0.99);
+        }
+        #lista { 
+            margin-top: 25px; 
+        }
+        article { 
+            padding: 15px; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 6px; 
+            margin-bottom: 15px; 
+            background-color: #fff; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        article h2 { 
+            color: #333; 
+            margin-top: 0; 
+            border-bottom: 1px dashed #eee; 
+            padding-bottom: 5px; 
+            font-size: 1.3em;
+        }
+        article p { 
+            white-space: pre-wrap; /* Mantém a formatação original do texto */
+            margin-bottom: 0; 
+            color: #555; 
+        }
+
+        /* Estilos específicos para as novas funcionalidades IA */
+        .ai-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .ai-buttons button {
+            background-color: #f39c12; /* Cor mais chamativa para a IA */
+            flex-grow: 1;
+        }
+        .ai-buttons button:hover {
+            background-color: #e67e22;
+        }
+        #aiStatus {
+            color: #e74c3c;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px;
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>🧠 Grokipédia WZZM</h1>
+    <p>A wiki que o Grok oficial não deixa você editar. Aqui vale meme, verdade nua, SCP, TF2 e carbamazepina sem censura.</p>
+    
+    <div class="ai-buttons">
+        <button onclick="suggestTitle()" id="btnSuggestTitle" disabled>✨ Sugerir Título Caça-Cliques</button>
+        <button onclick="generateSummary()" id="btnGenerateSummary" disabled>✨ Gerar Resumo "Grok"</button>
+    </div>
+
+    <div id="aiStatus" style="display:none;"></div>
+    
+    <form onsubmit="addArtigo(event)">
+        <input id="titulo" placeholder="Título (ex: Carbamazepina vesga)" required>
+        <textarea id="texto" placeholder="Escreve o que sabe, com gíria" required oninput="checkInput()"></textarea>
+        <button>Publicar na WZZM</button>
+    </form>
+    
+    <div id="lista"></div>
+
+    <script>
+        const STORAGE_KEY = 'wzzm_grokipedia_artigos'; 
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
+        const apiKey = ""; // Chave da API, deixada vazia para ser preenchida automaticamente.
+
+        let artigos = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+        // Referências aos elementos da UI
+        const tituloInput = document.getElementById('titulo');
+        const textoInput = document.getElementById('texto');
+        const btnSuggestTitle = document.getElementById('btnSuggestTitle');
+        const btnGenerateSummary = document.getElementById('btnGenerateSummary');
+        const aiStatus = document.getElementById('aiStatus');
+
+        function checkInput() {
+            const hasText = textoInput.value.trim().length > 10;
+            btnSuggestTitle.disabled = !hasText;
+            btnGenerateSummary.disabled = !hasText;
+        }
+
+        // Funções de Utilidade da API
+        function showLoading(message) {
+            aiStatus.textContent = message;
+            aiStatus.style.display = 'block';
+            btnSuggestTitle.disabled = true;
+            btnGenerateSummary.disabled = true;
+        }
+
+        function hideLoading() {
+            aiStatus.style.display = 'none';
+            checkInput();
+        }
+
+        // -------------------------------------------------------------
+        // 🚀 LÓGICA DA API GEMINI COM EXPONENTIAL BACKOFF
+        // -------------------------------------------------------------
+        async function callGeminiApi(userQuery, systemPrompt, maxRetries = 5) {
+            let attempt = 0;
+            while (attempt < maxRetries) {
+                try {
+                    const payload = {
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                    };
+
+                    const response = await fetch(`${API_URL}?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && attempt < maxRetries - 1) {
+                            // Erro de Rate Limit, tentar novamente
+                            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                            console.warn(`[Gemini API] Rate limit (429). Tentando novamente em ${delay / 1000}s...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            attempt++;
+                            continue;
+                        }
+                        // Outros erros ou último erro de Rate Limit
+                        throw new Error(`Erro na API Gemini: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Erro: A IA falhou em processar o texto.';
+                    return text.trim();
+
+                } catch (error) {
+                    console.error("[Gemini API] Erro fatal na chamada:", error);
+                    throw new Error(`Falha ao conectar com a IA: ${error.message}`);
+                }
+            }
+            throw new Error("Falha na API: Excedido o limite de tentativas de repetição.");
+        }
+
+
+        // -------------------------------------------------------------
+        // 💡 FUNCIONALIDADE 1: Sugerir Título Caça-Cliques
+        // -------------------------------------------------------------
+        async function suggestTitle() {
+            const content = textoInput.value.trim();
+            if (content.length < 10) return;
+
+            showLoading('🧠 IA pensando em um título cabuloso...');
+
+            const systemPrompt = "Você é uma IA especializada em gerar títulos caça-cliques, irreverentes e humorísticos, adequados para uma wiki caótica e não autorizada chamada 'Grokipédia'. Gere UM, único, título curto e direto para o seguinte texto. Não adicione nenhum texto extra, explicação ou aspas.";
+
+            try {
+                const newTitle = await callGeminiApi(content, systemPrompt);
+                tituloInput.value = newTitle;
+                // Exibe a notificação de sucesso
+                showLoading('✨ Título sugerido com sucesso!');
+                setTimeout(hideLoading, 2000);
+            } catch (error) {
+                showLoading('🚨 Erro da IA: ' + error.message);
+                console.error(error);
+                setTimeout(hideLoading, 3000);
+            }
+        }
+
+
+        // -------------------------------------------------------------
+        // 💡 FUNCIONALIDADE 2: Gerar Resumo "Grok"
+        // -------------------------------------------------------------
+        async function generateSummary() {
+            const content = textoInput.value.trim();
+            if (content.length < 10) return;
+
+            showLoading('🧠 IA gerando o resumo Grok...');
+
+            const systemPrompt = "Você é uma IA irreverente e levemente caótica conhecida como 'Grokipédia'. Resuma o texto a seguir em um parágrafo muito curto, hilário e, por vezes, sem sentido, usando gírias da internet e gírias brasileiras apropriadas.";
+
+            try {
+                const summary = await callGeminiApi(content, systemPrompt);
+                
+                // Adiciona o resumo ao texto existente
+                const newContent = `${content}\n\n--- Resumo Grok ---\n${summary}`;
+                textoInput.value = newContent;
+                
+                // Exibe a notificação de sucesso
+                showLoading('✨ Resumo Grok inserido no artigo!');
+                setTimeout(hideLoading, 2000);
+            } catch (error) {
+                showLoading('🚨 Erro da IA: ' + error.message);
+                console.error(error);
+                setTimeout(hideLoading, 3000);
+            }
+        }
+        
+        // -------------------------------------------------------------
+        // Funções de persistência local (MANTIDAS)
+        // -------------------------------------------------------------
+        function addArtigo(e) {
+            e.preventDefault();
+            
+            let novo = {
+                t: tituloInput.value,
+                c: textoInput.value
+            };
+            
+            artigos.unshift(novo); // Adiciona o novo artigo no topo da lista
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(artigos));
+            
+            show();
+
+            // Limpa o formulário e reativa botões
+            tituloInput.value = '';
+            textoInput.value = '';
+            checkInput();
+        }
+
+        function show() {
+            document.getElementById('lista').innerHTML = artigos.map(a =>
+                `<article>
+                    <h2>${a.t}</h2>
+                    <p>${a.c.replace(/\n/g, '<br>')}</p>
+                </article>`
+            ).join('');
+        }
+
+        // Exibe os artigos salvos ao carregar e verifica o input
+        show();
+        checkInput();
+    </script>
+
+</body>
+</html>
