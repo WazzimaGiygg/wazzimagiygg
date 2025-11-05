@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar Sanções</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h2 {
+            color: #0078d7;
+            border-bottom: 2px solid #0078d7;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        #loading {
+            font-weight: bold;
+            color: #0078d7;
+            text-align: center;
+            padding: 50px;
+        }
+        #sancoes-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: none; /* Escondido por padrão, só aparece após carregar os dados */
+        }
+        #sancoes-table th, #sancoes-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        #sancoes-table th {
+            background-color: #e9ecef;
+            color: #333;
+            font-weight: 600;
+        }
+        #sancoes-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        #sancoes-table tr:hover {
+            background-color: #e2f0ff;
+        }
+        .alerta-moderador {
+            color: #cc0000;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Lista de Cidades Sancionadas</h2>
+
+    <div id="loading">Carregando dados de sanções do Firebase...</div>
+
+    <table id="sancoes-table">
+        <thead>
+            <tr>
+                <th>Cidade / País</th>
+                <th>Moderador Responsável</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+
+    <script type="module">
+        // 🔹 Firebase Auth & Firestore Config (Copie as configurações do index.html)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        // As configurações devem ser as mesmas do seu index.html
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Sua chave real
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Referências aos elementos HTML
+        const tableBody = document.querySelector('#sancoes-table tbody');
+        const loadingElement = document.getElementById('loading');
+        const tableElement = document.getElementById('sancoes-table');
+
+        // 🚀 Função para carregar os dados do Firestore e preencher a tabela
+        async function carregarSancoes() {
+            tableBody.innerHTML = ''; // Limpa qualquer conteúdo prévio
+            loadingElement.style.display = 'block'; // Mostra o carregador
+            tableElement.style.display = 'none'; // Esconde a tabela
+
+            try {
+                // Referência à coleção 'cidadessancionadas' (Certifique-se que o nome da coleção está correto)
+                const sancaoCollectionRef = collection(db, "cidadessancionadas");
+                
+                // Busca todos os documentos na coleção
+                const snapshot = await getDocs(sancaoCollectionRef);
+                
+                let sancoes = [];
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Assumimos que cada documento tem 'cidade' e 'moderador'
+                    sancoes.push({
+                        cidade: data.cidade || 'N/A', 
+                        moderador: data.moderador || 'Desconhecido',
+                        // Adicione outros campos do seu documento se necessário (ex: data_sancao)
+                    });
+                });
+
+                if (sancoes.length > 0) {
+                    sancoes.forEach(sancao => {
+                        const row = tableBody.insertRow();
+                        const cellCidade = row.insertCell();
+                        const cellModerador = row.insertCell();
+
+                        cellCidade.textContent = sancao.cidade;
+                        cellModerador.innerHTML = `<span class="alerta-moderador">${sancao.moderador}</span>`;
+                    });
+                    
+                    loadingElement.style.display = 'none';
+                    tableElement.style.display = 'table'; // Mostra a tabela preenchida
+
+                } else {
+                    loadingElement.textContent = 'Nenhuma cidade sancionada encontrada no Firestore.';
+                    loadingElement.style.color = '#333';
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar sanções do Firestore:", error);
+                loadingElement.textContent = `Erro ao carregar a lista de sanções: ${error.message}`;
+                loadingElement.style.color = 'red';
+            }
+        }
+
+        // Inicia o carregamento assim que o script é executado
+        carregarSancoes();
+    </script>
+
+</body>
+</html>
