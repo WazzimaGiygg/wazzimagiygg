@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Adicionar Cidade Sancionada | Admin WZZM</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h2 {
+            color: #0078d7;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 8px 0 15px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #auth-status {
+            margin-top: 15px;
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .loading {
+            color: #0078d7;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="form-container">
+        <h2>Adicionar Cidade Sancionada</h2>
+        
+        <div id="auth-status">Verificando autenticação...</div>
+
+        <form id="sancao-form" style="display: none;">
+            <label for="cidade">Cidade ou Região:</label>
+            <input type="text" id="cidade" name="cidade" placeholder="Ex: São Paulo ou BR" required>
+
+            <label for="moderador">Moderador:</label>
+            <input type="text" id="moderador" name="moderador" placeholder="Seu Nome ou ID" required>
+            
+            <button type="submit">Adicionar Sanção</button>
+            <p class="loading" id="loading-status" style="display: none;">Adicionando...</p>
+        </form>
+    </div>
+
+    <script type="module">
+        // 🚨 Importações e Configurações do Firebase (Use as suas constantes REAIS)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        // ⚠️ SUBSTITUA COM SUAS PRÓPRIAS CREDENCIAIS DO FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", 
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Referências aos elementos do DOM
+        const sancaoForm = document.getElementById('sancao-form');
+        const authStatus = document.getElementById('auth-status');
+        const loadingStatus = document.getElementById('loading-status');
+        const formContainer = document.getElementById('form-container');
+        let loggedUser = null;
+
+        // 1. Verificação de Autenticação
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loggedUser = user;
+                authStatus.textContent = `Logado como: ${user.email}`;
+                authStatus.style.color = '#28a745';
+                sancaoForm.style.display = 'block';
+            } else {
+                authStatus.innerHTML = `**ACESSO RESTRITO!**<br>Por favor, faça login no painel principal primeiro.`;
+                authStatus.style.color = '#dc3545';
+                sancaoForm.style.display = 'none';
+            }
+        });
+
+        // 2. Lógica de Submissão do Formulário
+        sancaoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!loggedUser) {
+                alert("Você deve estar logado para adicionar sanções.");
+                return;
+            }
+
+            const cidadeInput = document.getElementById('cidade').value.trim();
+            const moderadorInput = document.getElementById('moderador').value.trim();
+            
+            if (!cidadeInput || !moderadorInput) {
+                alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            loadingStatus.style.display = 'block';
+            sancaoForm.querySelector('button').disabled = true;
+
+            try {
+                // 3. Adiciona o documento na coleção 'cidadessancionadas'
+                const docRef = await addDoc(collection(db, "cidadessancionadas"), {
+                    cidade: cidadeInput,
+                    moderador: moderadorInput,
+                    data_sancao: serverTimestamp(),
+                    usuario_uid: loggedUser.uid,
+                    usuario_email: loggedUser.email
+                });
+
+                alert(`Sanção para "${cidadeInput}" adicionada com sucesso! ID: ${docRef.id}`);
+                sancaoForm.reset(); // Limpa o formulário
+            } catch (error) {
+                console.error("Erro ao adicionar documento: ", error);
+                alert("Erro ao salvar a sanção: " + error.message);
+            } finally {
+                loadingStatus.style.display = 'none';
+                sancaoForm.querySelector('button').disabled = false;
+            }
+        });
+
+    </script>
+</body>
+</html>
