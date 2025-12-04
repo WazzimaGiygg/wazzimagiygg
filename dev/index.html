@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Quadrado Móvel com Mapas Externos</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex; 
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #2c3e50;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* O contêiner que representa o Mapa/Fase */
+        #mapa {
+            position: relative; 
+            border: 4px solid #f39c12;
+            background-color: #ecf0f1;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            /* Adicionado uma altura/largura padrão para evitar piscar no carregamento */
+            width: 400px; 
+            height: 300px;
+            transition: width 0.5s, height 0.5s; 
+        }
+
+        /* O elemento que irá se mover (o jogador) */
+        #quadrado {
+            width: 50px;
+            height: 50px;
+            background-color: #e74c3c; 
+            position: absolute;
+            border: 2px solid #c0392b;
+            box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Estilo para o painel de controle */
+        #painel {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        #painel button {
+            padding: 8px 12px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="painel">
+        **WASD** para Mover | Mapa Atual: <span id="mapa-nome">A carregar...</span><br>
+        <button onclick="carregarMapa(1)">Carregar Mapa 1</button>
+        <button onclick="carregarMapa(2)">Carregar Mapa 2</button>
+    </div>
+
+    <div id="mapa">
+        <div id="quadrado"></div>
+    </div>
+
+    <script>
+        // --- Configurações Globais ---
+        const VELOCIDADE = 15;
+        const quadrado = document.getElementById('quadrado');
+        const mapaElement = document.getElementById('mapa');
+        const mapaNomeElement = document.getElementById('mapa-nome');
+
+        let x = 0; // Posição X do jogador
+        let y = 0; // Posição Y do jogador
+        let mapaAtual = null; // O objeto JSON do mapa carregado
+
+        // --- Funções de Jogo ---
+
+        /**
+         * Aplica as coordenadas X e Y ao elemento do quadrado, garantindo que ele
+         * não saia dos limites do mapa atual (os "cantos").
+         */
+        function aplicarMovimento() {
+            if (!mapaAtual) return;
+
+            // Define os limites máximos baseados no mapa
+            const larguraMapa = mapaAtual.largura;
+            const alturaMapa = mapaAtual.altura;
+            const larguraQuadrado = quadrado.clientWidth;
+            const alturaQuadrado = quadrado.clientHeight;
+
+            // Limite Máximo = Tamanho do Mapa - Tamanho do Quadrado
+            const maxX = larguraMapa - larguraQuadrado;
+            const maxY = alturaMapa - alturaQuadrado;
+
+            // 1. Aplica o Limite Mínimo (0) e Máximo (maxX/maxY)
+            x = Math.max(0, Math.min(x, maxX));
+            y = Math.max(0, Math.min(y, maxY));
+            
+            // 2. Aplica o estilo CSS
+            quadrado.style.left = `${x}px`;
+            quadrado.style.top = `${y}px`;
+        }
+
+        /**
+         * Carrega o mapa a partir de um arquivo JSON.
+         * @param {number} idMapa - O ID do mapa a ser carregado (1 ou 2).
+         */
+        async function carregarMapa(idMapa) {
+            const path = `mapa${idMapa}.json`; // Ex: 'mapa1.json'
+
+            mapaNomeElement.textContent = "A carregar...";
+
+            try {
+                // 1. Usa fetch() para obter o arquivo de dados
+                const response = await fetch(path); 
+                
+                if (!response.ok) {
+                    throw new Error(`Código de status: ${response.status}`);
+                }
+                
+                // 2. Converte o texto da resposta para um objeto JavaScript (JSON)
+                const novoMapa = await response.json(); 
+
+                // 3. Define o mapa atual
+                mapaAtual = novoMapa;
+
+                // 4. Aplica as novas propriedades ao contêiner #mapa
+                mapaElement.style.width = `${mapaAtual.largura}px`;
+                mapaElement.style.height = `${mapaAtual.altura}px`;
+                
+                // 5. Define a posição inicial do jogador
+                x = mapaAtual.inicioX;
+                y = mapaAtual.inicioY;
+
+                // 6. Aplica e atualiza o painel
+                aplicarMovimento();
+                mapaNomeElement.textContent = mapaAtual.nome;
+                
+                console.log(`Mapa ${mapaAtual.nome} carregado.`);
+
+            } catch (error) {
+                console.error("Erro ao carregar o mapa:", error);
+                mapaNomeElement.textContent = `ERRO: ${path}`;
+                alert(`Erro ao carregar o mapa. Verifique se tem um servidor web a correr (Ex: Live Server). Detalhes: ${error.message}`);
+            }
+        }
+        
+        // --- Lógica de Movimento ---
+        document.addEventListener('keydown', (event) => {
+            if (!mapaAtual) return; // Não permite movimento antes de carregar o mapa
+
+            let moved = true;
+            
+            switch (event.key) {
+                case 'w': case 'W':
+                    y -= VELOCIDADE;
+                    break;
+                case 's': case 'S':
+                    y += VELOCIDADE;
+                    break;
+                case 'a': case 'A':
+                    x -= VELOCIDADE;
+                    break;
+                case 'd': case 'D':
+                    x += VELOCIDADE;
+                    break;
+                default:
+                    moved = false;
+                    return; 
+            }
+
+            if (moved) {
+                event.preventDefault(); // Impede rolagem da página
+                aplicarMovimento();
+            }
+        });
+
+        // Inicia o jogo carregando o mapa padrão ao iniciar
+        carregarMapa(1);
+    </script>
+</body>
+</html>
