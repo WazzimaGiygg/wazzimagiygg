@@ -92,18 +92,43 @@
         <div id="quadrado"></div>
     </div>
 
-    <script>
+ <script>
         // --- Configurações Globais ---
         const VELOCIDADE = 15;
+        const HP_MAXIMO = 3; // O HP máximo do jogador
+        
         const quadrado = document.getElementById('quadrado');
         const mapaElement = document.getElementById('mapa');
         const mapaNomeElement = document.getElementById('mapa-nome');
-
+        const painelElement = document.getElementById('painel'); // Referência para o painel
+        
+        // --- Variáveis de Estado do Jogador ---
         let x = 0; 
         let y = 0; 
         let mapaAtual = null; 
+        let jogadorHP = HP_MAXIMO; // HP inicial
+        let jogadorUID = gerarUID(); // UID de 3 dígitos
 
-        // --- Funções de Jogo ---
+        // --- Funções de Utilidade ---
+
+        /**
+         * Gera um ID único de 3 dígitos (ex: 123).
+         */
+        function gerarUID() {
+            // Garante que o número tenha 3 dígitos (entre 100 e 999)
+            return Math.floor(Math.random() * 900) + 100;
+        }
+
+        /**
+         * Atualiza o painel de informações com os dados do jogador e do mapa.
+         */
+        function atualizarPainel() {
+            painelElement.innerHTML = `
+                **UID:** ${jogadorUID} | 
+                **HP:** ${'❤️'.repeat(jogadorHP)} | 
+                **Mapa Atual:** <span id="mapa-nome">${mapaAtual ? mapaAtual.nome : 'A carregar...'}</span>
+            `;
+        }
 
         /**
          * Aplica as coordenadas X e Y ao elemento do quadrado, garantindo que ele
@@ -120,7 +145,6 @@
             const maxX = larguraMapa - larguraQuadrado;
             const maxY = alturaMapa - alturaQuadrado;
 
-            // Aplica os limites: 0 a maxX/maxY
             x = Math.max(0, Math.min(x, maxX));
             y = Math.max(0, Math.min(y, maxY));
             
@@ -132,14 +156,12 @@
          * Renderiza os elementos do mapa (muros, rios, portais) com base no JSON.
          */
         function renderizarElementos() {
-            // Limpa quaisquer elementos do mapa anterior
             mapaElement.querySelectorAll('.elemento-mapa').forEach(el => el.remove());
 
             if (!mapaAtual || !mapaAtual.elementos) return;
 
             mapaAtual.elementos.forEach((el, index) => {
                 const div = document.createElement('div');
-                // Adiciona as classes 'elemento-mapa' e o tipo (ex: 'muro')
                 div.className = `elemento-mapa ${el.tipo}`; 
                 
                 div.style.left = `${el.x}px`;
@@ -147,7 +169,6 @@
                 div.style.width = `${el.largura}px`;
                 div.style.height = `${el.altura}px`;
 
-                // Adiciona o emoji de portal para feedback visual
                 if (el.tipo === 'portal') {
                     div.innerHTML = '🚪'; 
                 }
@@ -157,7 +178,7 @@
         }
 
         /**
-         * Checa se o quadrado colide com um obstáculo sólido (muro, árvore ou rio).
+         * Checa se o quadrado colide com um obstáculo sólido.
          * @param {number} nextX - Posição X futura.
          * @param {number} nextY - Posição Y futura.
          * @returns {boolean} - Verdadeiro se houver colisão.
@@ -168,7 +189,7 @@
             const larguraQuadrado = quadrado.clientWidth;
             const alturaQuadrado = quadrado.clientHeight;
 
-            // Filtra elementos que devem bloquear o movimento (exclui o tipo 'portal' se não for sólido)
+            // Obstáculos que causam colisão (bloqueiam o movimento)
             const obstaculos = mapaAtual.elementos.filter(el => 
                 el.tipo === 'muro' || el.tipo === 'arvore' || el.tipo === 'rio'
             );
@@ -181,7 +202,7 @@
                     nextY < obs.y + obs.altura &&
                     nextY + alturaQuadrado > obs.y
                 ) {
-                    return true; // Colisão!
+                    return true;
                 }
             }
             return false;
@@ -197,22 +218,18 @@
                 const larguraQuadrado = quadrado.clientWidth;
                 const alturaQuadrado = quadrado.clientHeight;
 
-                // Checagem de colisão (se o jogador está na área do portão)
                 const inGateX = x + larguraQuadrado > gate.x[0] && x < gate.x[1];
                 const inGateY = y + alturaQuadrado > gate.y[0] && y < gate.y[1];
                 
                 if (inGateX && inGateY) {
-                    // Feedback visual
                     quadrado.style.backgroundColor = '#27ae60'; 
                     
-                    // Transição após um pequeno atraso para o feedback visual
                     setTimeout(() => {
                         carregarMapa(gate.destinoId, gate.destinoX, gate.destinoY);
                     }, 100); 
                     return true;
                 }
             }
-            // Volta à cor normal se não estiver em um portão
             quadrado.style.backgroundColor = '#e74c3c'; 
             return false;
         }
@@ -223,53 +240,55 @@
         async function carregarMapa(idMapa, newX, newY) {
             const path = `mapa${idMapa}.json`; 
 
-            mapaNomeElement.textContent = "A carregar...";
+            // Define o nome do mapa no painel enquanto carrega
+            atualizarPainel();
 
             try {
                 const response = await fetch(path); 
                 
                 if (!response.ok) {
-                    throw new Error(`Código de status: ${response.status}. Verifique se os arquivos JSON existem.`);
+                    throw new Error(`Código de status: ${response.status}.`);
                 }
                 
                 const novoMapa = await response.json(); 
 
                 mapaAtual = novoMapa;
 
-                // 1. Aplica as novas propriedades ao contêiner #mapa
                 mapaElement.style.width = `${mapaAtual.largura}px`;
                 mapaElement.style.height = `${mapaAtual.altura}px`;
                 
-                // 2. RENDERIZA TODOS OS ELEMENTOS
                 renderizarElementos(); 
                 
-                // 3. Define a posição inicial do jogador (posição de entrada ou início padrão)
                 x = newX !== undefined ? newX : mapaAtual.inicioX;
                 y = newY !== undefined ? newY : mapaAtual.inicioY;
 
-                // 4. Finaliza a configuração
                 aplicarMovimento();
-                mapaNomeElement.textContent = mapaAtual.nome;
                 quadrado.style.backgroundColor = '#e74c3c'; 
+                
+                // Atualiza o painel APÓS o carregamento do mapa
+                atualizarPainel();
                 
                 console.log(`Mapa ${mapaAtual.nome} carregado.`);
 
             } catch (error) {
                 console.error("Erro ao carregar o mapa:", error);
-                mapaNomeElement.textContent = `ERRO! Arquivo '${path}' não encontrado.`;
-                alert(`Erro de Carregamento. Certifique-se de que está usando um SERVIDOR WEB LOCAL (Ex: Live Server) e que os arquivos JSON existem.`);
+                
+                // Exibe erro no painel
+                mapaAtual = { nome: "ERRO DE CARREGAMENTO" };
+                atualizarPainel();
+                
+                alert(`Erro de Carregamento. Servidor/Arquivos JSON falharam.`);
             }
         }
         
         // --- Lógica de Movimento ---
         document.addEventListener('keydown', (event) => {
-            if (!mapaAtual) return; 
+            if (!mapaAtual || jogadorHP <= 0) return; // Não move se o HP for 0
 
             let nextX = x;
             let nextY = y;
             let moved = true;
             
-            // Calcula a próxima posição
             switch (event.key) {
                 case 'w': case 'W':
                     nextY -= VELOCIDADE;
@@ -291,22 +310,19 @@
             if (moved) {
                 event.preventDefault(); 
                 
-                // 1. Checa a colisão com OBSTÁCULOS na próxima posição
                 if (!checarColisao(nextX, nextY)) {
-                    // 2. Se não houver colisão, atualiza a posição e o CSS
                     x = nextX;
                     y = nextY;
                     aplicarMovimento();
-                    
-                    // 3. Checa transição (sempre depois de mover, mesmo que não haja colisão)
                     checarTransicao();
-                }
-                // Se houver colisão, o jogador não se move.
+                } 
+                // A colisão com obstáculos sólidos impede o movimento, mas não causa perda de HP por enquanto.
             }
         });
 
         // Inicia o jogo
         carregarMapa(1);
+        atualizarPainel(); // Primeira atualização para mostrar UID e HP inicial
     </script>
 </body>
 </html>
