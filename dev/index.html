@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Quadrado Móvel com Mapas Externos</title>
+    <title>Quadrado Móvel com Transição Automática</title>
     <style>
         body {
             margin: 0;
@@ -14,6 +14,8 @@
             background-color: #2c3e50;
             font-family: Arial, sans-serif;
             overflow: hidden;
+            /* Garante que o body possa receber eventos de tecla */
+            outline: none; 
         }
 
         /* O contêiner que representa o Mapa/Fase */
@@ -22,10 +24,11 @@
             border: 4px solid #f39c12;
             background-color: #ecf0f1;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            /* Adicionado uma altura/largura padrão para evitar piscar no carregamento */
+            /* Tamanhos padrão iniciais (serão sobrescritos pelo JSON) */
             width: 400px; 
             height: 300px;
             transition: width 0.5s, height 0.5s; 
+            cursor: pointer; /* Indica que é clicável/focalizável para aceitar input */
         }
 
         /* O elemento que irá se mover (o jogador) */
@@ -36,9 +39,10 @@
             position: absolute;
             border: 2px solid #c0392b;
             box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.2s; /* Efeito visual ao tocar um portão */
         }
 
-        /* Estilo para o painel de controle */
+        /* Estilo para o painel de informações */
         #painel {
             background: rgba(0, 0, 0, 0.7);
             color: white;
@@ -47,20 +51,12 @@
             margin-bottom: 20px;
             text-align: center;
         }
-        
-        #painel button {
-            padding: 8px 12px;
-            margin: 5px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
 
     <div id="painel">
-        **WASD** para Mover | Mapa Atual: <span id="mapa-nome">A carregar...</span><br>
-        <button onclick="carregarMapa(1)">Carregar Mapa 1</button>
-        <button onclick="carregarMapa(2)">Carregar Mapa 2</button>
+        **WASD** para Mover | Mapa Atual: <span id="mapa-nome">A carregar...</span>
     </div>
 
     <div id="mapa">
@@ -74,15 +70,15 @@
         const mapaElement = document.getElementById('mapa');
         const mapaNomeElement = document.getElementById('mapa-nome');
 
-        let x = 0; // Posição X do jogador
-        let y = 0; // Posição Y do jogador
-        let mapaAtual = null; // O objeto JSON do mapa carregado
+        let x = 0; 
+        let y = 0; 
+        let mapaAtual = null; 
 
         // --- Funções de Jogo ---
 
         /**
          * Aplica as coordenadas X e Y ao elemento do quadrado, garantindo que ele
-         * não saia dos limites do mapa atual (os "cantos").
+         * não saia dos limites do mapa atual.
          */
         function aplicarMovimento() {
             if (!mapaAtual) return;
@@ -107,46 +103,80 @@
         }
 
         /**
-         * Carrega o mapa a partir de um arquivo JSON.
-         * @param {number} idMapa - O ID do mapa a ser carregado (1 ou 2).
+         * Checa se a posição atual do jogador está em uma área de transição (gate).
          */
-        async function carregarMapa(idMapa) {
-            const path = `mapa${idMapa}.json`; // Ex: 'mapa1.json'
+        function checarTransicao() {
+            if (!mapaAtual || !mapaAtual.gates) return false;
+
+            for (const gate of mapaAtual.gates) {
+                // Dimensões do jogador
+                const larguraQuadrado = quadrado.clientWidth;
+                const alturaQuadrado = quadrado.clientHeight;
+
+                // Checa se o jogador está dentro da área do portão
+                // A condição é: a borda esquerda do quadrado está depois do X inicial do portão
+                // E a borda direita do quadrado está antes do X final do portão
+                const inGateX = x + larguraQuadrado > gate.x[0] && x < gate.x[1];
+                const inGateY = y + alturaQuadrado > gate.y[0] && y < gate.y[1];
+                
+                if (inGateX && inGateY) {
+                    // Encontrou um portão! Trocando de mapa...
+                    quadrado.style.backgroundColor = '#27ae60'; // Cor verde para feedback
+                    
+                    // Usamos setTimeout para dar tempo ao efeito visual
+                    setTimeout(() => {
+                        carregarMapa(gate.destinoId, gate.destinoX, gate.destinoY);
+                    }, 100); 
+                    return true;
+                }
+            }
+            // Volta à cor normal se não estiver em um portão
+            quadrado.style.backgroundColor = '#e74c3c'; 
+            return false;
+        }
+
+        /**
+         * Carrega o mapa a partir de um arquivo JSON e define a posição de entrada.
+         * @param {number} idMapa - O ID do mapa a ser carregado (1, 2, ou 3).
+         * @param {number} newX - A posição X de entrada no novo mapa.
+         * @param {number} newY - A posição Y de entrada no novo mapa.
+         */
+        async function carregarMapa(idMapa, newX, newY) {
+            const path = `mapa${idMapa}.json`; 
 
             mapaNomeElement.textContent = "A carregar...";
 
             try {
-                // 1. Usa fetch() para obter o arquivo de dados
                 const response = await fetch(path); 
                 
                 if (!response.ok) {
-                    throw new Error(`Código de status: ${response.status}`);
+                    throw new Error(`Código de status: ${response.status}. Verifique se os arquivos JSON existem.`);
                 }
                 
-                // 2. Converte o texto da resposta para um objeto JavaScript (JSON)
                 const novoMapa = await response.json(); 
 
-                // 3. Define o mapa atual
                 mapaAtual = novoMapa;
 
-                // 4. Aplica as novas propriedades ao contêiner #mapa
+                // 1. Aplica as novas propriedades ao contêiner #mapa
                 mapaElement.style.width = `${mapaAtual.largura}px`;
                 mapaElement.style.height = `${mapaAtual.altura}px`;
                 
-                // 5. Define a posição inicial do jogador
-                x = mapaAtual.inicioX;
-                y = mapaAtual.inicioY;
+                // 2. Define a posição inicial do jogador (a posição de entrada, ou o início padrão se for o primeiro load)
+                x = newX !== undefined ? newX : mapaAtual.inicioX;
+                y = newY !== undefined ? newY : mapaAtual.inicioY;
 
-                // 6. Aplica e atualiza o painel
+                // 3. Aplica e atualiza o painel
                 aplicarMovimento();
                 mapaNomeElement.textContent = mapaAtual.nome;
+                quadrado.style.backgroundColor = '#e74c3c'; // Reseta a cor do jogador
                 
                 console.log(`Mapa ${mapaAtual.nome} carregado.`);
 
             } catch (error) {
                 console.error("Erro ao carregar o mapa:", error);
-                mapaNomeElement.textContent = `ERRO: ${path}`;
-                alert(`Erro ao carregar o mapa. Verifique se tem um servidor web a correr (Ex: Live Server). Detalhes: ${error.message}`);
+                mapaNomeElement.textContent = `ERRO! (Verifique o Servidor)`;
+                // Manter o alerta para o usuário lembrar do problema de CORS
+                alert(`Erro de Carregamento. Certifique-se de que está usando um SERVIDOR WEB LOCAL (Ex: Live Server) e que os arquivos JSON existem.`);
             }
         }
         
@@ -175,12 +205,13 @@
             }
 
             if (moved) {
-                event.preventDefault(); // Impede rolagem da página
+                event.preventDefault(); 
                 aplicarMovimento();
+                checarTransicao(); // <--- CHAMA A VERIFICAÇÃO DE PORTÕES APÓS O MOVIMENTO
             }
         });
 
-        // Inicia o jogo carregando o mapa padrão ao iniciar
+        // Inicia o jogo carregando o mapa padrão (Mapa 1)
         carregarMapa(1);
     </script>
 </body>
