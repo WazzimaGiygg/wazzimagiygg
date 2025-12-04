@@ -80,6 +80,23 @@
             opacity: 0.8;
             border: 2px solid #e67e22;
         }
+        /* Novo elemento que causa dano */
+        .fogo {
+            background-color: #e74c3c; /* Vermelho/Fogo */
+            border: 3px dashed #f39c12; /* Borda de alerta amarela */
+            animation: pulse 1s infinite alternate; /* Efeito visual de alerta */
+        }
+        
+        /* Efeito visual para o jogador quando invencível (tomando dano) */
+        .invencivel {
+            opacity: 0.5; /* Fica meio transparente */
+            background-color: #3498db !important; /* Mudar cor para feedback */
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.8; }
+            to { opacity: 1.0; }
+        }
     </style>
 </head>
 <body>
@@ -95,19 +112,20 @@
  <script>
         // --- Configurações Globais ---
         const VELOCIDADE = 15;
-        const HP_MAXIMO = 3; // O HP máximo do jogador
+        const HP_MAXIMO = 3; 
+        const TEMPO_INVENCIBILIDADE = 1000; // 1 segundo em milissegundos
         
         const quadrado = document.getElementById('quadrado');
         const mapaElement = document.getElementById('mapa');
-        const mapaNomeElement = document.getElementById('mapa-nome');
-        const painelElement = document.getElementById('painel'); // Referência para o painel
+        const painelElement = document.getElementById('painel'); 
         
         // --- Variáveis de Estado do Jogador ---
         let x = 0; 
         let y = 0; 
         let mapaAtual = null; 
-        let jogadorHP = HP_MAXIMO; // HP inicial
-        let jogadorUID = gerarUID(); // UID de 3 dígitos
+        let jogadorHP = HP_MAXIMO; 
+        let jogadorUID = gerarUID(); 
+        let isInvencivel = false; // Controle de cooldown de dano
 
         // --- Funções de Utilidade ---
 
@@ -115,7 +133,6 @@
          * Gera um ID único de 3 dígitos (ex: 123).
          */
         function gerarUID() {
-            // Garante que o número tenha 3 dígitos (entre 100 e 999)
             return Math.floor(Math.random() * 900) + 100;
         }
 
@@ -123,17 +140,79 @@
          * Atualiza o painel de informações com os dados do jogador e do mapa.
          */
         function atualizarPainel() {
+            let hpDisplay;
+            if (jogadorHP > 0) {
+                hpDisplay = '❤️'.repeat(jogadorHP);
+            } else {
+                hpDisplay = '💀 GAME OVER 💀';
+            }
+
             painelElement.innerHTML = `
                 **UID:** ${jogadorUID} | 
-                **HP:** ${'❤️'.repeat(jogadorHP)} | 
-                **Mapa Atual:** <span id="mapa-nome">${mapaAtual ? mapaAtual.nome : 'A carregar...'}</span>
+                **HP:** ${hpDisplay} | 
+                **Mapa Atual:** ${mapaAtual ? mapaAtual.nome : 'A carregar...'}
             `;
+            
+            // Se o HP for 0, bloqueia o mapa e exibe Game Over
+            if (jogadorHP <= 0) {
+                quadrado.style.display = 'none'; // Esconde o quadrado
+                mapaElement.style.borderColor = '#c0392b'; // Borda vermelha
+            } else {
+                 quadrado.style.display = 'block';
+            }
         }
 
         /**
-         * Aplica as coordenadas X e Y ao elemento do quadrado, garantindo que ele
-         * não saia dos limites do mapa atual.
+         * Aplica um período de invencibilidade após o dano.
          */
+        function aplicarInvencibilidade() {
+            isInvencivel = true;
+            quadrado.classList.add('invencivel'); // Adiciona o estilo visual
+
+            setTimeout(() => {
+                isInvencivel = false;
+                quadrado.classList.remove('invencivel'); // Remove o estilo visual
+            }, TEMPO_INVENCIBILIDADE);
+        }
+
+        /**
+         * Checa se o quadrado colidiu com um elemento de dano (fogo)
+         * e aplica a penalidade de HP.
+         */
+        function checarDano() {
+            if (!mapaAtual || !mapaAtual.elementos || isInvencivel || jogadorHP <= 0) return;
+
+            const larguraQuadrado = quadrado.clientWidth;
+            const alturaQuadrado = quadrado.clientHeight;
+
+            // Elementos que causam dano (Ex: fogo)
+            const danos = mapaAtual.elementos.filter(el => el.tipo === 'fogo');
+
+            for (const dano of danos) {
+                // Checagem de colisão AABB
+                const colidiu = (
+                    x < dano.x + dano.largura &&
+                    x + larguraQuadrado > dano.x &&
+                    y < dano.y + dano.altura &&
+                    y + alturaQuadrado > dano.y
+                );
+                
+                if (colidiu) {
+                    jogadorHP--; // Perde 1 ponto de vida
+                    aplicarInvencibilidade();
+                    atualizarPainel();
+                    
+                    if (jogadorHP <= 0) {
+                        console.log("Game Over!");
+                        atualizarPainel(); 
+                    }
+                    return; // Sai do loop para aplicar invencibilidade
+                }
+            }
+        }
+
+        // --- Funções de Mapa e Movimento (Permanecem Largamente as Mesmas) ---
+        
         function aplicarMovimento() {
             if (!mapaAtual) return;
 
@@ -152,9 +231,6 @@
             quadrado.style.top = `${y}px`;
         }
 
-        /**
-         * Renderiza os elementos do mapa (muros, rios, portais) com base no JSON.
-         */
         function renderizarElementos() {
             mapaElement.querySelectorAll('.elemento-mapa').forEach(el => el.remove());
 
@@ -177,25 +253,18 @@
             });
         }
 
-        /**
-         * Checa se o quadrado colide com um obstáculo sólido.
-         * @param {number} nextX - Posição X futura.
-         * @param {number} nextY - Posição Y futura.
-         * @returns {boolean} - Verdadeiro se houver colisão.
-         */
         function checarColisao(nextX, nextY) {
             if (!mapaAtual || !mapaAtual.elementos) return false;
 
             const larguraQuadrado = quadrado.clientWidth;
             const alturaQuadrado = quadrado.clientHeight;
 
-            // Obstáculos que causam colisão (bloqueiam o movimento)
+            // Obstáculos que causam colisão (bloqueiam o movimento), EXCLUINDO o fogo para permitir que o jogador toque nele
             const obstaculos = mapaAtual.elementos.filter(el => 
                 el.tipo === 'muro' || el.tipo === 'arvore' || el.tipo === 'rio'
             );
 
             for (const obs of obstaculos) {
-                // Checagem de colisão AABB
                 if (
                     nextX < obs.x + obs.largura &&
                     nextX + larguraQuadrado > obs.x &&
@@ -208,9 +277,6 @@
             return false;
         }
 
-        /**
-         * Checa se a posição atual do jogador está em uma área de transição (gate/portal).
-         */
         function checarTransicao() {
             if (!mapaAtual || !mapaAtual.gates) return false;
 
@@ -234,13 +300,10 @@
             return false;
         }
 
-        /**
-         * Carrega o mapa a partir de um arquivo JSON.
-         */
         async function carregarMapa(idMapa, newX, newY) {
-            const path = `mapa${idMapa}.json`; 
+            if (jogadorHP <= 0) return; // Não carrega se o jogo acabou
 
-            // Define o nome do mapa no painel enquanto carrega
+            const path = `mapa${idMapa}.json`; 
             atualizarPainel();
 
             try {
@@ -265,15 +328,11 @@
                 aplicarMovimento();
                 quadrado.style.backgroundColor = '#e74c3c'; 
                 
-                // Atualiza o painel APÓS o carregamento do mapa
                 atualizarPainel();
                 
-                console.log(`Mapa ${mapaAtual.nome} carregado.`);
-
             } catch (error) {
                 console.error("Erro ao carregar o mapa:", error);
                 
-                // Exibe erro no painel
                 mapaAtual = { nome: "ERRO DE CARREGAMENTO" };
                 atualizarPainel();
                 
@@ -283,7 +342,7 @@
         
         // --- Lógica de Movimento ---
         document.addEventListener('keydown', (event) => {
-            if (!mapaAtual || jogadorHP <= 0) return; // Não move se o HP for 0
+            if (!mapaAtual || jogadorHP <= 0) return; // Bloqueia o movimento se o jogo acabou
 
             let nextX = x;
             let nextY = y;
@@ -314,15 +373,19 @@
                     x = nextX;
                     y = nextY;
                     aplicarMovimento();
+                    
+                    // CHAMA A CHECAGEM DE DANO APÓS O MOVIMENTO
+                    checarDano(); 
+                    
+                    // CHECAGEM DE TRANSIÇÃO APÓS DANO
                     checarTransicao();
-                } 
-                // A colisão com obstáculos sólidos impede o movimento, mas não causa perda de HP por enquanto.
+                }
             }
         });
 
         // Inicia o jogo
         carregarMapa(1);
-        atualizarPainel(); // Primeira atualização para mostrar UID e HP inicial
+        atualizarPainel(); 
     </script>
 </body>
 </html>
