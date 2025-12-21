@@ -3,321 +3,1173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WZZM AlphaGo Edition - Gestão de Conhecimento 3.0</title>
-    
-    <link href="[https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap](https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap)" rel="stylesheet">
-    <link href="[https://fonts.googleapis.com/icon?family=Material+Icons+Outlined](https://fonts.googleapis.com/icon?family=Material+Icons+Outlined)" rel="stylesheet">
-    
-    <script type="importmap">
-    {
-      "imports": {
-        "@material/web/": "[https://esm.run/@material/web/](https://esm.run/@material/web/)",
-        "firebase/app": "[https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js](https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js)",
-        "firebase/auth": "[https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js](https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js)",
-        "firebase/firestore": "[https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js](https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js)",
-        "yjs": "[https://esm.sh/yjs@13](https://esm.sh/yjs@13)"
-      }
-    }
+    <title>Painel Administrativo - WZZM</title>
+    <!-- Preload fonts and icons for performance -->
+    <link rel="preload" href="https://fonts.googleapis.com/css?family=Noto+Sans" as="style">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Sans">
+    <link rel="preload" href="https://fonts.googleapis.com/icon?family=Material+Icons" as="style">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <!-- Replace MDL with Tailwind CDN for modern, efficient styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2a6f8b',
+                        secondary: '#343a40',
+                        accent: '#4285F4',
+                    },
+                },
+            },
+        };
     </script>
-
+    <!-- Firebase SDKs: Load deferred for performance -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check.js" defer></script>
+    <!-- DOMPurify for sanitization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.7/purify.min.js" defer></script>
+    <!-- Inline critical CSS minified for performance; full styles via Tailwind -->
     <style>
-        :root {
-            /* Design Tokens do Material 3 */
-            --md-sys-color-primary: #0061a4;
-            --md-sys-color-on-primary: #ffffff;
-            --md-sys-color-surface: #fdfbff;
-            --md-sys-color-surface-variant: #e0e2ec;
-            --md-sys-color-outline: #74777f;
-            --transition-expressive: all 400ms cubic-bezier(0.2, 0, 0, 1);
-        }
-
-        body {
-            margin: 0;
-            font-family: 'Roboto', sans-serif;
-            background-color: var(--md-sys-color-surface);
-            color: #1a1c1e;
-        }
-
-        /* Layout Canônico: Supporting Pane (Lista à esquerda, Detalhe ao centro) */
-       .app-shell {
-            display: grid;
-            grid-template-columns: 80px 360px 1fr;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        @media (max-width: 900px) {
-           .app-shell {
-                grid-template-columns: 1fr;
-                grid-template-rows: 1fr 80px;
-            }
-           .nav-rail { display: none; }
-           .sidebar { display: none; }
-        }
-
-        /* Navigation Rail (M3) */
-       .nav-rail {
-            background-color: var(--md-sys-color-surface-variant);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 16px 0;
-            gap: 20px;
-        }
-
-        /* Sidebar (Lista de Artigos) */
-       .sidebar {
-            border-right: 1px solid var(--md-sys-color-outline);
-            display: flex;
-            flex-direction: column;
-            background: #fff;
-        }
-
-       .search-bar-container {
-            padding: 16px;
-            background: var(--md-sys-color-surface);
-        }
-
-       .article-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        /* Main Content Area */
-       .main-content {
-            padding: 24px;
-            overflow-y: auto;
-            position: relative;
-        }
-
-       .article-card {
-            background: #fff;
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        /* Editor Contextual */
-       .editor-container {
-            display: none;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        /* Elementos Visuais Expressivos (M3) */
-       .m3-button-fab {
-            position: fixed;
-            bottom: 32px;
-            right: 32px;
-            --md-fab-container-color: #d1e4ff;
-        }
-
-        /* Login Overlay */
-        #login-overlay {
-            position: fixed;
-            inset: 0;
-            background: white;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 24px;
-        }
+        body{font-family:'Noto Sans',sans-serif;margin:0;padding:0;background-color:#f8f9fa;color:#202122;}
+        @media print{body>*:not(.detalhes-artigo){display:none!important;}.detalhes-artigo{width:auto!important;padding:0!important;margin:0!important;overflow:visible!important;}.botoes-artigo-imprimivel{display:none!important;}}
     </style>
 </head>
-<body>
+<body class="antialiased">
 
-    <div id="login-overlay">
-        <h1 class="md-typescale-display-large">WZZM Evolution</h1>
-        <p class="md-typescale-body-large">O conhecimento distribuído na era da IA.</p>
-        <md-filled-button id="btn-login">
-            <md-icon slot="icon">login</md-icon>
+<div id="login-section" class="hidden flex-col items-center justify-center h-screen bg-gray-100" aria-hidden="true">
+    <div class="bg-white p-10 border border-gray-300 rounded-lg shadow-lg w-96 text-center">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Entrar no Painel</h2>
+        <p class="text-gray-600 mb-6">Use sua conta Google para continuar.</p>
+        <button id="google-login-btn" class="flex items-center justify-center w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Entrar com Google">
+            <div class="w-6 h-6 mr-2 bg-contain bg-no-repeat bg-center" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/2048px-Google_%22G%22_logo.svg.png');"></div>
             Entrar com Google
-        </md-filled-button>
+        </button>
     </div>
+</div>
 
-    <div class="app-shell" id="app-shell" style="display: none;">
-        
-        <nav class="nav-rail">
-            <md-icon-button toggle id="btn-nav-home" selected><md-icon>home</md-icon></md-icon-button>
-            <md-icon-button toggle id="btn-nav-search"><md-icon>search</md-icon></md-icon-button>
-            <md-icon-button toggle id="btn-nav-history"><md-icon>history_edu</md-icon></md-icon-button>
-            <md-divider style="width: 50%"></md-divider>
-            <md-icon-button id="btn-logout"><md-icon>logout</md-icon></md-icon-button>
-        </nav>
+<div id="logged-in-container" class="hidden">
+    <header id="header-logged-in" class="flex justify-between items-center p-4 bg-gray-800 text-white shadow-md">
+        <div class="nav-buttons space-x-2">
+            <button id="artigos-btn" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary active">Artigos Recentes</button>
+            <button id="criar-artigo-btn" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary">Criar Novo Artigo</button>
+            <button id="minhas-contribuicoes-btn" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary">Minhas Contribuições</button>
+            <button id="busca-avancada-btn" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary">Busca Avançada</button>
+            <button id="buscar-artigos-btn" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary">Buscar Artigos</button>
+        </div>
+        <button id="logout-button" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500" aria-label="Sair">Sair</button>
+    </header>
 
-        <aside class="sidebar">
-            <div class="search-bar-container">
-                <md-outlined-text-field label="Pesquisar artigos..." id="search-input" style="width: 100%;">
-                    <md-icon slot="leading-icon">search</md-icon>
-                </md-outlined-text-field>
+    <main id="content-split" class="hidden grid grid-cols-1 md:grid-cols-[350px_1fr] gap-5 p-8 min-h-[calc(100vh-80px)]" aria-live="polite">
+        <aside id="artigos-pane" class="bg-white p-6 border border-gray-300 rounded-lg shadow-md overflow-y-auto" role="complementary" aria-labelledby="artigos-title">
+            <h2 id="artigos-title" class="text-xl font-semibold text-center border-b border-gray-300 pb-2 mb-4">Artigos Recentes</h2>
+            <div id="artigos-list" class="space-y-4">
+                <p class="text-center text-gray-600">Carregando...</p>
             </div>
-            <md-list id="main-article-list" class="article-list">
-                <md-list-item headline="Carregando conhecimento..."></md-list-item>
-            </md-list>
         </aside>
 
-        <main class="main-content">
-            <div id="view-article" class="article-card">
-                <h1 id="art-title" class="md-typescale-display-medium">Selecione um tópico</h1>
-                <p id="art-meta" style="color: var(--md-sys-color-outline);"></p>
-                <div id="art-content" class="md-typescale-body-large">
-                    Explore o grafo de conhecimento para começar.
-                </div>
-                <md-filled-button id="btn-edit-trigger" style="margin-top: 24px; display: none;">
-                    <md-icon slot="icon">edit</md-icon>
-                    Editar Artigo
-                </md-filled-button>
+        <section id="conteudo-principal" class="space-y-6">
+            <div id="detalhes-artigo" class="bg-white p-6 border border-gray-300 rounded-lg shadow-md" role="main">
+                <p class="text-center text-gray-500">Selecione um artigo na lista para ver os detalhes.</p>
             </div>
 
-            <div id="edit-pane" class="article-card editor-container">
-                <h2 class="md-typescale-headline-small">Modo de Edição Colaborativa</h2>
-                <md-outlined-text-field label="Título" id="edit-input-title"></md-outlined-text-field>
-                <md-outlined-text-field type="textarea" label="Conteúdo (Markdown)" id="edit-input-content" rows="15"></md-outlined-text-field>
-                <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                    <md-text-button id="btn-cancel-edit">Cancelar</md-text-button>
-                    <md-filled-button id="btn-save-edit">Publicar Alterações</md-filled-button>
+            <div id="busca-avancada-pane" class="hidden bg-white p-6 border border-gray-300 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Busca Avançada</h2>
+                <form id="busca-avancada-form" class="space-y-4">
+                    <div>
+                        <label for="busca-titulo" class="block text-sm font-medium text-gray-700">Título:</label>
+                        <input type="text" id="busca-titulo" class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="busca-descricao" class="block text-sm font-medium text-gray-700">Descrição:</label>
+                        <input type="text" id="busca-descricao" class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="busca-uid" class="block text-sm font-medium text-gray-700">UID do Documento: uid/?uid=</label>
+                        <input type="text" id="busca-uid" class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-primary text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-primary">Buscar</button>
+                </form>
+            </div>
+
+            <div id="editor-artigo" class="hidden bg-white p-6 border border-gray-300 rounded-lg shadow-md">
+                <form id="form-edicao-artigo" class="space-y-4">
+                    <h2 class="text-xl font-semibold">Editar Artigo</h2>
+                    <div>
+                        <label for="edit-titulo" class="block text-sm font-medium text-gray-700">Título</label>
+                        <input type="text" id="edit-titulo" required class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="edit-descricao" class="block text-sm font-medium text-gray-700">Descrição</label>
+                        <textarea id="edit-descricao" rows="15" class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"></textarea>
+                    </div>
+                    <div>
+                        <label for="edit-sumario" class="block text-sm font-medium text-gray-700">Resumo da Edição (para o Histórico)</label>
+                        <input type="text" id="edit-sumario" required class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="py-2 px-4 bg-primary text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-primary">Salvar Edição</button>
+                        <button type="button" id="cancelar-edicao" class="py-2 px-4 bg-gray-400 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="historico-artigo" class="hidden bg-white p-6 border border-gray-300 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold border-b border-gray-300 pb-2 mb-4">Histórico de Edições</h2>
+                <div id="lista-historico" class="space-y-4">
+                    <p class="text-center text-gray-600">Carregando histórico...</p>
+                </div>
+                <button type="button" id="voltar-detalhes" class="mt-4 py-2 px-4 bg-gray-400 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400">Voltar</button>
+            </div>
+
+            <div id="novo-artigo" class="hidden bg-white p-6 border border-gray-300 rounded-lg shadow-md">
+                <form id="form-novo-artigo" class="space-y-4">
+                    <h2 class="text-xl font-semibold">Criar Novo Artigo</h2>
+                    <div>
+                        <label for="new-titulo" class="block text-sm font-medium text-gray-700">Título</label>
+                        <input type="text" id="new-titulo" required class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="new-setor" class="block text-sm font-medium text-gray-700">Setor / Categoria</label>
+                        <select id="new-setor" required class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                            <option value="">Selecione uma categoria</option>
+                            <option value="Ultimas Noticias">Últimas Notícias</option>
+                            <option value="Arte">Arte</option>
+                            <option value="Biografias">Biografias</option>
+                            <option value="Ciência">Ciência</option>
+                            <option value="Filosofia">Filosofia</option>
+                            <option value="Geografia">Geografia</option>
+                            <option value="História">História</option>
+                            <option value="Matemática">Matemática</option>
+                            <option value="Sociedade">Sociedade</option>
+                            <option value="Tecnologia">Tecnologia</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="new-armario" class="block text-sm font-medium text-gray-700">Idioma</label>
+                        <select id="new-armario" required class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                            <option value="">Selecione um idioma</option>
+                            <option value="Português">Português</option>
+                            <option value="Inglês">Inglês</option>
+                            <option value="Espanhol">Espanhol</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="new-descricao" class="block text-sm font-medium text-gray-700">Descrição</label>
+                        <textarea id="new-descricao" rows="15" required class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"></textarea>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="py-2 px-4 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">Criar Artigo</button>
+                        <button type="button" id="cancelar-novo-artigo" class="py-2 px-4 bg-gray-400 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="pagina-usuario" class="hidden bg-white p-6 border border-gray-300 rounded-lg shadow-md">
+                <div class="border-b border-gray-300 pb-2 mb-4">
+                    <h1 id="user-display-name" class="text-2xl font-bold mb-1"></h1>
+                    <p id="user-role" class="text-gray-500 text-sm"></p>
+                    <div class="user-tabs flex space-x-2 mt-4">
+                        <button class="tab-button px-4 py-2 bg-gray-200 rounded-md hover:bg-primary hover:text-white focus:outline-none focus:ring-2 focus:ring-primary" data-tab="contribuicoes">Minhas Contribuições</button>
+                        <button class="tab-button px-4 py-2 bg-gray-200 rounded-md hover:bg-primary hover:text-white focus:outline-none focus:ring-2 focus:ring-primary" data-tab="pagina-pessoal">Página Pessoal</button>
+                        <button class="tab-button px-4 py-2 bg-gray-200 rounded-md hover:bg-primary hover:text-white focus:outline-none focus:ring-2 focus:ring-primary" data-tab="discussao">Discussão</button>
+                    </div>
+                </div>
+
+                <div id="contribuicoes-tab" class="tab-content">
+                    <h3 class="text-lg font-semibold">Últimas Contribuições</h3>
+                    <ul id="contribuicoesLista" class="space-y-2">
+                        <p class="text-center text-gray-500">Carregando contribuições...</p>
+                    </ul>
+                </div>
+
+                <div id="pagina-pessoal-tab" class="tab-content hidden">
+                    <h3 class="text-lg font-semibold">Minha Página</h3>
+                    <textarea id="pagina-pessoal-textarea" rows="20" class="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"></textarea>
+                    <div class="flex space-x-2 mt-2">
+                        <button id="salvar-pagina-pessoal" class="py-2 px-4 bg-primary text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-primary">Salvar</button>
+                        <button id="cancelar-pagina-pessoal" class="py-2 px-4 bg-gray-400 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400">Cancelar</button>
+                    </div>
+                </div>
+
+                <div id="discussao-tab" class="tab-content hidden">
+                    <h3 class="text-lg font-semibold">Mensagens e Notificações</h3>
+                    <div id="lista-mensagens" class="space-y-2">
+                        <p class="text-center text-gray-500">Nenhuma mensagem nova.</p>
+                    </div>
+                </div>
+                <button type="button" id="voltar-ao-painel-perfil" class="mt-8 py-2 px-4 bg-gray-400 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400">Voltar ao Painel</button>
+            </div>
+
+            <div id="minhas-contribuicoes" class="hidden bg-white p-6 border border-gray-300 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold">Minhas Contribuições</h2>
+                <ul id="contribuicoesListaPrincipal" class="space-y-2">
+                    <p class="text-center text-gray-500">Carregando contribuições...</p>
+                </ul>
+            </div>
+
+            <div id="buscar-artigos-pane" class="hidden bg-white p-6 border border-gray-300 rounded-lg shadow-md">
+                <div class="container max-w-full mx-auto">
+                    <h1 class="text-3xl font-bold text-center text-indigo-600 mb-6">Wiki Zero</h1>
+                    <div class="search-container flex flex-col items-center gap-4 mb-5">
+                        <div id="scholar-search-box" class="flex w-full max-w-xl items-center border border-gray-300 rounded-full p-2 transition-shadow hover:shadow-md focus-within:shadow-md focus-within:border-transparent">
+                            <input id="search-term" type="text" placeholder="Pesquisar..." class="flex-1 outline-none px-4 text-base">
+                            <select id="search-type" class="px-2 text-sm border-none bg-transparent">
+                                <option value="title">Título</option>
+                                <!-- Add more options -->
+                            </select>
+                            <button id="search-button" class="p-2 text-blue-600 hover:text-blue-800" aria-label="Buscar"><i class="material-icons">search</i></button>
+                        </div>
+                        <div class="filter-group flex gap-4 justify-center w-full max-w-xl flex-wrap">
+                            <select id="filter-language" class="flex-1 min-w-36 p-2 border-b border-gray-300 bg-transparent text-base focus:outline-none focus:border-indigo-600">
+                                <option value="">Idioma</option>
+                                <!-- Options -->
+                            </select>
+                            <select id="filter-article-type" class="flex-1 min-w-36 p-2 border-b border-gray-300 bg-transparent text-base focus:outline-none focus:border-indigo-600">
+                                <option value="">Tipo de Artigo</option>
+                                <!-- Options -->
+                            </select>
+                        </div>
+                        <div class="search-actions flex gap-4">
+                            <button id="main-search-button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Buscar</button>
+                            <button id="clear-search-button" class="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200">Limpar</button>
+                        </div>
+                    </div>
+                    <div id="articles-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
+                        <p class="empty-state text-center p-12 text-gray-500 text-lg col-span-full">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>
+                    </div>
                 </div>
             </div>
-        </main>
-    </div>
+        </section>
+    </main>
+</div>
 
-    <md-fab class="m3-button-fab" id="btn-new-article">
-        <md-icon slot="icon">add</md-icon>
-    </md-fab>
-
-    <script type="module">
-        import { initializeApp } from 'firebase/app';
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-        import { getFirestore, collection, onSnapshot, query, orderBy, limit, doc, getDoc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
-        import * as Y from 'yjs';
-
-        // Configuração Modular (Substituir pelos dados do projeto Firebase)
-        const firebaseConfig = {
+<script>
+    // Your Firebase configuration (replace with actual values)
+    const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
             projectId: "wzzm-ce3fc",
             storageBucket: "wzzm-ce3fc.appspot.com",
             messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260"
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
         };
 
-        // Inicialização modular
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-        // Estado da Aplicação
-        let activeArticleId = null;
+    // Initialize Firebase App Check with reCAPTCHA v3 (replace 'YOUR_RECAPTCHA_SITE_KEY' with your actual site key)
+    const appCheck = firebase.appCheck();
+    appCheck.activate('6LeZqTIsAAAAAOoQuppBYUXrCszdKnJ0Dg5E4p-z', true); // true enables automatic token refresh
+
+     // Elementos da interface
+        const loginSection = document.getElementById('login-section');
+        const loggedInHeader = document.getElementById('header-logged-in');
+        const mainContainer = document.getElementById('content-split');
+        const logoutButton = document.getElementById('logout-button');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const artigosBtn = document.getElementById('artigos-btn');
+        const criarArtigoBtn = document.getElementById('criar-artigo-btn');
+        const minhasContribuicoesBtn = document.getElementById('minhas-contribuicoes-btn');
+        const buscaAvancadaBtn = document.getElementById('busca-avancada-btn');
+        
+        // NOVO CÓDIGO - Botão e painel da página de busca
+        const buscarArtigosBtn = document.getElementById('buscar-artigos-btn');
+        const buscarArtigosPane = document.getElementById('buscar-artigos-pane');
+
+        const artigosPane = document.getElementById('artigos-pane');
+        const buscaAvancadaPane = document.getElementById('busca-avancada-pane');
+        const detalhesArtigo = document.getElementById('detalhes-artigo');
+        const editorArtigo = document.getElementById('editor-artigo');
+        const historicoArtigo = document.getElementById('historico-artigo');
+        const novoArtigoPane = document.getElementById('novo-artigo');
+        const paginaUsuarioSection = document.getElementById('pagina-usuario');
+        const conteudoPrincipal = document.getElementById('conteudo-principal');
+        const minhasContribuicoesPane = document.getElementById('minhas-contribuicoes');
+        const contribuicoesListaPrincipal = document.getElementById('contribuicoesListaPrincipal');
+
+        const artigosList = document.getElementById('artigos-list');
+        const artigosTitle = document.getElementById('artigos-title');
+
+        // Elementos de busca avançada
+        const buscaAvancadaForm = document.getElementById('busca-avancada-form');
+        const buscaTituloInput = document.getElementById('busca-titulo');
+        const buscaDescricaoInput = document.getElementById('busca-descricao');
+        const buscaUidInput = document.getElementById('busca-uid');
+
+        // Elementos de edição e histórico
+        const formEdicaoArtigo = document.getElementById('form-edicao-artigo');
+        const editTitulo = document.getElementById('edit-titulo');
+        const editDescricao = document.getElementById('edit-descricao');
+        const editSumario = document.getElementById('edit-sumario');
+        const cancelarEdicaoBtn = document.getElementById('cancelar-edicao');
+        const voltarDetalhesBtn = document.getElementById('voltar-detalhes');
+        const listaHistorico = document.getElementById('lista-historico');
+
+        // Elementos de criação de artigo
+        const formNovoArtigo = document.getElementById('form-novo-artigo');
+        const newTitulo = document.getElementById('new-titulo');
+        const newSetor = document.getElementById('new-setor');
+        const newArmario = document.getElementById('new-armario');
+        const newDescricao = document.getElementById('new-descricao');
+        const cancelarNovoArtigoBtn = document.getElementById('cancelar-novo-artigo');
+
+        // Elementos da página do usuário
+        const userDisplayName = document.getElementById('user-display-name');
+        const userRole = document.getElementById('user-role');
+        const tabButtons = document.querySelectorAll('.user-tabs .tab-button');
+        const contribuicoesTab = document.getElementById('contribuicoes-tab');
+        const paginaPessoalTab = document.getElementById('pagina-pessoal-tab');
+        const discussaoTab = document.getElementById('discussao-tab');
+        const paginaPessoalTextarea = document.getElementById('pagina-pessoal-textarea');
+        const salvarPaginaPessoalBtn = document.getElementById('salvar-pagina-pessoal');
+        const cancelarPaginaPessoalBtn = document.getElementById('cancelar-pagina-pessoal');
+        const voltarAoPainelPerfilBtn = document.getElementById('voltar-ao-painel-perfil');
+
+        let currentUserRole = 'guest';
+        let artigoSelecionado = null;
 
         // --- Lógica de Autenticação ---
-        onAuthStateChanged(auth, (user) => {
-            const loginOverlay = document.getElementById('login-overlay');
-            const appShell = document.getElementById('app-shell');
-            
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
-                loginOverlay.style.display = 'none';
-                appShell.style.display = 'grid';
-                initRealtimeArticles();
+                console.log("Usuário logado:", user.email);
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().role) {
+                    currentUserRole = userDoc.data().role;
+                } else {
+                    currentUserRole = 'user';
+                }
+                loginSection.style.display = 'none';
+                loggedInHeader.style.display = 'flex';
+                mainContainer.style.display = 'grid'; // Usa grid para o novo layout
+                userDisplayName.textContent = user.displayName || user.email;
+                userRole.textContent = `Cargo: ${currentUserRole}`;
+                exibirPainel('detalhes-artigo'); // Mostra a tela de 'Selecione um artigo' por padrão
+                buscarArtigos();
             } else {
-                loginOverlay.style.display = 'flex';
-                appShell.style.display = 'none';
+                console.log("Nenhum usuário logado.");
+                loginSection.style.display = 'flex';
+                loggedInHeader.style.display = 'none';
+                mainContainer.style.display = 'none';
+                currentUserRole = 'guest';
             }
         });
 
-        document.getElementById('btn-login').addEventListener('click', () => signInWithPopup(auth, provider));
-        document.getElementById('btn-logout').addEventListener('click', () => signOut(auth));
+        googleLoginBtn.addEventListener('click', async () => {
+            try {
+                await auth.signInWithPopup(googleProvider);
+            } catch (error) {
+                console.error("Erro no login com Google:", error);
+                alert("Erro no login com Google: " + error.message);
+            }
+        });
 
-        // --- Sincronização em Tempo Real (Fitness: Latência Mínima) ---
-        function initRealtimeArticles() {
-            const q = query(collection(db, "materias"), orderBy("ultimaEdicao", "desc"), limit(50));
-            
-            // Real-time listener para atualizações instantâneas [1, 2]
-            onSnapshot(q, (snapshot) => {
-                const list = document.getElementById('main-article-list');
-                list.innerHTML = '';
-                
-                snapshot.forEach((docSnap) => {
-                    const data = docSnap.data();
-                    const item = document.createElement('md-list-item');
-                    item.headline = data.titulo;
-                    item.supportingText = `ID: ${docSnap.id.substring(0,8)}...`;
-                    item.style.cursor = 'pointer';
-                    item.addEventListener('click', () => loadArticleDetails(docSnap.id));
-                    list.appendChild(item);
+        logoutButton.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // --- Funções de Navegação e Exibição de Painéis ---
+        function exibirPainel(painelId) {
+            // Oculta todos os painéis dentro da seção de conteúdo principal
+            document.querySelectorAll('#conteudo-principal > .content-pane').forEach(pane => {
+                pane.style.display = 'none';
+            });
+            // Exibe o painel solicitado
+            const painel = document.getElementById(painelId);
+            if (painel) {
+                painel.style.display = 'block';
+            }
+
+            // Remove a classe 'active' de todos os botões de navegação
+            document.querySelectorAll('.nav-buttons button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Adiciona a classe 'active' ao botão correspondente, se houver
+            const activeBtn = document.getElementById(painelId.replace('-pane', '-btn')) || document.getElementById('artigos-btn');
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+            }
+        }
+
+        artigosBtn.addEventListener('click', () => {
+            exibirPainel('detalhes-artigo'); // Mantém o painel de artigos visível e mostra a tela de detalhes vazia
+            artigosTitle.textContent = 'Artigos Recentes';
+            buscarArtigos();
+        });
+
+        criarArtigoBtn.addEventListener('click', () => {
+            exibirPainel('novo-artigo');
+            formNovoArtigo.reset();
+        });
+
+
+        // NOVO EVENTO DE CLIQUE PARA O BOTÃO 'MINHAS CONTRIBUIÇÕES'
+        minhasContribuicoesBtn.addEventListener('click', () => {
+            exibirPainel('minhas-contribuicoes');
+            carregarMinhasContribuicoes();
+        });
+
+        buscaAvancadaBtn.addEventListener('click', () => {
+            exibirPainel('busca-avancada-pane');
+        });
+
+        // NOVO CÓDIGO - Evento de clique para o botão "Buscar Artigos"
+        buscarArtigosBtn.addEventListener('click', () => {
+            exibirPainel('buscar-artigos-pane');
+            // Inicializa a busca com valores padrão
+            loadArticles();
+        });
+
+const materiasRef = db.collection('materias');
+materiasRef.get().then(snapshot => {
+  snapshot.forEach(doc => {
+    if (!doc.data().createdAt) {
+      materiasRef.doc(doc.id).update({
+        createdAt: firebase.firestore.Timestamp.now()
+      });
+    }
+  });
+});
+        
+        // --- Lógica de busca e exibição dos artigos ---
+        async function buscarArtigos(filtros = {}) {
+            artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
+            detalhesArtigo.style.display = 'none';
+            editorArtigo.style.display = 'none';
+            historicoArtigo.style.display = 'none';
+
+            const uid = filtros.uid ? filtros.uid.trim() : '';
+            const tituloBusca = filtros.titulo ? filtros.titulo.toLowerCase() : '';
+            const descricaoBusca = filtros.descricao ? filtros.descricao.toLowerCase() : '';
+            const setorBusca = filtros.setor ? filtros.setor : '';
+
+            if (uid) {
+                artigosTitle.textContent = 'Resultado da busca por UID';
+                try {
+                    const doc = await db.collection('materias').doc(uid).get();
+                    artigosList.innerHTML = '';
+                    if (doc.exists) {
+                        const materia = doc.data();
+                        const artigoItem = document.createElement('div');
+                        artigoItem.className = 'artigo-item';
+                        artigoItem.setAttribute('data-id', doc.id);
+                        artigoItem.innerHTML = `
+                            <h3>${materia.titulo}</h3>
+                            <p>ID: ${doc.id}</p>
+                        `;
+                        artigoItem.addEventListener('click', () => {
+                            carregarDetalhesArtigo(doc.id, materia);
+                            let infoHtml = '';
+                            if (materia.criadorEmail) {
+                                infoHtml += `<p><strong>Criado por:</strong> <span class="link-perfil" data-uid="${materia.criadorId}">${materia.criadorEmail}</span></p>`;
+                            }
+                            if (artigoSelecionado) {
+                                artigoSelecionado.classList.remove('ativo');
+                            }
+                            artigoItem.classList.add('ativo');
+                            artigoSelecionado = artigoItem;
+                        });
+                        artigosList.appendChild(artigoItem);
+                    } else {
+                        artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com este UID.</p>`;
+                    }
+                } catch (error) {
+                    console.error("Erro ao buscar artigo por UID: ", error);
+                    artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
+                }
+                return;
+            }
+
+            let query = db.collection('materias');
+
+            // Aplica o filtro de setor se estiver presente
+            if (setorBusca) {
+                query = query.where('setor', '==', setorBusca);
+            }
+
+            try {
+                const querySnapshot = await query.orderBy('ultimaEdicao', 'desc').limit(100).get();
+                artigosList.innerHTML = '';
+                let resultadosFiltrados = [];
+                querySnapshot.forEach(doc => {
+                    const materia = doc.data();
+                    const titulo = materia.titulo ? materia.titulo.toLowerCase() : '';
+                    const descricao = materia.descricao ? materia.descricao.toLowerCase() : '';
+                    const matchTitulo = tituloBusca ? titulo.includes(tituloBusca) : true;
+                    const matchDescricao = descricaoBusca ? descricao.includes(descricaoBusca) : true;
+                    if (matchTitulo && matchDescricao) {
+                        resultadosFiltrados.push({ id: doc.id, data: materia });
+                    }
                 });
+
+                if (resultadosFiltrados.length === 0) {
+                    artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>`;
+                    return;
+                }
+
+                resultadosFiltrados.forEach(resultado => {
+                    const artigoItem = document.createElement('div');
+                    artigoItem.className = 'artigo-item';
+                    artigoItem.setAttribute('data-id', resultado.id);
+                    artigoItem.innerHTML = `
+                        <h3>${resultado.data.titulo}</h3>
+                        <p>ID: ${resultado.id}</p>
+                    `;
+                    artigoItem.addEventListener('click', () => {
+                        carregarDetalhesArtigo(resultado.id, resultado.data);
+                        if (artigoSelecionado) {
+                            artigoSelecionado.classList.remove('ativo');
+                        }
+                        artigoItem.classList.add('ativo');
+                        artigoSelecionado = artigoItem;
+                    });
+                    artigosList.appendChild(artigoItem);
+                });
+            } catch (error) {
+                console.error("Erro ao buscar artigos: ", error);
+                artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
+            }
+        }
+
+        // Event listener para a busca avançada
+        buscaAvancadaForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const filtros = {
+                titulo: buscaTituloInput.value,
+                descricao: buscaDescricaoInput.value,
+                uid: buscaUidInput.value
+            };
+            exibirPainel('detalhes-artigo');
+            exibirPainel('artigos-pane');
+            buscarArtigos(filtros);
+        });
+
+        // --- Funções para Detalhes do Artigo ---
+        function carregarDetalhesArtigo(id, materia) {
+            exibirPainel('detalhes-artigo');
+
+            // Corrige o problema do histórico
+            editorArtigo.dataset.docId = id;
+            editorArtigo.dataset.tituloOriginal = materia.titulo;
+            editorArtigo.dataset.descricaoOriginal = materia.descricao;
+
+            const dataCriacao = materia.dataCriacao ? new Date(materia.dataCriacao.seconds * 1000).toLocaleString() : 'Data desconhecida';
+            const ultimaEdicao = materia.ultimaEdicao ? new Date(materia.ultimaEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
+
+            let infoHtml = '';
+            if (materia.criadorEmail) {
+                infoHtml += `<p><strong>Criado por:</strong> <span class="link-perfil" data-uid="${materia.criadorId}">${materia.criadorEmail}</span></p>`;
+            }
+            if (materia.dataCriacao) infoHtml += `<p><strong>Data de Criação:</strong> ${dataCriacao}</p>`;
+            if (materia.ultimaEdicao) infoHtml += `<p><strong>Última Edição:</strong> ${ultimaEdicao}</p>`;
+            if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
+            if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
+
+            let fontesHtml = '';
+            if (materia.fontes && materia.fontes.length > 0) {
+                fontesHtml = `
+                    <div class="fontes-container">
+                        <p>Fontes</p>
+                        <ul>
+                            ${materia.fontes.map(fonte => `<li>${fonte}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            let botoesHtml = `
+                <button id="btn-editar-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #0645ad; color: white; border: none; cursor: pointer; margin-right: 10px;">Editar</button>
+                <button id="btn-ver-historico" data-id="${id}" style="padding: 8px 15px; background-color: #36c; color: white; border: none; cursor: pointer;">Histórico</button>
+                
+            `;
+            if (currentUserRole === 'admin') {
+                botoesHtml += `<button id="btn-remover-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; cursor: pointer; margin-left: 10px;">Remover Artigo</button>`;
+            }
+
+            detalhesArtigo.innerHTML = `
+                <div class="article-header">
+                    <h1>${materia.titulo}</h1>
+                    <p class="uid-display">UID do Documento: <a href="uid/?uid=${id}">${id}</a></p>
+                </div>
+                <div style="margin-bottom: 1em;" class="botoes-artigo-imprimivel">
+                    ${botoesHtml}
+                </div>
+                <h2>Informações Adicionais</h2>
+                <div class="descricao-container">${infoHtml}</div>
+                <h2>Descrição</h2>
+                <div class="descricao-container">${materia.descricao}</div>
+                ${fontesHtml}
+            `;
+
+            document.getElementById('btn-editar-artigo').addEventListener('click', () => abrirEditor(id, materia));
+            document.getElementById('btn-ver-historico').addEventListener('click', () => abrirHistorico(id));
+            document.getElementById('btn-imprimir-artigo').addEventListener('click', imprimirArtigo);
+            if (currentUserRole === 'admin') {
+                document.getElementById('btn-remover-artigo').addEventListener('click', () => removerArtigo(id));
+            }
+            
+            document.getElementById('detalhes-artigo').addEventListener('click', (e) => {
+                // Verifica se o clique foi em um elemento com a classe 'link-perfil'
+                if (e.target.classList.contains('link-perfil')) {
+                    const userId = e.target.dataset.uid;
+                    if (userId) {
+                        abrirPerfilUsuario(userId);
+                    }
+                }
             });
         }
 
-        // --- Carregamento Otimizado (Fitness: Performance) ---
-        async function loadArticleDetails(id) {
-            activeArticleId = id;
-            const docRef = doc(db, "materias", id);
-            const docSnap = await getDoc(docRef);
-            
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                document.getElementById('art-title').innerText = data.titulo;
-                document.getElementById('art-content').innerText = data.descricao;
-                document.getElementById('art-meta').innerText = `Última edição: ${data.ultimaEdicao?.toDate().toLocaleString() |
+        // --- Funções de Edição ---
+        function abrirEditor(id, materia) {
+            exibirPainel('editor-artigo');
+            editTitulo.value = materia.titulo;
+            editDescricao.value = materia.descricao;
+            editSumario.value = '';
+            editorArtigo.dataset.docId = id;
+        }
 
-| 'N/A'}`;
-                document.getElementById('btn-edit-trigger').style.display = 'inline-flex';
-                
-                // Reset View
-                document.getElementById('view-article').style.display = 'block';
-                document.getElementById('edit-pane').style.display = 'none';
+        formEdicaoArtigo.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Impede o envio do formulário e o recarregamento da página
+
+            const docId = editorArtigo.dataset.docId;
+            if (!docId) return;
+
+            const user = auth.currentUser;
+            if (!user) {
+                alert('Você precisa estar logado para editar artigos.');
+                return;
+            }
+
+            const titulo = editTitulo.value;
+            const descricao = editDescricao.value;
+            const sumario = editSumario.value;
+
+            try {
+                // 1. Atualiza o documento em 'materias'
+                await db.collection('materias').doc(docId).update({
+                    titulo,
+                    descricao,
+                    ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // 2. Salva o histórico da edição
+                await db.collection('historico').add({
+                    docId,
+                    editorId: user.uid,
+                    editorEmail: user.email,
+                    dataEdicao: firebase.firestore.FieldValue.serverTimestamp(),
+                    sumario,
+                    tituloAnterior: editorArtigo.dataset.tituloOriginal,
+                    descricaoAnterior: editorArtigo.dataset.descricaoOriginal
+                });
+
+                alert('Artigo editado e histórico salvo com sucesso!');
+
+                // 3. Atualiza os detalhes do artigo na interface
+                const doc = await db.collection('materias').doc(docId).get();
+                if (doc.exists) {
+                    carregarDetalhesArtigo(doc.id, doc.data());
+                }
+
+            } catch (error) {
+                console.error("Erro ao salvar edição: ", error);
+                alert("Erro ao salvar edição: " + error.message);
+            }
+        });
+
+        cancelarEdicaoBtn.addEventListener('click', async () => {
+            const docId = editorArtigo.dataset.docId;
+            if (!docId) return;
+            try {
+                const doc = await db.collection('materias').doc(docId).get();
+                if (doc.exists) {
+                    carregarDetalhesArtigo(doc.id, doc.data());
+                } else {
+                    exibirPainel('artigos-pane');
+                    buscarArtigos();
+                }
+            } catch (error) {
+                console.error("Erro ao carregar artigo: ", error);
+                alert("Erro ao carregar artigo: " + error.message);
+            }
+        });
+
+        // --- Funções de Histórico ---
+        async function abrirHistorico(id) {
+            exibirPainel('historico-artigo');
+            historicoArtigo.dataset.docId = id;
+            listaHistorico.innerHTML = '<p style="text-align: center; color: #666;">Carregando histórico...</p>';
+            try {
+                const querySnapshot = await db.collection('historico').where('docId', '==', id).orderBy('dataEdicao', 'desc').get();
+                let historicoHtml = '';
+                if (querySnapshot.empty) {
+                    historicoHtml = '<p style="text-align: center; color: #666;">Nenhuma edição anterior encontrada.</p>';
+                } else {
+                    querySnapshot.forEach(doc => {
+                        const edicao = doc.data();
+                        const data = edicao.dataEdicao ? new Date(edicao.dataEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
+                        historicoHtml += `
+                            <div style="border-bottom: 1px solid #ccc; padding: 10px 0;">
+                                <p><strong>Editor:</strong> ${edicao.editorEmail}</p>
+                                <p><strong>Data:</strong> ${data}</p>
+                                <p><strong>Resumo:</strong> ${edicao.sumario}</p>
+                            </div>
+                        `;
+                    });
+                }
+                listaHistorico.innerHTML = historicoHtml;
+            } catch (error) {
+                console.error("Erro ao buscar histórico: ", error);
+                listaHistorico.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
             }
         }
 
-        // --- Transição para Edição AlphaGo (CRDT Ready) ---
-        document.getElementById('btn-edit-trigger').addEventListener('click', () => {
-            document.getElementById('view-article').style.display = 'none';
-            document.getElementById('edit-pane').style.display = 'flex';
-            
-            const title = document.getElementById('art-title').innerText;
-            const desc = document.getElementById('art-content').innerText;
-            
-            document.getElementById('edit-input-title').value = title;
-            document.getElementById('edit-input-content').value = desc;
-        });
-
-        document.getElementById('btn-save-edit').addEventListener('click', async () => {
-            if (!activeArticleId) return;
-            
-            const newTitle = document.getElementById('edit-input-title').value;
-            const newDesc = document.getElementById('edit-input-content').value;
-            
+        voltarDetalhesBtn.addEventListener('click', async () => {
+            const docId = historicoArtigo.dataset.docId;
+            if (!docId) return;
             try {
-                // Escrita atômica e otimizada [3]
-                await updateDoc(doc(db, "materias", activeArticleId), {
-                    titulo: newTitle,
-                    descricao: newDesc,
-                    ultimaEdicao: serverTimestamp()
-                });
-                
-                loadArticleDetails(activeArticleId);
-            } catch (e) {
-                console.error("Erro ao salvar:", e);
-                alert("Falha na sincronização.");
+                const doc = await db.collection('materias').doc(docId).get();
+                if (doc.exists) {
+                    carregarDetalhesArtigo(doc.id, doc.data());
+                } else {
+                    alert('Artigo não encontrado.');
+                    exibirPainel('detalhes-artigo');
+                    buscarArtigos();
+                }
+            } catch (error) {
+                console.error("Erro ao carregar artigo: ", error);
+                alert("Erro ao carregar artigo: " + error.message);
             }
         });
 
-        // --- Inicialização de Web Components M3 ---
-        import '@material/web/button/filled-button.js';
-        import '@material/web/button/text-button.js';
-        import '@material/web/textfield/outlined-text-field.js';
-        import '@material/web/list/list.js';
-        import '@material/web/list/list-item.js';
-        import '@material/web/icon/icon.js';
-        import '@material/web/iconbutton/icon-button.js';
-        import '@material/web/divider/divider.js';
-        import '@material/web/fab/fab.js';
+        // --- Funções de Criação ---
+        formNovoArtigo.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) {
+                alert('Você precisa estar logado para criar artigos.');
+                return;
+            }
 
-    </script>
+            const titulo = newTitulo.value;
+            const setor = newSetor.value;
+            const armario = newArmario.value;
+            const descricao = newDescricao.value;
+
+            try {
+                await db.collection('materias').add({
+                    titulo,
+                    setor,
+                    armario,
+                    descricao,
+                    criadorId: user.uid,
+                    criadorEmail: user.email,
+                    dataCriacao: firebase.firestore.FieldValue.serverTimestamp(),
+                    ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp(),
+                    fontes: [] // Adiciona um array de fontes vazio por padrão
+                });
+
+                alert('Artigo criado com sucesso!');
+                formNovoArtigo.reset();
+                exibirPainel('detalhes-artigo');
+                buscarArtigos();
+            } catch (error) {
+                console.error("Erro ao criar artigo: ", error);
+                alert("Erro ao criar artigo: " + error.message);
+            }
+        });
+
+        cancelarNovoArtigoBtn.addEventListener('click', () => {
+            exibirPainel('detalhes-artigo');
+            buscarArtigos();
+        });
+
+        // --- Funções da Página do Usuário ---
+        tabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                tabButtons.forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                e.target.classList.add('active');
+                document.getElementById(tab + '-tab').style.display = 'block';
+                if (tab === 'contribuicoes') {
+                    carregarMinhasContribuicoes();
+                }
+            });
+        });
+
+        salvarPaginaPessoalBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            const conteudo = paginaPessoalTextarea.value;
+            try {
+                await db.collection('users').doc(user.uid).set({ paginaPessoal: conteudo }, { merge: true });
+                alert('Página pessoal salva com sucesso!');
+            } catch (error) {
+                console.error("Erro ao salvar página pessoal: ", error);
+                alert("Erro ao salvar página pessoal: " + error.message);
+            }
+        });
+
+        cancelarPaginaPessoalBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (userDoc.exists && userDoc.data().paginaPessoal) {
+                paginaPessoalTextarea.value = userDoc.data().paginaPessoal;
+            } else {
+                paginaPessoalTextarea.value = '';
+            }
+        });
+
+        voltarAoPainelPerfilBtn.addEventListener('click', () => {
+            exibirPainel('detalhes-artigo');
+            buscarArtigos();
+        });
+
+        // Função para carregar todas as contribuições do usuário
+        async function carregarMinhasContribuicoes() {
+            const contribuicoesLista = document.getElementById('contribuicoesListaPrincipal');
+            if (!contribuicoesLista) {
+                console.error("Elemento 'contribuicoesListaPrincipal' não encontrado.");
+                return;
+            }
+
+            contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
+            const user = firebase.auth().currentUser;
+            if (!user) {
+                contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Você precisa estar logado para ver suas contribuições.</p>';
+                return;
+            }
+            const userId = user.uid;
+
+            try {
+                // Busca 1: Artigos criados pelo usuário
+                const queryCriacoes = db.collection('materias').where('criadorId', '==', userId).get();
+
+                // Busca 2: Edições feitas pelo usuário
+                const queryEdicoes = db.collection('historico').where('editorId', '==', userId).get();
+
+                const [criacoesSnapshot, edicoesSnapshot] = await Promise.all([queryCriacoes, queryEdicoes]);
+                const contribuicoes = [];
+                
+                criacoesSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    contribuicoes.push({
+                        tipo: 'Criação de Artigo',
+                        titulo: data.titulo,
+                        data: data.dataCriacao ? data.dataCriacao.toDate() : new Date(),
+                        docId: doc.id
+                    });
+                });
+
+                edicoesSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    contribuicoes.push({
+                        tipo: 'Edição de Artigo',
+                        titulo: data.tituloAnterior || 'Título não disponível',
+                        data: data.dataEdicao ? data.dataEdicao.toDate() : new Date(),
+                        docId: data.docId
+                    });
+                });
+
+                contribuicoes.sort((a, b) => b.data - a.data);
+
+                if (contribuicoes.length > 0) {
+                    contribuicoesLista.innerHTML = '';
+                    contribuicoes.forEach(contrib => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <strong>${contrib.tipo}:</strong> <a href="#" data-id="${contrib.docId}">${contrib.titulo}</a>
+                            <span style="float: right;">${contrib.data.toLocaleString()}</span>
+                        `;
+                        contribuicoesLista.appendChild(li);
+
+                        li.querySelector('a').addEventListener('click', () => {
+                            db.collection('materias').doc(contrib.docId).get().then(doc => {
+                                if (doc.exists) {
+                                    carregarDetalhesArtigo(doc.id, doc.data());
+                                }
+                            });
+                        });
+                    });
+                } else {
+                    contribuicoesLista.innerHTML = '<li>Nenhuma contribuição encontrada.</li>';
+                }
+            } catch (error) {
+                console.error("Erro ao carregar contribuições: ", error);
+                contribuicoesLista.innerHTML = '<li>Erro ao carregar as contribuições.</li>';
+            }
+        }
+        
+        // NOVO CÓDIGO - Funções para a página de busca
+
+        // Função para escapar caracteres HTML (títulos, etc)
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        // Função para decodificar entidades HTML
+        function decodeHtmlEntities(html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            return doc.documentElement.textContent;
+        }
+
+        const articlesListDiv = document.getElementById('articles-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        const searchTermInput = document.getElementById('search-term');
+        const searchTypeInput = document.getElementById('search-type');
+        const searchTypeDisplayInput = document.getElementById('search-type-display');
+        const searchTypeMenu = document.getElementById('search-type-menu');
+        const searchButton = document.getElementById('search-button');
+        const mainSearchButton = document.getElementById('main-search-button');
+        const clearSearchButton = document.getElementById('clear-search-button');
+        const scholarSearchBox = document.getElementById('scholar-search-box');
+        const filterLanguageSelect = document.getElementById('filter-language');
+        const filterArticleTypeSelect = document.getElementById('filter-article-type');
+        
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+            loadingMessage.style.display = 'none';
+        }
+
+        // ATENÇÃO: A função de busca usa a coleção 'articlesdoc'
+        async function loadArticles(searchTerm = '', searchField = 'title', languageFilter = '', articleTypeFilter = '') {
+            articlesListDiv.innerHTML = '';
+            loadingMessage.style.display = 'block';
+            errorDisplay.style.display = 'none';
+            if (!searchTerm.trim() && !languageFilter && !articleTypeFilter) {
+                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`;
+                loadingMessage.style.display = 'none';
+                return;
+            }
+            try {
+                const trimmedSearchTerm = searchTerm.trim();
+                let snapshot;
+                if (searchField === 'id' && trimmedSearchTerm) {
+                    const doc = await db.collection('articlesdoc').doc(trimmedSearchTerm).get();
+                    if (doc.exists) {
+                        snapshot = {
+                            empty: false,
+                            forEach: (callback) => callback(doc)
+                        };
+                    } else {
+                        snapshot = {
+                            empty: true
+                        };
+                    }
+                } else {
+                    let articlesRef = db.collection('articlesdoc');
+                    if (trimmedSearchTerm && searchField) {
+                        articlesRef = articlesRef
+                            .where(searchField, '>=', trimmedSearchTerm)
+                            .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
+                    }
+                    if (languageFilter) {
+                        articlesRef = articlesRef.where('language', '==', languageFilter);
+                    }
+                    if (articleTypeFilter) {
+                        articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
+                    }
+                    if (trimmedSearchTerm && searchField && searchField !== 'id') {
+                        articlesRef = articlesRef.orderBy(searchField);
+                    } else if (languageFilter || articleTypeFilter) {
+                        articlesRef = articlesRef.orderBy('timestamp', 'desc').limit(5);
+                    } else {
+                        articlesRef = articlesRef.orderBy('timestamp', 'desc').limit(5);
+                    }
+                    snapshot = await articlesRef.get();
+                }
+                loadingMessage.style.display = 'none';
+                if (snapshot.empty) {
+                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ?
+                        `Nenhum artigo encontrado com os critérios de busca.` :
+                        'Nenhum artigo (articlesdoc) publicado ainda.';
+                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const id = doc.id;
+                    const title = data.title || 'Título Indisponível';
+                    const userId = data.userId || 'ID do Usuário Indisponível';
+                    const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
+                    const language = data.language || 'Não especificado';
+                    const articleType = data.articleType || 'Não especificado';
+                    const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
+                    const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Data de Criação Indisponível';
+                    const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
+                    const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Data de Modificação Indisponível';
+                    const formattedContentForCard = data.formattedContent || '';
+                    const decodedContent = formattedContentForCard ? decodeHtmlEntities(formattedContentForCard) : '';
+                    const abntPreviewHtml = decodedContent
+                        ? DOMPurify.sanitize(decodedContent)
+                        : '<p>Nenhum conteúdo de visualização rápida disponível. (campo "formattedContent" ausente ou vazio)</p>';
+                    const card = document.createElement('div');
+                    card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
+                    card.innerHTML = `
+                        <div class="mdl-card__title">
+                            <h2 class="mdl-card__title-text">${escapeHtml(title)}</h2>
+                        </div>
+                        <div class="mdl-card__supporting-text">
+                            <strong>ID do artigo:</strong> <p>${escapeHtml(id)}</p>
+                            <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
+                            <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
+                            <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
+                            <div class="abnt-preview">${abntPreviewHtml}</div>
+                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
+                            <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
+                            <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
+                        </div>
+                        <div class="mdl-card__actions mdl-card--border">
+                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo Completo</button>
+                        </div>
+                    `;
+                    articlesListDiv.appendChild(card);
+                });
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(articlesListDiv);
+                }
+            } catch (error) {
+                displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`);
+                console.error("Erro ao carregar artigos:", error);
+                if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
+                    console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
+                }
+            }
+        }
+        
+        async function viewArticleInNewWindow(articleId) {
+            const newWindow = window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
+            if (!newWindow) {
+                alert('Por favor, permita pop-ups para visualizar o artigo completo.');
+                return;
+            }
+        }
+        
+        mainSearchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+        searchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+        clearSearchButton.addEventListener('click', () => {
+            searchTermInput.value = '';
+            searchTypeInput.value = 'title';
+            searchTypeDisplayInput.value = 'Título';
+            filterLanguageSelect.value = '';
+            filterArticleTypeSelect.value = '';
+            const searchTypeMdlSelect = document.querySelector('.getmdl-select');
+            if (searchTypeMdlSelect && searchTypeMdlSelect.MaterialTextfield) {
+                searchTypeMdlSelect.MaterialTextfield.change(searchTypeDisplayInput.value);
+            }
+            const languageMdlSelect = filterLanguageSelect.closest('.mdl-textfield');
+            if (languageMdlSelect && languageMdlSelect.MaterialTextfield) {
+                languageMdlSelect.MaterialTextfield.change('');
+            }
+            const articleTypeMdlSelect = filterArticleTypeSelect.closest('.mdl-textfield');
+            if (articleTypeMdlSelect && articleTypeMdlSelect.MaterialTextfield) {
+                articleTypeMdlSelect.MaterialTextfield.change('');
+            }
+            loadArticles();
+        });
+        articlesListDiv.addEventListener('click', (event) => {
+            if (event.target.classList.contains('view-article-button')) {
+                const articleId = event.target.dataset.articleId;
+                if (articleId) {
+                    // Esta linha deve ser adaptada para o seu ambiente
+                    window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
+                }
+            }
+        });
+        searchTermInput.addEventListener('focus', () => {
+            scholarSearchBox.classList.add('is-focused');
+        });
+        searchTermInput.addEventListener('blur', () => {
+            scholarSearchBox.classList.remove('is-focused');
+        });
+        searchTypeMenu.addEventListener('click', (event) => {
+            const clickedItem = event.target.closest('.mdl-menu__item');
+            if (clickedItem) {
+                const value = clickedItem.dataset.val;
+                const text = clickedItem.textContent.trim();
+                searchTypeInput.value = value;
+                searchTypeDisplayInput.value = text;
+                const parentTextfield = searchTypeDisplayInput.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    parentTextfield.MaterialTextfield.change(text);
+                }
+            }
+        });
+        
+        if (window.componentHandler) {
+            window.componentHandler.upgradeDom();
+            const selectField = document.querySelector('.getmdl-select');
+            if (selectField && selectField.MaterialTextfield) {
+                selectField.MaterialTextfield.change(searchTypeDisplayInput.value);
+            }
+        }
+        
+        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => {
+            selectElement.addEventListener('change', () => {
+                const parentTextfield = selectElement.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text);
+                }
+            });
+        });
+    });
+
+    window.loadContent = async (file) => {
+        try {
+            const response = await fetch(file);
+            if (!response.ok) throw new Error(`Erro ao carregar: ${file}`);
+            const html = await response.text();
+            const safeHtml = DOMPurify.sanitize(html);
+            conteudoPrincipal.innerHTML = safeHtml;
+            // ... rest
+        } catch (error) {
+            console.error(error);
+            conteudoPrincipal.innerHTML = `<p class="text-red-500">Erro ao carregar ${file}.</p>`;
+        }
+    };
+</script>
+
 </body>
 </html>
