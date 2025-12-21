@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WZZM AlphaGo Edition - Gestão de Conhecimento 3.0</title>
+    
+    <link href="[https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap](https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap)" rel="stylesheet">
+    <link href="[https://fonts.googleapis.com/icon?family=Material+Icons+Outlined](https://fonts.googleapis.com/icon?family=Material+Icons+Outlined)" rel="stylesheet">
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "@material/web/": "[https://esm.run/@material/web/](https://esm.run/@material/web/)",
+        "firebase/app": "[https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js](https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js)",
+        "firebase/auth": "[https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js](https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js)",
+        "firebase/firestore": "[https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js](https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js)",
+        "yjs": "[https://esm.sh/yjs@13](https://esm.sh/yjs@13)"
+      }
+    }
+    </script>
+
+    <style>
+        :root {
+            /* Design Tokens do Material 3 */
+            --md-sys-color-primary: #0061a4;
+            --md-sys-color-on-primary: #ffffff;
+            --md-sys-color-surface: #fdfbff;
+            --md-sys-color-surface-variant: #e0e2ec;
+            --md-sys-color-outline: #74777f;
+            --transition-expressive: all 400ms cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-sys-color-surface);
+            color: #1a1c1e;
+        }
+
+        /* Layout Canônico: Supporting Pane (Lista à esquerda, Detalhe ao centro) */
+       .app-shell {
+            display: grid;
+            grid-template-columns: 80px 360px 1fr;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        @media (max-width: 900px) {
+           .app-shell {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 80px;
+            }
+           .nav-rail { display: none; }
+           .sidebar { display: none; }
+        }
+
+        /* Navigation Rail (M3) */
+       .nav-rail {
+            background-color: var(--md-sys-color-surface-variant);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 0;
+            gap: 20px;
+        }
+
+        /* Sidebar (Lista de Artigos) */
+       .sidebar {
+            border-right: 1px solid var(--md-sys-color-outline);
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
+
+       .search-bar-container {
+            padding: 16px;
+            background: var(--md-sys-color-surface);
+        }
+
+       .article-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* Main Content Area */
+       .main-content {
+            padding: 24px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+       .article-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Editor Contextual */
+       .editor-container {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Elementos Visuais Expressivos (M3) */
+       .m3-button-fab {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            --md-fab-container-color: #d1e4ff;
+        }
+
+        /* Login Overlay */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <h1 class="md-typescale-display-large">WZZM Evolution</h1>
+        <p class="md-typescale-body-large">O conhecimento distribuído na era da IA.</p>
+        <md-filled-button id="btn-login">
+            <md-icon slot="icon">login</md-icon>
+            Entrar com Google
+        </md-filled-button>
+    </div>
+
+    <div class="app-shell" id="app-shell" style="display: none;">
+        
+        <nav class="nav-rail">
+            <md-icon-button toggle id="btn-nav-home" selected><md-icon>home</md-icon></md-icon-button>
+            <md-icon-button toggle id="btn-nav-search"><md-icon>search</md-icon></md-icon-button>
+            <md-icon-button toggle id="btn-nav-history"><md-icon>history_edu</md-icon></md-icon-button>
+            <md-divider style="width: 50%"></md-divider>
+            <md-icon-button id="btn-logout"><md-icon>logout</md-icon></md-icon-button>
+        </nav>
+
+        <aside class="sidebar">
+            <div class="search-bar-container">
+                <md-outlined-text-field label="Pesquisar artigos..." id="search-input" style="width: 100%;">
+                    <md-icon slot="leading-icon">search</md-icon>
+                </md-outlined-text-field>
+            </div>
+            <md-list id="main-article-list" class="article-list">
+                <md-list-item headline="Carregando conhecimento..."></md-list-item>
+            </md-list>
+        </aside>
+
+        <main class="main-content">
+            <div id="view-article" class="article-card">
+                <h1 id="art-title" class="md-typescale-display-medium">Selecione um tópico</h1>
+                <p id="art-meta" style="color: var(--md-sys-color-outline);"></p>
+                <div id="art-content" class="md-typescale-body-large">
+                    Explore o grafo de conhecimento para começar.
+                </div>
+                <md-filled-button id="btn-edit-trigger" style="margin-top: 24px; display: none;">
+                    <md-icon slot="icon">edit</md-icon>
+                    Editar Artigo
+                </md-filled-button>
+            </div>
+
+            <div id="edit-pane" class="article-card editor-container">
+                <h2 class="md-typescale-headline-small">Modo de Edição Colaborativa</h2>
+                <md-outlined-text-field label="Título" id="edit-input-title"></md-outlined-text-field>
+                <md-outlined-text-field type="textarea" label="Conteúdo (Markdown)" id="edit-input-content" rows="15"></md-outlined-text-field>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <md-text-button id="btn-cancel-edit">Cancelar</md-text-button>
+                    <md-filled-button id="btn-save-edit">Publicar Alterações</md-filled-button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <md-fab class="m3-button-fab" id="btn-new-article">
+        <md-icon slot="icon">add</md-icon>
+    </md-fab>
+
+    <script type="module">
+        import { initializeApp } from 'firebase/app';
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+        import { getFirestore, collection, onSnapshot, query, orderBy, limit, doc, getDoc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
+        import * as Y from 'yjs';
+
+        // Configuração Modular (Substituir pelos dados do projeto Firebase)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260"
+        };
+
+        // Inicialização modular
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        // Estado da Aplicação
+        let activeArticleId = null;
+
+        // --- Lógica de Autenticação ---
+        onAuthStateChanged(auth, (user) => {
+            const loginOverlay = document.getElementById('login-overlay');
+            const appShell = document.getElementById('app-shell');
+            
+            if (user) {
+                loginOverlay.style.display = 'none';
+                appShell.style.display = 'grid';
+                initRealtimeArticles();
+            } else {
+                loginOverlay.style.display = 'flex';
+                appShell.style.display = 'none';
+            }
+        });
+
+        document.getElementById('btn-login').addEventListener('click', () => signInWithPopup(auth, provider));
+        document.getElementById('btn-logout').addEventListener('click', () => signOut(auth));
+
+        // --- Sincronização em Tempo Real (Fitness: Latência Mínima) ---
+        function initRealtimeArticles() {
+            const q = query(collection(db, "materias"), orderBy("ultimaEdicao", "desc"), limit(50));
+            
+            // Real-time listener para atualizações instantâneas [1, 2]
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('main-article-list');
+                list.innerHTML = '';
+                
+                snapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const item = document.createElement('md-list-item');
+                    item.headline = data.titulo;
+                    item.supportingText = `ID: ${docSnap.id.substring(0,8)}...`;
+                    item.style.cursor = 'pointer';
+                    item.addEventListener('click', () => loadArticleDetails(docSnap.id));
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        // --- Carregamento Otimizado (Fitness: Performance) ---
+        async function loadArticleDetails(id) {
+            activeArticleId = id;
+            const docRef = doc(db, "materias", id);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                document.getElementById('art-title').innerText = data.titulo;
+                document.getElementById('art-content').innerText = data.descricao;
+                document.getElementById('art-meta').innerText = `Última edição: ${data.ultimaEdicao?.toDate().toLocaleString() |
+
+| 'N/A'}`;
+                document.getElementById('btn-edit-trigger').style.display = 'inline-flex';
+                
+                // Reset View
+                document.getElementById('view-article').style.display = 'block';
+                document.getElementById('edit-pane').style.display = 'none';
+            }
+        }
+
+        // --- Transição para Edição AlphaGo (CRDT Ready) ---
+        document.getElementById('btn-edit-trigger').addEventListener('click', () => {
+            document.getElementById('view-article').style.display = 'none';
+            document.getElementById('edit-pane').style.display = 'flex';
+            
+            const title = document.getElementById('art-title').innerText;
+            const desc = document.getElementById('art-content').innerText;
+            
+            document.getElementById('edit-input-title').value = title;
+            document.getElementById('edit-input-content').value = desc;
+        });
+
+        document.getElementById('btn-save-edit').addEventListener('click', async () => {
+            if (!activeArticleId) return;
+            
+            const newTitle = document.getElementById('edit-input-title').value;
+            const newDesc = document.getElementById('edit-input-content').value;
+            
+            try {
+                // Escrita atômica e otimizada [3]
+                await updateDoc(doc(db, "materias", activeArticleId), {
+                    titulo: newTitle,
+                    descricao: newDesc,
+                    ultimaEdicao: serverTimestamp()
+                });
+                
+                loadArticleDetails(activeArticleId);
+            } catch (e) {
+                console.error("Erro ao salvar:", e);
+                alert("Falha na sincronização.");
+            }
+        });
+
+        // --- Inicialização de Web Components M3 ---
+        import '@material/web/button/filled-button.js';
+        import '@material/web/button/text-button.js';
+        import '@material/web/textfield/outlined-text-field.js';
+        import '@material/web/list/list.js';
+        import '@material/web/list/list-item.js';
+        import '@material/web/icon/icon.js';
+        import '@material/web/iconbutton/icon-button.js';
+        import '@material/web/divider/divider.js';
+        import '@material/web/fab/fab.js';
+
+    </script>
+</body>
+</html>
