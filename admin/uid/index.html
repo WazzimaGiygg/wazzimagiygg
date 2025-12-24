@@ -16,6 +16,7 @@
             --cor-texto-secundario: #666666;
             --cor-divisoria: #e0e0e0;
             --sombra: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --cor-primaria: #007bff;
         }
 
         body {
@@ -35,6 +36,23 @@
             box-shadow: var(--sombra);
         }
 
+        /* Estilo para a área de login */
+        #auth-container {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .btn-login {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
         .header-content {
             display: flex;
             justify-content: space-between;
@@ -44,116 +62,38 @@
             margin-bottom: 20px;
         }
         
-        h1 {
-            color: var(--cor-texto-principal);
-            font-size: 2.5em;
-            margin: 0;
-            font-weight: 700;
-        }
+        h1 { font-size: 2.5em; margin: 0; font-weight: 700; }
+        .uid-display { font-size: 0.9em; color: var(--cor-texto-secundario); font-style: italic; }
+        h2 { font-size: 1.5em; margin-top: 2em; color: #222; }
+        .secao { margin-bottom: 25px; }
+        .fontes-container ul { list-style-type: none; padding-left: 0; }
+        .fontes-container a { color: #1a73e8; text-decoration: none; }
 
-        .uid-display {
-            font-size: 0.9em;
-            color: var(--cor-texto-secundario);
-            font-style: italic;
-            margin-top: 10px;
-        }
-
-        h2 {
-            font-size: 1.5em;
-            margin-top: 2em;
-            margin-bottom: 1em;
-            color: #222;
-        }
-
-        .secao {
-            margin-bottom: 25px;
-        }
-
-        .secao p {
-            margin: 0;
-            padding: 0;
-        }
-
-        .fontes-container {
-            margin-top: 2em;
-        }
-
-        .fontes-container ul {
-            list-style-type: none;
-            padding-left: 0;
-        }
-
-        .fontes-container li {
-            margin-bottom: 5px;
-        }
-
-        .fontes-container a {
-            color: #1a73e8;
-            text-decoration: none;
-        }
-
-        .fontes-container a:hover {
-            text-decoration: underline;
-        }
-
-        .print-buttons {
-            text-align: right;
-        }
-
+        .print-buttons { text-align: right; margin-bottom: 10px; }
         .print-buttons button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        .print-buttons button:hover {
-            background-color: #0056b3;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                margin: 20px;
-                padding: 20px;
-            }
-            .header-content {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .print-buttons {
-                text-align: left;
-                margin-top: 15px;
-            }
+            background-color: var(--cor-primaria);
+            color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;
         }
 
         @media print {
-            body {
-                background-color: #fff;
-            }
-            .print-buttons, .container {
-                box-shadow: none;
-                margin: 0;
-                padding: 0;
-            }
-            .print-buttons {
-                display: none;
-            }
+            .print-buttons, #auth-info { display: none !important; }
+            .container { box-shadow: none; margin: 0; padding: 0; }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="artigo-container">
-        <p style="text-align: center; color: #666;">Carregando artigo...</p>
+    <div id="status-auth">
+        </div>
+    <div id="main-content">
+        <p style="text-align: center; color: #666;">Verificando autenticação...</p>
     </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
 <script>
     const firebaseConfig = {
@@ -168,75 +108,106 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
 
-    const artigoContainer = document.getElementById('artigo-container');
+    const mainContent = document.getElementById('main-content');
+    const statusAuth = document.getElementById('status-auth');
+
+    // 1. Monitor de Autenticação (Executa ao carregar)
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            // Usuário logado
+            statusAuth.innerHTML = `
+                <div id="auth-info" style="font-size: 0.8em; color: #888; text-align: right;">
+                    Conectado como: ${user.email} | <a href="#" onclick="logout()">Sair</a>
+                </div>`;
+            buscarEExibirArtigo();
+        } else {
+            // Usuário deslogado
+            exibirTelaLogin();
+        }
+    });
+
+    function exibirTelaLogin() {
+        mainContent.innerHTML = `
+            <div id="auth-container">
+                <h2>Acesso Restrito</h2>
+                <p>Você precisa estar autenticado para visualizar este artigo.</p>
+                <button class="btn-login" onclick="login()">Entrar com Google</button>
+            </div>
+        `;
+        statusAuth.innerHTML = '';
+    }
+
+    function login() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(err => alert("Erro ao entrar: " + err.message));
+    }
+
+    function logout() {
+        auth.signOut();
+    }
 
     async function buscarEExibirArtigo() {
         const urlParams = new URLSearchParams(window.location.search);
         const uid = urlParams.get('uid');
 
         if (!uid) {
-            artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">UID do artigo não fornecido na URL.</p>';
+            mainContent.innerHTML = '<p style="text-align: center; color: #e74c3c;">ID do artigo não encontrado na URL.</p>';
             return;
         }
 
+        mainContent.innerHTML = '<p style="text-align: center; color: #666;">Buscando conteúdo no banco de dados...</p>';
+
         try {
-            const docRef = db.collection('admin').doc(uid);
-            const doc = await docRef.get();
+            const doc = await db.collection('admin').doc(uid).get();
 
             if (doc.exists) {
                 const materia = doc.data();
+                
+                // Processamento de Fontes
                 let fontesHtml = '';
                 if (materia.fontes && materia.fontes.length > 0) {
-                    const fontesLista = materia.fontes.map(fonte => {
-                        const isUrl = fonte.startsWith('http://') || fonte.startsWith('https://');
-                        if (isUrl) {
-                            return `<li><a href="${fonte}" target="_blank">${fonte}</a></li>`;
-                        } else {
-                            return `<li>${fonte}</li>`;
-                        }
+                    const itens = materia.fontes.map(f => {
+                        const link = (f.startsWith('http')) ? `<a href="${f}" target="_blank">${f}</a>` : f;
+                        return `<li>${link}</li>`;
                     }).join('');
-                    fontesHtml = `
-                        <div class="secao fontes-container">
-                            <h2>Fontes</h2>
-                            <ul>${fontesLista}</ul>
-                        </div>
-                    `;
+                    fontesHtml = `<div class="secao fontes-container"><h2>Fontes</h2><ul>${itens}</ul></div>`;
                 }
 
+                // Info Adicional
                 let infoHtml = '';
                 if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
                 if (materia.arquivo) infoHtml += `<p><strong>Arquivo:</strong> ${materia.arquivo}</p>`;
                 if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
 
-                artigoContainer.innerHTML = `
+                // Renderização Final
+                mainContent.innerHTML = `
                     <div class="print-buttons">
-                        <button onclick="window.print()">Imprimir</button>
+                        <button onclick="window.print()">Imprimir Artigo</button>
                     </div>
                     <div class="header-content">
-                        <h1>${materia.titulo}</h1>
+                        <h1>${materia.titulo || 'Sem Título'}</h1>
                         <p class="uid-display">UID: ${doc.id}</p>
                     </div>
                     <div class="secao">
                         <h2>Informações Adicionais</h2>
-                        ${infoHtml}
+                        ${infoHtml || '<p>Nenhuma informação extra.</p>'}
                     </div>
                     <div class="secao">
                         <h2>Descrição</h2>
-                        <p>${materia.descricao}</p>
+                        <p>${materia.descricao || 'Sem descrição disponível.'}</p>
                     </div>
                     ${fontesHtml}
                 `;
             } else {
-                artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Artigo não encontrado.</p>';
+                mainContent.innerHTML = '<p style="text-align: center; color: #e74c3c;">Artigo não existe ou você não tem permissão para vê-lo.</p>';
             }
         } catch (error) {
-            console.error("Erro ao buscar artigo:", error);
-            artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro ao carregar o artigo: ' + error.message + '</p>';
+            console.error(error);
+            mainContent.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro ao carregar: ' + error.message + '</p>';
         }
     }
-
-    window.onload = buscarEExibirArtigo;
 </script>
 
 </body>
