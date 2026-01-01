@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Rodapé com UID</title>
+    <title>Gerenciador de Rodapé - Firestore</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .container { background: #1e1e1e; padding: 20px; border-radius: 8px; width: 100%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #333; background: #252525; color: white; box-sizing: border-box; }
         button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-success { background: #28a745; color: white; margin-top: 10px; }
-        .json-display { background: #000; color: #0f0; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 13px; margin-top: 20px; width: 100%; max-width: 500px; border: 1px solid #333; }
+        .json-display { background: #000; color: #0f0; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 13px; margin-top: 20px; width: 100%; max-width: 500px; border: 1px solid #333; min-height: 50px; }
         .uid-alert { background: #333; color: #ffca28; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 12px; display: none; word-break: break-all; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Criar Novo Rodapé</h2>
+        <h2>Criar Novo Rodapé (Firestore)</h2>
         
         <div id="auth-section">
             <input type="email" id="email" placeholder="E-mail">
@@ -27,17 +27,17 @@
 
         <div id="editor-section" style="display:none;">
             <p id="user-info" style="font-size:12px; color:#aaa;"></p>
-            <input type="text" id="inputMensagem" placeholder="Texto da assinatura">
-            <button class="btn-success" id="btnSalvar">Gerar e Salvar Rodapé</button>
+            <input type="text" id="inputMensagem" placeholder="Texto (pode usar HTML como <a>)">
+            <button class="btn-success" id="btnSalvar">Gerar e Salvar no Firestore</button>
             <div id="uidDisplay" class="uid-alert"></div>
         </div>
     </div>
 
-    <div class="json-display" id="jsonViewer">Aguardando gravação...</div>
+    <div class="json-display" id="jsonViewer">Aguardando login...</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-        import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -50,15 +50,18 @@
         };
 
         const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- AUTH ---
+        // --- LOGIN ---
         document.getElementById('btnLogin').onclick = async () => {
             const e = document.getElementById('email').value;
             const p = document.getElementById('password').value;
             try { await signInWithEmailAndPassword(auth, e, p); } 
-            catch { await createUserWithEmailAndPassword(auth, e, p); }
+            catch { 
+                try { await createUserWithEmailAndPassword(auth, e, p); }
+                catch (err) { alert("Erro: " + err.message); }
+            }
         };
 
         onAuthStateChanged(auth, (user) => {
@@ -66,32 +69,37 @@
                 document.getElementById('auth-section').style.display = 'none';
                 document.getElementById('editor-section').style.display = 'block';
                 document.getElementById('user-info').innerText = "Logado como: " + user.email;
+                document.getElementById('jsonViewer').innerText = "Pronto para gravar.";
             }
         });
 
-        // --- GRAVAÇÃO COM UID ---
-        document.getElementById('btnSalvar').onclick = () => {
+        // --- GRAVAÇÃO NO FIRESTORE ---
+        document.getElementById('btnSalvar').onclick = async () => {
             const msg = document.getElementById('inputMensagem').value;
             if(!msg) return alert("Digite algo!");
 
-            // Criar uma nova referência com ID único (PUSH)
-            const novoRodapeRef = push(ref(db, 'rodapes_registrados'));
-            const novoUID = novoRodapeRef.key;
+            try {
+                // Adiciona um novo documento na coleção 'rodapes_registrados'
+                // O Firestore gera o ID automaticamente
+                const docRef = await addDoc(collection(db, "rodapes_registrados"), {
+                    assinatura: msg,
+                    autor: auth.currentUser.email,
+                    criadoEm: serverTimestamp()
+                });
 
-            const dados = {
-                uid: novoUID,
-                assinatura: msg,
-                data: new Date().toLocaleString(),
-                autor: auth.currentUser.email
-            };
-
-            set(novoRodapeRef, dados).then(() => {
-                document.getElementById('jsonViewer').textContent = JSON.stringify(dados, null, 4);
+                const dadosExibicao = { uid: docRef.id, assinatura: msg };
+                document.getElementById('jsonViewer').textContent = JSON.stringify(dadosExibicao, null, 4);
+                
                 const display = document.getElementById('uidDisplay');
                 display.style.display = 'block';
-                display.innerHTML = `<strong>Sucesso!</strong><br>Use este link no Iframe:<br>visualizar.html?uid=${novoUID}`;
-                alert("Rodapé salvo com UID: " + novoUID);
-            });
+                display.innerHTML = `<strong>Sucesso!</strong><br>ID gerado: ${docRef.id}<br>Link: view.html?uid=${docRef.id}`;
+                
+                alert("Gravado com sucesso no Firestore!");
+                document.getElementById('inputMensagem').value = "";
+            } catch (e) {
+                console.error("Erro ao salvar: ", e);
+                alert("Erro ao salvar: " + e.message);
+            }
         };
     </script>
 </body>
