@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Footer Manager</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: #1e1e1e; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 100%; max-width: 500px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #333; background: #252525; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .json-display { background: #000; color: #0f0; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 13px; overflow-x: auto; white-space: pre-wrap; margin-top: 20px; border: 1px solid #333; width: 100%; max-width: 500px; }
+        .status { font-size: 12px; margin-bottom: 10px; color: #aaa; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Gerenciador de Rodapé</h2>
+        
+        <div id="auth-section">
+            <p class="status">Faça login para editar</p>
+            <input type="email" id="email" placeholder="E-mail">
+            <input type="password" id="password" placeholder="Senha">
+            <button class="btn-primary" id="btnLogin">Entrar / Criar Conta</button>
+        </div>
+
+        <div id="editor-section" style="display:none;">
+            <p class="status" id="user-info"></p>
+            <input type="text" id="inputMensagem" placeholder="Texto da assinatura/repúdio">
+            <button class="btn-success" id="btnSalvar">Salvar no Firebase</button>
+            <button onclick="location.reload()" style="background:transparent; color: #ff4d4d; border: 1px solid #ff4d4d; margin-top: 10px;">Sair</button>
+        </div>
+    </div>
+
+    <div class="json-display" id="jsonViewer">Carregando dados...</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        // --- LÓGICA DE VISUALIZAÇÃO (JSON) ---
+        const jsonViewer = document.getElementById('jsonViewer');
+        onValue(ref(db, 'dados_do_rodape'), (snapshot) => {
+            const data = snapshot.val();
+            jsonViewer.textContent = JSON.stringify(data, null, 4);
+        });
+
+        // --- LÓGICA DE AUTENTICAÇÃO ---
+        const btnLogin = document.getElementById('btnLogin');
+        btnLogin.addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                // Tenta logar, se não conseguir, tenta criar a conta
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                try {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    alert("Conta criada e logada!");
+                } catch (err) {
+                    alert("Erro: " + err.message);
+                }
+            }
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('editor-section').style.display = 'block';
+                document.getElementById('user-info').innerText = "Logado como: " + user.email;
+            }
+        });
+
+        // --- LÓGICA DE GRAVAÇÃO ---
+        document.getElementById('btnSalvar').addEventListener('click', () => {
+            const msg = document.getElementById('inputMensagem').value;
+            if(!msg) return alert("Digite uma mensagem!");
+
+            set(ref(db, 'dados_do_rodape'), {
+                assinatura: msg,
+                timestamp: new Date().getTime(),
+                autor: auth.currentUser.email,
+                status: "ativo"
+            }).then(() => {
+                alert("Dados gravados!");
+                document.getElementById('inputMensagem').value = "";
+            });
+        });
+    </script>
+</body>
+</html>
