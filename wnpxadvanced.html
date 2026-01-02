@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criador de Artigos - Wiki Zero</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            height: fit-content;
+        }
+
+        .sidebar-header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .sidebar-header h2 {
+            color: #4f46e5;
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .article-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .article-item {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #4f46e5;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .article-item:hover {
+            background-color: #f1f5f9;
+            transform: translateX(5px);
+        }
+
+        .article-item.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+
+        .article-item h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .article-item .slug {
+            font-size: 12px;
+            color: #666;
+            font-family: monospace;
+        }
+
+        .article-item.active .slug {
+            color: #e2e8f0;
+        }
+
+        .article-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-edit {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .btn-new {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-new:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+        }
+
+        /* Editor Principal */
+        .main-editor {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px 30px;
+        }
+
+        .editor-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .editor-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .form-section {
+            padding: 25px 30px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .slug-preview {
+            background-color: #f8fafc;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-family: monospace;
+            font-size: 14px;
+            color: #374151;
+            margin-top: 10px;
+        }
+
+        .slug-preview .label {
+            color: #6b7280;
+            font-size: 12px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .slug-preview .value {
+            font-weight: 600;
+            color: #4f46e5;
+        }
+
+        /* Editor de Conteúdo */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 500px;
+        }
+
+        .editor-mode-switcher {
+            display: flex;
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .mode-tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: #64748b;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 3px solid transparent;
+        }
+
+        .mode-tab:hover {
+            background-color: #f1f5f9;
+            color: #475569;
+        }
+
+        .mode-tab.active {
+            color: #4f46e5;
+            border-bottom: 3px solid #4f46e5;
+            background-color: white;
+        }
+
+        .editor-area {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+
+        .editor-pane {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            overflow: auto;
+            display: none;
+        }
+
+        .editor-pane.active {
+            display: block;
+        }
+
+        #wysiwyg-editor {
+            outline: none;
+            padding: 20px;
+            min-height: 100%;
+            font-size: 16px;
+            line-height: 1.6;
+            background-color: white;
+            border: none;
+        }
+
+        #html-editor {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            resize: none;
+            outline: none;
+        }
+
+        /* Barra de ferramentas */
+        .toolbar {
+            background-color: #f8fafc;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .toolbar-group {
+            display: flex;
+            border-right: 1px solid #cbd5e1;
+            padding-right: 10px;
+            margin-right: 10px;
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+            margin-right: 0;
+        }
+
+        .tool-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #475569;
+            transition: all 0.2s ease;
+        }
+
+        .tool-btn:hover {
+            background-color: #f1f5f9;
+            border-color: #94a3b8;
+            color: #1e293b;
+        }
+
+        /* Ações */
+        .action-buttons {
+            padding: 20px 30px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            background-color: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f1f5f9;
+        }
+
+        /* Preview */
+        .preview-container {
+            margin-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .preview-header h3 {
+            color: #1e293b;
+            font-size: 18px;
+        }
+
+        #preview-content {
+            background-color: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 25px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        /* Status */
+        .status {
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            display: block;
+        }
+
+        .status.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            display: block;
+        }
+
+        /* Responsividade */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                order: 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .action-buttons {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .toolbar {
+                justify-content: center;
+            }
+            
+            .editor-header h1 {
+                font-size: 20px;
+            }
+        }
+
+        /* Placeholder */
+        .editor-placeholder {
+            color: #94a3b8;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            font-style: italic;
+        }
+
+        /* Categorias */
+        .categories {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .category-tag {
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .category-tag:hover {
+            background-color: #4f46e5;
+            color: white;
+        }
+
+        .category-tag.selected {
+            background-color: #4f46e5;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar com lista de artigos -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-newspaper"></i> Meus Artigos</h2>
+                <p>Gerencie seus artigos publicados</p>
+            </div>
+            
+            <button class="btn-new" id="new-article-btn">
+                <i class="fas fa-plus"></i> Novo Artigo
+            </button>
+            
+            <div class="article-list" id="article-list">
+                <div class="article-item" data-id="sample">
+                    <h4>Artigo de Exemplo</h4>
+                    <div class="slug">artigo-de-exemplo</div>
+                    <div class="article-actions">
+                        <button class="btn-small btn-edit">Editar</button>
+                        <button class="btn-small btn-delete">Excluir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Principal -->
+        <div class="main-editor" id="editor-container">
+            <div class="editor-header">
+                <h1 id="editor-title"><i class="fas fa-edit"></i> Criar Novo Artigo</h1>
+                <p id="editor-subtitle">Preencha os campos abaixo para criar seu artigo</p>
+            </div>
+
+            <!-- Status Messages -->
+            <div class="status" id="status-message"></div>
+
+            <!-- Formulário de Metadados -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="article-title"><i class="fas fa-heading"></i> Título do Artigo *</label>
+                    <input type="text" id="article-title" placeholder="Digite o título do artigo" maxlength="100">
+                    <div class="slug-preview" id="slug-preview">
+                        <span class="label">Slug gerado automaticamente:</span>
+                        <span class="value" id="slug-value">título-do-artigo</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="article-description"><i class="fas fa-align-left"></i> Descrição Curta *</label>
+                    <textarea id="article-description" rows="3" placeholder="Breve descrição do artigo (máx. 200 caracteres)" maxlength="200"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="article-category"><i class="fas fa-tag"></i> Categoria *</label>
+                    <select id="article-category">
+                        <option value="">Selecione uma categoria</option>
+                        <option value="ciencia">Ciência</option>
+                        <option value="tecnologia">Tecnologia</option>
+                        <option value="historia">História</option>
+                        <option value="filosofia">Filosofia</option>
+                        <option value="arte">Arte</option>
+                        <option value="literatura">Literatura</option>
+                        <option value="educacao">Educação</option>
+                        <option value="saude">Saúde</option>
+                        <option value="negocios">Negócios</option>
+                        <option value="entretenimento">Entretenimento</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label><i class="fas fa-tags"></i> Tags (opcional)</label>
+                    <input type="text" id="article-tags" placeholder="Ex: tecnologia, inovação, futuro">
+                    <div class="categories">
+                        <div class="category-tag" data-tag="tecnologia">tecnologia</div>
+                        <div class="category-tag" data-tag="ciencia">ciência</div>
+                        <div class="category-tag" data-tag="educacao">educação</div>
+                        <div class="category-tag" data-tag="inovacao">inovação</div>
+                        <div class="category-tag" data-tag="futuro">futuro</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor de Conteúdo -->
+            <div class="editor-container">
+                <div class="toolbar" id="toolbar">
+                    <div class="toolbar-group">
+                        <button class="tool-btn" data-command="formatBlock" data-value="h1" title="Título 1">
+                            <i class="fas fa-heading"></i>
+                        </button>
+                        <button class="tool-btn" data-command="formatBlock" data-value="h2" title="Título 2">
+                            <i class="fas fa-heading" style="font-size: 12px;"></i>
+                        </button>
+                        <button class="tool-btn" data-command="formatBlock" data-value="h3" title="Título 3">
+                            <i class="fas fa-heading" style="font-size: 10px;"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="tool-btn" data-command="bold" title="Negrito">
+                            <i class="fas fa-bold"></i>
+                        </button>
+                        <button class="tool-btn" data-command="italic" title="Itálico">
+                            <i class="fas fa-italic"></i>
+                        </button>
+                        <button class="tool-btn" data-command="underline" title="Sublinhado">
+                            <i class="fas fa-underline"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="tool-btn" data-command="insertUnorderedList" title="Lista não ordenada">
+                            <i class="fas fa-list-ul"></i>
+                        </button>
+                        <button class="tool-btn" data-command="insertOrderedList" title="Lista ordenada">
+                            <i class="fas fa-list-ol"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="tool-btn" id="insert-link" title="Inserir link">
+                            <i class="fas fa-link"></i>
+                        </button>
+                        <button class="tool-btn" id="insert-image" title="Inserir imagem">
+                            <i class="fas fa-image"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="tool-btn" data-command="justifyLeft" title="Alinhar à esquerda">
+                            <i class="fas fa-align-left"></i>
+                        </button>
+                        <button class="tool-btn" data-command="justifyCenter" title="Centralizar">
+                            <i class="fas fa-align-center"></i>
+                        </button>
+                        <button class="tool-btn" data-command="justifyRight" title="Alinhar à direita">
+                            <i class="fas fa-align-right"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <button class="tool-btn" data-command="insertHorizontalRule" title="Linha horizontal">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <button class="tool-btn" data-command="formatBlock" data-value="blockquote" title="Citação">
+                            <i class="fas fa-quote-right"></i>
+                        </button>
+                        <button class="tool-btn" id="insert-code" title="Inserir código">
+                            <i class="fas fa-code"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="editor-mode-switcher">
+                    <div class="mode-tab active" data-mode="wysiwyg">
+                        <i class="fas fa-eye"></i>
+                        <span>Editor Visual</span>
+                    </div>
+                    <div class="mode-tab" data-mode="html">
+                        <i class="fas fa-code"></i>
+                        <span>Código HTML</span>
+                    </div>
+                </div>
+
+                <div class="editor-area">
+                    <div class="editor-pane active" id="wysiwyg-pane">
+                        <div class="editor-placeholder" id="wysiwyg-placeholder">
+                            Escreva o conteúdo do seu artigo aqui... Use a barra de ferramentas para formatar.
+                        </div>
+                        <div id="wysiwyg-editor" contenteditable="true"></div>
+                    </div>
+                    
+                    <div class="editor-pane" id="html-pane">
+                        <textarea id="html-editor" placeholder="Edite o código HTML diretamente aqui..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="preview-container">
+                <div class="preview-header">
+                    <h3><i class="fas fa-search"></i> Visualização do Artigo</h3>
+                    <button class="btn btn-secondary" id="refresh-preview">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                </div>
+                <div id="preview-content">
+                    O conteúdo do artigo aparecerá aqui...
+                </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="action-buttons">
+                <button class="btn btn-secondary" id="clear-editor">
+                    <i class="fas fa-trash-alt"></i> Limpar
+                </button>
+                <button class="btn btn-secondary" id="save-draft">
+                    <i class="fas fa-save"></i> Salvar Rascunho
+                </button>
+                <button class="btn btn-primary" id="publish-article">
+                    <i class="fas fa-paper-plane"></i> Publicar Artigo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializa Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos DOM
+            const articleTitle = document.getElementById('article-title');
+            const articleDescription = document.getElementById('article-description');
+            const articleCategory = document.getElementById('article-category');
+            const articleTags = document.getElementById('article-tags');
+            const slugPreview = document.getElementById('slug-preview');
+            const slugValue = document.getElementById('slug-value');
+            const wysiwygEditor = document.getElementById('wysiwyg-editor');
+            const htmlEditor = document.getElementById('html-editor');
+            const previewContent = document.getElementById('preview-content');
+            const articleList = document.getElementById('article-list');
+            const statusMessage = document.getElementById('status-message');
+            const editorTitle = document.getElementById('editor-title');
+            const editorSubtitle = document.getElementById('editor-subtitle');
+            const categoryTags = document.querySelectorAll('.category-tag');
+            
+            // Botões
+            const newArticleBtn = document.getElementById('new-article-btn');
+            const publishBtn = document.getElementById('publish-article');
+            const saveDraftBtn = document.getElementById('save-draft');
+            const clearBtn = document.getElementById('clear-editor');
+            
+            // Variáveis de estado
+            let currentArticleId = null;
+            let isEditing = false;
+            let currentUser = null;
+            
+            // Gera slug a partir do título
+            function generateSlug(text) {
+                return text
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                    .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais
+                    .replace(/\s+/g, '-') // Substitui espaços por hífens
+                    .replace(/-+/g, '-') // Remove hífens duplicados
+                    .trim();
+            }
+            
+            // Atualiza slug quando título muda
+            articleTitle.addEventListener('input', function() {
+                if (this.value.trim()) {
+                    const slug = generateSlug(this.value);
+                    slugValue.textContent = slug;
+                    slugPreview.style.display = 'block';
+                } else {
+                    slugPreview.style.display = 'none';
+                }
+            });
+            
+            // Seleciona tags
+            categoryTags.forEach(tag => {
+                tag.addEventListener('click', function() {
+                    const tagText = this.getAttribute('data-tag');
+                    const currentTags = articleTags.value.split(',').map(t => t.trim()).filter(t => t);
+                    
+                    if (this.classList.contains('selected')) {
+                        // Remove tag
+                        const index = currentTags.indexOf(tagText);
+                        if (index > -1) {
+                            currentTags.splice(index, 1);
+                        }
+                        this.classList.remove('selected');
+                    } else {
+                        // Adiciona tag
+                        currentTags.push(tagText);
+                        this.classList.add('selected');
+                    }
+                    
+                    articleTags.value = currentTags.join(', ');
+                });
+            });
+            
+            // Sistema de editor (igual ao anterior)
+            const modeTabs = document.querySelectorAll('.mode-tab');
+            const wysiwygPane = document.getElementById('wysiwyg-pane');
+            const htmlPane = document.getElementById('html-pane');
+            const wysiwygPlaceholder = document.getElementById('wysiwyg-placeholder');
+            const toolbarButtons = document.querySelectorAll('.tool-btn');
+            
+            // Inicializa editor com conteúdo vazio
+            wysiwygEditor.innerHTML = '';
+            htmlEditor.value = '';
+            
+            // Mostra/esconde placeholder
+            wysiwygEditor.addEventListener('input', function() {
+                wysiwygPlaceholder.style.display = wysiwygEditor.textContent.trim() === '' ? 'block' : 'none';
+            });
+            
+            // Alternar entre modos de edição
+            modeTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const mode = this.getAttribute('data-mode');
+                    
+                    modeTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    if (mode === 'wysiwyg') {
+                        wysiwygPane.classList.add('active');
+                        htmlPane.classList.remove('active');
+                        
+                        const html = htmlEditor.value;
+                        wysiwygEditor.innerHTML = html;
+                        wysiwygPlaceholder.style.display = wysiwygEditor.textContent.trim() === '' ? 'block' : 'none';
+                    } else {
+                        htmlPane.classList.add('active');
+                        wysiwygPane.classList.remove('active');
+                        
+                        const html = wysiwygToHtml(wysiwygEditor.innerHTML);
+                        htmlEditor.value = html;
+                    }
+                });
+            });
+            
+            // Barra de ferramentas
+            toolbarButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const command = this.getAttribute('data-command');
+                    const value = this.getAttribute('data-value');
+                    
+                    wysiwygEditor.focus();
+                    
+                    if (command === 'createLink') {
+                        const url = prompt('Digite a URL do link:', 'https://');
+                        if (url) {
+                            document.execCommand(command, false, url);
+                        }
+                    } else if (value) {
+                        document.execCommand(command, false, value);
+                    } else {
+                        document.execCommand(command, false, null);
+                    }
+                    
+                    updatePreviewFromWysiwyg();
+                });
+            });
+            
+            // Botões especiais
+            document.getElementById('insert-image').addEventListener('click', function() {
+                const url = prompt('Digite a URL da imagem:', 'https://');
+                if (url) {
+                    wysiwygEditor.focus();
+                    document.execCommand('insertHTML', false, `<img src="${url}" alt="Imagem" style="max-width:100%; height:auto; border-radius:8px; margin:10px 0;">`);
+                    updatePreviewFromWysiwyg();
+                }
+            });
+            
+            document.getElementById('insert-link').addEventListener('click', function() {
+                const url = prompt('Digite a URL do link:', 'https://');
+                if (url) {
+                    wysiwygEditor.focus();
+                    document.execCommand('createLink', false, url);
+                }
+            });
+            
+            document.getElementById('insert-code').addEventListener('click', function() {
+                const code = prompt('Digite o código que deseja inserir:', 'console.log("Hello World");');
+                if (code) {
+                    wysiwygEditor.focus();
+                    document.execCommand('insertHTML', false, `<pre><code>${escapeHtml(code)}</code></pre>`);
+                    updatePreviewFromWysiwyg();
+                }
+            });
+            
+            // Atualiza preview quando HTML é editado
+            htmlEditor.addEventListener('input', function() {
+                updatePreviewFromHtml();
+            });
+            
+            // Botão para atualizar preview
+            document.getElementById('refresh-preview').addEventListener('click', function() {
+                if (wysiwygPane.classList.contains('active')) {
+                    updatePreviewFromWysiwyg();
+                } else {
+                    updatePreviewFromHtml();
+                }
+            });
+            
+            // Funções auxiliares
+            function updatePreviewFromWysiwyg() {
+                const html = wysiwygToHtml(wysiwygEditor.innerHTML);
+                htmlEditor.value = html;
+                previewContent.innerHTML = html;
+            }
+            
+            function updatePreviewFromHtml() {
+                const html = htmlEditor.value;
+                previewContent.innerHTML = html;
+                
+                if (wysiwygPane.classList.contains('active')) {
+                    wysiwygEditor.innerHTML = html;
+                }
+            }
+            
+            function wysiwygToHtml(wysiwygHtml) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = wysiwygHtml;
+                
+                // Limpa estilos inline
+                const elementsWithStyle = tempDiv.querySelectorAll('[style]');
+                elementsWithStyle.forEach(el => {
+                    const style = el.getAttribute('style');
+                    const keepStyles = ['text-align', 'font-weight', 'font-style', 'text-decoration'];
+                    let newStyle = '';
+                    
+                    style.split(';').forEach(rule => {
+                        const [property, value] = rule.split(':').map(s => s.trim());
+                        if (property && value && keepStyles.includes(property)) {
+                            newStyle += `${property}:${value};`;
+                        }
+                    });
+                    
+                    if (newStyle) {
+                        el.setAttribute('style', newStyle);
+                    } else {
+                        el.removeAttribute('style');
+                    }
+                });
+                
+                return tempDiv.innerHTML;
+            }
+            
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            // Atualiza preview periodicamente
+            setInterval(() => {
+                if (wysiwygPane.classList.contains('active') && document.activeElement === wysiwygEditor) {
+                    updatePreviewFromWysiwyg();
+                }
+            }, 2000);
+            
+            // Inicializa placeholder
+            wysiwygPlaceholder.style.display = 'block';
+            
+            // Sistema de autenticação e artigos
+            auth.onAuthStateChanged(async (user) => {
+                currentUser = user;
+                if (user) {
+                    console.log("Usuário logado:", user.email);
+                    loadArticles();
+                } else {
+                    console.log("Usuário não logado");
+                    // Redireciona para login ou mostra mensagem
+                    showStatus('Por favor, faça login para criar e gerenciar artigos.', 'error');
+                }
+            });
+            
+            // Carrega artigos do usuário
+            async function loadArticles() {
+                if (!currentUser) return;
+                
+                try {
+                    const querySnapshot = await db.collection('articles')
+                        .where('authorId', '==', currentUser.uid)
+                        .orderBy('createdAt', 'desc')
+                        .get();
+                    
+                    articleList.innerHTML = '';
+                    
+                    if (querySnapshot.empty) {
+                        articleList.innerHTML = `
+                            <div style="text-align: center; padding: 20px; color: #666;">
+                                <i class="fas fa-newspaper" style="font-size: 48px; margin-bottom: 10px; opacity: 0.5;"></i>
+                                <p>Nenhum artigo criado ainda.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    querySnapshot.forEach(doc => {
+                        const article = doc.data();
+                        const articleItem = document.createElement('div');
+                        articleItem.className = 'article-item';
+                        articleItem.setAttribute('data-id', doc.id);
+                        
+                        articleItem.innerHTML = `
+                            <h4>${article.title}</h4>
+                            <div class="slug">${article.slug}</div>
+                            <div class="article-actions">
+                                <button class="btn-small btn-edit">Editar</button>
+                                <button class="btn-small btn-delete">Excluir</button>
+                            </div>
+                        `;
+                        
+                        // Evento para editar artigo
+                        const editBtn = articleItem.querySelector('.btn-edit');
+                        editBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            loadArticleForEditing(doc.id, article);
+                        });
+                        
+                        // Evento para excluir artigo
+                        const deleteBtn = articleItem.querySelector('.btn-delete');
+                        deleteBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            deleteArticle(doc.id, article.title);
+                        });
+                        
+                        // Evento para selecionar artigo
+                        articleItem.addEventListener('click', () => {
+                            document.querySelectorAll('.article-item').forEach(item => {
+                                item.classList.remove('active');
+                            });
+                            articleItem.classList.add('active');
+                        });
+                        
+                        articleList.appendChild(articleItem);
+                    });
+                    
+                } catch (error) {
+                    console.error("Erro ao carregar artigos:", error);
+                    showStatus('Erro ao carregar artigos: ' + error.message, 'error');
+                }
+            }
+            
+            // Carrega artigo para edição
+            function loadArticleForEditing(articleId, article) {
+                isEditing = true;
+                currentArticleId = articleId;
+                
+                // Preenche formulário
+                articleTitle.value = article.title || '';
+                articleDescription.value = article.description || '';
+                articleCategory.value = article.category || '';
+                articleTags.value = article.tags ? article.tags.join(', ') : '';
+                
+                // Atualiza slug
+                slugValue.textContent = article.slug || generateSlug(article.title);
+                slugPreview.style.display = 'block';
+                
+                // Preenche conteúdo
+                const content = article.content || '';
+                wysiwygEditor.innerHTML = content;
+                htmlEditor.value = content;
+                
+                // Atualiza preview
+                updatePreviewFromWysiwyg();
+                
+                // Atualiza título do editor
+                editorTitle.innerHTML = '<i class="fas fa-edit"></i> Editar Artigo';
+                editorSubtitle.textContent = `Editando: ${article.title}`;
+                
+                // Atualiza placeholder
+                wysiwygPlaceholder.style.display = content.trim() ? 'none' : 'block';
+                
+                // Foca no título
+                articleTitle.focus();
+                
+                showStatus('Artigo carregado para edição.', 'success');
+            }
+            
+            // Novo artigo
+            newArticleBtn.addEventListener('click', function() {
+                resetEditor();
+            });
+            
+            // Limpar editor
+            clearBtn.addEventListener('click', function() {
+                if (confirm('Tem certeza que deseja limpar todo o conteúdo? As alterações não salvas serão perdidas.')) {
+                    resetEditor();
+                }
+            });
+            
+            // Reseta editor para novo artigo
+            function resetEditor() {
+                isEditing = false;
+                currentArticleId = null;
+                
+                // Limpa formulário
+                articleTitle.value = '';
+                articleDescription.value = '';
+                articleCategory.value = '';
+                articleTags.value = '';
+                wysiwygEditor.innerHTML = '';
+                htmlEditor.value = '';
+                
+                // Reseta slug
+                slugPreview.style.display = 'none';
+                
+                // Reseta preview
+                previewContent.innerHTML = 'O conteúdo do artigo aparecerá aqui...';
+                
+                // Reseta título do editor
+                editorTitle.innerHTML = '<i class="fas fa-edit"></i> Criar Novo Artigo';
+                editorSubtitle.textContent = 'Preencha os campos abaixo para criar seu artigo';
+                
+                // Reseta placeholder
+                wysiwygPlaceholder.style.display = 'block';
+                
+                // Reseta tags selecionadas
+                categoryTags.forEach(tag => tag.classList.remove('selected'));
+                
+                // Foca no título
+                articleTitle.focus();
+                
+                showStatus('Editor pronto para criar novo artigo.', 'success');
+            }
+            
+            // Salva rascunho
+            saveDraftBtn.addEventListener('click', async function() {
+                await saveArticle(true);
+            });
+            
+            // Publica artigo
+            publishBtn.addEventListener('click', async function() {
+                await saveArticle(false);
+            });
+            
+            // Salva artigo (draft ou publicado)
+            async function saveArticle(isDraft) {
+                // Validação
+                if (!articleTitle.value.trim()) {
+                    showStatus('Por favor, insira um título para o artigo.', 'error');
+                    articleTitle.focus();
+                    return;
+                }
+                
+                if (!articleDescription.value.trim()) {
+                    showStatus('Por favor, insira uma descrição para o artigo.', 'error');
+                    articleDescription.focus();
+                    return;
+                }
+                
+                if (!articleCategory.value) {
+                    showStatus('Por favor, selecione uma categoria.', 'error');
+                    articleCategory.focus();
+                    return;
+                }
+                
+                const content = wysiwygToHtml(wysiwygEditor.innerHTML);
+                if (!content.trim()) {
+                    showStatus('Por favor, adicione conteúdo ao artigo.', 'error');
+                    wysiwygEditor.focus();
+                    return;
+                }
+                
+                if (!currentUser) {
+                    showStatus('Você precisa estar logado para salvar artigos.', 'error');
+                    return;
+                }
+                
+                try {
+                    const slug = generateSlug(articleTitle.value);
+                    
+                    // Verifica se slug já existe (apenas para novos artigos)
+                    if (!isEditing) {
+                        const slugCheck = await db.collection('articles')
+                            .where('slug', '==', slug)
+                            .limit(1)
+                            .get();
+                        
+                        if (!slugCheck.empty) {
+                            showStatus('Já existe um artigo com um título similar. Tente modificar o título.', 'error');
+                            return;
+                        }
+                    }
+                    
+                    // Prepara dados do artigo
+                    const articleData = {
+                        title: articleTitle.value.trim(),
+                        description: articleDescription.value.trim(),
+                        slug: slug,
+                        category: articleCategory.value,
+                        tags: articleTags.value.split(',').map(t => t.trim()).filter(t => t),
+                        content: content,
+                        authorId: currentUser.uid,
+                        authorEmail: currentUser.email,
+                        isDraft: isDraft,
+                        status: isDraft ? 'draft' : 'published',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    // Adiciona createdAt apenas para novos artigos
+                    if (!isEditing) {
+                        articleData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    }
+                    
+                    // Salva no Firebase
+                    let message;
+                    if (isEditing) {
+                        await db.collection('articles').doc(currentArticleId).update(articleData);
+                        message = isDraft ? 'Rascunho atualizado com sucesso!' : 'Artigo atualizado e publicado com sucesso!';
+                    } else {
+                        const docRef = await db.collection('articles').add(articleData);
+                        currentArticleId = docRef.id;
+                        message = isDraft ? 'Rascunho salvo com sucesso!' : 'Artigo publicado com sucesso!';
+                    }
+                    
+                    showStatus(message, 'success');
+                    
+                    // Recarrega lista de artigos
+                    setTimeout(() => {
+                        loadArticles();
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error("Erro ao salvar artigo:", error);
+                    showStatus('Erro ao salvar artigo: ' + error.message, 'error');
+                }
+            }
+            
+            // Exclui artigo
+            async function deleteArticle(articleId, articleTitle) {
+                if (!confirm(`Tem certeza que deseja excluir o artigo "${articleTitle}"? Esta ação não pode ser desfeita.`)) {
+                    return;
+                }
+                
+                try {
+                    await db.collection('articles').doc(articleId).delete();
+                    showStatus('Artigo excluído com sucesso!', 'success');
+                    
+                    // Se estava editando o artigo excluído, reseta o editor
+                    if (currentArticleId === articleId) {
+                        resetEditor();
+                    }
+                    
+                    // Recarrega lista de artigos
+                    setTimeout(() => {
+                        loadArticles();
+                    }, 500);
+                    
+                } catch (error) {
+                    console.error("Erro ao excluir artigo:", error);
+                    showStatus('Erro ao excluir artigo: ' + error.message, 'error');
+                }
+            }
+            
+            // Mostra mensagem de status
+            function showStatus(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.className = `status ${type}`;
+                
+                // Remove a mensagem após 5 segundos
+                setTimeout(() => {
+                    statusMessage.className = 'status';
+                    statusMessage.style.display = 'none';
+                }, 5000);
+            }
+            
+            // Inicialização
+            resetEditor();
+        });
+    </script>
+</body>
+</html>
