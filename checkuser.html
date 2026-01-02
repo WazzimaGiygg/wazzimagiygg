@@ -29,10 +29,14 @@
             background-color: var(--bg-color);
             color: white;
             font-family: Arial, sans-serif;
+            touch-action: none; /* Impede comportamentos padrão do touch como zoom */
+            overflow: hidden; /* Evita scroll durante o arraste */
         }
 
         h1 {
             margin-bottom: 20px;
+            text-align: center;
+            padding: 0 10px;
         }
 
         #game-container {
@@ -40,12 +44,17 @@
             border: 2px solid var(--border-color);
             overflow: hidden;
             background-color: var(--path-color);
-            box-sizing: content-box; /* Garante que o padding/borda não afete as dimensões do grid */
+            box-sizing: content-box;
+            user-select: none; /* Impede seleção de texto ao arrastar */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
         #maze {
             display: grid;
             background-color: var(--path-color);
+            touch-action: none; /* Desabilita ações padrão do touch no labirinto */
         }
 
         .wall {
@@ -63,6 +72,7 @@
             background-color: var(--player-color);
             border-radius: 50%;
             transition: left 0.05s linear, top 0.05s linear;
+            z-index: 10; /* Garante que o jogador fique acima de tudo */
         }
 
         #start-point, #end-point {
@@ -76,6 +86,7 @@
             font-weight: bold;
             color: white;
             box-sizing: border-box;
+            z-index: 5;
         }
 
         #start-point {
@@ -94,6 +105,8 @@
             flex-direction: column;
             align-items: center;
             gap: 10px;
+            padding: 0 10px;
+            text-align: center;
         }
 
         #info p {
@@ -104,6 +117,8 @@
         .buttons-container {
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         button {
@@ -115,10 +130,79 @@
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            min-width: 120px;
         }
 
         button:hover {
             background-color: #0056b3;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #controls-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #aaa;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        /* Estilo para indicador de arraste em dispositivos móveis */
+        .drag-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 123, 255, 0.8);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            z-index: 100;
+            display: none;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .drag-indicator {
+                display: block;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            #info p {
+                font-size: 1em;
+            }
+            
+            button {
+                padding: 8px 16px;
+                font-size: 0.9em;
+                min-width: 100px;
+            }
+            
+            #controls-info {
+                font-size: 0.8em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.3em;
+            }
+            
+            .buttons-container {
+                gap: 10px;
+            }
+            
+            button {
+                padding: 6px 12px;
+                font-size: 0.85em;
+                min-width: 90px;
+            }
         }
     </style>
 </head>
@@ -137,6 +221,13 @@
             <button id="restart-button">Reiniciar</button>
             <button id="next-level-button" style="display: none;">Próxima Fase</button>
         </div>
+        <div id="controls-info">
+            💡 Use as setas do teclado ou arraste o labirinto para mover
+        </div>
+    </div>
+    
+    <div class="drag-indicator" id="drag-indicator">
+        Arraste para mover
     </div>
 
     <script>
@@ -145,6 +236,7 @@
             const FASES_NECESSARIAS = 1; // O número de fases que o jogador precisa completar
             
             const mazeContainer = document.getElementById('maze');
+            const gameContainer = document.getElementById('game-container');
             const player = document.getElementById('player');
             const startPoint = document.getElementById('start-point');
             const endPoint = document.getElementById('end-point');
@@ -152,6 +244,7 @@
             const levelDisplay = document.getElementById('level');
             const restartButton = document.getElementById('restart-button');
             const nextLevelButton = document.getElementById('next-level-button');
+            const dragIndicator = document.getElementById('drag-indicator');
 
             const cellSize = 20; // Tamanho de cada célula em pixels
 
@@ -165,6 +258,16 @@
             let timerInterval;
             let gameActive = false;
             let currentLevel = 1;
+            
+            // Variáveis para controle de arraste (touch/swipe)
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchEndX = 0;
+            let touchEndY = 0;
+            let isDragging = false;
+            let dragThreshold = 10; // Mínimo de pixels para considerar um arraste
+            let lastMoveTime = 0;
+            let moveCooldown = 100; // Cooldown em ms entre movimentos por arraste
 
             // Configurações de cores para diferentes temas
             const colorThemes = [
@@ -346,33 +449,28 @@
                 return x >= 0 && x < numCols && y >= 0 && y < numRows && maze[y][x] === 0;
             }
 
-            // Lida com a movimentação do jogador
-            function handleKeyDown(event) {
+            // Move o jogador na direção especificada
+            function movePlayer(direction) {
                 if (!gameActive) return;
-
+                
                 let newX = playerPos.x;
                 let newY = playerPos.y;
 
-                switch (event.key) {
-                    case 'ArrowUp':
+                switch (direction) {
+                    case 'up':
                         newY--;
                         break;
-                    case 'ArrowDown':
+                    case 'down':
                         newY++;
                         break;
-                    case 'ArrowLeft':
+                    case 'left':
                         newX--;
                         break;
-                    case 'ArrowRight':
+                    case 'right':
                         newX++;
                         break;
                     default:
                         return;
-                }
-                
-                // Impede o scroll da página com as setas
-                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-                    event.preventDefault();
                 }
 
                 if (isValidMove(newX, newY)) {
@@ -380,7 +478,115 @@
                     playerPos.y = newY;
                     updatePlayerPosition();
                     checkWin();
+                    return true;
                 }
+                return false;
+            }
+
+            // Lida com a movimentação do jogador pelo teclado
+            function handleKeyDown(event) {
+                if (!gameActive) return;
+
+                let moved = false;
+                
+                switch (event.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        moved = movePlayer('up');
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        moved = movePlayer('down');
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        moved = movePlayer('left');
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        moved = movePlayer('right');
+                        break;
+                    default:
+                        return;
+                }
+                
+                // Impede o scroll da página com as setas
+                if (moved && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(event.key)) {
+                    event.preventDefault();
+                }
+            }
+
+            // Lida com eventos de toque para dispositivos móveis
+            function handleTouchStart(event) {
+                if (!gameActive) return;
+                
+                event.preventDefault();
+                isDragging = true;
+                
+                const touch = event.touches[0];
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                
+                // Mostra o indicador de arraste brevemente
+                dragIndicator.style.opacity = '1';
+            }
+
+            function handleTouchMove(event) {
+                if (!gameActive || !isDragging) return;
+                
+                event.preventDefault();
+                
+                const touch = event.touches[0];
+                touchEndX = touch.clientX;
+                touchEndY = touch.clientY;
+            }
+
+            function handleTouchEnd(event) {
+                if (!gameActive || !isDragging) return;
+                
+                event.preventDefault();
+                isDragging = false;
+                
+                // Calcula a diferença do arraste
+                const diffX = touchEndX - touchStartX;
+                const diffY = touchEndY - touchStartY;
+                
+                // Verifica se o arraste foi significativo o suficiente
+                if (Math.abs(diffX) < dragThreshold && Math.abs(diffY) < dragThreshold) {
+                    // Toque simples (não arraste) - não faz nada ou pode implementar clique
+                    return;
+                }
+                
+                // Determina a direção baseada no maior movimento
+                const now = Date.now();
+                if (now - lastMoveTime < moveCooldown) {
+                    return; // Ainda está no cooldown
+                }
+                
+                lastMoveTime = now;
+                
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    // Movimento horizontal
+                    if (diffX > 0) {
+                        movePlayer('right');
+                    } else {
+                        movePlayer('left');
+                    }
+                } else {
+                    // Movimento vertical
+                    if (diffY > 0) {
+                        movePlayer('down');
+                    } else {
+                        movePlayer('up');
+                    }
+                }
+                
+                // Esconde o indicador de arraste
+                dragIndicator.style.opacity = '0';
             }
 
             // Verifica se o jogador chegou ao final E gerencia o redirecionamento
@@ -429,8 +635,8 @@
                 updatePlayerPosition();
 
                 // Ajusta o tamanho do container do jogo
-                document.getElementById('game-container').style.width = `${numCols * cellSize}px`;
-                document.getElementById('game-container').style.height = `${numRows * cellSize}px`;
+                gameContainer.style.width = `${numCols * cellSize}px`;
+                gameContainer.style.height = `${numRows * cellSize}px`;
 
                 // Aplica um tema de cor aleatório
                 const randomThemeIndex = Math.floor(Math.random() * colorThemes.length);
@@ -457,16 +663,95 @@
                 startNewLevel();
             }
 
+            // Configura os event listeners para touch
+            function setupTouchEvents() {
+                // Para o container do jogo
+                gameContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+                gameContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+                gameContainer.addEventListener('touchend', handleTouchEnd, { passive: false });
+                
+                // Para o documento inteiro (para evitar comportamentos padrão)
+                document.addEventListener('touchmove', function(e) {
+                    if (isDragging) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+                
+                // Adiciona também eventos de mouse para desktop (para testes)
+                let mouseDown = false;
+                let mouseStartX = 0;
+                let mouseStartY = 0;
+                
+                gameContainer.addEventListener('mousedown', function(e) {
+                    if (!gameActive) return;
+                    mouseDown = true;
+                    mouseStartX = e.clientX;
+                    mouseStartY = e.clientY;
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (!mouseDown || !gameActive) return;
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mouseup', function(e) {
+                    if (!mouseDown || !gameActive) return;
+                    
+                    const diffX = e.clientX - mouseStartX;
+                    const diffY = e.clientY - mouseStartY;
+                    
+                    if (Math.abs(diffX) < dragThreshold && Math.abs(diffY) < dragThreshold) {
+                        mouseDown = false;
+                        return;
+                    }
+                    
+                    const now = Date.now();
+                    if (now - lastMoveTime < moveCooldown) {
+                        mouseDown = false;
+                        return;
+                    }
+                    
+                    lastMoveTime = now;
+                    
+                    if (Math.abs(diffX) > Math.abs(diffY)) {
+                        if (diffX > 0) {
+                            movePlayer('right');
+                        } else {
+                            movePlayer('left');
+                        }
+                    } else {
+                        if (diffY > 0) {
+                            movePlayer('down');
+                        } else {
+                            movePlayer('up');
+                        }
+                    }
+                    
+                    mouseDown = false;
+                    e.preventDefault();
+                });
+            }
+
             // Event Listeners
             document.addEventListener('keydown', handleKeyDown);
             restartButton.addEventListener('click', restartGame);
             nextLevelButton.addEventListener('click', startNewLevel);
+
+            // Configura eventos de toque
+            setupTouchEvents();
 
             // Inicialização do jogo
             initGame();
 
             function initGame() {
                 restartGame(); // Inicia a primeira fase
+                
+                // Configura transição do indicador de arraste
+                setTimeout(() => {
+                    dragIndicator.style.transition = 'opacity 0.5s ease';
+                    dragIndicator.style.opacity = '0';
+                }, 3000);
             }
         });
     </script>
