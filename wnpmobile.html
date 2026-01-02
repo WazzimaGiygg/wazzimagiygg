@@ -13,7 +13,7 @@
         /* Estilos base do corpo e do contêiner */
         body {
             font-family: 'Noto Sans', sans-serif;
-            margin: 0;
+            margin: 0;async function buscarArtigosasync function buscarArtigos
             padding: 0;
             background-color: #f8f9fa;
             color: #202122;
@@ -1075,151 +1075,44 @@
         });
 
         // --- Lógica de busca e exibição dos artigos ---
-        async function buscarArtigos(filtros = {}, usarFiltros = false) {
-            artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
-            
-            const ordenacao = ordenarPorSelect ? ordenarPorSelect.value : 'data-desc';
-            const dataInicio = filtroDataInicio ? filtroDataInicio.value : '';
-            const dataFim = filtroDataFim ? filtroDataFim.value : '';
-            
-            // Se não estamos usando os filtros da interface, usa os filtros passados como parâmetro
-            if (!usarFiltros) {
-                const uid = filtros.uid ? filtros.uid.trim() : '';
-                const tituloBusca = filtros.titulo ? filtros.titulo.toLowerCase() : '';
-                const descricaoBusca = filtros.descricao ? filtros.descricao.toLowerCase() : '';
-                const setorBusca = filtros.setor ? filtros.setor : '';
-                
-                // Mantém a lógica original de busca por UID
-                if (uid) {
-                    artigosTitle.textContent = 'Resultado da busca por UID';
-                    try {
-                        const doc = await db.collection('materiadeensaio').doc(uid).get();
-                        artigosList.innerHTML = '';
-                        if (doc.exists) {
-                            const materia = doc.data();
-                            const artigoItem = document.createElement('div');
-                            artigoItem.className = 'artigo-item';
-                            artigoItem.setAttribute('data-id', doc.id);
-                            artigoItem.innerHTML = `
-                                <h3>${materia.titulo}</h3>
-                                <p>ID: ${doc.id}</p>
-                            `;
-                            artigoItem.addEventListener('click', () => {
-                                carregarDetalhesArtigo(doc.id, materia);
-                                if (artigoSelecionado) {
-                                    artigoSelecionado.classList.remove('ativo');
-                                }
-                                artigoItem.classList.add('ativo');
-                                artigoSelecionado = artigoItem;
-                            });
-                            artigosList.appendChild(artigoItem);
-                            
-                            // Atualiza contador
-                            if (contadorArtigos) {
-                                contadorArtigos.textContent = `1 artigo encontrado`;
-                            }
-                        } else {
-                            artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com este UID.</p>`;
-                            if (contadorArtigos) {
-                                contadorArtigos.textContent = `0 artigos encontrados`;
-                            }
-                        }
-                    } catch (error) {
-                        console.error("Erro ao buscar artigo por UID: ", error);
-                        artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-                        if (contadorArtigos) {
-                            contadorArtigos.textContent = `Erro na busca`;
-                        }
-                    }
-                    return;
-                }
-            }
-
+async function buscarArtigos(filtros = {}, usarFiltros = false) {
+    artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
+    
+    let ordenacao = ordenarPorSelect ? ordenarPorSelect.value : 'data-desc';
+    const dataInicio = filtroDataInicio ? filtroDataInicio.value : '';
+    const dataFim = filtroDataFim ? filtroDataFim.value : '';
+    
+    // Verificação: Se há filtro de data e usuário selecionou ordenação por título, ajusta
+    if ((dataInicio || dataFim) && (ordenacao === 'titulo-asc' || ordenacao === 'titulo-desc')) {
+        // Com filtro de data, não podemos ordenar por título diretamente no Firestore
+        // Vamos manter a ordenação selecionada para fazer ordenação manual depois
+        console.log("Filtro de data ativo com ordenação por título - ordenação manual será aplicada");
+    }
+    
+    // Se não estamos usando os filtros da interface, usa os filtros passados como parâmetro
+    if (!usarFiltros) {
+        const uid = filtros.uid ? filtros.uid.trim() : '';
+        const tituloBusca = filtros.titulo ? filtros.titulo.toLowerCase() : '';
+        const descricaoBusca = filtros.descricao ? filtros.descricao.toLowerCase() : '';
+        const setorBusca = filtros.setor ? filtros.setor : '';
+        
+        // Mantém a lógica original de busca por UID
+        if (uid) {
+            artigosTitle.textContent = 'Resultado da busca por UID';
             try {
-                let query = db.collection('materiadeensaio');
-                
-                // Aplica filtro de data se existir
-                if (dataInicio || dataFim) {
-                    if (dataInicio) {
-                        const inicioDate = new Date(dataInicio);
-                        inicioDate.setHours(0, 0, 0, 0);
-                        query = query.where('ultimaEdicao', '>=', firebase.firestore.Timestamp.fromDate(inicioDate));
-                    }
-                    if (dataFim) {
-                        const fimDate = new Date(dataFim);
-                        fimDate.setHours(23, 59, 59, 999);
-                        query = query.where('ultimaEdicao', '<=', firebase.firestore.Timestamp.fromDate(fimDate));
-                    }
-                }
-                
-                // Aplica ordenação baseada na seleção
-                switch (ordenacao) {
-                    case 'data-desc':
-                        query = query.orderBy('ultimaEdicao', 'desc');
-                        artigosTitle.textContent = 'Artigos Mais Recentes';
-                        break;
-                    case 'data-asc':
-                        query = query.orderBy('ultimaEdicao', 'asc');
-                        artigosTitle.textContent = 'Artigos Mais Antigos';
-                        break;
-                    case 'titulo-asc':
-                        query = query.orderBy('titulo', 'asc');
-                        artigosTitle.textContent = 'Artigos por Título (A-Z)';
-                        break;
-                    case 'titulo-desc':
-                        query = query.orderBy('titulo', 'desc');
-                        artigosTitle.textContent = 'Artigos por Título (Z-A)';
-                        break;
-                }
-                
-                const querySnapshot = await query.limit(200).get();
+                const doc = await db.collection('materiadeensaio').doc(uid).get();
                 artigosList.innerHTML = '';
-                
-                let resultados = [];
-                querySnapshot.forEach(doc => {
+                if (doc.exists) {
                     const materia = doc.data();
-                    
-                    // Aplica filtros de texto se existirem (da busca avançada)
-                    const titulo = materia.titulo ? materia.titulo.toLowerCase() : '';
-                    const descricao = materia.descricao ? materia.descricao.toLowerCase() : '';
-                    
-                    const matchTitulo = filtros.titulo ? titulo.includes(filtros.titulo.toLowerCase()) : true;
-                    const matchDescricao = filtros.descricao ? descricao.includes(filtros.descricao.toLowerCase()) : true;
-                    const matchSetor = filtros.setor ? materia.setor === filtros.setor : true;
-                    
-                    if (matchTitulo && matchDescricao && matchSetor) {
-                        resultados.push({ id: doc.id, data: materia });
-                    }
-                });
-
-                // Atualiza contador
-                if (contadorArtigos) {
-                    contadorArtigos.textContent = `${resultados.length} artigos encontrados`;
-                }
-
-                if (resultados.length === 0) {
-                    artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com os filtros aplicados.</p>`;
-                    return;
-                }
-
-                resultados.forEach(resultado => {
                     const artigoItem = document.createElement('div');
                     artigoItem.className = 'artigo-item';
-                    artigoItem.setAttribute('data-id', resultado.id);
-                    
-                    const dataFormatada = resultado.data.ultimaEdicao 
-                        ? new Date(resultado.data.ultimaEdicao.seconds * 1000).toLocaleDateString('pt-BR')
-                        : 'Data desconhecida';
-                    
+                    artigoItem.setAttribute('data-id', doc.id);
                     artigoItem.innerHTML = `
-                        <h3>${resultado.data.titulo}</h3>
-                        <p><strong>ID:</strong> ${resultado.id}</p>
-                        <p><strong>Última edição:</strong> ${dataFormatada}</p>
-                        ${resultado.data.setor ? `<p><strong>Setor:</strong> ${resultado.data.setor}</p>` : ''}
+                        <h3>${materia.titulo}</h3>
+                        <p>ID: ${doc.id}</p>
                     `;
-                    
                     artigoItem.addEventListener('click', () => {
-                        carregarDetalhesArtigo(resultado.id, resultado.data);
+                        carregarDetalhesArtigo(doc.id, materia);
                         if (artigoSelecionado) {
                             artigoSelecionado.classList.remove('ativo');
                         }
@@ -1227,42 +1120,196 @@
                         artigoSelecionado = artigoItem;
                     });
                     artigosList.appendChild(artigoItem);
-                });
-                
+                    
+                    // Atualiza contador
+                    if (contadorArtigos) {
+                        contadorArtigos.textContent = `1 artigo encontrado`;
+                    }
+                } else {
+                    artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com este UID.</p>`;
+                    if (contadorArtigos) {
+                        contadorArtigos.textContent = `0 artigos encontrados`;
+                    }
+                }
             } catch (error) {
-                console.error("Erro ao buscar artigos: ", error);
+                console.error("Erro ao buscar artigo por UID: ", error);
                 artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
-                
                 if (contadorArtigos) {
                     contadorArtigos.textContent = `Erro na busca`;
                 }
-                
-                // Verifica se precisa de índice composto
-                if (error.code === 'failed-precondition') {
-                    console.warn("Possível necessidade de criar índices no Firestore para as consultas combinadas.");
-                }
+            }
+            return;
+        }
+    }
+
+    try {
+        let query = db.collection('materiadeensaio');
+        let temFiltroData = false;
+        let precisaOrdenacaoManual = false;
+        
+        // Aplica filtro de data se existir
+        if (dataInicio || dataFim) {
+            temFiltroData = true;
+            
+            // Se tem filtro de data E quer ordenar por título, marcamos para ordenação manual
+            if (ordenacao === 'titulo-asc' || ordenacao === 'titulo-desc') {
+                precisaOrdenacaoManual = true;
+                // Para o Firestore, ordenamos por data (requisito do Firestore)
+                query = query.orderBy('ultimaEdicao', 'desc');
+            } else {
+                // Ordenação por data - ok para Firestore
+                const direcao = ordenacao === 'data-asc' ? 'asc' : 'desc';
+                query = query.orderBy('ultimaEdicao', direcao);
+            }
+            
+            // Aplica os filtros de data
+            if (dataInicio) {
+                const inicioDate = new Date(dataInicio);
+                inicioDate.setHours(0, 0, 0, 0);
+                query = query.where('ultimaEdicao', '>=', firebase.firestore.Timestamp.fromDate(inicioDate));
+            }
+            if (dataFim) {
+                const fimDate = new Date(dataFim);
+                fimDate.setHours(23, 59, 59, 999);
+                query = query.where('ultimaEdicao', '<=', firebase.firestore.Timestamp.fromDate(fimDate));
+            }
+        } else {
+            // Sem filtro de data, podemos usar qualquer ordenação
+            switch (ordenacao) {
+                case 'data-desc':
+                    query = query.orderBy('ultimaEdicao', 'desc');
+                    artigosTitle.textContent = 'Artigos Mais Recentes';
+                    break;
+                case 'data-asc':
+                    query = query.orderBy('ultimaEdicao', 'asc');
+                    artigosTitle.textContent = 'Artigos Mais Antigos';
+                    break;
+                case 'titulo-asc':
+                    query = query.orderBy('titulo', 'asc');
+                    artigosTitle.textContent = 'Artigos por Título (A-Z)';
+                    break;
+                case 'titulo-desc':
+                    query = query.orderBy('titulo', 'desc');
+                    artigosTitle.textContent = 'Artigos por Título (Z-A)';
+                    break;
             }
         }
-
-        // Event listener para a busca avançada
-        buscaAvancadaForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const filtros = {
-                titulo: buscaTituloInput.value,
-                descricao: buscaDescricaoInput.value,
-                uid: buscaUidInput.value
-            };
+        
+        const querySnapshot = await query.limit(200).get();
+        artigosList.innerHTML = '';
+        
+        let resultados = [];
+        querySnapshot.forEach(doc => {
+            const materia = doc.data();
             
-            exibirPainel('detalhes-artigo');
+            // Aplica filtros de texto se existirem (da busca avançada)
+            const titulo = materia.titulo ? materia.titulo.toLowerCase() : '';
+            const descricao = materia.descricao ? materia.descricao.toLowerCase() : '';
             
-            // Se estiver buscando por UID, usa a busca específica
-            if (filtros.uid) {
-                buscarArtigos(filtros, false);
-            } else {
-                // Para outras buscas, aplica os filtros junto com os da interface
-                buscarArtigos(filtros, true);
+            const matchTitulo = filtros.titulo ? titulo.includes(filtros.titulo.toLowerCase()) : true;
+            const matchDescricao = filtros.descricao ? descricao.includes(filtros.descricao.toLowerCase()) : true;
+            const matchSetor = filtros.setor ? materia.setor === filtros.setor : true;
+            
+            if (matchTitulo && matchDescricao && matchSetor) {
+                resultados.push({ 
+                    id: doc.id, 
+                    data: materia,
+                    tituloLower: titulo // Adicionamos para ordenação manual
+                });
             }
         });
+
+        // Ordenação manual se necessário
+        if (precisaOrdenacaoManual) {
+            resultados.sort((a, b) => {
+                const tituloA = a.tituloLower || '';
+                const tituloB = b.tituloLower || '';
+                if (ordenacao === 'titulo-asc') {
+                    return tituloA.localeCompare(tituloB);
+                } else {
+                    return tituloB.localeCompare(tituloA);
+                }
+            });
+            artigosTitle.textContent = ordenacao === 'titulo-asc' 
+                ? 'Artigos por Título (A-Z) - Período selecionado' 
+                : 'Artigos por Título (Z-A) - Período selecionado';
+        } else if (temFiltroData) {
+            // Com filtro de data e ordenação por data
+            artigosTitle.textContent = ordenacao === 'data-asc' 
+                ? 'Artigos Mais Antigos - Período selecionado' 
+                : 'Artigos Mais Recentes - Período selecionado';
+        }
+
+        // Atualiza contador
+        if (contadorArtigos) {
+            contadorArtigos.textContent = `${resultados.length} artigos encontrados`;
+        }
+
+        if (resultados.length === 0) {
+            artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com os filtros aplicados.</p>`;
+            return;
+        }
+
+        resultados.forEach(resultado => {
+            const artigoItem = document.createElement('div');
+            artigoItem.className = 'artigo-item';
+            artigoItem.setAttribute('data-id', resultado.id);
+            
+            const dataFormatada = resultado.data.ultimaEdicao 
+                ? new Date(resultado.data.ultimaEdicao.seconds * 1000).toLocaleDateString('pt-BR')
+                : 'Data desconhecida';
+            
+            artigoItem.innerHTML = `
+                <h3>${resultado.data.titulo}</h3>
+                <p><strong>ID:</strong> ${resultado.id}</p>
+                <p><strong>Última edição:</strong> ${dataFormatada}</p>
+                ${resultado.data.setor ? `<p><strong>Setor:</strong> ${resultado.data.setor}</p>` : ''}
+            `;
+            
+            artigoItem.addEventListener('click', () => {
+                carregarDetalhesArtigo(resultado.id, resultado.data);
+                if (artigoSelecionado) {
+                    artigoSelecionado.classList.remove('ativo');
+                }
+                artigoItem.classList.add('ativo');
+                artigoSelecionado = artigoItem;
+            });
+            artigosList.appendChild(artigoItem);
+        });
+        
+    } catch (error) {
+        console.error("Erro ao buscar artigos: ", error);
+        artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
+        
+        if (contadorArtigos) {
+            contadorArtigos.textContent = `Erro na busca`;
+        }
+        
+        // Verifica se precisa de índice composto
+        if (error.code === 'failed-precondition') {
+            console.warn("Possível necessidade de criar índices no Firestore para as consultas combinadas.");
+            
+            // Mostra mensagem mais amigável
+            if (error.message.includes('requires an index')) {
+                artigosList.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <p style="color: #e74c3c;">Erro na configuração do banco de dados</p>
+                        <p style="color: #e67e22; font-size: 0.9em; margin-top: 10px;">
+                            Esta combinação de filtros requer um índice especial no Firebase.
+                            <br>
+                            <button id="btn-tentar-simples" style="margin-top: 10px; padding: 8px 15px; background-color: #2a6f8b; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Tentar busca sem filtro de data
+                            </button>
+                        </p>
+                    </div>
+                `;
+                
+                // Adiciona botão para tentar sem filtro de data
+                document.getElementById('btn-tentar-simples')?.addEventListener('click', () => {
+                    if (filtroDataInicio) filtroDataInicio.value = '';
+                    if (filtroDataFim) filtroDataFim.value = '';
+                    buscarArtigos(filtros, true);
+                });
 
         // Event listeners para os novos controles de filtro
         if (aplicarFiltrosBtn) {
