@@ -1,32 +1,31 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de JSON em Múltiplas Abas</title>
+    <title>Visualizador de JSON do Firebase</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
             background-color: #f4f4f4;
-            padding: 100px;
+            padding: 20px;
             margin: 0;
             display: flex;
             flex-direction: column;
-            height: 100vh; /* Full height */
+            height: 100vh;
         }
         .container {
             max-width: 100%;
             margin: auto;
             background: white;
-            padding: 150px;
+            padding: 30px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            flex: 1; /* Allow container to grow and shrink */
+            flex: 1;
         }
         .tabs {
             display: flex;
-            flex-wrap: wrap; /* Allow wrapping of tabs */
+            flex-wrap: wrap;
             margin-bottom: 10px;
         }
         .tab {
@@ -44,21 +43,22 @@
         }
         .iframe-container {
             position: relative;
-            width: 100%; /* Full width */
-            height: 100%; /* Make iframe container occupy all available space */
+            width: 100%;
+            height: calc(100vh - 300px);
         }
         iframe {
-            width: 100%; /* Full width */
+            width: 100%;
             border: 1px solid #ccc;
             margin-top: 0;
             border-radius: 4px;
-            height: 100%; /* Make iframe fill all available vertical space */
+            height: 100%;
         }
-        input[type="file"], input[type="password"], button, input[type="text"] {
+        input[type="text"], input[type="password"], button {
             width: 100%;
-            margin: 20px 0;
+            margin: 10px 0;
             padding: 12px;
             font-size: 16px;
+            box-sizing: border-box;
         }
         button {
             background-color: #4285F4;
@@ -70,84 +70,201 @@
         button:hover {
             background-color: #357ae8;
         }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .error {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: none;
+        }
         @media (max-width: 480px) {
-            iframe {
-                height: 750px;
+            .container {
+                padding: 15px;
+            }
+            body {
+                padding: 10px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container" id="contentContainer">
-        <h1>Importar JSON e Visualizar em Abas</h1>
-
-        <!-- Campo para inserir o nome do arquivo JSON -->
-        <input type="text" id="fileName" placeholder="Insira o usuário" value="">
-        <!-- Campo de senha -->
-        <input type="password" id="encryptionPassword" placeholder="Digite a senha" value="">
-        <button id="importButton">Importar JSON</button>
+        <h1>Visualizador de Dados do Firebase</h1>
+        
+        <div class="error" id="errorMessage"></div>
+        
+        <!-- Campo para inserir o ID do documento do Firebase -->
+        <input type="text" id="userId" placeholder="Digite o ID do usuário (documento Firebase)" value="">
+        
+        <!-- Campo de senha (opcional, dependendo da sua implementação) -->
+        <input type="password" id="encryptionPassword" placeholder="Digite a senha (se necessário)" value="">
+        
+        <button id="importButton">Carregar Dados do Firebase</button>
+        
+        <div class="loading" id="loading">
+            <p>Carregando dados do Firebase...</p>
+        </div>
 
         <div class="tabs" id="tabs"></div>
         <div id="iframesContainer"></div>
     </div>
 
+    <!-- Incluir Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
     <script>
-        // Quando o botão for clicado, o JSON será carregado
-        document.getElementById('importButton').onclick = function() {
-            importJSON();
+        // Configuração do Firebase (SUBSTITUA COM SUAS CONFIGURAÇÕES)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
         };
 
-        function importJSON() {
-            // Obter o nome do arquivo JSON
-            const fileName = document.getElementById('fileName').value;
-            if (!fileName) {
-                alert('Por favor, insira o nome do arquivo JSON.');
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Quando o botão for clicado
+        document.getElementById('importButton').onclick = function() {
+            importFromFirebase();
+        };
+
+        // Também permitir Enter no campo de ID
+        document.getElementById('userId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                importFromFirebase();
+            }
+        });
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        async function importFromFirebase() {
+            const userId = document.getElementById('userId').value.trim();
+            
+            if (!userId) {
+                showError('Por favor, insira o ID do usuário/documento.');
                 return;
             }
 
-            // Criar o link completo para o arquivo JSON
-            const jsonLink = `./${fileName}.json`;
+            // Limpar abas e iframes anteriores
+            document.getElementById('tabs').innerHTML = '';
+            document.getElementById('iframesContainer').innerHTML = '';
+            
+            showLoading(true);
+            document.getElementById('importButton').disabled = true;
 
-            // Carregar o arquivo JSON
-            fetch(jsonLink)
-                .then(response => response.text())  // Carregar o conteúdo como texto
-                .then(encryptedData => {
-                    const password = document.getElementById('encryptionPassword').value;
+            try {
+                // Buscar documento na coleção "gespai" pelo ID
+                const docRef = db.collection('gespai').doc(userId);
+                const doc = await docRef.get();
 
-                    // Decriptografar o conteúdo
+                if (!doc.exists) {
+                    showError('Documento não encontrado na coleção "gespai".');
+                    showLoading(false);
+                    document.getElementById('importButton').disabled = false;
+                    return;
+                }
+
+                const data = doc.data();
+                const password = document.getElementById('encryptionPassword').value;
+
+                // Se você armazena dados criptografados no Firebase
+                if (password) {
                     try {
-                        const bytes = CryptoJS.AES.decrypt(encryptedData, password);
-                        const jsonString = bytes.toString(CryptoJS.enc.Utf8);
-
-                        // Verificar se a decriptação gerou um JSON válido
-                        let parsedData;
-                        try {
-                            parsedData = JSON.parse(jsonString);
-                        } catch (parseError) {
-                            alert('Erro ao analisar o conteúdo JSON. O arquivo pode estar corrompido ou mal formatado.');
-                            return;
-                        }
-
-                        // Limpar abas e iframes anteriores
-                        document.getElementById('tabs').innerHTML = '';
-                        document.getElementById('iframesContainer').innerHTML = '';
-
-                        // Adicionar abas e iframes baseados nos dados JSON
-                        for (const key in parsedData) {
-                            if (parsedData.hasOwnProperty(key)) {
-                                addTab(parsedData[key], key);
+                        // Processar cada campo que possa estar criptografado
+                        const processedData = {};
+                        for (const key in data) {
+                            if (typeof data[key] === 'string' && data[key].includes('U2FsdGVk')) {
+                                // Tentar descriptografar
+                                try {
+                                    const bytes = CryptoJS.AES.decrypt(data[key], password);
+                                    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                                    processedData[key] = decrypted;
+                                } catch (e) {
+                                    // Se falhar na descriptografia, usar o valor original
+                                    processedData[key] = data[key];
+                                }
+                            } else {
+                                processedData[key] = data[key];
                             }
                         }
+                        
+                        // Criar abas com os dados processados
+                        createTabsFromData(processedData);
                     } catch (e) {
-                        alert('Erro ao decriptografar o arquivo. Verifique a senha ou o formato do arquivo.');
+                        showError('Erro ao processar dados criptografados.');
+                        console.error(e);
                     }
-                })
-                .catch(error => {
-                    alert('Erro ao carregar o arquivo JSON. Verifique o nome do arquivo e tente novamente.');
-                    console.error(error);
-                });
+                } else {
+                    // Se não há senha, usar dados diretamente
+                    createTabsFromData(data);
+                }
+                
+            } catch (error) {
+                console.error('Erro ao buscar dados:', error);
+                showError('Erro ao conectar ao Firebase. Verifique sua conexão.');
+            } finally {
+                showLoading(false);
+                document.getElementById('importButton').disabled = false;
+            }
+        }
+
+        function createTabsFromData(data) {
+            // Verificar se há dados para exibir
+            if (!data || Object.keys(data).length === 0) {
+                showError('Nenhum dado encontrado neste documento.');
+                return;
+            }
+
+            // Adicionar abas para cada campo do documento
+            for (const key in data) {
+                if (data.hasOwnProperty(key)) {
+                    let content = data[key];
+                    
+                    // Se o conteúdo for um objeto/array, converter para string formatada
+                    if (typeof content === 'object') {
+                        content = JSON.stringify(content, null, 2);
+                        content = `<pre style="padding: 20px; white-space: pre-wrap;">${content}</pre>`;
+                    } else if (typeof content === 'string') {
+                        // Verificar se é HTML
+                        if (content.trim().startsWith('<')) {
+                            // Já é HTML, usar como está
+                        } else {
+                            // É texto simples, colocar em um container
+                            content = `<div style="padding: 20px;">${content}</div>`;
+                        }
+                    }
+                    
+                    addTab(content, key);
+                }
+            }
         }
 
         function addTab(htmlContent, tabName) {
@@ -163,7 +280,7 @@
             const iframe = document.createElement('iframe');
             iframe.id = tabName;
             iframe.srcdoc = htmlContent;
-            iframe.onload = () => adjustIframeHeight(iframe); // Ajustar altura depois do carregamento do conteúdo
+            iframe.onload = () => adjustIframeHeight(iframe);
 
             iframeContainer.appendChild(iframe);
             document.getElementById('iframesContainer').appendChild(iframeContainer);
@@ -189,26 +306,38 @@
                 iframe.style.display = 'none';
             });
 
-            document.getElementById(tabName).style.display = 'block';
+            const activeIframe = document.getElementById(tabName);
+            if (activeIframe) {
+                activeIframe.style.display = 'block';
+                adjustIframeHeight(activeIframe);
+            }
+
             const activeTab = Array.from(tabs).find(tab => tab.innerText === tabName);
             if (activeTab) {
                 activeTab.classList.add('active');
             }
-
-            // Ajustar a altura do iframe ativo
-            const activeIframe = document.getElementById(tabName);
-            if (activeIframe) {
-                adjustIframeHeight(activeIframe);
-            }
         }
 
-        // Função para ajustar a altura do iframe dinamicamente
         function adjustIframeHeight(iframe) {
-            const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
-            const body = iframeDocument.body;
-
-            // Ajustar altura do iframe com base no conteúdo
-            iframe.style.height = `${window.innerHeight - iframe.getBoundingClientRect().top - 20}px`;  // Ajuste com a altura da janela
+            try {
+                const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+                const body = iframeDocument.body;
+                const html = iframeDocument.documentElement;
+                
+                if (body && html) {
+                    const height = Math.max(
+                        body.scrollHeight,
+                        body.offsetHeight,
+                        html.clientHeight,
+                        html.scrollHeight,
+                        html.offsetHeight
+                    );
+                    iframe.style.height = Math.min(height, window.innerHeight - 200) + 'px';
+                }
+            } catch (e) {
+                // Cross-origin error, usar altura padrão
+                iframe.style.height = '500px';
+            }
         }
     </script>
 </body>
