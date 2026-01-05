@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de JSON do Firebase</title>
+    <title>Visualizador de Dados do Firebase</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -44,7 +44,7 @@
         .iframe-container {
             position: relative;
             width: 100%;
-            height: calc(100vh - 300px);
+            height: calc(100vh - 350px);
         }
         iframe {
             width: 100%;
@@ -87,6 +87,42 @@
             margin: 10px 0;
             display: none;
         }
+        .auth-section {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4caf50;
+        }
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .auth-status {
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            display: none;
+        }
+        .authenticated {
+            background: #4caf50;
+            color: white;
+        }
+        .not-authenticated {
+            background: #ff9800;
+            color: white;
+        }
+        .uid-info {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            word-break: break-all;
+            font-size: 12px;
+        }
         @media (max-width: 480px) {
             .container {
                 padding: 15px;
@@ -101,15 +137,47 @@
     <div class="container" id="contentContainer">
         <h1>Visualizador de Dados do Firebase</h1>
         
+        <!-- Seção de Autenticação -->
+        <div class="auth-section" id="authSection">
+            <h3>🔐 Autenticação Obrigatória</h3>
+            <div id="authStatus" class="auth-status"></div>
+            
+            <div id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" class="form-control" placeholder="seu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">Senha:</label>
+                    <input type="password" id="password" class="form-control" placeholder="Sua senha">
+                </div>
+                <div class="auth-buttons">
+                    <button class="btn" onclick="login()" style="background: #4285F4; color: white; padding: 10px;">Entrar</button>
+                    <button class="btn" onclick="signup()" style="background: #34A853; color: white; padding: 10px;">Cadastrar</button>
+                    <button class="btn" onclick="loginAnonymously()" style="background: #666; color: white; padding: 10px;">
+                        Acesso Anônimo
+                    </button>
+                </div>
+            </div>
+            
+            <div id="userInfo" style="display: none;">
+                <div class="uid-info">
+                    <strong>Seu UID:</strong> <span id="userUid"></span>
+                </div>
+                <p>Logado como: <strong id="userEmail"></strong></p>
+                <button class="btn" onclick="logout()" style="background: #EA4335; color: white; padding: 10px;">Sair</button>
+            </div>
+        </div>
+        
         <div class="error" id="errorMessage"></div>
         
         <!-- Campo para inserir o ID do documento do Firebase -->
-        <input type="text" id="userId" placeholder="Digite o ID do usuário (documento Firebase)" value="">
+        <input type="text" id="userId" placeholder="Digite o UID do usuário (seu próprio UID)" value="" disabled>
         
         <!-- Campo de senha (opcional, dependendo da sua implementação) -->
         <input type="password" id="encryptionPassword" placeholder="Digite a senha (se necessário)" value="">
         
-        <button id="importButton">Carregar Dados do Firebase</button>
+        <button id="importButton" disabled>Carregar Meus Dados</button>
         
         <div class="loading" id="loading">
             <p>Carregando dados do Firebase...</p>
@@ -119,13 +187,14 @@
         <div id="iframesContainer"></div>
     </div>
 
-    <!-- Incluir Firebase SDK -->
+    <!-- Incluir Firebase SDK (ADICIONAR AUTH) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
     <script>
-        // Configuração do Firebase (SUBSTITUA COM SUAS CONFIGURAÇÕES)
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -139,6 +208,128 @@
         // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        let currentUser = null;
+
+        // Observador de autenticação
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            updateAuthUI();
+            
+            if (user) {
+                console.log('Usuário autenticado:', user.uid);
+                // Preencher automaticamente o campo de UID
+                document.getElementById('userId').value = user.uid;
+                showError('✅ Autenticado! Você pode carregar seus dados.', 'success');
+            } else {
+                console.log('Usuário não autenticado');
+                document.getElementById('userId').value = '';
+                showError('🔐 Faça login para visualizar seus dados', 'info');
+            }
+        });
+
+        // Atualizar interface de autenticação
+        function updateAuthUI() {
+            const loginForm = document.getElementById('loginForm');
+            const userInfo = document.getElementById('userInfo');
+            const authStatus = document.getElementById('authStatus');
+            const importButton = document.getElementById('importButton');
+            const userIdInput = document.getElementById('userId');
+            
+            if (currentUser) {
+                // Usuário logado
+                loginForm.style.display = 'none';
+                userInfo.style.display = 'block';
+                document.getElementById('userEmail').textContent = 
+                    currentUser.email || 'Usuário Anônimo';
+                document.getElementById('userUid').textContent = currentUser.uid;
+                authStatus.textContent = '✅ Autenticado';
+                authStatus.className = 'auth-status authenticated';
+                authStatus.style.display = 'block';
+                
+                // Habilitar botões
+                importButton.disabled = false;
+                userIdInput.disabled = false;
+                
+            } else {
+                // Usuário não logado
+                loginForm.style.display = 'block';
+                userInfo.style.display = 'none';
+                authStatus.textContent = '⚠️ Não autenticado';
+                authStatus.className = 'auth-status not-authenticated';
+                authStatus.style.display = 'block';
+                
+                // Desabilitar botões
+                importButton.disabled = true;
+                userIdInput.disabled = true;
+            }
+        }
+
+        // Funções de autenticação
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showError('Por favor, preencha email e senha.', 'error');
+                return;
+            }
+            
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                showError('✅ Login realizado com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro no login:', error);
+                showError(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+        
+        async function signup() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showError('Por favor, preencha email e senha.', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('A senha deve ter pelo menos 6 caracteres.', 'error');
+                return;
+            }
+            
+            try {
+                await auth.createUserWithEmailAndPassword(email, password);
+                showError('✅ Cadastro realizado com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro no cadastro:', error);
+                showError(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loginAnonymously() {
+            try {
+                await auth.signInAnonymously();
+                showError('✅ Acesso anônimo ativado', 'success');
+            } catch (error) {
+                console.error('Erro no acesso anônimo:', error);
+                showError(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+        
+        async function logout() {
+            try {
+                await auth.signOut();
+                showError('✅ Logout realizado.', 'info');
+                // Limpar abas e iframes
+                document.getElementById('tabs').innerHTML = '';
+                document.getElementById('iframesContainer').innerHTML = '';
+            } catch (error) {
+                console.error('Erro no logout:', error);
+                showError(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
 
         // Quando o botão for clicado
         document.getElementById('importButton').onclick = function() {
@@ -152,9 +343,25 @@
             }
         });
 
-        function showError(message) {
+        function showError(message, type = 'error') {
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.textContent = message;
+            
+            // Definir cores baseadas no tipo
+            if (type === 'success') {
+                errorDiv.style.backgroundColor = '#d4edda';
+                errorDiv.style.color = '#155724';
+                errorDiv.style.border = '1px solid #c3e6cb';
+            } else if (type === 'info') {
+                errorDiv.style.backgroundColor = '#d1ecf1';
+                errorDiv.style.color = '#0c5460';
+                errorDiv.style.border = '1px solid #bee5eb';
+            } else {
+                errorDiv.style.backgroundColor = '#f8d7da';
+                errorDiv.style.color = '#721c24';
+                errorDiv.style.border = '1px solid #f5c6cb';
+            }
+            
             errorDiv.style.display = 'block';
             setTimeout(() => {
                 errorDiv.style.display = 'none';
@@ -166,10 +373,22 @@
         }
 
         async function importFromFirebase() {
+            // Verificar autenticação
+            if (!currentUser) {
+                showError('❌ Você precisa estar autenticado para carregar dados.', 'error');
+                return;
+            }
+            
             const userId = document.getElementById('userId').value.trim();
             
             if (!userId) {
-                showError('Por favor, insira o ID do usuário/documento.');
+                showError('Por favor, insira o ID do usuário/documento.', 'error');
+                return;
+            }
+            
+            // Verificar se o usuário está tentando acessar seu próprio documento
+            if (userId !== currentUser.uid) {
+                showError('❌ Você só pode visualizar seu próprio documento (seu UID).', 'error');
                 return;
             }
 
@@ -186,7 +405,7 @@
                 const doc = await docRef.get();
 
                 if (!doc.exists) {
-                    showError('Documento não encontrado na coleção "gespai".');
+                    showError('Documento não encontrado. Você ainda não salvou dados.', 'info');
                     showLoading(false);
                     document.getElementById('importButton').disabled = false;
                     return;
@@ -210,6 +429,7 @@
                                 } catch (e) {
                                     // Se falhar na descriptografia, usar o valor original
                                     processedData[key] = data[key];
+                                    console.log('Falha ao descriptografar campo:', key);
                                 }
                             } else {
                                 processedData[key] = data[key];
@@ -219,7 +439,7 @@
                         // Criar abas com os dados processados
                         createTabsFromData(processedData);
                     } catch (e) {
-                        showError('Erro ao processar dados criptografados.');
+                        showError('Erro ao processar dados criptografados.', 'error');
                         console.error(e);
                     }
                 } else {
@@ -229,7 +449,14 @@
                 
             } catch (error) {
                 console.error('Erro ao buscar dados:', error);
-                showError('Erro ao conectar ao Firebase. Verifique sua conexão.');
+                
+                if (error.code === 'permission-denied') {
+                    showError('❌ Permissão negada. Verifique se está autenticado e tentando acessar seu próprio UID.', 'error');
+                } else if (error.code === 'unavailable') {
+                    showError('❌ Firebase indisponível. Verifique sua conexão.', 'error');
+                } else {
+                    showError(`❌ Erro: ${error.message}`, 'error');
+                }
             } finally {
                 showLoading(false);
                 document.getElementById('importButton').disabled = false;
@@ -239,13 +466,14 @@
         function createTabsFromData(data) {
             // Verificar se há dados para exibir
             if (!data || Object.keys(data).length === 0) {
-                showError('Nenhum dado encontrado neste documento.');
+                showError('Nenhum dado encontrado neste documento.', 'info');
                 return;
             }
 
-            // Adicionar abas para cada campo do documento
+            // Adicionar abas para cada campo do documento (ignorar metadados)
+            let tabCount = 0;
             for (const key in data) {
-                if (data.hasOwnProperty(key)) {
+                if (data.hasOwnProperty(key) && key !== '_metadata') {
                     let content = data[key];
                     
                     // Se o conteúdo for um objeto/array, converter para string formatada
@@ -263,7 +491,12 @@
                     }
                     
                     addTab(content, key);
+                    tabCount++;
                 }
+            }
+            
+            if (tabCount > 0) {
+                showError(`✅ ${tabCount} página(s) carregada(s) com sucesso!`, 'success');
             }
         }
 
@@ -339,6 +572,18 @@
                 iframe.style.height = '500px';
             }
         }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAuthUI();
+            
+            // Permitir Enter no campo de senha também
+            document.getElementById('encryptionPassword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    importFromFirebase();
+                }
+            });
+        });
     </script>
 </body>
 </html>
