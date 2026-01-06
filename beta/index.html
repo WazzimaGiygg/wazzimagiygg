@@ -658,6 +658,11 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+// 🔹 Configurar para sempre pedir seleção de conta
+provider.setCustomParameters({
+  prompt: 'select_account'
+});
+
 // CONSTANTES DO FIRESTORE
 const KEY_ARRAY_FIELD = "itens_menu";
 const USER_CUSTOMIZATION_COLLECTION = "espacowazzimagiygg";
@@ -975,7 +980,14 @@ clockElement.onclick = (e) => {
     }
 };
 
+// -------------------------------------------------------------
+// 🚀 FUNÇÃO: LOGIN COM GOOGLE (SEMPRE MOSTRAR SELEÇÃO DE CONTA)
+// -------------------------------------------------------------
 loginBtn.addEventListener("click", () => {
+    // Configura para sempre mostrar seleção de conta
+    provider.setCustomParameters({
+        prompt: 'select_account'
+    });
     signInWithPopup(auth, provider);
 });
 
@@ -1135,7 +1147,7 @@ async function resetUserCustomization(userId) {
 }
 
 // -------------------------------------------------------------
-// 🚀 FUNÇÃO: POPULA MENU DO USUÁRIO
+// 🚀 FUNÇÃO: POPULA MENU DO USUÁRIO COM OPÇÃO DE TROCAR CONTA
 // -------------------------------------------------------------
 function populateUserMenu(userName, userEmail) {
     userMenu.innerHTML = '';
@@ -1149,6 +1161,11 @@ function populateUserMenu(userName, userEmail) {
     `;
     userMenu.appendChild(userHeader);
     
+    // Separador
+    const separator1 = document.createElement('hr');
+    separator1.style = 'border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 10px 0;';
+    userMenu.appendChild(separator1);
+    
     // Opção de Personalização
     const personalizationItem = document.createElement('div');
     personalizationItem.className = 'menu-item';
@@ -1161,9 +1178,19 @@ function populateUserMenu(userName, userEmail) {
     userMenu.appendChild(personalizationItem);
     
     // Separador
-    const separator = document.createElement('hr');
-    separator.style = 'border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 10px 0;';
-    userMenu.appendChild(separator);
+    const separator2 = document.createElement('hr');
+    separator2.style = 'border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 10px 0;';
+    userMenu.appendChild(separator2);
+    
+    // 🔹 NOVA OPÇÃO: Trocar de conta
+    const switchAccountItem = document.createElement('div');
+    switchAccountItem.className = 'menu-item';
+    switchAccountItem.innerHTML = `<img src="iconmagic.png" alt="icon"> Trocar de Conta`;
+    switchAccountItem.onclick = () => {
+        handleSwitchAccount();
+        closeAllMenus();
+    };
+    userMenu.appendChild(switchAccountItem);
     
     // Opção de Logoff
     const logoutItem = document.createElement('div');
@@ -1171,6 +1198,43 @@ function populateUserMenu(userName, userEmail) {
     logoutItem.innerHTML = `<img src="iconmagic.png" alt="icon"> Sair (Logoff)`;
     logoutItem.onclick = handleLogout;
     userMenu.appendChild(logoutItem);
+}
+
+// -------------------------------------------------------------
+// 🚀 FUNÇÃO: TROCAR DE CONTA GOOGLE
+// -------------------------------------------------------------
+async function handleSwitchAccount() {
+    try {
+        // Primeiro faz logout da conta atual
+        await signOut(auth);
+        
+        // Configura o provedor para sempre pedir seleção de conta
+        provider.setCustomParameters({
+            prompt: 'select_account'
+        });
+        
+        // Faz login novamente, mostrando a tela de seleção de conta
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        
+        console.log(`Conta alterada para: ${user.email}`);
+        
+        // Recarrega a personalização do novo usuário
+        await loadUserCustomization(user.uid, user.displayName, user.email);
+        populateUserMenu(user.displayName, user.email);
+        
+    } catch (error) {
+        console.error("Erro ao trocar de conta:", error);
+        
+        // Se o usuário cancelar, volta para a tela de login
+        if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+            // Mantém na tela de login
+            loginScreen.style.display = "flex";
+            desktop.style.display = "none";
+        } else {
+            alert("Erro ao tentar trocar de conta. Tente novamente.");
+        }
+    }
 }
 
 // -------------------------------------------------------------
@@ -1320,6 +1384,9 @@ toolsBtn.onclick = (e) => {
     }
 };
 
+// -------------------------------------------------------------
+// 🚀 FUNÇÃO: LOGOUT
+// -------------------------------------------------------------
 function handleLogout() {
     signOut(auth).then(() => {
         closeAllMenus();
