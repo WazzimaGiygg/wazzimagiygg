@@ -895,128 +895,7 @@
         const auth = firebase.auth();
         const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-        // ==========================================
-        // SISTEMA DE REGISTRO DE ACESSOS - FUNÇÕES SIMPLIFICADAS
-        // ==========================================
-        
-        const CHECKUSER_COLLECTION = "checkuser";
-
-        // Função SIMPLES para obter IP
-        async function getSimpleIPData() {
-            try {
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                return {
-                    ip: data.ip || 'N/A',
-                    city: 'Detectando...',
-                    country: 'Detectando...',
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'N/A'
-                };
-            } catch (error) {
-                console.error("Erro ao obter IP:", error);
-                return {
-                    ip: 'N/A',
-                    city: 'Erro',
-                    country: 'Erro',
-                    timezone: 'N/A'
-                };
-            }
-        }
-
-        // Função PRINCIPAL de registro (use esta em toda a página)
-        async function registerUserAccess(user, actionType = "access", pageName = "Artigos", details = {}) {
-            try {
-                if (!user || !user.uid) {
-                    console.log("Usuário não disponível para registro");
-                    return false;
-                }
-
-                console.log(`📝 Registrando: ${actionType} - ${user.email}`);
-                
-                // Obter IP
-                const ipData = await getSimpleIPData();
-                
-                // Coletar informações básicas do navegador
-                const browserInfo = {
-                    name: getBrowserName(),
-                    userAgent: navigator.userAgent.substring(0, 150),
-                    screen: `${window.screen.width}x${window.screen.height}`,
-                    language: navigator.language,
-                    platform: navigator.platform
-                };
-
-                // Dados do usuário
-                const userInfo = {
-                    uid: user.uid,
-                    email: user.email || 'N/A',
-                    displayName: user.displayName || 'N/A',
-                    photoURL: user.photoURL || 'N/A'
-                };
-
-                // Dados completos para registro
-                const logData = {
-                    user: userInfo,
-                    location: {
-                        ip: ipData.ip,
-                        city: ipData.city,
-                        country: ipData.country,
-                        timezone: ipData.timezone
-                    },
-                    browser: browserInfo,
-                    action: actionType,
-                    page: pageName,
-                    details: details,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    clientTimestamp: new Date().toISOString(),
-                    sessionId: 'artigos_' + Date.now(),
-                    url: window.location.href
-                };
-
-                // Registrar no Firestore
-                await db.collection(CHECKUSER_COLLECTION).add(logData);
-                
-                console.log(`✅ Registro concluído: ${actionType}`);
-                console.log(`📍 IP: ${ipData.ip}`);
-                console.log(`🌍 Página: ${pageName}`);
-                
-                return true;
-            } catch (error) {
-                console.error("❌ Erro no registro:", error);
-                console.error("Mensagem:", error.message);
-                return false;
-            }
-        }
-
-        // Função para nome do navegador
-        function getBrowserName() {
-            const ua = navigator.userAgent.toLowerCase();
-            if (ua.includes("chrome")) return "Chrome";
-            if (ua.includes("firefox")) return "Firefox";
-            if (ua.includes("safari") && !ua.includes("chrome")) return "Safari";
-            if (ua.includes("edge")) return "Edge";
-            if (ua.includes("opera") || ua.includes("opr")) return "Opera";
-            return "Desconhecido";
-        }
-
-        // Função para ações rápidas (não bloqueia a interface)
-        async function quickRegisterAction(action, details = {}) {
-            const user = auth.currentUser;
-            if (!user) return false;
-            
-            try {
-                // Não aguarda o registro para não bloquear
-                registerUserAccess(user, action, "Página de Artigos", details)
-                    .catch(err => console.warn("Registro falhou:", err));
-                return true;
-            } catch (error) {
-                return false;
-            }
-        }
-
-        // ==========================================
-        // ELEMENTOS DA PÁGINA
-        // ==========================================
-
+        // Elementos da interface
         const loginSection = document.getElementById('login-section');
         const loggedInHeader = document.getElementById('header-logged-in');
         const mainContainer = document.getElementById('content-split');
@@ -1026,7 +905,10 @@
         const criarArtigoBtn = document.getElementById('criar-artigo-btn');
         const minhasContribuicoesBtn = document.getElementById('minhas-contribuicoes-btn');
         const buscaAvancadaBtn = document.getElementById('busca-avancada-btn');
+        
+        // NOVO CÓDIGO - Botão e painel da página de busca
         const buscarArtigosBtn = document.getElementById('buscar-artigos-btn');
+        const buscarArtigosPane = document.getElementById('buscar-artigos-pane');
 
         const artigosPane = document.getElementById('artigos-pane');
         const buscaAvancadaPane = document.getElementById('busca-avancada-pane');
@@ -1037,6 +919,7 @@
         const paginaUsuarioSection = document.getElementById('pagina-usuario');
         const conteudoPrincipal = document.getElementById('conteudo-principal');
         const minhasContribuicoesPane = document.getElementById('minhas-contribuicoes');
+        const contribuicoesListaPrincipal = document.getElementById('contribuicoesListaPrincipal');
 
         const artigosList = document.getElementById('artigos-list');
         const artigosTitle = document.getElementById('artigos-title');
@@ -1047,7 +930,7 @@
         const buscaDescricaoInput = document.getElementById('busca-descricao');
         const buscaUidInput = document.getElementById('busca-uid');
 
-        // Elementos de edição
+        // Elementos de edição e histórico
         const formEdicaoArtigo = document.getElementById('form-edicao-artigo');
         const editTitulo = document.getElementById('edit-titulo');
         const editDescricao = document.getElementById('edit-descricao');
@@ -1056,7 +939,7 @@
         const voltarDetalhesBtn = document.getElementById('voltar-detalhes');
         const listaHistorico = document.getElementById('lista-historico');
 
-        // Elementos de criação
+        // Elementos de criação de artigo
         const formNovoArtigo = document.getElementById('form-novo-artigo');
         const newTitulo = document.getElementById('new-titulo');
         const newSetor = document.getElementById('new-setor');
@@ -1064,16 +947,19 @@
         const newDescricao = document.getElementById('new-descricao');
         const cancelarNovoArtigoBtn = document.getElementById('cancelar-novo-artigo');
 
-        // Elementos do usuário
+        // Elementos da página do usuário
         const userDisplayName = document.getElementById('user-display-name');
         const userRole = document.getElementById('user-role');
         const tabButtons = document.querySelectorAll('.user-tabs .tab-button');
+        const contribuicoesTab = document.getElementById('contribuicoes-tab');
+        const paginaPessoalTab = document.getElementById('pagina-pessoal-tab');
+        const discussaoTab = document.getElementById('discussao-tab');
         const paginaPessoalTextarea = document.getElementById('pagina-pessoal-textarea');
         const salvarPaginaPessoalBtn = document.getElementById('salvar-pagina-pessoal');
         const cancelarPaginaPessoalBtn = document.getElementById('cancelar-pagina-pessoal');
         const voltarAoPainelPerfilBtn = document.getElementById('voltar-ao-painel-perfil');
 
-        // Controles de ordenação
+        // NOVOS ELEMENTOS PARA ORDENAÇÃO E FILTRO
         const ordenarPorSelect = document.getElementById('ordenar-por');
         const filtroDataInicio = document.getElementById('filtro-data-inicio');
         const filtroDataFim = document.getElementById('filtro-data-fim');
@@ -1081,82 +967,28 @@
         const limparFiltrosBtn = document.getElementById('limpar-filtros');
         const contadorArtigos = document.getElementById('contador-artigos');
 
-        // Variáveis globais
         let currentUserRole = 'guest';
         let artigoSelecionado = null;
 
-        // ==========================================
-        // LÓGICA DE AUTENTICAÇÃO - COMPLETA E FUNCIONAL
-        // ==========================================
-        
+        // --- Lógica de Autenticação ---
         auth.onAuthStateChanged(async (user) => {
-            console.log("=== AUTENTICAÇÃO: Status alterado ===");
-            console.log("Usuário:", user ? user.email : "Nenhum usuário");
-            
             if (user) {
-                console.log(`✅ Login detectado: ${user.email}`);
-                
-                try {
-                    // 1. Atualizar interface primeiro
-                    loginSection.style.display = 'none';
-                    loggedInHeader.style.display = 'flex';
-                    mainContainer.style.display = 'grid';
-                    userDisplayName.textContent = user.displayName || user.email;
-                    userRole.textContent = `Cargo: Carregando...`;
-                    
-                    // 2. Registrar acesso à página de artigos (sem bloquear)
-                    console.log("📝 Registrando acesso à página...");
-                    registerUserAccess(user, "login_page", "Página de Artigos", {
-                        loginTime: new Date().toISOString(),
-                        userAgent: navigator.userAgent.substring(0, 100)
-                    }).catch(err => {
-                        console.warn("⚠️ Registro falhou (continuando):", err);
-                    });
-                    
-                    // 3. Obter informações do usuário
-                    const userDoc = await db.collection('users').doc(user.uid).get();
-                    if (userDoc.exists && userDoc.data().role) {
-                        currentUserRole = userDoc.data().role;
-                        console.log(`🎭 Papel: ${currentUserRole}`);
-                    } else {
-                        currentUserRole = 'user';
-                        console.log(`🎭 Papel padrão: user`);
-                        
-                        // Criar usuário se não existir
-                        await db.collection('users').doc(user.uid).set({
-                            email: user.email,
-                            displayName: user.displayName,
-                            role: 'user',
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            lastLogin: new Date().toISOString()
-                        }, { merge: true });
-                    }
-                    
-                    userRole.textContent = `Cargo: ${currentUserRole}`;
-                    
-                    // 4. Inicializar sistema
-                    exibirPainel('detalhes-artigo');
-                    buscarArtigos();
-                    
-                    console.log("🚀 Sistema de artigos pronto!");
-                    
-                } catch (error) {
-                    console.error("❌ Erro durante login:", error);
-                    
-                    // Tentar continuar mesmo com erro
-                    userRole.textContent = `Cargo: Erro`;
-                    exibirPainel('detalhes-artigo');
-                    buscarArtigos();
-                    
-                    // Registrar erro
-                    registerUserAccess(user, "login_error", "Página de Artigos", {
-                        error: error.message
-                    }).catch(() => {});
+                console.log("Usuário logado:", user.email);
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().role) {
+                    currentUserRole = userDoc.data().role;
+                } else {
+                    currentUserRole = 'user';
                 }
-                
+                loginSection.style.display = 'none';
+                loggedInHeader.style.display = 'flex';
+                mainContainer.style.display = 'grid';
+                userDisplayName.textContent = user.displayName || user.email;
+                userRole.textContent = `Cargo: ${currentUserRole}`;
+                exibirPainel('detalhes-artigo');
+                buscarArtigos();
             } else {
-                // Usuário NÃO logado
-                console.log("🚪 Usuário não logado");
+                console.log("Nenhum usuário logado.");
                 loginSection.style.display = 'flex';
                 loggedInHeader.style.display = 'none';
                 mainContainer.style.display = 'none';
@@ -1164,61 +996,29 @@
             }
         });
 
-        // ==========================================
-        // EVENTOS DE LOGIN/LOGOUT
-        // ==========================================
-
         googleLoginBtn.addEventListener('click', async () => {
             try {
-                console.log("🔑 Iniciando login Google...");
-                
-                // Configurar para sempre pedir seleção de conta
-                googleProvider.setCustomParameters({
-                    prompt: 'select_account'
-                });
-                
-                const result = await auth.signInWithPopup(googleProvider);
-                const user = result.user;
-                
-                console.log(`✅ Login bem-sucedido: ${user.email}`);
-                
+                await auth.signInWithPopup(googleProvider);
             } catch (error) {
-                console.error("❌ Erro no login:", error);
-                alert(`Erro no login: ${error.message}`);
+                console.error("Erro no login com Google:", error);
+                alert("Erro no login com Google: " + error.message);
             }
         });
 
-        logoutButton.addEventListener('click', async () => {
-            const user = auth.currentUser;
-            if (user) {
-                // Registrar logout antes de sair
-                quickRegisterAction("logout", {
-                    email: user.email,
-                    logoutTime: new Date().toISOString()
-                });
-                
-                console.log(`🚪 Fazendo logout: ${user.email}`);
-                await auth.signOut();
-            }
+        logoutButton.addEventListener('click', () => {
+            auth.signOut();
         });
 
-        // ==========================================
-        // FUNÇÕES DE NAVEGAÇÃO COM REGISTRO
-        // ==========================================
-
+        // --- Funções de Navegação e Exibição de Painéis ---
         function exibirPainel(painelId) {
-            // Esconder todos os painéis
             document.querySelectorAll('#conteudo-principal > .content-pane').forEach(pane => {
                 pane.style.display = 'none';
             });
-            
-            // Mostrar painel selecionado
             const painel = document.getElementById(painelId);
             if (painel) {
                 painel.style.display = 'block';
             }
 
-            // Atualizar botões ativos
             document.querySelectorAll('.nav-buttons button').forEach(btn => {
                 btn.classList.remove('active');
             });
@@ -1227,32 +1027,16 @@
             if (activeBtn) {
                 activeBtn.classList.add('active');
             }
-            
-            // Registrar navegação
-            const user = auth.currentUser;
-            if (user) {
-                const paineis = {
-                    'detalhes-artigo': 'Visualização de Artigos',
-                    'novo-artigo': 'Criação de Novo Artigo',
-                    'minhas-contribuicoes': 'Minhas Contribuições',
-                    'busca-avancada-pane': 'Busca Avançada',
-                    'buscar-artigos-pane': 'Buscar Artigos'
-                };
-                
-                const nomePainel = paineis[painelId] || painelId;
-                quickRegisterAction("navegacao_painel", {
-                    painel: nomePainel,
-                    painelId: painelId,
-                    hora: new Date().toISOString()
-                });
-            }
         }
 
-        // Eventos de navegação
         artigosBtn.addEventListener('click', () => {
             exibirPainel('detalhes-artigo');
             artigosTitle.textContent = 'Artigos';
-            if (ordenarPorSelect) ordenarPorSelect.value = 'data-desc';
+            
+            if (ordenarPorSelect) {
+                ordenarPorSelect.value = 'data-desc';
+            }
+            
             buscarArtigos();
         });
 
@@ -1275,58 +1059,155 @@
             loadArticles();
         });
 
-        // ==========================================
-        // FUNÇÕES DE BUSCA DE ARTIGOS
-        // ==========================================
-
-        async function buscarArtigos(filtros = {}) {
-            artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando artigos...</p>';
+        // --- Lógica de busca e exibição dos artigos ---
+        async function buscarArtigos(filtros = {}, usarFiltros = false) {
+            artigosList.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
             
-            try {
-                let query = db.collection('materias').orderBy('ultimaEdicao', 'desc').limit(50);
+            let ordenacao = ordenarPorSelect ? ordenarPorSelect.value : 'data-desc';
+            const dataInicio = filtroDataInicio ? filtroDataInicio.value : '';
+            const dataFim = filtroDataFim ? filtroDataFim.value : '';
+            
+            if ((dataInicio || dataFim) && (ordenacao === 'titulo-asc' || ordenacao === 'titulo-desc')) {
+                console.log("Filtro de data ativo com ordenação por título - ordenação manual será aplicada");
+            }
+            
+            if (!usarFiltros) {
+                const uid = filtros.uid ? filtros.uid.trim() : '';
+                const tituloBusca = filtros.titulo ? filtros.titulo.toLowerCase() : '';
+                const descricaoBusca = filtros.descricao ? filtros.descricao.toLowerCase() : '';
+                const setorBusca = filtros.setor ? filtros.setor : '';
                 
-                // Registrar busca se houver filtros
-                const user = auth.currentUser;
-                if (user && Object.keys(filtros).length > 0) {
-                    quickRegisterAction("busca_artigos", filtros);
+                if (uid) {
+                    artigosTitle.textContent = 'Resultado da busca por UID';
+                    try {
+                        const doc = await db.collection('materias').doc(uid).get();
+                        artigosList.innerHTML = '';
+                        if (doc.exists) {
+                            const materia = doc.data();
+                            const artigoItem = document.createElement('div');
+                            artigoItem.className = 'artigo-item';
+                            artigoItem.setAttribute('data-id', doc.id);
+                            artigoItem.innerHTML = `
+                                <h3>${materia.titulo}</h3>
+                                <p>ID: ${doc.id}</p>
+                            `;
+                            artigoItem.addEventListener('click', () => {
+                                carregarDetalhesArtigo(doc.id, materia);
+                                if (artigoSelecionado) {
+                                    artigoSelecionado.classList.remove('ativo');
+                                }
+                                artigoItem.classList.add('ativo');
+                                artigoSelecionado = artigoItem;
+                            });
+                            artigosList.appendChild(artigoItem);
+                            
+                            if (contadorArtigos) {
+                                contadorArtigos.textContent = `1 artigo encontrado`;
+                            }
+                        } else {
+                            artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com este UID.</p>`;
+                            if (contadorArtigos) {
+                                contadorArtigos.textContent = `0 artigos encontrados`;
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Erro ao buscar artigo por UID: ", error);
+                        artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
+                        if (contadorArtigos) {
+                            contadorArtigos.textContent = `Erro na busca`;
+                        }
+                    }
+                    return;
+                }
+            }
+
+            try {
+                let query = db.collection('materias');
+                let temFiltroData = false;
+                let precisaOrdenacaoManual = false;
+                
+                if (dataInicio || dataFim) {
+                    temFiltroData = true;
+                    
+                    if (ordenacao === 'titulo-asc' || ordenacao === 'titulo-desc') {
+                        precisaOrdenacaoManual = true;
+                        query = query.orderBy('ultimaEdicao', 'desc');
+                    } else {
+                        const direcao = ordenacao === 'data-asc' ? 'asc' : 'desc';
+                        query = query.orderBy('ultimaEdicao', direcao);
+                    }
+                    
+                    if (dataInicio) {
+                        const inicioDate = new Date(dataInicio);
+                        inicioDate.setHours(0, 0, 0, 0);
+                        query = query.where('ultimaEdicao', '>=', firebase.firestore.Timestamp.fromDate(inicioDate));
+                    }
+                    if (dataFim) {
+                        const fimDate = new Date(dataFim);
+                        fimDate.setHours(23, 59, 59, 999);
+                        query = query.where('ultimaEdicao', '<=', firebase.firestore.Timestamp.fromDate(fimDate));
+                    }
+                } else {
+                    switch (ordenacao) {
+                        case 'data-desc':
+                            query = query.orderBy('ultimaEdicao', 'desc');
+                            artigosTitle.textContent = 'Artigos Mais Recentes';
+                            break;
+                        case 'data-asc':
+                            query = query.orderBy('ultimaEdicao', 'asc');
+                            artigosTitle.textContent = 'Artigos Mais Antigos';
+                            break;
+                        case 'titulo-asc':
+                            query = query.orderBy('titulo', 'asc');
+                            artigosTitle.textContent = 'Artigos por Título (A-Z)';
+                            break;
+                        case 'titulo-desc':
+                            query = query.orderBy('titulo', 'desc');
+                            artigosTitle.textContent = 'Artigos por Título (Z-A)';
+                            break;
+                    }
                 }
                 
-                const querySnapshot = await query.get();
+                const querySnapshot = await query.limit(200).get();
                 artigosList.innerHTML = '';
                 
                 let resultados = [];
                 querySnapshot.forEach(doc => {
                     const materia = doc.data();
                     
-                    // Aplicar filtros simples
                     const titulo = materia.titulo ? materia.titulo.toLowerCase() : '';
                     const descricao = materia.descricao ? materia.descricao.toLowerCase() : '';
-                    const uid = doc.id;
                     
                     const matchTitulo = filtros.titulo ? titulo.includes(filtros.titulo.toLowerCase()) : true;
                     const matchDescricao = filtros.descricao ? descricao.includes(filtros.descricao.toLowerCase()) : true;
-                    const matchUid = filtros.uid ? uid.includes(filtros.uid) : true;
                     const matchSetor = filtros.setor ? materia.setor === filtros.setor : true;
                     
-                    if (matchTitulo && matchDescricao && matchUid && matchSetor) {
+                    if (matchTitulo && matchDescricao && matchSetor) {
                         resultados.push({ 
                             id: doc.id, 
-                            data: materia
+                            data: materia,
+                            tituloLower: titulo
                         });
                     }
                 });
 
-                // Ordenação
-                if (ordenarPorSelect) {
-                    const ordem = ordenarPorSelect.value;
+                if (precisaOrdenacaoManual) {
                     resultados.sort((a, b) => {
-                        if (ordem === 'titulo-asc') {
-                            return (a.data.titulo || '').localeCompare(b.data.titulo || '');
-                        } else if (ordem === 'titulo-desc') {
-                            return (b.data.titulo || '').localeCompare(a.data.titulo || '');
+                        const tituloA = a.tituloLower || '';
+                        const tituloB = b.tituloLower || '';
+                        if (ordenacao === 'titulo-asc') {
+                            return tituloA.localeCompare(tituloB);
+                        } else {
+                            return tituloB.localeCompare(tituloA);
                         }
-                        return 0;
                     });
+                    artigosTitle.textContent = ordenacao === 'titulo-asc' 
+                        ? 'Artigos por Título (A-Z) - Período selecionado' 
+                        : 'Artigos por Título (Z-A) - Período selecionado';
+                } else if (temFiltroData) {
+                    artigosTitle.textContent = ordenacao === 'data-asc' 
+                        ? 'Artigos Mais Antigos - Período selecionado' 
+                        : 'Artigos Mais Recentes - Período selecionado';
                 }
 
                 if (contadorArtigos) {
@@ -1334,7 +1215,7 @@
                 }
 
                 if (resultados.length === 0) {
-                    artigosList.innerHTML = '<p style="text-align: center; color: #666;">Nenhum artigo encontrado.</p>';
+                    artigosList.innerHTML = `<p style="text-align: center; color: #666;">Nenhum artigo encontrado com os filtros aplicados.</p>`;
                     return;
                 }
 
@@ -1348,7 +1229,7 @@
                         : 'Data desconhecida';
                     
                     artigoItem.innerHTML = `
-                        <h3>${resultado.data.titulo || 'Sem título'}</h3>
+                        <h3>${resultado.data.titulo}</h3>
                         <p><strong>ID:</strong> ${resultado.id}</p>
                         <p><strong>Última edição:</strong> ${dataFormatada}</p>
                         ${resultado.data.setor ? `<p><strong>Setor:</strong> ${resultado.data.setor}</p>` : ''}
@@ -1366,31 +1247,61 @@
                 });
                 
             } catch (error) {
-                console.error("Erro ao buscar artigos:", error);
-                artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro ao carregar artigos.</p>';
+                console.error("Erro ao buscar artigos: ", error);
+                artigosList.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
+                
                 if (contadorArtigos) {
                     contadorArtigos.textContent = `Erro na busca`;
+                }
+                
+                if (error.code === 'failed-precondition') {
+                    console.warn("Possível necessidade de criar índices no Firestore para as consultas combinadas.");
+                    
+                    if (error.message.includes('requires an index')) {
+                        artigosList.innerHTML = `
+                            <div style="text-align: center; padding: 20px;">
+                                <p style="color: #e74c3c;">Erro na configuração do banco de dados</p>
+                                <p style="color: #e67e22; font-size: 0.9em; margin-top: 10px;">
+                                    Esta combinação de filtros requer um índice especial no Firebase.
+                                    <br>
+                                    <button id="btn-tentar-simples" style="margin-top: 10px; padding: 8px 15px; background-color: #2a6f8b; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Tentar busca sem filtro de data
+                                    </button>
+                                </p>
+                            </div>
+                        `;
+                        
+                        document.getElementById('btn-tentar-simples')?.addEventListener('click', () => {
+                            if (filtroDataInicio) filtroDataInicio.value = '';
+                            if (filtroDataFim) filtroDataFim.value = '';
+                            buscarArtigos(filtros, true);
+                        });
+                    }
                 }
             }
         }
 
-        // ==========================================
-        // FUNÇÕES DE DETALHES DO ARTIGO
-        // ==========================================
+        if (aplicarFiltrosBtn) {
+            aplicarFiltrosBtn.addEventListener('click', () => {
+                exibirPainel('detalhes-artigo');
+                buscarArtigos({}, true);
+            });
+        }
 
+        if (limparFiltrosBtn) {
+            limparFiltrosBtn.addEventListener('click', () => {
+                if (filtroDataInicio) filtroDataInicio.value = '';
+                if (filtroDataFim) filtroDataFim.value = '';
+                if (ordenarPorSelect) ordenarPorSelect.value = 'data-desc';
+                
+                buscarArtigos();
+            });
+        }
+
+        // --- Funções para Detalhes do Artigo ---
         function carregarDetalhesArtigo(id, materia) {
             exibirPainel('detalhes-artigo');
-            
-            // Registrar visualização
-            const user = auth.currentUser;
-            if (user) {
-                quickRegisterAction("visualizacao_artigo", {
-                    artigoId: id,
-                    titulo: materia.titulo || 'Sem título',
-                    hora: new Date().toISOString()
-                });
-            }
-            
+
             editorArtigo.dataset.docId = id;
             editorArtigo.dataset.tituloOriginal = materia.titulo;
             editorArtigo.dataset.descricaoOriginal = materia.descricao;
@@ -1400,7 +1311,7 @@
 
             let infoHtml = '';
             if (materia.criadorEmail) {
-                infoHtml += `<p><strong>Criado por:</strong> ${materia.criadorEmail}</p>`;
+                infoHtml += `<p><strong>Criado por:</strong> <span class="link-perfil" data-uid="${materia.criadorId}">${materia.criadorEmail}</span></p>`;
             }
             if (materia.dataCriacao) infoHtml += `<p><strong>Data de Criação:</strong> ${dataCriacao}</p>`;
             if (materia.ultimaEdicao) infoHtml += `<p><strong>Última Edição:</strong> ${ultimaEdicao}</p>`;
@@ -1411,7 +1322,7 @@
             if (materia.fontes && materia.fontes.length > 0) {
                 fontesHtml = `
                     <div class="fontes-container">
-                        <h3>Fontes</h3>
+                        <p>Fontes</p>
                         <ul>
                             ${materia.fontes.map(fonte => `<li>${fonte}</li>`).join('')}
                         </ul>
@@ -1420,31 +1331,27 @@
             }
 
             let botoesHtml = `
-                <button id="btn-editar-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #0645ad; color: white; border: none; cursor: pointer; margin-right: 10px; border-radius: 4px;">Editar</button>
-                <button id="btn-ver-historico" data-id="${id}" style="padding: 8px 15px; background-color: #36c; color: white; border: none; cursor: pointer; border-radius: 4px;">Histórico</button>
+                <button id="btn-editar-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #0645ad; color: white; border: none; cursor: pointer; margin-right: 10px;">Editar</button>
+                <button id="btn-ver-historico" data-id="${id}" style="padding: 8px 15px; background-color: #36c; color: white; border: none; cursor: pointer;">Histórico</button>
+                
             `;
-            
             if (currentUserRole === 'admin') {
-                botoesHtml += `<button id="btn-remover-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; cursor: pointer; margin-left: 10px; border-radius: 4px;">Remover Artigo</button>`;
+                botoesHtml += `<button id="btn-remover-artigo" data-id="${id}" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; cursor: pointer; margin-left: 10px;">Remover Artigo</button>`;
             }
 
             detalhesArtigo.innerHTML = `
                 <div class="article-header">
-                    <h1 style="margin-top: 0;">${materia.titulo || 'Artigo sem título'}</h1>
-                    <p class="uid-display"><strong>UID:</strong> <a href="uid/?uid=${id}" target="_blank">${id}</a></p>
+                    <h1>${materia.titulo}</h1>
+                    <p class="uid-display">UID do Documento: <a href="uid/?uid=${id}">${id}</a></p>
                 </div>
-                <div style="margin-bottom: 20px;" class="botoes-artigo">
+                <div style="margin-bottom: 1em;" class="botoes-artigo-imprimivel">
                     ${botoesHtml}
                 </div>
-                <div class="article-content">
-                    <h2>Informações</h2>
-                    <div class="descricao-container">${infoHtml}</div>
-                    <h2>Conteúdo</h2>
-                    <div class="descricao-container" style="background: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #0645ad;">
-                        ${materia.descricao || '<p style="color: #666; font-style: italic;">Nenhum conteúdo disponível.</p>'}
-                    </div>
-                    ${fontesHtml}
-                </div>
+                <h2>Informações Adicionais</h2>
+                <div class="descricao-container">${infoHtml}</div>
+                <h2>Descrição</h2>
+                <div class="descricao-container">${materia.descricao}</div>
+                ${fontesHtml}
             `;
 
             document.getElementById('btn-editar-artigo').addEventListener('click', () => abrirEditor(id, materia));
@@ -1452,24 +1359,24 @@
             if (currentUserRole === 'admin') {
                 document.getElementById('btn-remover-artigo').addEventListener('click', () => removerArtigo(id));
             }
+            
+            document.getElementById('detalhes-artigo').addEventListener('click', (e) => {
+                if (e.target.classList.contains('link-perfil')) {
+                    const userId = e.target.dataset.uid;
+                    if (userId) {
+                        abrirPerfilUsuario(userId);
+                    }
+                }
+            });
         }
 
-        // ==========================================
-        // FUNÇÕES DE EDIÇÃO
-        // ==========================================
-
+        // --- Funções de Edição ---
         function abrirEditor(id, materia) {
             exibirPainel('editor-artigo');
-            editTitulo.value = materia.titulo || '';
-            editDescricao.value = materia.descricao || '';
+            editTitulo.value = materia.titulo;
+            editDescricao.value = materia.descricao;
             editSumario.value = '';
             editorArtigo.dataset.docId = id;
-            
-            // Registrar abertura do editor
-            quickRegisterAction("abertura_editor", {
-                artigoId: id,
-                titulo: materia.titulo
-            });
         }
 
         formEdicaoArtigo.addEventListener('submit', async (e) => {
@@ -1495,7 +1402,6 @@
                     ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Registrar histórico
                 await db.collection('historico').add({
                     docId,
                     editorId: user.uid,
@@ -1505,15 +1411,8 @@
                     tituloAnterior: editorArtigo.dataset.tituloOriginal,
                     descricaoAnterior: editorArtigo.dataset.descricaoOriginal
                 });
-        
-                // Registrar edição
-                quickRegisterAction("edicao_artigo", {
-                    artigoId: docId,
-                    novoTitulo: titulo,
-                    resumo: sumario
-                });
 
-                alert('✅ Artigo editado com sucesso!');
+                alert('Artigo editado e histórico salvo com sucesso!');
 
                 const doc = await db.collection('materias').doc(docId).get();
                 if (doc.exists) {
@@ -1521,8 +1420,8 @@
                 }
 
             } catch (error) {
-                console.error("Erro ao salvar edição:", error);
-                alert("❌ Erro ao salvar edição: " + error.message);
+                console.error("Erro ao salvar edição: ", error);
+                alert("Erro ao salvar edição: " + error.message);
             }
         });
 
@@ -1534,53 +1433,42 @@
                 if (doc.exists) {
                     carregarDetalhesArtigo(doc.id, doc.data());
                 } else {
-                    exibirPainel('detalhes-artigo');
+                    exibirPainel('artigos-pane');
                     buscarArtigos();
                 }
             } catch (error) {
-                console.error("Erro ao carregar artigo:", error);
-                alert("Erro ao carregar artigo.");
+                console.error("Erro ao carregar artigo: ", error);
+                alert("Erro ao carregar artigo: " + error.message);
             }
         });
 
-        // ==========================================
-        // FUNÇÕES DE HISTÓRICO
-        // ==========================================
-
+        // --- Funções de Histórico ---
         async function abrirHistorico(id) {
             exibirPainel('historico-artigo');
             historicoArtigo.dataset.docId = id;
             listaHistorico.innerHTML = '<p style="text-align: center; color: #666;">Carregando histórico...</p>';
-            
-            quickRegisterAction("visualizacao_historico", {
-                artigoId: id
-            });
-            
             try {
                 const querySnapshot = await db.collection('historico').where('docId', '==', id).orderBy('dataEdicao', 'desc').get();
                 let historicoHtml = '';
                 if (querySnapshot.empty) {
                     historicoHtml = '<p style="text-align: center; color: #666;">Nenhuma edição anterior encontrada.</p>';
                 } else {
-                    historicoHtml = '<div style="max-height: 400px; overflow-y: auto;">';
                     querySnapshot.forEach(doc => {
                         const edicao = doc.data();
                         const data = edicao.dataEdicao ? new Date(edicao.dataEdicao.seconds * 1000).toLocaleString() : 'Data desconhecida';
                         historicoHtml += `
-                            <div style="border-bottom: 1px solid #ddd; padding: 15px; margin-bottom: 10px; background: #f8f9fa; border-radius: 5px;">
-                                <p><strong>👤 Editor:</strong> ${edicao.editorEmail || 'Desconhecido'}</p>
-                                <p><strong>📅 Data:</strong> ${data}</p>
-                                <p><strong>📝 Resumo:</strong> ${edicao.sumario || 'Sem resumo'}</p>
-                                ${edicao.tituloAnterior ? `<p><strong>📄 Título anterior:</strong> ${edicao.tituloAnterior}</p>` : ''}
+                            <div style="border-bottom: 1px solid #ccc; padding: 10px 0;">
+                                <p><strong>Editor:</strong> ${edicao.editorEmail}</p>
+                                <p><strong>Data:</strong> ${data}</p>
+                                <p><strong>Resumo:</strong> ${edicao.sumario}</p>
                             </div>
                         `;
                     });
-                    historicoHtml += '</div>';
                 }
                 listaHistorico.innerHTML = historicoHtml;
             } catch (error) {
-                console.error("Erro ao buscar histórico:", error);
-                listaHistorico.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro ao carregar histórico.</p>';
+                console.error("Erro ao buscar histórico: ", error);
+                listaHistorico.innerHTML = '<p style="text-align: center; color: #e74c3c;">Erro: ' + error.message + '</p>';
             }
         }
 
@@ -1597,20 +1485,17 @@
                     buscarArtigos();
                 }
             } catch (error) {
-                console.error("Erro ao carregar artigo:", error);
-                alert("Erro ao carregar artigo.");
+                console.error("Erro ao carregar artigo: ", error);
+                alert("Erro ao carregar artigo: " + error.message);
             }
         });
 
-        // ==========================================
-        // FUNÇÕES DE CRIAÇÃO DE ARTIGOS
-        // ==========================================
-
+        // --- Funções de Criação ---
         formNovoArtigo.addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = auth.currentUser;
             if (!user) {
-                alert('❌ Você precisa estar logado para criar artigos.');
+                alert('Você precisa estar logado para criar artigos.');
                 return;
             }
 
@@ -1619,16 +1504,11 @@
             const armario = newArmario.value;
             const descricao = newDescricao.value;
 
-            if (!titulo.trim()) {
-                alert('Por favor, insira um título para o artigo.');
-                return;
-            }
-
             try {
-                const novoArtigo = await db.collection('materias').add({
+                await db.collection('materias').add({
                     titulo,
-                    setor: setor || 'Geral',
-                    armario: armario || 'Português',
+                    setor,
+                    armario,
                     descricao,
                     criadorId: user.uid,
                     criadorEmail: user.email,
@@ -1636,22 +1516,14 @@
                     ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp(),
                     fontes: []
                 });
-        
-                // Registrar criação
-                quickRegisterAction("criacao_artigo", {
-                    artigoId: novoArtigo.id,
-                    titulo: titulo,
-                    setor: setor,
-                    armario: armario
-                });
 
-                alert(`✅ Artigo criado com sucesso! ID: ${novoArtigo.id}`);
+                alert('Artigo criado com sucesso!');
                 formNovoArtigo.reset();
                 exibirPainel('detalhes-artigo');
                 buscarArtigos();
             } catch (error) {
-                console.error("Erro ao criar artigo:", error);
-                alert("❌ Erro ao criar artigo: " + error.message);
+                console.error("Erro ao criar artigo: ", error);
+                alert("Erro ao criar artigo: " + error.message);
             }
         });
 
@@ -1660,18 +1532,65 @@
             buscarArtigos();
         });
 
-        // ==========================================
-        // FUNÇÕES DE CONTRIBUIÇÕES
-        // ==========================================
+        // --- Funções da Página do Usuário ---
+        tabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                tabButtons.forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                e.target.classList.add('active');
+                document.getElementById(tab + '-tab').style.display = 'block';
+                if (tab === 'contribuicoes') {
+                    carregarMinhasContribuicoes();
+                }
+            });
+        });
 
+        salvarPaginaPessoalBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            const conteudo = paginaPessoalTextarea.value;
+            try {
+                await db.collection('users').doc(user.uid).set({ paginaPessoal: conteudo }, { merge: true });
+                alert('Página pessoal salva com sucesso!');
+            } catch (error) {
+                console.error("Erro ao salvar página pessoal: ", error);
+                alert("Erro ao salvar página pessoal: " + error.message);
+            }
+        });
+
+        cancelarPaginaPessoalBtn.addEventListener('click', async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (userDoc.exists && userDoc.data().paginaPessoal) {
+                paginaPessoalTextarea.value = userDoc.data().paginaPessoal;
+            } else {
+                paginaPessoalTextarea.value = '';
+            }
+        });
+
+        voltarAoPainelPerfilBtn.addEventListener('click', () => {
+            exibirPainel('detalhes-artigo');
+            buscarArtigos();
+        });
+
+        // Função para carregar todas as contribuições do usuário
         async function carregarMinhasContribuicoes() {
             const contribuicoesLista = document.getElementById('contribuicoesListaPrincipal');
-            if (!contribuicoesLista) return;
+            if (!contribuicoesLista) {
+                console.error("Elemento 'contribuicoesListaPrincipal' não encontrado.");
+                return;
+            }
 
-            contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Carregando suas contribuições...</p>';
+            contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Carregando...</p>';
             const user = firebase.auth().currentUser;
             if (!user) {
-                contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Você precisa estar logado.</p>';
+                contribuicoesLista.innerHTML = '<p style="text-align: center; color: #666;">Você precisa estar logado para ver suas contribuições.</p>';
                 return;
             }
             const userId = user.uid;
@@ -1709,20 +1628,13 @@
                     contribuicoesLista.innerHTML = '';
                     contribuicoes.forEach(contrib => {
                         const li = document.createElement('li');
-                        li.style = "list-style: none; padding: 10px; border-bottom: 1px solid #eee;";
                         li.innerHTML = `
-                            <div>
-                                <strong>${contrib.tipo}:</strong> 
-                                <a href="#" data-id="${contrib.docId}" style="color: #0645ad; text-decoration: none;">
-                                    ${contrib.titulo}
-                                </a>
-                            </div>
-                            <small style="color: #666;">${contrib.data.toLocaleString()}</small>
+                            <strong>${contrib.tipo}:</strong> <a href="#" data-id="${contrib.docId}">${contrib.titulo}</a>
+                            <span style="float: right;">${contrib.data.toLocaleString()}</span>
                         `;
                         contribuicoesLista.appendChild(li);
 
-                        li.querySelector('a').addEventListener('click', (e) => {
-                            e.preventDefault();
+                        li.querySelector('a').addEventListener('click', () => {
                             db.collection('materias').doc(contrib.docId).get().then(doc => {
                                 if (doc.exists) {
                                     carregarDetalhesArtigo(doc.id, doc.data());
@@ -1731,112 +1643,296 @@
                         });
                     });
                 } else {
-                    contribuicoesLista.innerHTML = '<li style="list-style: none; text-align: center; color: #666; padding: 20px;">Nenhuma contribuição encontrada.</li>';
+                    contribuicoesLista.innerHTML = '<li>Nenhuma contribuição encontrada.</li>';
                 }
             } catch (error) {
-                console.error("Erro ao carregar contribuições:", error);
-                contribuicoesLista.innerHTML = '<li style="list-style: none; text-align: center; color: #e74c3c; padding: 20px;">Erro ao carregar as contribuições.</li>';
+                console.error("Erro ao carregar contribuições: ", error);
+                contribuicoesLista.innerHTML = '<li>Erro ao carregar as contribuições.</li>';
             }
         }
-
-        // ==========================================
-        // FUNÇÕES ADMINISTRATIVAS
-        // ==========================================
-
-        async function removerArtigo(id) {
-            if (!confirm('⚠️ Tem certeza que deseja remover este artigo? Esta ação não pode ser desfeita.')) {
-                return;
-            }
-
-            const user = auth.currentUser;
-            if (currentUserRole !== 'admin') {
-                alert('❌ Apenas administradores podem remover artigos.');
-                return;
-            }
-
-            try {
-                const doc = await db.collection('materias').doc(id).get();
-                const articleData = doc.data();
-                
-                await db.collection('materias').doc(id).delete();
-                
-                // Registrar remoção
-                quickRegisterAction("remocao_artigo", {
-                    artigoId: id,
-                    titulo: articleData?.titulo || 'Desconhecido',
-                    remocaoPor: user.email
-                });
-
-                alert('✅ Artigo removido com sucesso!');
-                buscarArtigos();
-            } catch (error) {
-                console.error("Erro ao remover artigo:", error);
-                alert("❌ Erro ao remover artigo: " + error.message);
-            }
-        }
-
-        // ==========================================
-        // CONTROLES DE FILTRO
-        // ==========================================
-
-        if (aplicarFiltrosBtn) {
-            aplicarFiltrosBtn.addEventListener('click', () => {
-                const filtros = {};
-                if (filtroDataInicio && filtroDataInicio.value) filtros.dataInicio = filtroDataInicio.value;
-                if (filtroDataFim && filtroDataFim.value) filtros.dataFim = filtroDataFim.value;
-                
-                quickRegisterAction("aplicacao_filtros", filtros);
-                buscarArtigos(filtros);
-            });
-        }
-
-        if (limparFiltrosBtn) {
-            limparFiltrosBtn.addEventListener('click', () => {
-                if (filtroDataInicio) filtroDataInicio.value = '';
-                if (filtroDataFim) filtroDataFim.value = '';
-                if (ordenarPorSelect) ordenarPorSelect.value = 'data-desc';
-                
-                quickRegisterAction("limpeza_filtros", {});
-                buscarArtigos();
-            });
-        }
-
-        // ==========================================
-        // BUSCA AVANÇADA
-        // ==========================================
-
-        if (buscaAvancadaForm) {
-            buscaAvancadaForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                
-                const filtros = {};
-                if (buscaTituloInput.value) filtros.titulo = buscaTituloInput.value;
-                if (buscaDescricaoInput.value) filtros.descricao = buscaDescricaoInput.value;
-                if (buscaUidInput.value) filtros.uid = buscaUidInput.value;
-                
-                quickRegisterAction("busca_avancada", filtros);
-                buscarArtigos(filtros);
-                exibirPainel('detalhes-artigo');
-            });
-        }
-
-        // ==========================================
-        // INICIALIZAÇÃO DO SISTEMA
-        // ==========================================
         
-        console.log("==========================================");
-        console.log("📚 SISTEMA DE ARTIGOS INICIALIZADO");
-        console.log("==========================================");
-        console.log("URL:", window.location.href);
-        console.log("Navegador:", getBrowserName());
-        console.log("Resolução:", `${window.screen.width}x${window.screen.height}`);
-        console.log("==========================================");
-
-        // Verificar status inicial
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-            console.log("✅ Usuário já logado:", currentUser.email);
+        // NOVO CÓDIGO - Funções para a página de busca
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
+        
+        function decodeHtmlEntities(html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            return doc.documentElement.textContent;
+        }
+
+        const articlesListDiv = document.getElementById('articles-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        const searchTermInput = document.getElementById('search-term');
+        const searchTypeInput = document.getElementById('search-type');
+        const searchTypeDisplayInput = document.getElementById('search-type-display');
+        const searchTypeMenu = document.getElementById('search-type-menu');
+        const searchButton = document.getElementById('search-button');
+        const mainSearchButton = document.getElementById('main-search-button');
+        const clearSearchButton = document.getElementById('clear-search-button');
+        const scholarSearchBox = document.getElementById('scholar-search-box');
+        const filterLanguageSelect = document.getElementById('filter-language');
+        const filterArticleTypeSelect = document.getElementById('filter-article-type');
+        
+        function displayError(message) {
+            errorDisplay.textContent = `Erro: ${message}`;
+            errorDisplay.style.display = 'block';
+            loadingMessage.style.display = 'none';
+        }
+
+        async function loadArticles(searchTerm = '', searchField = 'title', languageFilter = '', articleTypeFilter = '') {
+            articlesListDiv.innerHTML = '';
+            loadingMessage.style.display = 'block';
+            errorDisplay.style.display = 'none';
+            if (!searchTerm.trim() && !languageFilter && !articleTypeFilter) {
+                articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`;
+                loadingMessage.style.display = 'none';
+                return;
+            }
+            try {
+                const trimmedSearchTerm = searchTerm.trim();
+                let snapshot;
+                if (searchField === 'id' && trimmedSearchTerm) {
+                    const doc = await db.collection('articlesdoc').doc(trimmedSearchTerm).get();
+                    if (doc.exists) {
+                        snapshot = {
+                            empty: false,
+                            forEach: (callback) => callback(doc)
+                        };
+                    } else {
+                        snapshot = {
+                            empty: true
+                        };
+                    }
+                } else {
+                    let articlesRef = db.collection('articlesdoc');
+                    if (trimmedSearchTerm && searchField) {
+                        articlesRef = articlesRef
+                            .where(searchField, '>=', trimmedSearchTerm)
+                            .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
+                    }
+                    if (languageFilter) {
+                        articlesRef = articlesRef.where('language', '==', languageFilter);
+                    }
+                    if (articleTypeFilter) {
+                        articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
+                    }
+                    if (trimmedSearchTerm && searchField && searchField !== 'id') {
+                        articlesRef = articlesRef.orderBy(searchField);
+                    } else if (languageFilter || articleTypeFilter) {
+                        articlesRef = articlesRef.orderBy('timestamp', 'desc').limit(5);
+                    } else {
+                        articlesRef = articlesRef.orderBy('timestamp', 'desc').limit(5);
+                    }
+                    snapshot = await articlesRef.get();
+                }
+                loadingMessage.style.display = 'none';
+                if (snapshot.empty) {
+                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ?
+                        `Nenhum artigo encontrado com os critérios de busca.` :
+                        'Nenhum artigo (articlesdoc) publicado ainda.';
+                    articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const id = doc.id;
+                    const title = data.title || 'Título Indisponível';
+                    const userId = data.userId || 'ID do Usuário Indisponível';
+                    const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
+                    const language = data.language || 'Não especificado';
+                    const articleType = data.articleType || 'Não especificado';
+                    const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
+                    const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Data de Criação Indisponível';
+                    const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
+                    const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Data de Modificação Indisponível';
+                    const formattedContentForCard = data.formattedContent || '';
+                    const decodedContent = formattedContentForCard ? decodeHtmlEntities(formattedContentForCard) : '';
+                    const abntPreviewHtml = decodedContent
+                        ? DOMPurify.sanitize(decodedContent)
+                        : '<p>Nenhum conteúdo de visualização rápida disponível. (campo "formattedContent" ausente ou vazio)</p>';
+                    const card = document.createElement('div');
+                    card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
+                    card.innerHTML = `
+                        <div class="mdl-card__title">
+                            <h2 class="mdl-card__title-text">${escapeHtml(title)}</h2>
+                        </div>
+                        <div class="mdl-card__supporting-text">
+                            <strong>ID do artigo:</strong> <p>${escapeHtml(id)}</p>
+                            <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
+                            <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
+                            <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
+                            <div class="abnt-preview">${abntPreviewHtml}</div>
+                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
+                            <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
+                            <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
+                        </div>
+                        <div class="mdl-card__actions mdl-card--border">
+                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo Completo</button>
+                        </div>
+                    `;
+                    articlesListDiv.appendChild(card);
+                });
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(articlesListDiv);
+                }
+            } catch (error) {
+                displayError(`Não foi possível carregar os artigos. Erro: ${error.message}`);
+                console.error("Erro ao carregar artigos:", error);
+                if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
+                    console.warn("Possível erro de falta de índice no Firestore. Crie um índice composto se estiver usando múltiplos 'where' clauses ou 'where' com 'orderBy' em campos diferentes.");
+                }
+            }
+        }
+        
+        async function viewArticleInNewWindow(articleId) {
+            const newWindow = window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
+            if (!newWindow) {
+                alert('Por favor, permita pop-ups para visualizar o artigo completo.');
+                return;
+            }
+        }
+        
+        mainSearchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+        
+        searchButton.addEventListener('click', () => {
+            const searchTerm = searchTermInput.value;
+            const searchField = searchTypeInput.value;
+            const languageFilter = filterLanguageSelect.value;
+            const articleTypeFilter = filterArticleTypeSelect.value;
+            loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+        });
+        
+        clearSearchButton.addEventListener('click', () => {
+            searchTermInput.value = '';
+            searchTypeInput.value = 'title';
+            searchTypeDisplayInput.value = 'Título';
+            filterLanguageSelect.value = '';
+            filterArticleTypeSelect.value = '';
+            const searchTypeMdlSelect = document.querySelector('.getmdl-select');
+            if (searchTypeMdlSelect && searchTypeMdlSelect.MaterialTextfield) {
+                searchTypeMdlSelect.MaterialTextfield.change(searchTypeDisplayInput.value);
+            }
+            const languageMdlSelect = filterLanguageSelect.closest('.mdl-textfield');
+            if (languageMdlSelect && languageMdlSelect.MaterialTextfield) {
+                languageMdlSelect.MaterialTextfield.change('');
+            }
+            const articleTypeMdlSelect = filterArticleTypeSelect.closest('.mdl-textfield');
+            if (articleTypeMdlSelect && articleTypeMdlSelect.MaterialTextfield) {
+                articleTypeMdlSelect.MaterialTextfield.change('');
+            }
+            loadArticles();
+        });
+        
+        articlesListDiv.addEventListener('click', (event) => {
+            if (event.target.classList.contains('view-article-button')) {
+                const articleId = event.target.dataset.articleId;
+                if (articleId) {
+                    window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
+                }
+            }
+        });
+        
+        searchTermInput.addEventListener('focus', () => {
+            scholarSearchBox.classList.add('is-focused');
+        });
+        
+        searchTermInput.addEventListener('blur', () => {
+            scholarSearchBox.classList.remove('is-focused');
+        });
+        
+        searchTypeMenu.addEventListener('click', (event) => {
+            const clickedItem = event.target.closest('.mdl-menu__item');
+            if (clickedItem) {
+                const value = clickedItem.dataset.val;
+                const text = clickedItem.textContent.trim();
+                searchTypeInput.value = value;
+                searchTypeDisplayInput.value = text;
+                const parentTextfield = searchTypeDisplayInput.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    parentTextfield.MaterialTextfield.change(text);
+                }
+            }
+        });
+        
+        if (window.componentHandler) {
+            window.componentHandler.upgradeDom();
+            const selectField = document.querySelector('.getmdl-select');
+            if (selectField && selectField.MaterialTextfield) {
+                selectField.MaterialTextfield.change(searchTypeDisplayInput.value);
+            }
+        }
+        
+        document.querySelectorAll('.mdl-selectfield select').forEach(selectElement => {
+            selectElement.addEventListener('change', () => {
+                const parentTextfield = selectElement.closest('.mdl-textfield');
+                if (parentTextfield && parentTextfield.MaterialTextfield) {
+                    parentTextfield.MaterialTextfield.change(selectElement.options[selectElement.selectedIndex].text);
+                }
+            });
+        });
+        
+        async function removerArtigo(id) {
+            if (confirm('Tem certeza que deseja remover este artigo? Esta ação não pode ser desfeita.')) {
+                try {
+                    await db.collection('materias').doc(id).delete();
+                    alert('Artigo removido com sucesso!');
+                    buscarArtigos();
+                } catch (error) {
+                    console.error("Erro ao remover artigo: ", error);
+                    alert("Erro ao remover artigo: " + error.message);
+                }
+            }
+        }
+        
+        async function abrirPerfilUsuario(userId) {
+            alert(`Abrindo perfil do usuário com ID: ${userId}`);
+        }
+        
+        // Função para carregar o conteúdo de um arquivo HTML
+        window.loadContent = async (file) => {
+            try {
+                const response = await fetch(file);
+                if (!response.ok) {
+                    throw new Error(`Erro ao carregar o arquivo: ${file}`);
+                }
+                const html = await response.text();
+                const safeHtml = DOMPurify.sanitize(html);
+                conteudoPrincipal.innerHTML = safeHtml;
+                conteudoPrincipal.style.width = '100%';
+                document.getElementById('artigos-pane').style.display = 'none';
+                if (window.componentHandler) {
+                    window.componentHandler.upgradeElements(conteudoPrincipal);
+                }
+            } catch (error) {
+                console.error("Falha ao carregar o conteúdo:", error);
+                conteudoPrincipal.innerHTML = `<p style="color: red;">Não foi possível carregar o conteúdo de ${file}.</p>`;
+            }
+        };
     });
 </script>
 
