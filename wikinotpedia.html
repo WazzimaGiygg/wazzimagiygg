@@ -894,6 +894,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
         const googleProvider = new firebase.auth.GoogleAuthProvider();
+        const USER_LOGS_COLLECTION = "checkuser"; 
 
         // Elementos da interface
         const loginSection = document.getElementById('login-section');
@@ -971,31 +972,31 @@
         let artigoSelecionado = null;
 
         // --- Lógica de Autenticação ---
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                console.log("Usuário logado:", user.email);
-                const userDoc = await db.collection('users').doc(user.uid).get();
-                if (userDoc.exists && userDoc.data().role) {
-                    currentUserRole = userDoc.data().role;
-                } else {
-                    currentUserRole = 'user';
-                }
-                loginSection.style.display = 'none';
-                loggedInHeader.style.display = 'flex';
-                mainContainer.style.display = 'grid';
-                userDisplayName.textContent = user.displayName || user.email;
-                userRole.textContent = `Cargo: ${currentUserRole}`;
-                exibirPainel('detalhes-artigo');
-                buscarArtigos();
-            } else {
-                console.log("Nenhum usuário logado.");
-                loginSection.style.display = 'flex';
-                loggedInHeader.style.display = 'none';
-                mainContainer.style.display = 'none';
-                currentUserRole = 'guest';
-            }
-        });
-
+       auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        console.log("Usuário logado:", user.email);
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        await registerPageAccess(user, "Página de Artigos", "login_page_access");
+        if (userDoc.exists && userDoc.data().role) {
+            currentUserRole = userDoc.data().role;
+        } else {
+            currentUserRole = 'user';
+        }
+        loginSection.style.display = 'none';
+        loggedInHeader.style.display = 'flex';
+        mainContainer.style.display = 'grid';
+        userDisplayName.textContent = user.displayName || user.email;
+        userRole.textContent = `Cargo: ${currentUserRole}`;
+        exibirPainel('detalhes-artigo');
+        buscarArtigos();
+    } else {
+        console.log("Nenhum usuário logado.");
+        loginSection.style.display = 'flex';
+        loggedInHeader.style.display = 'none';
+        mainContainer.style.display = 'none';
+        currentUserRole = 'guest';
+    }
+});
         googleLoginBtn.addEventListener('click', async () => {
             try {
                 await auth.signInWithPopup(googleProvider);
@@ -1442,6 +1443,93 @@
             }
         });
 
+        // Função para registrar log no Firestore
+        async function registerUserLog(user, ipData, action = "page_view", pageName = "Página de Artigos") {
+            try {
+                if (!user) {
+                    console.warn("Usuário não disponível para registrar log.");
+                    return;
+                }
+
+                // Coletar informações do navegador
+                const browserInfo = {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    screenResolution: `${window.screen.width}x${window.screen.height}`,
+                    colorDepth: window.screen.colorDepth,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                };
+
+                // Coletar informações de localização, usando ipData ou valores padrão
+                const locationInfo = {
+                    ip: ipData?.ip || 'N/A',
+                    city: ipData?.city || 'Desconhecida',
+                    region: ipData?.region || 'Desconhecido',
+                    country: ipData?.country || 'Desconhecido',
+                    loc: ipData?.loc || 'N/A',
+                    org: ipData?.org || 'N/A',
+                    postal: ipData?.postal || 'N/A',
+                    timezone: ipData?.timezone || 'N/A'
+                };
+
+                // Informações do usuário
+                const userInfo = {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName,
+                    photoURL: user.photoURL,
+                    providerId: user.providerData[0].providerId,
+                    emailVerified: user.emailVerified
+                };
+
+                // Dados completos para log
+                const logData = {
+                    user: userInfo,
+                    location: locationInfo,
+                    browser: browserInfo,
+                    action: action,
+                    page: pageName,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    clientTimestamp: new Date().toISOString(),
+                    sessionId: generateSessionId()
+                };
+
+                // Registrar no Firestore
+                await db.collection(USER_LOGS_COLLECTION).add(logData);
+                console.log("Log registrado com sucesso no Firebase");
+                
+            } catch (error) {
+                console.error("Erro ao registrar log:", error);
+            }
+        }
+
+        // Função para gerar ID de sessão
+        function generateSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Função para obter dados de IP
+        async function getIPData() {
+            try {
+                const response = await fetch('https://ipinfo.io/json');
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Erro ao obter dados de IP:", error);
+                return {
+                    ip: 'N/A',
+                    city: 'Desconhecida',
+                    region: 'Desconhecido',
+                    country: 'Desconhecido',
+                    loc: 'N/A',
+                    org: 'N/A',
+                    postal: 'N/A',
+                    timezone: 'N/A'
+                };
+            }
+        }
+        
         // --- Funções de Histórico ---
         async function abrirHistorico(id) {
             exibirPainel('historico-artigo');
