@@ -51,6 +51,11 @@
             color: #721c24;
             border-color: #f5c6cb;
         }
+        #message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
         .mdl-selectfield {
             width: 100%;
             margin-bottom: 16px;
@@ -215,8 +220,9 @@
         const cancelEditBtn = document.getElementById('cancelEditBtn');
 
         let currentClientId = null; // Variável para armazenar o UID do cliente a ser editado
+        let isNewClient = false; // Flag para indicar se é um novo cliente (documento não existe)
 
-        // Função para exibir mensagens de sucesso/erro
+        // Função para exibir mensagens de sucesso/erro/info
         function showMessage(msg, type) {
             messageDiv.textContent = msg;
             messageDiv.className = ''; // Limpa classes existentes
@@ -258,6 +264,7 @@
                 const clientDoc = await firestore.collection('clients').doc(clientId).get();
 
                 if (clientDoc.exists) {
+                    // Documento existe, preenche o formulário com os dados
                     const data = clientDoc.data();
                     fullNameInput.value = data.fullName || '';
                     cpfInput.value = data.cpf || '';
@@ -282,7 +289,6 @@
                      if (genderSelect.parentElement && genderSelect.parentElement.MaterialTextfield) {
                         genderSelect.parentElement.MaterialTextfield.checkDirty();
                      }
-
 
                     // Carregar telefone(s)
                     const phoneSnapshot = await firestore.collection('clientPhones').where('clientId', '==', clientId).limit(1).get();
@@ -309,17 +315,24 @@
                     }
 
                 } else {
-                    showMessage('Dados do cliente não encontrados.', 'error');
-                    // Redireciona se o cliente não for encontrado (pode ser um erro ou UID inválido)
-                    if (window.parent && window.parent.loadPage) {
-                        window.parent.loadPage('cadastro_cliente.html?uid=' + clientId, true); // Talvez para cadastro, se não existe
-                    } else {
-                        window.location.href = 'cadastro_cliente.html?uid=' + clientId;
+                    // Documento não existe - é um novo cadastro
+                    isNewClient = true;
+                    console.log("Criando novo cadastro para UID:", clientId);
+                    
+                    // Preenche com dados do usuário logado, se disponíveis
+                    if (auth.currentUser) {
+                        emailAddressInput.value = auth.currentUser.email || '';
+                        if (emailAddressInput.parentElement && emailAddressInput.parentElement.MaterialTextfield) {
+                            emailAddressInput.parentElement.MaterialTextfield.checkDirty();
+                        }
                     }
+                    
+                    // Mostra mensagem indicando que é um novo cadastro
+                    showMessage('Complete seu cadastro. Esta é a primeira vez que você acessa.', 'info');
                 }
             } catch (error) {
                 console.error("Erro ao carregar dados para edição:", error);
-                showMessage(`Erro ao carregar dados para edição: ${error.message}`, 'error');
+                showMessage(`Erro ao carregar dados: ${error.message}`, 'error');
             }
         }
 
@@ -332,7 +345,7 @@
                 return;
             }
 
-            const updatedClientData = {
+            const clientData = {
                 fullName: fullNameInput.value,
                 cpf: cpfInput.value,
                 rg: rgInput.value,
@@ -344,22 +357,42 @@
                 city: cityInput.value,
                 state: stateInput.value,
                 country: countryInput.value,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Atualiza o timestamp
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
             const phoneNumber = phoneNumberInput.value;
             const emailAddress = emailAddressInput.value;
 
             try {
-                // Atualiza o documento principal do cliente
-                await firestore.collection('clients').doc(currentClientId).update(updatedClientData);
-
-                // Atualiza ou cria o telefone principal
-                const phoneSnapshot = await firestore.collection('clientPhones').where('clientId', '==', currentClientId).where('isPrimary', '==', true).limit(1).get();
-                if (!phoneSnapshot.empty) {
-                    await phoneSnapshot.docs[0].ref.update({ phoneNumber: phoneNumber });
+                // Verifica novamente se o documento existe (pode ter sido criado por outra aba)
+                const clientDoc = await firestore.collection('clients').doc(currentClientId).get();
+                
+                if (clientDoc.exists) {
+                    // ATUALIZAÇÃO: Documento existe
+                    await firestore.collection('clients').doc(currentClientId).update(clientData);
+                    showMessage('Informações atualizadas com sucesso!', 'success');
                 } else {
-                    // Se não houver telefone primário, cria um novo
+                    // CRIAÇÃO: Documento não existe
+                    clientData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    clientData.isActive = true;
+                    clientData.isBanned = false;
+                    
+                    await firestore.collection('clients').doc(currentClientId).set(clientData);
+                    showMessage('Cadastro criado com sucesso!', 'success');
+                }
+
+                // Processa telefone (cria ou atualiza)
+                const phoneSnapshot = await firestore.collection('clientPhones')
+                    .where('clientId', '==', currentClientId)
+                    .where('isPrimary', '==', true)
+                    .limit(1).get();
+                    
+                if (!phoneSnapshot.empty) {
+                    await phoneSnapshot.docs[0].ref.update({ 
+                        phoneNumber: phoneNumber,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } else {
                     await firestore.collection('clientPhones').add({
                         clientId: currentClientId,
                         phoneNumber: phoneNumber,
@@ -368,12 +401,18 @@
                     });
                 }
 
-                // Atualiza ou cria o email principal
-                const emailSnapshot = await firestore.collection('clientEmails').where('clientId', '==', currentClientId).where('isPrimary', '==', true).limit(1).get();
+                // Processa email (cria ou atualiza)
+                const emailSnapshot = await firestore.collection('clientEmails')
+                    .where('clientId', '==', currentClientId)
+                    .where('isPrimary', '==', true)
+                    .limit(1).get();
+                    
                 if (!emailSnapshot.empty) {
-                    await emailSnapshot.docs[0].ref.update({ emailAddress: emailAddress });
+                    await emailSnapshot.docs[0].ref.update({ 
+                        emailAddress: emailAddress,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
                 } else {
-                    // Se não houver email primário, cria um novo
                     await firestore.collection('clientEmails').add({
                         clientId: currentClientId,
                         emailAddress: emailAddress,
@@ -382,20 +421,18 @@
                     });
                 }
 
-                showMessage('Informações do cliente atualizadas com sucesso!', 'success');
-
-                // Opcional: Redirecionar de volta para a página de informações após a atualização
+                // Redireciona após sucesso
                 setTimeout(() => {
                     if (window.parent && window.parent.loadPage) {
                         window.parent.loadPage('informacoes_cliente.html?uid=' + currentClientId, true);
                     } else {
                         window.location.href = 'informacoes_cliente.html?uid=' + currentClientId;
                     }
-                }, 1500); // Dá um tempo para o usuário ver a mensagem de sucesso
+                }, 1500);
 
             } catch (error) {
-                console.error("Erro ao atualizar cliente:", error);
-                showMessage(`Erro ao atualizar cliente: ${error.message}`, 'error');
+                console.error("Erro ao salvar cliente:", error);
+                showMessage(`Erro ao salvar: ${error.message}`, 'error');
             }
         });
 
