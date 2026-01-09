@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editar Cliente - WZZM</title>
+    <title>Cadastro do Cliente - WZZM</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
     <style>
@@ -12,7 +12,7 @@
             background-color: #f5f5f5;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Alinha no topo */
+            align-items: flex-start;
             min-height: calc(100vh - 200px);
             padding: 20px;
             box-sizing: border-box;
@@ -25,7 +25,7 @@
         }
         .mdl-textfield {
             width: 100%;
-            margin-bottom: 16px; /* Espaçamento entre os campos */
+            margin-bottom: 16px;
         }
         .form-actions {
             display: flex;
@@ -51,6 +51,11 @@
             color: #721c24;
             border-color: #f5c6cb;
         }
+        #message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
         .mdl-selectfield {
             width: 100%;
             margin-bottom: 16px;
@@ -68,26 +73,54 @@
             border-bottom: 1px solid rgba(0,0,0,.12);
             background-color: transparent;
             font-size: 16px;
-            -webkit-appearance: none; /* Remove default arrow on select */
+            -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
             cursor: pointer;
         }
         .mdl-selectfield select:focus {
             outline: none;
-            border-bottom: 2px solid #3f51b5; /* Highlight on focus */
+            border-bottom: 2px solid #3f51b5;
         }
         .mdl-selectfield {
-            position: relative; /* Needed for custom arrow */
+            position: relative;
         }
         .mdl-selectfield:after {
-            content: '▼'; /* Custom arrow */
+            content: '▼';
             position: absolute;
             right: 0;
             top: 50%;
             transform: translateY(-50%);
-            pointer-events: none; /* Make sure it doesn't interfere with select click */
+            pointer-events: none;
             color: rgba(0,0,0,.54);
+        }
+        .loading-container {
+            text-align: center;
+            padding: 40px;
+            color: #3f51b5;
+            font-size: 16px;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3f51b5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .auth-required {
+            text-align: center;
+            padding: 40px;
+            color: #f44336;
+        }
+        .auth-required button {
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -95,13 +128,28 @@
 
     <div class="mdl-card mdl-shadow--2dp">
         <div class="mdl-card__title mdl-card--expand">
-            <h2 class="mdl-card__title-text">Editar Informações do Cliente</h2>
+            <h2 class="mdl-card__title-text" id="pageTitle">Cadastro do Cliente</h2>
         </div>
-        <div class="mdl-card__supporting-text">
+        
+        <div id="loadingContainer" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>Verificando autenticação...</p>
+        </div>
+        
+        <div id="authRequiredContainer" class="auth-required" style="display:none;">
+            <h3>Login Necessário</h3>
+            <p>Você precisa estar logado para acessar esta página.</p>
+            <button id="loginRedirectBtn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored mdl-js-ripple-effect">
+                Ir para Login
+            </button>
+        </div>
+        
+        <div id="formContainer" class="mdl-card__supporting-text" style="display:none;">
             <form id="editClientForm">
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="text" id="fullName" required>
                     <label class="mdl-textfield__label" for="fullName">Nome Completo</label>
+                    <span class="mdl-textfield__error">Campo obrigatório</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="text" pattern="[0-9]{11}" id="cpf" required>
@@ -119,6 +167,7 @@
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="date" id="birthDate" required>
                     <label class="mdl-textfield__label" for="birthDate">Data de Nascimento</label>
+                    <span class="mdl-textfield__error">Campo obrigatório</span>
                 </div>
                 <div class="mdl-selectfield mdl-js-selectfield mdl-selectfield--floating-label">
                     <label for="gender">Gênero</label>
@@ -134,6 +183,7 @@
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="text" id="address" required>
                     <label class="mdl-textfield__label" for="address">Endereço (Rua, Número, Bairro)</label>
+                    <span class="mdl-textfield__error">Campo obrigatório</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="text" pattern="[0-9]{8}" id="zipCode" required>
@@ -143,27 +193,32 @@
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="text" id="city" required>
                     <label class="mdl-textfield__label" for="city">Cidade</label>
+                    <span class="mdl-textfield__error">Campo obrigatório</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                    <input class="mdl-textfield__input" type="text" id="state" required>
+                    <input class="mdl-textfield__input" type="text" id="state" required maxlength="2">
                     <label class="mdl-textfield__label" for="state">Estado (Ex: SP)</label>
+                    <span class="mdl-textfield__error">Campo obrigatório (2 letras)</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="text" id="country" required value="Brasil">
                     <label class="mdl-textfield__label" for="country">País</label>
+                    <span class="mdl-textfield__error">Campo obrigatório</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                    <input class="mdl-textfield__input" type="tel" id="phoneNumber" required>
-                    <label class="mdl-textfield__label" for="phoneNumber">Telefone (com DDD)</label>
+                    <input class="mdl-textfield__input" type="tel" id="phoneNumber" required pattern="^[0-9]{10,11}$">
+                    <label class="mdl-textfield__label" for="phoneNumber">Telefone (com DDD, somente números)</label>
+                    <span class="mdl-textfield__error">Apenas números (10 ou 11 dígitos)</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="email" id="emailAddress" required>
                     <label class="mdl-textfield__label" for="emailAddress">E-mail de Contato</label>
+                    <span class="mdl-textfield__error">E-mail válido obrigatório</span>
                 </div>
                 
                 <div class="form-actions">
-                    <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored mdl-js-ripple-effect">
-                        Atualizar Cliente
+                    <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored mdl-js-ripple-effect" id="submitBtn">
+                        Salvar Cadastro
                     </button>
                     <button type="button" id="cancelEditBtn" class="mdl-button mdl-js-button mdl-js-ripple-effect">
                         Cancelar
@@ -179,7 +234,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script>
-        // Sua configuração do Firebase (substitua com suas próprias chaves)
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -190,15 +244,23 @@
             measurementId: "G-PLKNZNFCQ8"
         };
 
-        // Inicializa o Firebase
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
         const firestore = firebase.firestore();
         const auth = firebase.auth();
 
+        // Elementos DOM
+        const loadingContainer = document.getElementById('loadingContainer');
+        const authRequiredContainer = document.getElementById('authRequiredContainer');
+        const formContainer = document.getElementById('formContainer');
+        const pageTitle = document.getElementById('pageTitle');
         const editClientForm = document.getElementById('editClientForm');
         const messageDiv = document.getElementById('message');
+        const submitBtn = document.getElementById('submitBtn');
+        const loginRedirectBtn = document.getElementById('loginRedirectBtn');
+        
+        // Campos do formulário
         const fullNameInput = document.getElementById('fullName');
         const cpfInput = document.getElementById('cpf');
         const rgInput = document.getElementById('rg');
@@ -214,51 +276,85 @@
         const emailAddressInput = document.getElementById('emailAddress');
         const cancelEditBtn = document.getElementById('cancelEditBtn');
 
-        let currentClientId = null; // Variável para armazenar o UID do cliente a ser editado
+        let currentClientId = null;
+        let isExistingClient = false;
 
-        // Função para exibir mensagens de sucesso/erro
         function showMessage(msg, type) {
             messageDiv.textContent = msg;
-            messageDiv.className = ''; // Limpa classes existentes
+            messageDiv.className = '';
             messageDiv.classList.add(type);
             messageDiv.style.display = 'block';
         }
 
-        // Função para obter o parâmetro UID da URL
-        function getParameterByName(name, url = window.location.href) {
-            name = name.replace(/[\[\]]/g, '\\$&');
-            var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-                results = regex.exec(url);
-            if (!results) return null;
-            if (!results[2]) return '';
-            return decodeURIComponent(results[2].replace(/\+/g, ' '));
+        function showLoading() {
+            loadingContainer.style.display = 'block';
+            authRequiredContainer.style.display = 'none';
+            formContainer.style.display = 'none';
         }
 
-        // Função para carregar os dados do cliente e preencher o formulário
-        async function loadClientForEdit() {
-            let clientId = getParameterByName('uid');
+        function showAuthRequired() {
+            loadingContainer.style.display = 'none';
+            authRequiredContainer.style.display = 'block';
+            formContainer.style.display = 'none';
+        }
 
-            if (!clientId && auth.currentUser) {
-                clientId = auth.currentUser.uid;
-            }
+        function showForm() {
+            loadingContainer.style.display = 'none';
+            authRequiredContainer.style.display = 'none';
+            formContainer.style.display = 'block';
+        }
 
-            if (!clientId) {
-                showMessage('UID do cliente não encontrado para edição.', 'error');
-                // Redireciona de volta para a página de informações ou index
-                if (window.parent && window.parent.location) {
-                    window.parent.location.href = 'index.html'; // Ou para informacoes_cliente.html
-                } else {
-                    window.location.href = 'index.html';
+        function updateMDLFields() {
+            // Atualiza todos os campos MDL
+            const fields = [
+                fullNameInput, cpfInput, rgInput, socialNameInput, birthDateInput,
+                addressInput, zipCodeInput, cityInput, stateInput, countryInput,
+                phoneNumberInput, emailAddressInput
+            ];
+            
+            fields.forEach(input => {
+                if (input.parentElement && input.parentElement.MaterialTextfield) {
+                    input.parentElement.MaterialTextfield.checkDirty();
+                    input.parentElement.MaterialTextfield.checkValidity();
                 }
+            });
+        }
+
+        function formatPhoneNumber(phone) {
+            // Remove tudo que não é número
+            const numbers = phone.replace(/\D/g, '');
+            
+            // Formata (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+            if (numbers.length === 11) {
+                return `(${numbers.substring(0,2)}) ${numbers.substring(2,7)}-${numbers.substring(7)}`;
+            } else if (numbers.length === 10) {
+                return `(${numbers.substring(0,2)}) ${numbers.substring(2,6)}-${numbers.substring(6)}`;
+            }
+            return numbers;
+        }
+
+        async function loadClientData() {
+            showLoading();
+            
+            const user = auth.currentUser;
+            
+            if (!user) {
+                showAuthRequired();
                 return;
             }
-            currentClientId = clientId; // Armazena o UID
-
+            
+            currentClientId = user.uid;
+            
             try {
-                const clientDoc = await firestore.collection('clients').doc(clientId).get();
-
+                // Busca o documento do cliente
+                const clientDoc = await firestore.collection('clients').doc(currentClientId).get();
+                
                 if (clientDoc.exists) {
+                    // Cliente já existe - modo edição
+                    isExistingClient = true;
                     const data = clientDoc.data();
+                    
+                    // Preenche os campos
                     fullNameInput.value = data.fullName || '';
                     cpfInput.value = data.cpf || '';
                     rgInput.value = data.rg || '';
@@ -270,96 +366,164 @@
                     cityInput.value = data.city || '';
                     stateInput.value = data.state || '';
                     countryInput.value = data.country || 'Brasil';
-
-                    // Força o MDL a atualizar os labels e estados dos campos preenchidos
-                    [fullNameInput, cpfInput, rgInput, socialNameInput, birthDateInput,
-                     addressInput, zipCodeInput, cityInput, stateInput, countryInput].forEach(input => {
-                        if (input.parentElement && input.parentElement.MaterialTextfield) {
-                            input.parentElement.MaterialTextfield.checkDirty();
-                        }
-                    });
-                     // Para o select, o MDL não tem checkDirty(), mas o valor é setado
-                     if (genderSelect.parentElement && genderSelect.parentElement.MaterialTextfield) {
-                        genderSelect.parentElement.MaterialTextfield.checkDirty();
-                     }
-
-
-                    // Carregar telefone(s)
-                    const phoneSnapshot = await firestore.collection('clientPhones').where('clientId', '==', clientId).limit(1).get();
+                    
+                    // Busca telefone
+                    const phoneSnapshot = await firestore.collection('clientPhones')
+                        .where('clientId', '==', currentClientId)
+                        .where('isPrimary', '==', true)
+                        .limit(1).get();
+                    
                     if (!phoneSnapshot.empty) {
-                        phoneNumberInput.value = phoneSnapshot.docs[0].data().phoneNumber || '';
-                        if (phoneNumberInput.parentElement && phoneNumberInput.parentElement.MaterialTextfield) {
-                            phoneNumberInput.parentElement.MaterialTextfield.checkDirty();
-                        }
+                        const phoneData = phoneSnapshot.docs[0].data();
+                        phoneNumberInput.value = phoneData.phoneNumber || '';
                     }
-
-                    // Carregar e-mail(s)
-                    const emailSnapshot = await firestore.collection('clientEmails').where('clientId', '==', clientId).limit(1).get();
+                    
+                    // Busca email
+                    const emailSnapshot = await firestore.collection('clientEmails')
+                        .where('clientId', '==', currentClientId)
+                        .where('isPrimary', '==', true)
+                        .limit(1).get();
+                    
                     if (!emailSnapshot.empty) {
-                        emailAddressInput.value = emailSnapshot.docs[0].data().emailAddress || '';
-                        if (emailAddressInput.parentElement && emailAddressInput.parentElement.MaterialTextfield) {
-                            emailAddressInput.parentElement.MaterialTextfield.checkDirty();
-                        }
+                        const emailData = emailSnapshot.docs[0].data();
+                        emailAddressInput.value = emailData.emailAddress || user.email || '';
                     } else {
-                        // Se não houver email em clientEmails, usa o email do Firebase Auth como fallback
-                        emailAddressInput.value = auth.currentUser ? auth.currentUser.email : '';
-                        if (emailAddressInput.parentElement && emailAddressInput.parentElement.MaterialTextfield) {
-                            emailAddressInput.parentElement.MaterialTextfield.checkDirty();
-                        }
+                        emailAddressInput.value = user.email || '';
                     }
-
+                    
+                    pageTitle.textContent = 'Editar Informações do Cliente';
+                    submitBtn.textContent = 'Atualizar Cadastro';
+                    showMessage('Edite suas informações abaixo', 'info');
+                    
                 } else {
-                    showMessage('Dados do cliente não encontrados.', 'error');
-                    // Redireciona se o cliente não for encontrado (pode ser um erro ou UID inválido)
-                    if (window.parent && window.parent.loadPage) {
-                        window.parent.loadPage('cadastro_cliente.html?uid=' + clientId, true); // Talvez para cadastro, se não existe
-                    } else {
-                        window.location.href = 'cadastro_cliente.html?uid=' + clientId;
+                    // Cliente não existe - modo criação
+                    isExistingClient = false;
+                    
+                    // Preenche com dados do Google, se disponíveis
+                    if (user.displayName) {
+                        fullNameInput.value = user.displayName;
                     }
+                    
+                    emailAddressInput.value = user.email || '';
+                    
+                    // Preenche data de nascimento padrão (18 anos atrás)
+                    const today = new Date();
+                    const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                    birthDateInput.value = eighteenYearsAgo.toISOString().split('T')[0];
+                    
+                    pageTitle.textContent = 'Cadastro do Cliente';
+                    submitBtn.textContent = 'Salvar Cadastro';
+                    showMessage('Complete seu cadastro pela primeira vez', 'info');
                 }
+                
+                updateMDLFields();
+                showForm();
+                
             } catch (error) {
-                console.error("Erro ao carregar dados para edição:", error);
-                showMessage(`Erro ao carregar dados para edição: ${error.message}`, 'error');
+                console.error("Erro ao carregar dados:", error);
+                showMessage(`Erro ao carregar dados: ${error.message}`, 'error');
+                showForm();
             }
         }
 
-        // Lidar com o envio do formulário de edição
-        editClientForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            if (!currentClientId) {
-                showMessage('Erro: UID do cliente não definido para atualização.', 'error');
-                return;
+        async function saveClientData() {
+            const user = auth.currentUser;
+            
+            if (!user || !currentClientId) {
+                showMessage('Erro: Usuário não autenticado.', 'error');
+                return false;
             }
-
-            const updatedClientData = {
-                fullName: fullNameInput.value,
-                cpf: cpfInput.value,
-                rg: rgInput.value,
-                socialName: socialNameInput.value,
+            
+            // Validação dos campos obrigatórios
+            if (!fullNameInput.value || !cpfInput.value || !birthDateInput.value || 
+                !addressInput.value || !zipCodeInput.value || !cityInput.value || 
+                !stateInput.value || !phoneNumberInput.value || !emailAddressInput.value) {
+                showMessage('Por favor, preencha todos os campos obrigatórios.', 'error');
+                return false;
+            }
+            
+            // Validação de CPF (11 dígitos)
+            const cpfNumbers = cpfInput.value.replace(/\D/g, '');
+            if (cpfNumbers.length !== 11) {
+                showMessage('CPF deve conter 11 dígitos.', 'error');
+                return false;
+            }
+            
+            // Validação de CEP (8 dígitos)
+            const zipCodeNumbers = zipCodeInput.value.replace(/\D/g, '');
+            if (zipCodeNumbers.length !== 8) {
+                showMessage('CEP deve conter 8 dígitos.', 'error');
+                return false;
+            }
+            
+            // Validação de estado (2 letras)
+            if (stateInput.value.length !== 2) {
+                showMessage('Estado deve ter 2 letras (ex: SP).', 'error');
+                return false;
+            }
+            
+            // Validação de telefone (10 ou 11 dígitos)
+            const phoneNumbers = phoneNumberInput.value.replace(/\D/g, '');
+            if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
+                showMessage('Telefone deve conter 10 ou 11 dígitos.', 'error');
+                return false;
+            }
+            
+            // Validação de email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailAddressInput.value)) {
+                showMessage('Por favor, insira um e-mail válido.', 'error');
+                return false;
+            }
+            
+            const clientData = {
+                fullName: fullNameInput.value.trim(),
+                cpf: cpfNumbers,
+                rg: rgInput.value.trim() || '',
+                socialName: socialNameInput.value.trim() || '',
                 birthDate: birthDateInput.value,
-                gender: genderSelect.value,
-                address: addressInput.value,
-                zipCode: zipCodeInput.value,
-                city: cityInput.value,
-                state: stateInput.value,
-                country: countryInput.value,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Atualiza o timestamp
+                gender: genderSelect.value || '',
+                address: addressInput.value.trim(),
+                zipCode: zipCodeNumbers,
+                city: cityInput.value.trim(),
+                state: stateInput.value.trim().toUpperCase(),
+                country: countryInput.value.trim(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-
-            const phoneNumber = phoneNumberInput.value;
-            const emailAddress = emailAddressInput.value;
-
+            
+            const phoneNumber = phoneNumbers;
+            const emailAddress = emailAddressInput.value.trim().toLowerCase();
+            
             try {
-                // Atualiza o documento principal do cliente
-                await firestore.collection('clients').doc(currentClientId).update(updatedClientData);
-
-                // Atualiza ou cria o telefone principal
-                const phoneSnapshot = await firestore.collection('clientPhones').where('clientId', '==', currentClientId).where('isPrimary', '==', true).limit(1).get();
-                if (!phoneSnapshot.empty) {
-                    await phoneSnapshot.docs[0].ref.update({ phoneNumber: phoneNumber });
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Salvando...';
+                
+                if (isExistingClient) {
+                    // Atualização
+                    await firestore.collection('clients').doc(currentClientId).update(clientData);
+                    showMessage('Informações atualizadas com sucesso!', 'success');
                 } else {
-                    // Se não houver telefone primário, cria um novo
+                    // Criação
+                    clientData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    clientData.isActive = true;
+                    clientData.isBanned = false;
+                    
+                    await firestore.collection('clients').doc(currentClientId).set(clientData);
+                    showMessage('Cadastro criado com sucesso!', 'success');
+                }
+                
+                // Salva/atualiza telefone
+                const phoneSnapshot = await firestore.collection('clientPhones')
+                    .where('clientId', '==', currentClientId)
+                    .where('isPrimary', '==', true)
+                    .limit(1).get();
+                
+                if (!phoneSnapshot.empty) {
+                    await phoneSnapshot.docs[0].ref.update({
+                        phoneNumber: phoneNumber,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } else {
                     await firestore.collection('clientPhones').add({
                         clientId: currentClientId,
                         phoneNumber: phoneNumber,
@@ -367,13 +531,19 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
-
-                // Atualiza ou cria o email principal
-                const emailSnapshot = await firestore.collection('clientEmails').where('clientId', '==', currentClientId).where('isPrimary', '==', true).limit(1).get();
+                
+                // Salva/atualiza email
+                const emailSnapshot = await firestore.collection('clientEmails')
+                    .where('clientId', '==', currentClientId)
+                    .where('isPrimary', '==', true)
+                    .limit(1).get();
+                
                 if (!emailSnapshot.empty) {
-                    await emailSnapshot.docs[0].ref.update({ emailAddress: emailAddress });
+                    await emailSnapshot.docs[0].ref.update({
+                        emailAddress: emailAddress,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
                 } else {
-                    // Se não houver email primário, cria um novo
                     await firestore.collection('clientEmails').add({
                         clientId: currentClientId,
                         emailAddress: emailAddress,
@@ -381,59 +551,98 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
-
-                showMessage('Informações do cliente atualizadas com sucesso!', 'success');
-
-                // Opcional: Redirecionar de volta para a página de informações após a atualização
+                
+                // Redireciona após 2 segundos
                 setTimeout(() => {
                     if (window.parent && window.parent.loadPage) {
-                        window.parent.loadPage('informacoes_cliente.html?uid=' + currentClientId, true);
+                        window.parent.loadPage('informacoes_cliente.html', true);
                     } else {
-                        window.location.href = 'informacoes_cliente.html?uid=' + currentClientId;
+                        window.location.href = 'informacoes_cliente.html';
                     }
-                }, 1500); // Dá um tempo para o usuário ver a mensagem de sucesso
-
+                }, 2000);
+                
+                return true;
+                
             } catch (error) {
-                console.error("Erro ao atualizar cliente:", error);
-                showMessage(`Erro ao atualizar cliente: ${error.message}`, 'error');
+                console.error("Erro ao salvar cliente:", error);
+                showMessage(`Erro ao salvar: ${error.message}`, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = isExistingClient ? 'Atualizar Cadastro' : 'Salvar Cadastro';
+                return false;
             }
+        }
+
+        // Event Listeners
+        editClientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveClientData();
         });
 
-        // Lidar com o botão de cancelar
         cancelEditBtn.addEventListener('click', () => {
-            if (currentClientId) {
-                // Redireciona de volta para a página de informações do cliente
-                if (window.parent && window.parent.loadPage) {
-                    window.parent.loadPage('informacoes_cliente.html?uid=' + currentClientId, true);
-                } else {
-                    window.location.href = 'informacoes_cliente.html?uid=' + currentClientId;
-                }
+            if (window.parent && window.parent.loadPage) {
+                window.parent.loadPage('informacoes_cliente.html', true);
             } else {
-                // Se não houver UID, volta para a index ou recepcao
-                if (window.parent && window.parent.location) {
-                    window.parent.location.href = 'index.html';
-                } else {
-                    window.location.href = 'index.html';
-                }
+                window.location.href = 'informacoes_cliente.html';
             }
         });
 
-        // Carregar os dados ao carregar a página
-        document.addEventListener('DOMContentLoaded', loadClientForEdit);
+        loginRedirectBtn.addEventListener('click', () => {
+            if (window.parent && window.parent.loadPage) {
+                window.parent.loadPage('index.html', true);
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
 
-        // Opcional: Redirecionar se o usuário deslogar ou o UID mudar
-        auth.onAuthStateChanged(user => {
-            const uidFromUrl = getParameterByName('uid');
-            if (!user || (uidFromUrl && uidFromUrl !== user.uid)) {
-                // Se não há usuário logado ou o UID na URL não corresponde, redireciona
-                if (window.parent && window.parent.location) {
-                    window.parent.location.href = 'index.html'; // Para o fluxo de login
-                } else {
-                    window.location.href = 'index.html';
-                }
-            } else if (!uidFromUrl && user.uid && !currentClientId) {
-                // Se o UID não veio na URL, mas há um user logado e ainda não carregamos, tenta carregar
-                loadClientForEdit();
+        // Formatação em tempo real
+        phoneNumberInput.addEventListener('input', function(e) {
+            const cursorPosition = e.target.selectionStart;
+            const input = e.target.value.replace(/\D/g, '');
+            
+            // Limita a 11 dígitos
+            const limitedInput = input.substring(0, 11);
+            
+            // Formatação
+            let formatted = '';
+            if (limitedInput.length <= 2) {
+                formatted = limitedInput;
+            } else if (limitedInput.length <= 7) {
+                formatted = `(${limitedInput.substring(0,2)}) ${limitedInput.substring(2)}`;
+            } else if (limitedInput.length === 10) {
+                formatted = `(${limitedInput.substring(0,2)}) ${limitedInput.substring(2,6)}-${limitedInput.substring(6)}`;
+            } else if (limitedInput.length === 11) {
+                formatted = `(${limitedInput.substring(0,2)}) ${limitedInput.substring(2,7)}-${limitedInput.substring(7)}`;
+            } else {
+                formatted = limitedInput;
+            }
+            
+            e.target.value = formatted;
+            
+            // Mantém a posição do cursor
+            setTimeout(() => {
+                e.target.setSelectionRange(cursorPosition, cursorPosition);
+            }, 0);
+        });
+
+        // Inicialização
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // Usuário está logado
+                loadClientData();
+            } else {
+                // Usuário não está logado
+                showAuthRequired();
+            }
+        });
+
+        // Carrega os dados quando a página estiver pronta
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicia verificando o estado de autenticação
+            const user = auth.currentUser;
+            if (user) {
+                loadClientData();
+            } else {
+                showAuthRequired();
             }
         });
     </script>
