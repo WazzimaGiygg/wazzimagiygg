@@ -122,6 +122,12 @@
         .auth-required button {
             margin-top: 20px;
         }
+        .phone-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -206,9 +212,10 @@
                     <span class="mdl-textfield__error">Campo obrigatório</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                    <input class="mdl-textfield__input" type="tel" id="phoneNumber" required pattern="^[0-9]{10,11}$">
+                    <input class="mdl-textfield__input" type="tel" id="phoneNumber" placeholder="Ex: 11999998888" required>
                     <label class="mdl-textfield__label" for="phoneNumber">Telefone (com DDD, somente números)</label>
                     <span class="mdl-textfield__error">Apenas números (10 ou 11 dígitos)</span>
+                    <span class="phone-hint">Exemplo: 11999998888 (11 dígitos) ou 1199998888 (10 dígitos)</span>
                 </div>
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                     <input class="mdl-textfield__input" type="email" id="emailAddress" required>
@@ -320,17 +327,17 @@
             });
         }
 
-        function formatPhoneNumber(phone) {
+        function formatPhoneForDisplay(phone) {
             // Remove tudo que não é número
             const numbers = phone.replace(/\D/g, '');
             
-            // Formata (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+            // Formata para exibição: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
             if (numbers.length === 11) {
                 return `(${numbers.substring(0,2)}) ${numbers.substring(2,7)}-${numbers.substring(7)}`;
             } else if (numbers.length === 10) {
                 return `(${numbers.substring(0,2)}) ${numbers.substring(2,6)}-${numbers.substring(6)}`;
             }
-            return numbers;
+            return phone; // Retorna como está se não tiver 10 ou 11 dígitos
         }
 
         async function loadClientData() {
@@ -375,7 +382,10 @@
                     
                     if (!phoneSnapshot.empty) {
                         const phoneData = phoneSnapshot.docs[0].data();
-                        phoneNumberInput.value = phoneData.phoneNumber || '';
+                        let phoneNumber = phoneData.phoneNumber || '';
+                        // Remove formatação para armazenar apenas números
+                        phoneNumber = phoneNumber.replace(/\D/g, '');
+                        phoneNumberInput.value = phoneNumber;
                     }
                     
                     // Busca email
@@ -457,7 +467,7 @@
             }
             
             // Validação de estado (2 letras)
-            if (stateInput.value.length !== 2) {
+            if (stateInput.value.trim().length !== 2) {
                 showMessage('Estado deve ter 2 letras (ex: SP).', 'error');
                 return false;
             }
@@ -491,7 +501,7 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             
-            const phoneNumber = phoneNumbers;
+            const phoneNumber = phoneNumbers; // Já está apenas com números
             const emailAddress = emailAddressInput.value.trim().toLowerCase();
             
             try {
@@ -594,34 +604,32 @@
             }
         });
 
-        // Formatação em tempo real
+        // Formatação simples do telefone durante a digitação
         phoneNumberInput.addEventListener('input', function(e) {
-            const cursorPosition = e.target.selectionStart;
-            const input = e.target.value.replace(/\D/g, '');
+            // Remove tudo que não é número
+            let value = e.target.value.replace(/\D/g, '');
             
             // Limita a 11 dígitos
-            const limitedInput = input.substring(0, 11);
-            
-            // Formatação
-            let formatted = '';
-            if (limitedInput.length <= 2) {
-                formatted = limitedInput;
-            } else if (limitedInput.length <= 7) {
-                formatted = `(${limitedInput.substring(0,2)}) ${limitedInput.substring(2)}`;
-            } else if (limitedInput.length === 10) {
-                formatted = `(${limitedInput.substring(0,2)}) ${limitedInput.substring(2,6)}-${limitedInput.substring(6)}`;
-            } else if (limitedInput.length === 11) {
-                formatted = `(${limitedInput.substring(0,2)}) ${limitedInput.substring(2,7)}-${limitedInput.substring(7)}`;
-            } else {
-                formatted = limitedInput;
+            if (value.length > 11) {
+                value = value.substring(0, 11);
             }
             
-            e.target.value = formatted;
-            
-            // Mantém a posição do cursor
-            setTimeout(() => {
-                e.target.setSelectionRange(cursorPosition, cursorPosition);
-            }, 0);
+            // Atualiza o valor sem formatação
+            e.target.value = value;
+        });
+
+        // Formatação para exibição quando o campo perde o foco
+        phoneNumberInput.addEventListener('blur', function(e) {
+            const value = e.target.value.replace(/\D/g, '');
+            if (value.length === 10 || value.length === 11) {
+                e.target.value = formatPhoneForDisplay(value);
+            }
+        });
+
+        // Remove formatação quando o campo ganha foco
+        phoneNumberInput.addEventListener('focus', function(e) {
+            const value = e.target.value.replace(/\D/g, '');
+            e.target.value = value;
         });
 
         // Inicialização
