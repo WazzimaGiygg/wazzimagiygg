@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar Cliente - WZZM</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .mdl-card {
+            width: 100%;
+            max-width: 500px;
+            padding: 40px 30px;
+            text-align: center;
+            border-radius: 8px;
+        }
+        .mdl-card__title {
+            justify-content: center;
+            padding-bottom: 20px;
+        }
+        .mdl-card__title-text {
+            font-size: 24px;
+            font-weight: 500;
+        }
+        .mdl-card__supporting-text {
+            font-size: 16px;
+            line-height: 1.6;
+            color: rgba(0,0,0,0.7);
+        }
+        .link-container {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        .info-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #3f51b5;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            margin-top: 15px;
+        }
+        .info-link:hover {
+            background-color: #303f9f;
+        }
+        .material-icons {
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        #message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 4px;
+            display: none;
+        }
+        #message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mdl-card mdl-shadow--4dp">
+        <div class="mdl-card__title">
+            <h2 class="mdl-card__title-text">Visualizar Informações do Cliente</h2>
+        </div>
+        
+        <div class="mdl-card__supporting-text">
+            <i class="material-icons" style="font-size: 48px; color: #3f51b5; margin-bottom: 20px;">
+                account_circle
+            </i>
+            <p>Clique no botão abaixo para acessar suas informações cadastrais completas.</p>
+            
+            <div class="link-container">
+                <p><strong>Atenção:</strong> Você precisa estar logado para visualizar suas informações.</p>
+                <a href="#" id="goToClientInfoLink" class="info-link">
+                    <i class="material-icons">visibility</i>
+                    Visualizar Minhas Informações
+                </a>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="mdl-spinner mdl-spinner--single-color mdl-js-spinner is-active"></div>
+                <p style="margin-top: 10px;">Redirecionando...</p>
+            </div>
+            
+            <div id="message"></div>
+        </div>
+    </div>
+
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script>
+        // Sua configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializa o Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+
+        const goToClientInfoLink = document.getElementById('goToClientInfoLink');
+        const messageDiv = document.getElementById('message');
+        const loadingDiv = document.getElementById('loading');
+
+        // Função para exibir mensagens de erro
+        function showMessage(msg, type) {
+            messageDiv.textContent = msg;
+            messageDiv.className = type;
+            messageDiv.style.display = 'block';
+        }
+
+        // Função para mostrar/ocultar loading
+        function showLoading(show) {
+            loadingDiv.style.display = show ? 'block' : 'none';
+        }
+
+        // Função para redirecionar para a página de informações
+        function redirectToClientInfo(uid) {
+            showLoading(true);
+            
+            // Pequeno delay para mostrar o loading
+            setTimeout(() => {
+                if (window.parent && window.parent.loadPage) {
+                    // Se estiver dentro de um iframe com função loadPage
+                    window.parent.loadPage('informacoes_cliente/?uid=' + uid, true);
+                } else {
+                    // Caso não esteja em um iframe
+                    window.location.href = 'informacoes_cliente/?uid=' + uid;
+                }
+            }, 500);
+        }
+
+        // Verifica autenticação e configura o link
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Usuário autenticado - configura o link com o UID
+                goToClientInfoLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    redirectToClientInfo(user.uid);
+                });
+                
+                // Atualiza o texto do link para incluir o nome do usuário se disponível
+                if (user.displayName) {
+                    goToClientInfoLink.innerHTML = `<i class="material-icons">visibility</i> Visualizar Informações de ${user.displayName}`;
+                }
+            } else {
+                // Usuário não autenticado
+                showMessage('Você precisa fazer login para acessar suas informações.', 'error');
+                
+                goToClientInfoLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showMessage('Redirecionando para a página de login...', 'error');
+                    
+                    setTimeout(() => {
+                        if (window.parent && window.parent.location) {
+                            window.parent.location.href = 'index.html';
+                        } else {
+                            window.location.href = 'index.html';
+                        }
+                    }, 1000);
+                });
+            }
+        });
+
+        // Inicializa componentes MDL
+        window.addEventListener('load', function() {
+            // Atualiza componentes Material Design Lite
+            if (window.componentHandler) {
+                window.componentHandler.upgradeAllRegistered();
+            }
+        });
+    </script>
+</body>
+</html>adastro_cliente.html
