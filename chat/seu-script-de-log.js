@@ -44,7 +44,7 @@ async function getIPData() {
 }
 
 // Função principal de registro
-async function registerUserLog(user, action = "iframe_access") {
+async function registerUserLog(user, action = "CHAT ONLINE") {
     try {
         // Coletar informações do navegador
         const browserInfo = {
@@ -135,7 +135,7 @@ async function initializeLogger() {
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
-                    const logResult = await registerUserLog(user, "iframe_access");
+                    const logResult = await registerUserLog(user, "CHAT ONLINE");
                     resolve({
                         success: true,
                         user: user,
