@@ -902,17 +902,22 @@
         async function loadInbox() {
             try {
                 const snapshot = await db.collection('emails')
-                    .where('recipientId', '==', currentUser.uid)
-                    .orderBy('timestamp', 'desc')
-                    .get();
-
-                inboxEmails = [];
-                snapshot.forEach(doc => {
-                    inboxEmails.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
-                });
+    .where('recipientId', '==', currentUser.uid)
+    .onSnapshot(snapshot => {
+        // ... processar os dados e ordenar por timestamp no cliente
+        let emails = [];
+        snapshot.forEach(doc => {
+            emails.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        // Ordenar por timestamp (descendente) no cliente
+        emails.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+        // Limitar aos 20 mais recentes
+        emails = emails.slice(0, 20);
+        // ... resto do código
+    });
 
                 updateInboxList();
             } catch (error) {
@@ -1176,40 +1181,71 @@
             }
         }
 
-        // Setup real-time listeners
-        function setupRealTimeListeners() {
-            // Listen for new incoming emails
-            db.collection('emails')
-                .where('recipientId', '==', currentUser?.uid || '')
-                .orderBy('timestamp', 'desc')
-                .limit(20)
-                .onSnapshot(snapshot => {
-                    snapshot.docChanges().forEach(change => {
-                        if (change.type === 'added') {
-                            // New email received
-                            const email = {
-                                id: change.doc.id,
-                                ...change.doc.data()
-                            };
-                            
-                            // Check if not already in list
-                            if (!inboxEmails.find(e => e.id === email.id)) {
-                                inboxEmails.unshift(email);
-                                
-                                // If on inbox tab, update list
-                                if (document.getElementById('inbox-tab').classList.contains('active')) {
-                                    updateInboxList();
-                                }
-                                
-                                // Show notification for new unread emails
-                                if (email.unread) {
-                                    showAlert('success', `Novo email de ${email.senderEmail}: ${email.subject}`);
-                                }
-                            }
-                        }
-                    });
+       function setupRealTimeListeners() {
+    if (!currentUser) {
+        console.log('Usuário não autenticado. Aguardando login...');
+        return;
+    }
+    
+    console.log('Configurando listeners em tempo real para:', currentUser.uid);
+    
+    // Listen for new incoming emails
+    try {
+        // CONSULTA SEM ORDERBY TEMPORARIAMENTE (até o índice ser criado)
+        db.collection('emails')
+    .where('recipientId', '==', currentUser.uid)
+    .orderBy('timestamp', 'desc')
+    .limit(20)
+    .onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+                        // New email received
+                        const email = {
+                            id: change.doc.id,
+                            ...change.doc.data()
+                        };
+                        emails.push(email);
+                    }
                 });
-        }
+
+                // Ordenar por timestamp no cliente (do mais recente para o mais antigo)
+                emails.sort((a, b) => {
+                    const timeA = a.timestamp ? a.timestamp.seconds : 0;
+                    const timeB = b.timestamp ? b.timestamp.seconds : 0;
+                    return timeB - timeA;
+                });
+
+                // Limitar aos 20 mais recentes
+                emails = emails.slice(0, 20);
+
+                // Processar cada email
+                emails.forEach(email => {
+                    // Check if not already in list
+                    if (!inboxEmails.find(e => e.id === email.id)) {
+                        inboxEmails.unshift(email);
+                        
+                        // If on inbox tab, update list
+                        if (document.getElementById('inbox-tab').classList.contains('active')) {
+                            updateInboxList();
+                        }
+                        
+                        // Show notification for new unread emails
+                        if (email.unread) {
+                            showAlert('success', `Novo email de ${email.senderEmail}: ${email.subject}`);
+                        }
+                    }
+                });
+            }, error => {
+                console.error('Erro no listener em tempo real:', error);
+                if (error.code === 'permission-denied') {
+                    console.log('Permissão negada. Verifique as regras de segurança.');
+                    // Desabilita listeners em tempo real se não tiver permissão
+                }
+            });
+    } catch (error) {
+        console.error('Erro ao configurar listener em tempo real:', error);
+    }
+}
 
         // Switch tabs
         function switchTab(tabId) {
