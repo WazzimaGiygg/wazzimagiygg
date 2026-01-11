@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geração de prontuário Universal</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- CryptoJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        #auth-container, #main-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            max-width: 500px;
+            margin: 0 auto 20px;
+        }
+        #main-container {
+            display: none;
+            max-width: 100%;
+        }
+        input, textarea, button {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .auth-buttons button {
+            flex: 1;
+        }
+        #tabs {
+            display: flex;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tab-active {
+            background-color: #007BFF;
+            color: white;
+        }
+        #editor-container {
+            margin-top: 10px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        #tab-info, #new-item-container {
+            margin-bottom: 15px;
+        }
+        .item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            gap: 10px;
+        }
+        .item input, .item textarea {
+            flex: 1;
+        }
+        .user-info {
+            text-align: right;
+            margin-bottom: 10px;
+            color: #666;
+        }
+        #firebase-buttons, #json-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        #firebase-buttons button, #json-buttons button {
+            flex: 1;
+        }
+        @media print {
+            body {
+                margin: 0;
+                background-color: white;
+                color: black;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+            .tab, #buttons, #auth-container, .user-info {
+                display: none;
+            }
+        }
+        .error-message {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: none;
+        }
+        .success-message {
+            color: #28a745;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Container de Autenticação -->
+    <div id="auth-container">
+        <h2>Login/Registro</h2>
+        <div class="error-message" id="auth-error"></div>
+        <div class="success-message" id="auth-success"></div>
+        
+        <input type="email" id="email" placeholder="E-mail">
+        <input type="password" id="password" placeholder="Senha">
+        
+        <div class="auth-buttons">
+            <button onclick="login()">Login</button>
+            <button onclick="register()">Registrar</button>
+        </div>
+        
+        <div id="auth-status"></div>
+    </div>
+
+    <!-- Container Principal (aparece após login) -->
+    <div id="main-container">
+        <div class="user-info" id="user-info">
+            Usuário: <span id="user-email"></span>
+            <button onclick="logout()" style="width: auto; margin-left: 10px;">Sair</button>
+        </div>
+        
+        <div id="tabs">
+            <button onclick="addTab()">Adicionar Aba</button>
+        </div>
+        
+        <div id="editor-container">
+            <div id="tab-info">
+                <input type="text" id="tab-title" placeholder="Título da aba" oninput="updateTabTitle()">
+                <textarea id="tab-description" placeholder="Descrição da aba" oninput="updateTabDescription()"></textarea>
+            </div>
+            <div id="new-item-container">
+                <input type="text" id="new-item-title" placeholder="Título do item">
+                <textarea id="new-item-content" placeholder="Conteúdo do item"></textarea>
+                <button onclick="addNewItem()">Adicionar Item</button>
+            </div>
+            <div id="list"></div>
+        </div>
+        
+        <!-- Mensagens de status -->
+        <div class="error-message" id="firebase-error"></div>
+        <div class="success-message" id="firebase-success"></div>
+        
+        <!-- Botões do Firebase -->
+        <div id="firebase-buttons">
+            <button onclick="saveToFirebase(false)">Salvar no Firebase</button>
+            <button onclick="saveToFirebase(true)">Salvar Criptografado</button>
+            <button onclick="loadFromFirebase(false)">Carregar do Firebase</button>
+            <button onclick="loadFromFirebase(true)">Carregar Criptografado</button>
+        </div>
+        
+        <!-- Botões JSON (backup local) -->
+        <div id="json-buttons">
+            <button onclick="saveToJSON()">Exportar para JSON</button>
+            <button onclick="saveEncryptedJSON()">Exportar JSON Criptografado</button>
+            <button onclick="loadFromJSON()">Importar JSON</button>
+            <button onclick="loadEncryptedJSON()">Importar JSON Criptografado</button>
+        </div>
+        
+        <!-- Botões de impressão -->
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button onclick="printTabs()" style="flex: 1;">Imprimir Todas as Abas</button>
+            <button onclick="printActiveTab()" style="flex: 1;">Imprimir Aba Ativa</button>
+        </div>
+        
+        <!-- Campo de senha para criptografia -->
+        <div style="margin-top: 10px;">
+            <input type="password" id="encryption-password" placeholder="Senha para criptografia (opcional)">
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+    authDomain: "wzzm-ce3fc.firebaseapp.com",
+    projectId: "wzzm-ce3fc",
+    storageBucket: "wzzm-ce3fc.appspot.com",
+    messagingSenderId: "249427877153",
+    appId: "1:249427877153:web:0e4297294794a5aadeb260",
+    measurementId: "G-PLKNZNFCQ8"
+};
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Variáveis globais
+        let tabs = {};
+        let activeTab = 1;
+        let nextTabNumber = 1;
+        let currentUser = null;
+
+        // Observador de autenticação
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+                document.getElementById('user-email').textContent = user.email;
+                document.getElementById('user-info').style.display = 'block';
+                showMessage('auth-success', 'Login realizado com sucesso!');
+                
+                // Carregar dados do usuário se existirem
+                setTimeout(() => {
+                    loadFromFirebase(false); // Tenta carregar dados não criptografados primeiro
+                }, 1000);
+            } else {
+                currentUser = null;
+                document.getElementById('auth-container').style.display = 'block';
+                document.getElementById('main-container').style.display = 'none';
+                document.getElementById('user-info').style.display = 'none';
+            }
+        });
+
+        // Funções de autenticação
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no login: ' + error.message);
+                });
+        }
+
+        function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(() => {
+                    showMessage('auth-success', 'Conta criada com sucesso!');
+                })
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no registro: ' + error.message);
+                });
+        }
+
+        function logout() {
+            auth.signOut();
+            tabs = {};
+            activeTab = 1;
+            nextTabNumber = 1;
+            renderTabs();
+            renderList();
+        }
+
+        // Funções de mensagens
+        function showMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+
+        // Funções do editor (mantidas do código original com adaptações)
+        function renderTabs() {
+            const tabContainer = document.getElementById('tabs');
+            tabContainer.innerHTML = '<button onclick="addTab()">Adicionar Aba</button>';
+            
+            Object.keys(tabs).forEach(tabNumber => {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (tabNumber == activeTab ? ' tab-active' : '');
+                tab.setAttribute('data-tab', tabNumber);
+                tab.textContent = `Aba ${tabNumber}: ${tabs[tabNumber].title || ''}`;
+                tab.addEventListener('click', () => {
+                    document.querySelector('.tab-active')?.classList.remove('tab-active');
+                    tab.classList.add('tab-active');
+                    activeTab = tabNumber;
+                    renderList();
+                    updateTabInputs();
+                });
+
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remover';
+                removeButton.style.width = 'auto';
+                removeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    removeTab(tabNumber);
+                };
+
+                tab.appendChild(removeButton);
+                tabContainer.appendChild(tab);
+            });
+        }
+
+        function removeTab(tabNumber) {
+            delete tabs[tabNumber];
+            if (Object.keys(tabs).length > 0) {
+                activeTab = Math.max(...Object.keys(tabs).map(Number));
+            } else {
+                activeTab = 1;
+            }
+            renderTabs();
+            renderList();
+            updateTabInputs();
+        }
+
+        function updateTabInputs() {
+            if (tabs[activeTab]) {
+                document.getElementById('tab-title').value = tabs[activeTab].title || '';
+                document.getElementById('tab-description').value = tabs[activeTab].description || '';
+            } else {
+                document.getElementById('tab-title').value = '';
+                document.getElementById('tab-description').value = '';
+            }
+        }
+
+        function updateTabTitle() {
+            if (tabs[activeTab]) {
+                tabs[activeTab].title = document.getElementById('tab-title').value;
+                renderTabs();
+            }
+        }
+
+        function updateTabDescription() {
+            if (tabs[activeTab]) {
+                tabs[activeTab].description = document.getElementById('tab-description').value;
+            }
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('list');
+            listContainer.innerHTML = '';
+
+            if (tabs[activeTab]) {
+                tabs[activeTab].items.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'item';
+
+                    const titleInput = document.createElement('input');
+                    titleInput.value = item.title;
+                    titleInput.oninput = () => {
+                        tabs[activeTab].items[index].title = titleInput.value;
+                    };
+
+                    const contentTextarea = document.createElement('textarea');
+                    contentTextarea.value = item.content;
+                    contentTextarea.oninput = () => {
+                        tabs[activeTab].items[index].content = contentTextarea.value;
+                    };
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remover';
+                    removeButton.style.width = 'auto';
+                    removeButton.onclick = () => {
+                        tabs[activeTab].items.splice(index, 1);
+                        renderList();
+                    };
+
+                    itemDiv.appendChild(titleInput);
+                    itemDiv.appendChild(contentTextarea);
+                    itemDiv.appendChild(removeButton);
+                    listContainer.appendChild(itemDiv);
+                });
+            }
+        }
+
+        function addTab() {
+            tabs[nextTabNumber] = { title: '', description: '', items: [] };
+            activeTab = nextTabNumber;
+            nextTabNumber++;
+            renderTabs();
+            renderList();
+            updateTabInputs();
+        }
+
+        function addNewItem() {
+            const newItemTitle = document.getElementById('new-item-title').value.trim();
+            const newItemContent = document.getElementById('new-item-content').value.trim();
+            if (tabs[activeTab] && (newItemTitle || newItemContent)) {
+                tabs[activeTab].items.push({ title: newItemTitle, content: newItemContent });
+                document.getElementById('new-item-title').value = '';
+                document.getElementById('new-item-content').value = '';
+                renderList();
+            }
+        }
+
+        // Funções do Firebase
+        async function saveToFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para salvar.');
+                return;
+            }
+
+            try {
+                let dataToSave = { ...tabs };
+                const password = document.getElementById('encryption-password').value;
+                
+                if (encrypted && password) {
+                    // Criptografar os dados
+                    const jsonData = JSON.stringify(dataToSave);
+                    const encryptedData = CryptoJS.AES.encrypt(jsonData, password).toString();
+                    dataToSave = { encrypted: true, data: encryptedData };
+                } else {
+                    dataToSave = { encrypted: false, data: dataToSave };
+                }
+
+                // Adicionar metadados
+                dataToSave.lastModified = firebase.firestore.FieldValue.serverTimestamp();
+                dataToSave.userId = currentUser.uid;
+
+                // Salvar no Firestore
+                await db.collection('prontuariodinamico')
+                    .doc(currentUser.uid)
+                    .set(dataToSave);
+
+                showMessage('firebase-success', 'Dados salvos com sucesso no Firebase!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao salvar: ' + error.message);
+            }
+        }
+
+        async function loadFromFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para carregar.');
+                return;
+            }
+
+            try {
+                const doc = await db.collection('prontuariodinamico')
+                    .doc(currentUser.uid)
+                    .get();
+
+                if (!doc.exists) {
+                    showMessage('firebase-error', 'Nenhum dado encontrado para este usuário.');
+                    return;
+                }
+
+                const data = doc.data();
+                
+                if (data.encrypted && !encrypted) {
+                    showMessage('firebase-error', 'Os dados estão criptografados. Use "Carregar Criptografado".');
+                    return;
+                }
+
+                if (!data.encrypted && encrypted) {
+                    showMessage('firebase-error', 'Os dados não estão criptografados. Use "Carregar do Firebase".');
+                    return;
+                }
+
+                let loadedData;
+                if (encrypted) {
+                    const password = document.getElementById('encryption-password').value;
+                    if (!password) {
+                        showMessage('firebase-error', 'Digite a senha para descriptografar.');
+                        return;
+                    }
+                    
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(data.data, password);
+                        const decryptedJson = bytes.toString(CryptoJS.enc.Utf8);
+                        if (!decryptedJson) {
+                            throw new Error('Senha incorreta');
+                        }
+                        loadedData = JSON.parse(decryptedJson);
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao descriptografar. Senha incorreta ou dados corrompidos.');
+                        return;
+                    }
+                } else {
+                    loadedData = data.data;
+                }
+
+                tabs = loadedData;
+                nextTabNumber = Math.max(...Object.keys(tabs).map(Number), 0) + 1;
+                activeTab = Object.keys(tabs)[0] || 1;
+                
+                renderTabs();
+                renderList();
+                updateTabInputs();
+                
+                showMessage('firebase-success', 'Dados carregados com sucesso!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao carregar: ' + error.message);
+            }
+        }
+
+        // Funções JSON (backup local)
+        function saveToJSON() {
+            const json = JSON.stringify(tabs);
+            downloadJSON(json, 'prontuario.json');
+        }
+
+        function saveEncryptedJSON() {
+            const json = JSON.stringify(tabs);
+            const password = document.getElementById('encryption-password').value;
+            if (!password) {
+                showMessage('firebase-error', 'Digite uma senha para criptografar.');
+                return;
+            }
+            const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+            downloadJSON(encrypted, 'prontuario_criptografado.json');
+        }
+
+        function loadFromJSON() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        tabs = JSON.parse(event.target.result);
+                        nextTabNumber = Math.max(...Object.keys(tabs).map(Number), 0) + 1;
+                        activeTab = Object.keys(tabs)[0] || 1;
+                        renderTabs();
+                        renderList();
+                        updateTabInputs();
+                        showMessage('firebase-success', 'JSON carregado com sucesso!');
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao carregar JSON: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function loadEncryptedJSON() {
+            const password = document.getElementById('encryption-password').value;
+            if (!password) {
+                showMessage('firebase-error', 'Digite a senha para descriptografar.');
+                return;
+            }
+            
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(event.target.result, password);
+                        const json = bytes.toString(CryptoJS.enc.Utf8);
+                        if (!json) {
+                            throw new Error('Senha incorreta');
+                        }
+                        tabs = JSON.parse(json);
+                        nextTabNumber = Math.max(...Object.keys(tabs).map(Number), 0) + 1;
+                        activeTab = Object.keys(tabs)[0] || 1;
+                        renderTabs();
+                        renderList();
+                        updateTabInputs();
+                        showMessage('firebase-success', 'JSON criptografado carregado com sucesso!');
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao carregar: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function downloadJSON(content, filename) {
+            const blob = new Blob([content], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Funções de impressão (mantidas do código original)
+        function printTabs() {
+            const printContent = Object.keys(tabs).map(tabNumber => {
+                const tab = tabs[tabNumber];
+                return `
+                    <div class="page-break">
+                        <h2>${tab.title || ''}</h2>
+                        <p>${tab.description || ''}</p>
+                        ${tab.items.map(item => `<h3>${item.title}</h3><p>${item.content}</p>`).join('')}
+                    </div>
+                `;
+            }).join('');
+            
+            printContentWindow(printContent, 'Imprimir Todas as Abas');
+        }
+
+        function printActiveTab() {
+            const tab = tabs[activeTab];
+            if (!tab) return;
+            
+            const printContent = `
+                <h2>${tab.title || ''}</h2>
+                <p>${tab.description || ''}</p>
+                ${tab.items.map(item => `<h3>${item.title}</h3><p>${item.content}</p>`).join('')}
+            `;
+            
+            printContentWindow(printContent, 'Imprimir Aba Ativa');
+        }
+
+        function printContentWindow(content, title) {
+            const printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>${title}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            h2 { margin-top: 20px; }
+                            .page-break { page-break-before: always; }
+                            @media print {
+                                body { margin: 0; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${content}
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Inicializar com uma aba
+        window.onload = function() {
+            addTab();
+        };
+    </script>
+</body>
+</html>
