@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Prontuários Unificado - Firebase</title>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- CryptoJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        
+        /* Container de autenticação */
+        #auth-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 50px auto;
+        }
+        
+        #auth-container h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        #auth-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .auth-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .auth-buttons button:hover {
+            background-color: #0056b3;
+        }
+        
+        .auth-buttons button:nth-child(2) {
+            background-color: #28a745;
+        }
+        
+        .auth-buttons button:nth-child(2):hover {
+            background-color: #1e7e34;
+        }
+        
+        /* Container principal */
+        #main-container {
+            display: none;
+        }
+        
+        /* Informações do usuário */
+        .user-info {
+            text-align: right;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .user-info span {
+            font-weight: bold;
+            color: #007BFF;
+        }
+        
+        .user-info button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            font-size: 14px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .user-info button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Abas */
+        #tabs {
+            display: flex;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 5px;
+            background-color: #fff;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .tab-active {
+            background-color: #007BFF;
+            color: white;
+        }
+        
+        .tab:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .tab button {
+            padding: 3px 8px;
+            font-size: 12px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .tab button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Container do editor */
+        #editor-container {
+            margin-top: 10px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        #tab-info, #new-item-container {
+            margin-bottom: 15px;
+        }
+        
+        #tab-info input, #tab-info textarea, #new-item-container input, #new-item-container select {
+            width: calc(100% - 20px);
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        /* Botões principais */
+        #buttons {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        #buttons button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        #buttons button:hover {
+            background-color: #0056b3;
+        }
+        
+        /* Botões específicos */
+        .firebase-buttons {
+            background-color: #28a745 !important;
+        }
+        
+        .firebase-buttons:hover {
+            background-color: #1e7e34 !important;
+        }
+        
+        .encrypted-buttons {
+            background-color: #6c757d !important;
+        }
+        
+        .encrypted-buttons:hover {
+            background-color: #5a6268 !important;
+        }
+        
+        /* Itens */
+        .item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            position: relative;
+        }
+        
+        .item h1, .item h2, .item h3, .item h4, .item h5, .item h6, .item p {
+            margin: 0 0 10px 0;
+        }
+        
+        .item-content {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 3px;
+            border: 1px solid #eee;
+        }
+        
+        .item button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .item button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Mensagens */
+        .message {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        /* Campo de senha */
+        .password-field {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .password-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        /* Grupos de botões */
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .button-group h3 {
+            width: 100%;
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                background-color: white;
+                color: black;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+            .tab, #buttons, #auth-container, .user-info {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <!-- Container de Autenticação -->
+    <div id="auth-container">
+        <h2>Login/Registro Prontuário</h2>
+        
+        <div class="message error" id="auth-error"></div>
+        <div class="message success" id="auth-success"></div>
+        
+        <input type="email" id="email" placeholder="E-mail">
+        <input type="password" id="password" placeholder="Senha">
+        
+        <div class="auth-buttons">
+            <button onclick="login()">Login</button>
+            <button onclick="register()">Registrar</button>
+        </div>
+    </div>
+
+    <!-- Container Principal (aparece após login) -->
+    <div id="main-container">
+        <!-- Informações do usuário -->
+        <div class="user-info">
+            Usuário: <span id="user-email"></span>
+            <button onclick="logout()">Sair</button>
+        </div>
+
+        <!-- Abas -->
+        <div id="tabs">
+            <button onclick="addTab()">Adicionar Aba</button>
+        </div>
+
+        <!-- Editor -->
+        <div id="editor-container">
+            <div id="tab-info">
+                <input type="text" id="tab-title" placeholder="Título da aba" oninput="updateTabTitle()">
+                <textarea id="tab-description" placeholder="Descrição da aba" oninput="updateTabDescription()"></textarea>
+            </div>
+            
+            <div id="new-item-container">
+                <input type="text" id="new-item-title" placeholder="Título do item">
+                <select id="item-title-format">
+                    <option value="h1">Título 1</option>
+                    <option value="h2">Título 2</option>
+                    <option value="h3">Título 3</option>
+                    <option value="h4">Título 4</option>
+                    <option value="h5">Título 5</option>
+                    <option value="h6">Título 6</option>
+                    <option value="p">Parágrafo</option>
+                </select>
+                <div id="new-item-content" style="height: 200px; margin-bottom: 10px;"></div>
+                <button onclick="addNewItem()">Adicionar Item</button>
+            </div>
+            
+            <div id="list"></div>
+        </div>
+
+        <!-- Mensagens de status -->
+        <div class="message error" id="firebase-error"></div>
+        <div class="message success" id="firebase-success"></div>
+
+        <!-- Botões de controle -->
+        <div id="buttons">
+            <!-- Grupo Firebase -->
+            <div class="button-group">
+                <h3>Firebase</h3>
+                <button onclick="saveToFirebase(false)" class="firebase-buttons">Salvar no Firebase</button>
+                <button onclick="saveToFirebase(true)" class="encrypted-buttons">Salvar Criptografado</button>
+                <button onclick="loadFromFirebase(false)" class="firebase-buttons">Carregar do Firebase</button>
+                <button onclick="loadFromFirebase(true)" class="encrypted-buttons">Carregar Criptografado</button>
+            </div>
+            
+            <!-- Grupo Local -->
+            <div class="button-group">
+                <h3>Backup Local</h3>
+                <button onclick="saveToJSON()">Exportar para JSON</button>
+                <button onclick="saveEncryptedJSON()">Exportar JSON Criptografado</button>
+                <button onclick="loadFromJSON()">Importar JSON</button>
+                <button onclick="loadEncryptedJSON()">Importar JSON Criptografado</button>
+            </div>
+            
+            <!-- Grupo Impressão -->
+            <div class="button-group">
+                <h3>Impressão</h3>
+                <button onclick="printTabs()">Imprimir Todas as Abas</button>
+                <button onclick="printActiveTab()">Imprimir Aba Ativa</button>
+            </div>
+        </div>
+
+        <!-- Campo de senha para criptografia -->
+        <div class="password-field">
+            <input type="password" id="encryption-password" placeholder="Senha para criptografia (opcional)">
+        </div>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // Inicializa o Quill
+        var quill = new Quill('#new-item-content', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+        
+        // Variáveis globais
+        let tabs = {};
+        let activeTab = 1;
+        let nextTabNumber = 1;
+        let currentUser = null;
+        
+        // Observador de autenticação
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+                document.getElementById('user-email').textContent = user.email;
+                showMessage('auth-success', 'Login realizado com sucesso!');
+                
+                // Carregar dados do usuário se existirem
+                setTimeout(() => {
+                    loadFromFirebase(false);
+                }, 1000);
+            } else {
+                currentUser = null;
+                document.getElementById('auth-container').style.display = 'block';
+                document.getElementById('main-container').style.display = 'none';
+            }
+        });
+        
+        // Funções de autenticação
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no login: ' + error.message);
+                });
+        }
+        
+        function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(() => {
+                    showMessage('auth-success', 'Conta criada com sucesso!');
+                })
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no registro: ' + error.message);
+                });
+        }
+        
+        function logout() {
+            auth.signOut();
+            tabs = {};
+            activeTab = 1;
+            nextTabNumber = 1;
+            renderTabs();
+            renderList();
+            updateTabInputs();
+        }
+        
+        // Funções de mensagens
+        function showMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Funções do editor
+        function renderTabs() {
+            const tabContainer = document.getElementById('tabs');
+            tabContainer.innerHTML = '<button onclick="addTab()">Adicionar Aba</button>';
+            
+            Object.keys(tabs).forEach(tabNumber => {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (tabNumber == activeTab ? ' tab-active' : '');
+                tab.setAttribute('data-tab', tabNumber);
+                tab.textContent = `Aba ${tabNumber}: ${tabs[tabNumber].title || ''}`;
+                tab.addEventListener('click', () => {
+                    document.querySelector('.tab-active')?.classList.remove('tab-active');
+                    tab.classList.add('tab-active');
+                    activeTab = tabNumber;
+                    renderList();
+                    updateTabInputs();
+                });
+
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remover';
+                removeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    removeTab(tabNumber);
+                };
+
+                tab.appendChild(removeButton);
+                tabContainer.appendChild(tab);
+            });
+        }
+        
+        function removeTab(tabNumber) {
+            delete tabs[tabNumber];
+            if (Object.keys(tabs).length > 0) {
+                activeTab = Math.max(...Object.keys(tabs).map(Number));
+            } else {
+                activeTab = 1;
+            }
+            renderTabs();
+            renderList();
+            updateTabInputs();
+        }
+        
+        function updateTabInputs() {
+            if (tabs[activeTab]) {
+                document.getElementById('tab-title').value = tabs[activeTab].title || '';
+                document.getElementById('tab-description').value = tabs[activeTab].description || '';
+            } else {
+                document.getElementById('tab-title').value = '';
+                document.getElementById('tab-description').value = '';
+            }
+        }
+        
+        function updateTabTitle() {
+            if (tabs[activeTab]) {
+                tabs[activeTab].title = document.getElementById('tab-title').value;
+                renderTabs();
+            }
+        }
+        
+        function updateTabDescription() {
+            if (tabs[activeTab]) {
+                tabs[activeTab].description = document.getElementById('tab-description').value;
+            }
+        }
+        
+        function renderList() {
+            const listContainer = document.getElementById('list');
+            listContainer.innerHTML = '';
+
+            if (tabs[activeTab]) {
+                tabs[activeTab].items.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'item';
+
+                    const titleElement = document.createElement(item.titleFormat || 'h3');
+                    titleElement.textContent = item.title;
+                    itemDiv.appendChild(titleElement);
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'item-content';
+                    contentDiv.innerHTML = item.content;
+                    itemDiv.appendChild(contentDiv);
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remover';
+                    removeButton.onclick = () => {
+                        tabs[activeTab].items.splice(index, 1);
+                        renderList();
+                    };
+
+                    itemDiv.appendChild(removeButton);
+                    listContainer.appendChild(itemDiv);
+                });
+            }
+        }
+        
+        function addTab() {
+            tabs[nextTabNumber] = { title: '', description: '', items: [] };
+            activeTab = nextTabNumber;
+            nextTabNumber++;
+            renderTabs();
+            renderList();
+            updateTabInputs();
+        }
+        
+        function addNewItem() {
+            const newItemTitle = document.getElementById('new-item-title').value.trim();
+            const titleFormat = document.getElementById('item-title-format').value;
+            const newItemContent = quill.root.innerHTML;
+            
+            if (tabs[activeTab] && (newItemTitle || newItemContent)) {
+                tabs[activeTab].items.push({ 
+                    title: newItemTitle, 
+                    titleFormat: titleFormat, 
+                    content: newItemContent 
+                });
+                document.getElementById('new-item-title').value = '';
+                quill.setContents([]);
+                renderList();
+            }
+        }
+        
+        // Funções do Firebase
+        async function saveToFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para salvar.');
+                return;
+            }
+            
+            try {
+                let dataToSave = { ...tabs };
+                const password = document.getElementById('encryption-password').value;
+                
+                if (encrypted && password) {
+                    const jsonData = JSON.stringify(dataToSave);
+                    const encryptedData = CryptoJS.AES.encrypt(jsonData, password).toString();
+                    dataToSave = { 
+                        encrypted: true, 
+                        data: encryptedData 
+                    };
+                } else {
+                    dataToSave = { 
+                        encrypted: false, 
+                        data: dataToSave 
+                    };
+                }
+                
+                dataToSave.lastModified = firebase.firestore.FieldValue.serverTimestamp();
+                dataToSave.userId = currentUser.uid;
+                dataToSave.userEmail = currentUser.email;
+                
+                await db.collection('prontuariomultifuncionalformatado')
+                    .doc(currentUser.uid)
+                    .set(dataToSave);
+                
+                showMessage('firebase-success', 'Prontuário salvo com sucesso no Firebase!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao salvar: ' + error.message);
+            }
+        }
+        
+        async function loadFromFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para carregar.');
+                return;
+            }
+            
+            try {
+                const doc = await db.collection('prontuariomultifuncionalformatado')
+                    .doc(currentUser.uid)
+                    .get();
+                
+                if (!doc.exists) {
+                    showMessage('firebase-error', 'Nenhum dado encontrado para este usuário.');
+                    return;
+                }
+                
+                const data = doc.data();
+                
+                if (data.encrypted && !encrypted) {
+                    showMessage('firebase-error', 'Os dados estão criptografados. Use "Carregar Criptografado".');
+                    return;
+                }
+                
+                if (!data.encrypted && encrypted) {
+                    showMessage('firebase-error', 'Os dados não estão criptografados. Use "Carregar do Firebase".');
+                    return;
+                }
+                
+                let loadedData;
+                if (encrypted) {
+                    const password = document.getElementById('encryption-password').value;
+                    if (!password) {
+                        showMessage('firebase-error', 'Digite a senha para descriptografar.');
+                        return;
+                    }
+                    
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(data.data, password);
+                        const decryptedJson = bytes.toString(CryptoJS.enc.Utf8);
+                        
+                        if (!decryptedJson) {
+                            throw new Error('Senha incorreta');
+                        }
+                        
+                        loadedData = JSON.parse(decryptedJson);
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao descriptografar. Senha incorreta ou dados corrompidos.');
+                        return;
+                    }
+                } else {
+                    loadedData = data.data;
+                }
+                
+                tabs = loadedData;
+                nextTabNumber = Math.max(...Object.keys(tabs).map(Number), 0) + 1;
+                activeTab = Object.keys(tabs)[0] || 1;
+                
+                renderTabs();
+                renderList();
+                updateTabInputs();
+                
+                showMessage('firebase-success', 'Dados carregados com sucesso do Firebase!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao carregar: ' + error.message);
+            }
+        }
+        
+        // Funções JSON (backup local)
+        function saveToJSON() {
+            const data = {
+                tabs: tabs,
+                timestamp: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const json = JSON.stringify(data, null, 2);
+            downloadJSON(json, 'prontuario_formatado.json');
+        }
+        
+        function saveEncryptedJSON() {
+            const password = document.getElementById('encryption-password').value;
+            if (!password) {
+                showMessage('firebase-error', 'Digite uma senha para criptografar.');
+                return;
+            }
+            
+            const data = {
+                tabs: tabs,
+                timestamp: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const json = JSON.stringify(data);
+            const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+            
+            downloadJSON(encrypted, 'prontuario_formatado_criptografado.json');
+        }
+        
+        function loadFromJSON() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.tabs) {
+                            tabs = data.tabs;
+                        } else {
+                            tabs = data; // Para compatibilidade com versões antigas
+                        }
+                        
+                        nextTabNumber = Math.max(...Object.keys(tabs).map(Number), 0) + 1;
+                        activeTab = Object.keys(tabs)[0] || 1;
+                        renderTabs();
+                        renderList();
+                        updateTabInputs();
+                        showMessage('firebase-success', 'JSON carregado com sucesso!');
+                    } catch (err) {
+                        showMessage('firebase-error', 'Erro ao processar o arquivo JSON.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        function loadEncryptedJSON() {
+            const password = document.getElementById('encryption-password').value;
+            if (!password) {
+                showMessage('firebase-error', 'Digite a senha para descriptografar.');
+                return;
+            }
+            
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(event.target.result, password);
+                        const decryptedJson = bytes.toString(CryptoJS.enc.Utf8);
+                        
+                        if (!decryptedJson) {
+                            throw new Error('Senha incorreta');
+                        }
+                        
+                        const data = JSON.parse(decryptedJson);
+                        if (data.tabs) {
+                            tabs = data.tabs;
+                        } else {
+                            tabs = data;
+                        }
+                        
+                        nextTabNumber = Math.max(...Object.keys(tabs).map(Number), 0) + 1;
+                        activeTab = Object.keys(tabs)[0] || 1;
+                        renderTabs();
+                        renderList();
+                        updateTabInputs();
+                        showMessage('firebase-success', 'JSON criptografado carregado com sucesso!');
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao descriptografar. Senha incorreta ou arquivo corrompido.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        function downloadJSON(content, filename) {
+            const blob = new Blob([content], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Funções de impressão
+        function printTabs() {
+            const printContent = Object.keys(tabs).map(tabNumber => {
+                const tab = tabs[tabNumber];
+                return `
+                    <div class="page-break">
+                        <h2>${tab.title || ''}</h2>
+                        <p>${tab.description || ''}</p>
+                        ${tab.items.map(item => {
+                            const titleElement = item.titleFormat ? 
+                                `<${item.titleFormat}>${item.title}</${item.titleFormat}>` : 
+                                `<h3>${item.title}</h3>`;
+                            return `${titleElement}${item.content}`;
+                        }).join('')}
+                    </div>
+                `;
+            }).join('');
+            
+            printContentWindow(printContent, 'Imprimir Todas as Abas');
+        }
+        
+        function printActiveTab() {
+            const tab = tabs[activeTab];
+            if (!tab) return;
+            
+            const printContent = `
+                <h2>${tab.title || ''}</h2>
+                <p>${tab.description || ''}</p>
+                ${tab.items.map(item => {
+                    const titleElement = item.titleFormat ? 
+                        `<${item.titleFormat}>${item.title}</${item.titleFormat}>` : 
+                        `<h3>${item.title}</h3>`;
+                    return `${titleElement}${item.content}`;
+                }).join('')}
+            `;
+            
+            printContentWindow(printContent, 'Imprimir Aba Ativa');
+        }
+        
+        function printContentWindow(content, title) {
+            const printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>${title}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            h2 { margin-top: 20px; }
+                            .page-break { page-break-before: always; }
+                            @media print {
+                                body { margin: 0; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${content}
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+        
+        // Inicializa com uma aba
+        window.onload = function() {
+            addTab();
+        };
+    </script>
+</body>
+</html>
