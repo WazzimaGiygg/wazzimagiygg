@@ -114,6 +114,107 @@
             background-color: #0056b3;
         }
 
+        /* Estilos para login */
+        .login-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--sombra);
+        }
+
+        .login-form h2 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .login-form p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .google-btn {
+            background-color: #4285F4;
+            color: white;
+            padding: 12px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+
+        .google-btn:hover {
+            background-color: #357ae8;
+        }
+
+        .google-icon {
+            margin-right: 10px;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/2048px-Google_%22G%22_logo.svg.png') no-repeat center;
+            background-size: contain;
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Estilos para mensagens de erro e restrição */
+        .restrito-message {
+            text-align: center;
+            padding: 40px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .restrito-message h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+
+        .restrito-message p {
+            color: #856404;
+            margin-bottom: 20px;
+        }
+
+        /* Botão de logout */
+        .logout-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .user-info span {
+            margin-right: 10px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 20px;
@@ -126,6 +227,14 @@
             .print-buttons {
                 text-align: left;
                 margin-top: 15px;
+            }
+            .user-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .logout-btn {
+                margin-left: 0;
+                margin-top: 10px;
             }
         }
 
@@ -141,18 +250,28 @@
             .print-buttons {
                 display: none;
             }
+            .login-container, .restrito-message, .user-info, .logout-btn {
+                display: none !important;
+            }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <!-- Área de informação do usuário (só aparece quando logado) -->
+    <div id="user-info" class="user-info" style="display: none;">
+        <span id="user-display-name"></span>
+        <button id="logout-button" class="logout-btn">Sair</button>
+    </div>
+
     <div id="artigo-container">
         <p style="text-align: center; color: #666;">Carregando artigo...</p>
     </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
@@ -168,66 +287,86 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
 
     const artigoContainer = document.getElementById('artigo-container');
+    const userInfoDiv = document.getElementById('user-info');
+    const userDisplayNameSpan = document.getElementById('user-display-name');
+    const logoutButton = document.getElementById('logout-button');
+
+    let currentUser = null;
+    let currentCollection = 'materiadeensaio';
+    let currentUid = null;
+    let artigoData = null;
+
+    // Monitorar estado de autenticação
+    auth.onAuthStateChanged((user) => {
+        currentUser = user;
+        
+        if (user) {
+            // Usuário está logado
+            userDisplayNameSpan.textContent = `Olá, ${user.displayName || user.email}`;
+            userInfoDiv.style.display = 'flex';
+            
+            // Se já temos os dados do artigo e estava restrito, tentar carregar novamente
+            if (currentUid && currentCollection) {
+                buscarEExibirArtigo();
+            }
+        } else {
+            // Usuário não está logado
+            userInfoDiv.style.display = 'none';
+            
+            // Se já temos os dados do artigo e estava restrito, mostrar mensagem de login
+            if (artigoData && artigoData.restrito) {
+                mostrarLoginNecessario();
+            }
+        }
+    });
+
+    // Configurar botão de logout
+    logoutButton.addEventListener('click', () => {
+        auth.signOut().then(() => {
+            // Redirecionar para a mesma página sem parâmetros de sessão
+            window.location.reload();
+        }).catch((error) => {
+            console.error('Erro ao fazer logout:', error);
+        });
+    });
 
     async function buscarEExibirArtigo() {
         const urlParams = new URLSearchParams(window.location.search);
         const uid = urlParams.get('uid');
-        const collection = urlParams.get('collection') || 'materiadeensaio'; // Obtém a coleção da URL ou usa a padrão
-
+        const collection = urlParams.get('collection') || 'materiadeensaio';
+        
         if (!uid) {
             artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">UID do artigo não fornecido na URL.</p>';
             return;
         }
 
+        // Armazenar para uso posterior
+        currentUid = uid;
+        currentCollection = collection;
+
         try {
-            const docRef = db.collection(collection).doc(uid); // Usa a coleção obtida
+            const docRef = db.collection(collection).doc(uid);
             const doc = await docRef.get();
 
             if (doc.exists) {
-                const materia = doc.data();
-                let fontesHtml = '';
-                if (materia.fontes && materia.fontes.length > 0) {
-                    const fontesLista = materia.fontes.map(fonte => {
-                        const isUrl = fonte.startsWith('http://') || fonte.startsWith('https://');
-                        if (isUrl) {
-                            return `<li><a href="${fonte}" target="_blank">${fonte}</a></li>`;
-                        } else {
-                            return `<li>${fonte}</li>`;
-                        }
-                    }).join('');
-                    fontesHtml = `
-                        <div class="secao fontes-container">
-                            <h2>Fontes</h2>
-                            <ul>${fontesLista}</ul>
-                        </div>
-                    `;
+                artigoData = doc.data();
+                
+                // Verificar se o artigo é restrito
+                const isRestrito = artigoData.restrito === true;
+                
+                // Se for restrito e usuário não estiver logado, mostrar mensagem de login
+                if (isRestrito && !currentUser) {
+                    mostrarLoginNecessario();
+                    return;
                 }
-
-                let infoHtml = '';
-                if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
-                if (materia.arquivo) infoHtml += `<p><strong>Arquivo:</strong> ${materia.arquivo}</p>`;
-                if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
-
-                artigoContainer.innerHTML = `
-                    <div class="print-buttons">
-                        <button onclick="window.print()">Imprimir</button>
-                    </div>
-                    <div class="header-content">
-                        <h1>${materia.titulo}</h1>
-                        <p class="uid-display">UID: ${doc.id}</p>
-                    </div>
-                    <div class="secao">
-                        <h2>Informações Adicionais</h2>
-                        ${infoHtml}
-                    </div>
-                    <div class="secao">
-                        <h2>Descrição</h2>
-                        <p>${materia.descricao}</p>
-                    </div>
-                    ${fontesHtml}
-                `;
+                
+                // Se passar na verificação (ou artigo público, ou restrito com login), exibir artigo
+                exibirArtigo(doc.id, artigoData, collection);
+                
             } else {
                 artigoContainer.innerHTML = '<p style="text-align: center; color: #e74c3c;">Artigo não encontrado.</p>';
             }
@@ -237,7 +376,98 @@
         }
     }
 
-    window.onload = buscarEExibirArtigo;
+    function exibirArtigo(id, materia, collection) {
+        let fontesHtml = '';
+        if (materia.fontes && materia.fontes.length > 0) {
+            const fontesLista = materia.fontes.map(fonte => {
+                const isUrl = fonte.startsWith('http://') || fonte.startsWith('https://');
+                if (isUrl) {
+                    return `<li><a href="${fonte}" target="_blank" rel="noopener noreferrer">${fonte}</a></li>`;
+                } else {
+                    return `<li>${fonte}</li>`;
+                }
+            }).join('');
+            fontesHtml = `
+                <div class="secao fontes-container">
+                    <h2>Fontes</h2>
+                    <ul>${fontesLista}</ul>
+                </div>
+            `;
+        }
+
+        let infoHtml = '';
+        if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
+        if (materia.arquivo) infoHtml += `<p><strong>Arquivo:</strong> ${materia.arquivo}</p>`;
+        if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
+        if (materia.restrito) infoHtml += `<p><strong>Acesso:</strong> <span style="color: #d32f2f;">Restrito</span></p>`;
+        
+        // Adicionar informação da coleção
+        infoHtml += `<p><strong>Coleção:</strong> ${collection}</p>`;
+
+        // Adicionar botão de editar se for o criador ou admin
+        let editarBtn = '';
+        if (currentUser && (currentUser.uid === materia.criadorId || currentUser.email === 'admin@exemplo.com')) {
+            editarBtn = `<button onclick="window.open('/teste.html?uid=${collection}#editar-${id}', '_blank')" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Editar Artigo</button>`;
+        }
+
+        artigoContainer.innerHTML = `
+            <div class="print-buttons">
+                ${editarBtn}
+                <button onclick="window.print()">Imprimir</button>
+            </div>
+            <div class="header-content">
+                <h1>${materia.titulo}</h1>
+                <p class="uid-display">UID: ${id} | Coleção: ${collection}</p>
+            </div>
+            <div class="secao">
+                <h2>Informações Adicionais</h2>
+                ${infoHtml}
+            </div>
+            <div class="secao">
+                <h2>Descrição</h2>
+                <p>${materia.descricao}</p>
+            </div>
+            ${fontesHtml}
+        `;
+    }
+
+    function mostrarLoginNecessario() {
+        artigoContainer.innerHTML = `
+            <div class="restrito-message">
+                <h3>Artigo Restrito</h3>
+                <p>Este artigo tem acesso restrito. Faça login com sua conta Google para visualizar o conteúdo.</p>
+            </div>
+            <div class="login-container">
+                <div class="login-form">
+                    <h2>Acesso Restrito</h2>
+                    <p>Faça login para visualizar este artigo</p>
+                    <button id="google-login-btn" class="google-btn">
+                        <div class="google-icon"></div>
+                        Entrar com Google
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Configurar botão de login
+        document.getElementById('google-login-btn').addEventListener('click', fazerLogin);
+    }
+
+    async function fazerLogin() {
+        try {
+            await auth.signInWithPopup(googleProvider);
+            // Após login bem-sucedido, a função onAuthStateChanged será chamada
+            // e tentará carregar o artigo novamente
+        } catch (error) {
+            console.error("Erro no login:", error);
+            alert("Erro ao fazer login: " + error.message);
+        }
+    }
+
+    // Iniciar quando a página carregar
+    window.onload = function() {
+        buscarEExibirArtigo();
+    };
 </script>
 
 <iframe 
