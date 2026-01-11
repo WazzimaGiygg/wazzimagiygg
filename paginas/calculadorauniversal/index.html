@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora com Múltiplas Abas - Firebase</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- CryptoJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        
+        /* Container de autenticação */
+        #auth-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        #auth-container h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        #auth-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .auth-buttons button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+        }
+        
+        /* Container principal */
+        #main-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            display: none;
+        }
+        
+        .user-info {
+            text-align: right;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .user-info span {
+            font-weight: bold;
+            color: #007BFF;
+        }
+        
+        .user-info button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        /* Abas */
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            background-color: white;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background-color: #007BFF;
+            color: white;
+            border-color: #007BFF;
+        }
+        
+        /* Calculadora */
+        .calculator {
+            border: 2px solid #007BFF;
+            padding: 25px;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 5px 15px rgba(0,123,255,0.1);
+        }
+        
+        #display {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-align: right;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .button-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .calculator button {
+            flex: 1;
+            padding: 15px;
+            font-size: 18px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .calculator button.number {
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        
+        .calculator button.operator {
+            background-color: #007BFF;
+            color: white;
+        }
+        
+        .calculator button.equals {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .calculator button.clear {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .calculator button:hover {
+            opacity: 0.9;
+        }
+        
+        /* Botões de ação */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .action-buttons button {
+            flex: 1;
+            padding: 12px;
+            min-width: 150px;
+        }
+        
+        /* Seções de controle */
+        .control-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .control-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .firebase-controls, .local-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .firebase-controls button, .local-controls button {
+            flex: 1;
+            padding: 10px;
+            min-width: 120px;
+        }
+        
+        /* Histórico */
+        #history {
+            margin-top: 30px;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        #history h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        #historyList {
+            list-style-type: none;
+            padding: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        #historyList li {
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: white;
+            border-radius: 3px;
+            border-left: 4px solid #007BFF;
+            font-family: 'Courier New', monospace;
+        }
+        
+        /* Mensagens */
+        .message {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        /* Campo de senha para criptografia */
+        .encryption-field {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .encryption-field input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Container de Autenticação -->
+    <div id="auth-container">
+        <h2>Login/Registro Calculadora</h2>
+        
+        <div class="message error" id="auth-error"></div>
+        <div class="message success" id="auth-success"></div>
+        
+        <input type="email" id="email" placeholder="E-mail">
+        <input type="password" id="password" placeholder="Senha">
+        
+        <div class="auth-buttons">
+            <button onclick="login()" style="background-color: #007BFF;">Login</button>
+            <button onclick="register()" style="background-color: #28a745;">Registrar</button>
+        </div>
+    </div>
+
+    <!-- Container Principal (aparece após login) -->
+    <div id="main-container">
+        <!-- Informações do usuário -->
+        <div class="user-info">
+            Usuário: <span id="user-email"></span>
+            <button onclick="logout()" style="background-color: #dc3545; width: auto;">Sair</button>
+        </div>
+
+        <!-- Abas -->
+        <div class="tab-container" id="tabContainer">
+            <div class="tab active" onclick="switchTab(0)">Aba 1</div>
+        </div>
+
+        <!-- Calculadora -->
+        <div class="calculator" id="calculatorContainer">
+            <input type="text" id="display" readonly>
+            
+            <div class="button-row">
+                <button class="number" onclick="appendToDisplay('7')">7</button>
+                <button class="number" onclick="appendToDisplay('8')">8</button>
+                <button class="number" onclick="appendToDisplay('9')">9</button>
+                <button class="operator" onclick="appendToDisplay('/')">/</button>
+            </div>
+            
+            <div class="button-row">
+                <button class="number" onclick="appendToDisplay('4')">4</button>
+                <button class="number" onclick="appendToDisplay('5')">5</button>
+                <button class="number" onclick="appendToDisplay('6')">6</button>
+                <button class="operator" onclick="appendToDisplay('*')">×</button>
+            </div>
+            
+            <div class="button-row">
+                <button class="number" onclick="appendToDisplay('1')">1</button>
+                <button class="number" onclick="appendToDisplay('2')">2</button>
+                <button class="number" onclick="appendToDisplay('3')">3</button>
+                <button class="operator" onclick="appendToDisplay('-')">-</button>
+            </div>
+            
+            <div class="button-row">
+                <button class="number" onclick="appendToDisplay('0')">0</button>
+                <button class="number" onclick="appendToDisplay('.')">.</button>
+                <button class="equals" onclick="calculate()">=</button>
+                <button class="operator" onclick="appendToDisplay('+')">+</button>
+            </div>
+            
+            <div class="button-row">
+                <button class="clear" onclick="clearDisplay()">C</button>
+                <button onclick="addTab()" style="background-color: #17a2b8;">+ Aba</button>
+                <button onclick="removeTab()" style="background-color: #ffc107;">- Aba</button>
+            </div>
+        </div>
+
+        <!-- Mensagens -->
+        <div class="message error" id="firebase-error"></div>
+        <div class="message success" id="firebase-success"></div>
+
+        <!-- Controles Firebase -->
+        <div class="control-section">
+            <h3>Firebase</h3>
+            <div class="firebase-controls">
+                <button onclick="saveToFirebase(false)" style="background-color: #007BFF;">Salvar no Firebase</button>
+                <button onclick="saveToFirebase(true)" style="background-color: #6c757d;">Salvar Criptografado</button>
+                <button onclick="loadFromFirebase(false)" style="background-color: #28a745;">Carregar do Firebase</button>
+                <button onclick="loadFromFirebase(true)" style="background-color: #17a2b8;">Carregar Criptografado</button>
+            </div>
+        </div>
+
+        <!-- Controles Locais -->
+        <div class="control-section">
+            <h3>Backup Local</h3>
+            <div class="local-controls">
+                <button onclick="saveToJSON()" style="background-color: #007BFF;">Exportar JSON</button>
+                <button onclick="saveEncryptedJSON()" style="background-color: #6c757d;">Exportar JSON Criptografado</button>
+                <button onclick="loadFromJSON()" style="background-color: #28a745;">Importar JSON</button>
+                <button onclick="loadEncryptedJSON()" style="background-color: #17a2b8;">Importar JSON Criptografado</button>
+            </div>
+        </div>
+
+        <!-- Campo de senha para criptografia -->
+        <div class="encryption-field">
+            <input type="password" id="encryption-password" placeholder="Senha para criptografia (opcional)">
+        </div>
+
+        <!-- Histórico -->
+        <div id="history">
+            <h3>Histórico:</h3>
+            <ul id="historyList"></ul>
+        </div>
+    </div>
+
+    <!-- Input para upload de arquivos (oculto) -->
+    <input type="file" id="fileInput" style="display:none;" accept=".json">
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // Elementos DOM
+        const fileInput = document.getElementById('fileInput');
+        
+        // Variáveis globais
+        let tabs = [{ display: '', history: [] }];
+        let activeTabIndex = 0;
+        let currentUser = null;
+        
+        // Observador de autenticação
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+                document.getElementById('user-email').textContent = user.email;
+                showMessage('auth-success', 'Login realizado com sucesso!');
+                
+                // Carregar dados do usuário se existirem
+                setTimeout(() => {
+                    loadFromFirebase(false);
+                }, 1000);
+            } else {
+                currentUser = null;
+                document.getElementById('auth-container').style.display = 'block';
+                document.getElementById('main-container').style.display = 'none';
+            }
+        });
+        
+        // Funções de autenticação
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no login: ' + error.message);
+                });
+        }
+        
+        function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(() => {
+                    showMessage('auth-success', 'Conta criada com sucesso!');
+                })
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no registro: ' + error.message);
+                });
+        }
+        
+        function logout() {
+            auth.signOut();
+            tabs = [{ display: '', history: [] }];
+            activeTabIndex = 0;
+            renderTabs();
+            updateCalculatorState(tabs[0]);
+            document.getElementById('display').value = '';
+            document.getElementById('historyList').innerHTML = '';
+        }
+        
+        // Funções de mensagens
+        function showMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Funções da calculadora (mantidas do código original)
+        function appendToDisplay(value) {
+            const display = document.getElementById('display');
+            const currentTab = tabs[activeTabIndex];
+            currentTab.display += value;
+            display.value = currentTab.display;
+        }
+        
+        function clearDisplay() {
+            const display = document.getElementById('display');
+            const currentTab = tabs[activeTabIndex];
+            currentTab.display = '';
+            display.value = '';
+        }
+        
+        function calculate() {
+            const display = document.getElementById('display');
+            const currentTab = tabs[activeTabIndex];
+            
+            try {
+                const result = eval(currentTab.display);
+                currentTab.history.push({ 
+                    expression: currentTab.display, 
+                    result: result,
+                    timestamp: new Date().toLocaleString()
+                });
+                currentTab.display = result.toString();
+                display.value = result;
+                updateHistory();
+            } catch (e) {
+                display.value = 'Erro';
+                currentTab.display = '';
+            }
+        }
+        
+        function updateHistory() {
+            const historyList = document.getElementById('historyList');
+            const currentTab = tabs[activeTabIndex];
+            
+            historyList.innerHTML = '';
+            currentTab.history.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${item.expression}</strong> = ${item.result}
+                    <br><small>${item.timestamp}</small>
+                `;
+                historyList.appendChild(li);
+            });
+        }
+        
+        // Funções de abas
+        function addTab() {
+            const newIndex = tabs.length;
+            tabs.push({ display: '', history: [] });
+            renderTabs();
+            switchTab(newIndex);
+        }
+        
+        function removeTab() {
+            if (tabs.length > 1) {
+                tabs.splice(activeTabIndex, 1);
+                activeTabIndex = Math.max(0, activeTabIndex - 1);
+                renderTabs();
+                switchTab(activeTabIndex);
+            }
+        }
+        
+        function switchTab(index) {
+            if (index >= 0 && index < tabs.length) {
+                activeTabIndex = index;
+                const currentTab = tabs[activeTabIndex];
+                
+                // Atualizar visual das abas
+                document.querySelectorAll('.tab').forEach((tab, i) => {
+                    tab.classList.toggle('active', i === activeTabIndex);
+                });
+                
+                // Atualizar calculadora
+                updateCalculatorState(currentTab);
+            }
+        }
+        
+        function renderTabs() {
+            const tabContainer = document.getElementById('tabContainer');
+            tabContainer.innerHTML = '';
+            
+            tabs.forEach((tab, index) => {
+                const tabElement = document.createElement('div');
+                tabElement.className = 'tab' + (index === activeTabIndex ? ' active' : '');
+                tabElement.textContent = `Aba ${index + 1}`;
+                tabElement.onclick = () => switchTab(index);
+                tabContainer.appendChild(tabElement);
+            });
+        }
+        
+        function updateCalculatorState(tab) {
+            const display = document.getElementById('display');
+            display.value = tab.display;
+            updateHistory();
+        }
+        
+        // Funções do Firebase
+        async function saveToFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para salvar.');
+                return;
+            }
+            
+            try {
+                let dataToSave = { tabs: [...tabs] };
+                const password = document.getElementById('encryption-password').value;
+                
+                if (encrypted && password) {
+                    // Criptografar os dados
+                    const jsonData = JSON.stringify(dataToSave);
+                    const encryptedData = CryptoJS.AES.encrypt(jsonData, password).toString();
+                    dataToSave = { 
+                        encrypted: true, 
+                        data: encryptedData 
+                    };
+                } else {
+                    dataToSave = { 
+                        encrypted: false, 
+                        data: dataToSave 
+                    };
+                }
+                
+                // Adicionar metadados
+                dataToSave.lastModified = firebase.firestore.FieldValue.serverTimestamp();
+                dataToSave.userId = currentUser.uid;
+                dataToSave.userEmail = currentUser.email;
+                
+                // Salvar no Firestore - coleção "calculadoradinamica"
+                await db.collection('calculadoradinamica')
+                    .doc(currentUser.uid)
+                    .set(dataToSave);
+                
+                showMessage('firebase-success', 'Calculadora salva com sucesso no Firebase!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao salvar: ' + error.message);
+            }
+        }
+        
+        async function loadFromFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para carregar.');
+                return;
+            }
+            
+            try {
+                const doc = await db.collection('calculadoradinamica')
+                    .doc(currentUser.uid)
+                    .get();
+                
+                if (!doc.exists) {
+                    showMessage('firebase-error', 'Nenhum dado encontrado para este usuário.');
+                    return;
+                }
+                
+                const data = doc.data();
+                
+                if (data.encrypted && !encrypted) {
+                    showMessage('firebase-error', 'Os dados estão criptografados. Use "Carregar Criptografado".');
+                    return;
+                }
+                
+                if (!data.encrypted && encrypted) {
+                    showMessage('firebase-error', 'Os dados não estão criptografados. Use "Carregar do Firebase".');
+                    return;
+                }
+                
+                let loadedData;
+                if (encrypted) {
+                    const password = document.getElementById('encryption-password').value;
+                    if (!password) {
+                        showMessage('firebase-error', 'Digite a senha para descriptografar.');
+                        return;
+                    }
+                    
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(data.data, password);
+                        const decryptedJson = bytes.toString(CryptoJS.enc.Utf8);
+                        
+                        if (!decryptedJson) {
+                            throw new Error('Senha incorreta');
+                        }
+                        
+                        const parsedData = JSON.parse(decryptedJson);
+                        loadedData = parsedData.tabs;
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao descriptografar. Senha incorreta ou dados corrompidos.');
+                        return;
+                    }
+                } else {
+                    loadedData = data.data.tabs;
+                }
+                
+                // Atualizar os dados da calculadora
+                tabs = loadedData.map(tab => ({
+                    display: tab.display || '',
+                    history: tab.history || []
+                }));
+                
+                activeTabIndex = 0;
+                renderTabs();
+                switchTab(activeTabIndex);
+                
+                showMessage('firebase-success', 'Dados carregados com sucesso do Firebase!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao carregar: ' + error.message);
+            }
+        }
+        
+        // Funções JSON (backup local)
+        function saveToJSON() {
+            const data = {
+                tabs: tabs,
+                timestamp: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const json = JSON.stringify(data, null, 2);
+            downloadJSON(json, 'calculadora.json');
+        }
+        
+        function saveEncryptedJSON() {
+            const password = document.getElementById('encryption-password').value;
+            if (!password) {
+                showMessage('firebase-error', 'Digite uma senha para criptografar.');
+                return;
+            }
+            
+            const data = {
+                tabs: tabs,
+                timestamp: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const json = JSON.stringify(data);
+            const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+            
+            downloadJSON(encrypted, 'calculadora_criptografada.json');
+        }
+        
+        function loadFromJSON() {
+            fileInput.onchange = handleFileUpload;
+            fileInput.click();
+        }
+        
+        function loadEncryptedJSON() {
+            const password = document.getElementById('encryption-password').value;
+            if (!password) {
+                showMessage('firebase-error', 'Digite a senha para descriptografar.');
+                return;
+            }
+            
+            fileInput.onchange = (event) => handleEncryptedFileUpload(event, password);
+            fileInput.click();
+        }
+        
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'application/json') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.tabs && Array.isArray(data.tabs)) {
+                            tabs = data.tabs.map(tab => ({
+                                display: tab.display || '',
+                                history: tab.history || []
+                            }));
+                            
+                            activeTabIndex = 0;
+                            renderTabs();
+                            switchTab(activeTabIndex);
+                            showMessage('firebase-success', 'JSON carregado com sucesso!');
+                        } else {
+                            showMessage('firebase-error', 'O arquivo JSON não contém um formato válido.');
+                        }
+                    } catch (err) {
+                        showMessage('firebase-error', 'Erro ao processar o arquivo JSON.');
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                showMessage('firebase-error', 'Por favor, selecione um arquivo JSON válido.');
+            }
+        }
+        
+        function handleEncryptedFileUpload(event, password) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(e.target.result, password);
+                        const decryptedJson = bytes.toString(CryptoJS.enc.Utf8);
+                        
+                        if (!decryptedJson) {
+                            throw new Error('Senha incorreta');
+                        }
+                        
+                        const data = JSON.parse(decryptedJson);
+                        if (data.tabs && Array.isArray(data.tabs)) {
+                            tabs = data.tabs.map(tab => ({
+                                display: tab.display || '',
+                                history: tab.history || []
+                            }));
+                            
+                            activeTabIndex = 0;
+                            renderTabs();
+                            switchTab(activeTabIndex);
+                            showMessage('firebase-success', 'JSON criptografado carregado com sucesso!');
+                        } else {
+                            showMessage('firebase-error', 'O arquivo não contém um formato válido.');
+                        }
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao descriptografar. Senha incorreta ou arquivo corrompido.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+        
+        function downloadJSON(content, filename) {
+            const blob = new Blob([content], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Inicialização
+        window.onload = function() {
+            renderTabs();
+            updateCalculatorState(tabs[0]);
+        };
+    </script>
+</body>
+</html>
