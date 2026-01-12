@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilha de Dados - Firebase</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- CryptoJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- SheetJS para exportação Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        
+        /* Container de autenticação */
+        #auth-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 50px auto;
+        }
+        
+        #auth-container h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        #auth-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .auth-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .auth-buttons button:hover {
+            background-color: #0056b3;
+        }
+        
+        .auth-buttons button:nth-child(2) {
+            background-color: #28a745;
+        }
+        
+        .auth-buttons button:nth-child(2):hover {
+            background-color: #1e7e34;
+        }
+        
+        /* Container principal */
+        #main-container {
+            display: none;
+        }
+        
+        /* Informações do usuário */
+        .user-info {
+            text-align: right;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .user-info span {
+            font-weight: bold;
+            color: #007BFF;
+        }
+        
+        .user-info button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            font-size: 14px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .user-info button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Abas */
+        #tabs {
+            display: flex;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .tab-active {
+            background-color: #007BFF;
+            color: white;
+        }
+        
+        .tab:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .tab button {
+            padding: 3px 8px;
+            font-size: 12px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .tab button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Controles da planilha */
+        .spreadsheet-controls {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .spreadsheet-controls button, .spreadsheet-controls select, .spreadsheet-controls input {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .spreadsheet-controls button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+        }
+        
+        .spreadsheet-controls button:hover {
+            background-color: #0056b3;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        /* Planilha */
+        #spreadsheet-container {
+            overflow: auto;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-height: 600px;
+        }
+        
+        .spreadsheet-table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 800px;
+        }
+        
+        .spreadsheet-table th, .spreadsheet-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            min-width: 100px;
+            height: 30px;
+            position: relative;
+        }
+        
+        .spreadsheet-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .spreadsheet-table td {
+            cursor: cell;
+        }
+        
+        .spreadsheet-table td.selected {
+            background-color: #e3f2fd;
+            outline: 2px solid #007BFF;
+        }
+        
+        .spreadsheet-table td.editing {
+            background-color: white;
+        }
+        
+        .column-header {
+            background-color: #f1f1f1;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .row-header {
+            background-color: #f1f1f1;
+            text-align: center;
+            font-weight: bold;
+            width: 50px;
+        }
+        
+        /* Mensagens */
+        .message {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        /* Campo de senha */
+        .password-field {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .password-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        /* Botões de ação */
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .action-buttons button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .action-buttons button:hover {
+            background-color: #0056b3;
+        }
+        
+        /* Grupos de botões */
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        
+        .button-group h3 {
+            width: 100%;
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .firebase-buttons {
+            background-color: #28a745 !important;
+        }
+        
+        .firebase-buttons:hover {
+            background-color: #1e7e34 !important;
+        }
+        
+        .encrypted-buttons {
+            background-color: #6c757d !important;
+        }
+        
+        .encrypted-buttons:hover {
+            background-color: #5a6268 !important;
+        }
+        
+        .export-buttons {
+            background-color: #17a2b8 !important;
+        }
+        
+        .export-buttons:hover {
+            background-color: #138496 !important;
+        }
+        
+        /* Célula de fórmula */
+        .formula-bar {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .formula-bar input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .formula-bar span {
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        /* Modal de fórmulas */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        /* Estilo para células com fórmulas */
+        .cell-with-formula {
+            background-color: #f0f8ff !important;
+            font-style: italic;
+        }
+        
+        /* Tamanhos diferentes para células */
+        .cell-small {
+            font-size: 12px;
+        }
+        
+        .cell-medium {
+            font-size: 14px;
+        }
+        
+        .cell-large {
+            font-size: 16px;
+        }
+        
+        /* Destaques */
+        .highlight-red {
+            background-color: #ffebee !important;
+        }
+        
+        .highlight-green {
+            background-color: #e8f5e9 !important;
+        }
+        
+        .highlight-blue {
+            background-color: #e3f2fd !important;
+        }
+        
+        .highlight-yellow {
+            background-color: #fffde7 !important;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <!-- Container de Autenticação -->
+    <div id="auth-container">
+        <h2>Login/Registro Planilha</h2>
+        
+        <div class="message error" id="auth-error"></div>
+        <div class="message success" id="auth-success"></div>
+        
+        <input type="email" id="email" placeholder="E-mail">
+        <input type="password" id="password" placeholder="Senha">
+        
+        <div class="auth-buttons">
+            <button onclick="login()">Login</button>
+            <button onclick="register()">Registrar</button>
+        </div>
+    </div>
+
+    <!-- Container Principal (aparece após login) -->
+    <div id="main-container">
+        <!-- Informações do usuário -->
+        <div class="user-info">
+            Usuário: <span id="user-email"></span>
+            <button onclick="logout()">Sair</button>
+        </div>
+
+        <!-- Abas -->
+        <div id="tabs">
+            <button onclick="addTab()">+ Nova Planilha</button>
+        </div>
+
+        <!-- Controles da planilha -->
+        <div class="spreadsheet-controls">
+            <div class="control-group">
+                <button onclick="addRow()">+ Linha</button>
+                <button onclick="addColumn()">+ Coluna</button>
+                <button onclick="deleteRow()">- Linha</button>
+                <button onclick="deleteColumn()">- Coluna</button>
+            </div>
+            
+            <div class="control-group">
+                <select id="cell-size" onchange="changeCellSize()">
+                    <option value="small">Pequeno</option>
+                    <option value="medium" selected>Médio</option>
+                    <option value="large">Grande</option>
+                </select>
+                
+                <select id="cell-highlight" onchange="changeCellHighlight()">
+                    <option value="">Sem destaque</option>
+                    <option value="red">Vermelho</option>
+                    <option value="green">Verde</option>
+                    <option value="blue">Azul</option>
+                    <option value="yellow">Amarelo</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <button onclick="clearSelection()">Limpar Células</button>
+                <button onclick="showFormulasModal()">Fórmulas</button>
+                <button onclick="calculateSum()">Somatório</button>
+            </div>
+        </div>
+
+        <!-- Barra de fórmulas -->
+        <div class="formula-bar">
+            <span id="current-cell">A1</span>
+            <input type="text" id="formula-input" placeholder="Digite uma fórmula (ex: =A1+B1) ou valor">
+            <button onclick="applyFormula()">Aplicar</button>
+        </div>
+
+        <!-- Planilha -->
+        <div id="spreadsheet-container">
+            <table class="spreadsheet-table" id="spreadsheet">
+                <thead id="spreadsheet-header">
+                    <!-- Cabeçalho será gerado dinamicamente -->
+                </thead>
+                <tbody id="spreadsheet-body">
+                    <!-- Corpo será gerado dinamicamente -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mensagens de status -->
+        <div class="message error" id="firebase-error"></div>
+        <div class="message success" id="firebase-success"></div>
+
+        <!-- Botões de ação -->
+        <div class="action-buttons">
+            <!-- Grupo Firebase -->
+            <div class="button-group">
+                <h3>Firebase</h3>
+                <button onclick="saveToFirebase(false)" class="firebase-buttons">Salvar no Firebase</button>
+                <button onclick="saveToFirebase(true)" class="encrypted-buttons">Salvar Criptografado</button>
+                <button onclick="loadFromFirebase(false)" class="firebase-buttons">Carregar do Firebase</button>
+                <button onclick="loadFromFirebase(true)" class="encrypted-buttons">Carregar Criptografado</button>
+            </div>
+            
+            <!-- Grupo Exportação -->
+            <div class="button-group">
+                <h3>Exportação</h3>
+                <button onclick="exportToExcel()" class="export-buttons">Exportar para Excel</button>
+                <button onclick="exportToCSV()" class="export-buttons">Exportar para CSV</button>
+                <button onclick="exportToJSON()" class="export-buttons">Exportar para JSON</button>
+            </div>
+            
+            <!-- Grupo Importação -->
+            <div class="button-group">
+                <h3>Importação</h3>
+                <button onclick="importFromExcel()" class="export-buttons">Importar do Excel</button>
+                <button onclick="importFromCSV()" class="export-buttons">Importar do CSV</button>
+                <button onclick="importFromJSON()" class="export-buttons">Importar do JSON</button>
+            </div>
+        </div>
+
+        <!-- Campo de senha para criptografia -->
+        <div class="password-field">
+            <input type="password" id="encryption-password" placeholder="Senha para criptografia (opcional)">
+        </div>
+    </div>
+
+    <!-- Modal de fórmulas -->
+    <div id="formulas-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Fórmulas Disponíveis</h2>
+                <button class="close-modal" onclick="closeFormulasModal()">×</button>
+            </div>
+            <div>
+                <h3>Fórmulas Básicas:</h3>
+                <ul>
+                    <li><code>=SOMA(A1:B10)</code> - Soma o intervalo</li>
+                    <li><code>=MEDIA(A1:B10)</code> - Média do intervalo</li>
+                    <li><code>=CONTAR(A1:B10)</code> - Conta células não vazias</li>
+                    <li><code>=MAX(A1:B10)</code> - Valor máximo</li>
+                    <li><code>=MIN(A1:B10)</code> - Valor mínimo</li>
+                </ul>
+                
+                <h3>Operadores:</h3>
+                <ul>
+                    <li><code>+</code> - Adição</li>
+                    <li><code>-</code> - Subtração</li>
+                    <li><code>*</code> - Multiplicação</li>
+                    <li><code>/</code> - Divisão</li>
+                    <li><code>()</code> - Parênteses para precedência</li>
+                </ul>
+                
+                <h3>Exemplos:</h3>
+                <ul>
+                    <li><code>=A1+B1</code> - Soma duas células</li>
+                    <li><code>=SOMA(A1:A10)*0.1</code> - 10% da soma</li>
+                    <li><code>=MEDIA(B2:B20)</code> - Média da coluna B</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            // SUA CONFIGURAÇÃO DO FIREBASE AQUI
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_AUTH_DOMAIN",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_STORAGE_BUCKET",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // Variáveis globais da planilha
+        let tabs = {};
+        let activeTab = 1;
+        let nextTabNumber = 1;
+        let currentUser = null;
+        let selectedCell = null;
+        let spreadsheetData = {};
+        let spreadsheetStyles = {};
+        let formulas = {};
+        
+        // Configuração inicial da planilha
+        const INITIAL_ROWS = 20;
+        const INITIAL_COLS = 10;
+        const COLUMN_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        
+        // Observador de autenticação
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+                document.getElementById('user-email').textContent = user.email;
+                showMessage('auth-success', 'Login realizado com sucesso!');
+                
+                // Carregar dados do usuário se existirem
+                setTimeout(() => {
+                    loadFromFirebase(false);
+                }, 1000);
+            } else {
+                currentUser = null;
+                document.getElementById('auth-container').style.display = 'block';
+                document.getElementById('main-container').style.display = 'none';
+            }
+        });
+        
+        // Funções de autenticação
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no login: ' + error.message);
+                });
+        }
+        
+        function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(() => {
+                    showMessage('auth-success', 'Conta criada com sucesso!');
+                })
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no registro: ' + error.message);
+                });
+        }
+        
+        function logout() {
+            auth.signOut();
+            tabs = {};
+            activeTab = 1;
+            nextTabNumber = 1;
+            spreadsheetData = {};
+            spreadsheetStyles = {};
+            formulas = {};
+            renderTabs();
+            renderSpreadsheet();
+        }
+        
+        // Funções de mensagens
+        function showMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Funções das abas
+        function renderTabs() {
+            const tabContainer = document.getElementById('tabs');
+            tabContainer.innerHTML = '<button onclick="addTab()">+ Nova Planilha</button>';
+            
+            Object.keys(tabs).forEach(tabNumber => {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (tabNumber == activeTab ? ' tab-active' : '');
+                tab.setAttribute('data-tab', tabNumber);
+                tab.textContent = `${tabs[tabNumber].title || `Planilha ${tabNumber}`}`;
+                tab.addEventListener('click', () => {
+                    document.querySelector('.tab-active')?.classList.remove('tab-active');
+                    tab.classList.add('tab-active');
+                    activeTab = tabNumber;
+                    loadSpreadsheetData();
+                });
+
+                const removeButton = document.createElement('button');
+                removeButton.textContent = '×';
+                removeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    removeTab(tabNumber);
+                };
+
+                tab.appendChild(removeButton);
+                tabContainer.appendChild(tab);
+            });
+        }
+        
+        function removeTab(tabNumber) {
+            delete tabs[tabNumber];
+            if (Object.keys(tabs).length > 0) {
+                activeTab = Math.max(...Object.keys(tabs).map(Number));
+                loadSpreadsheetData();
+            } else {
+                activeTab = 1;
+                initializeSpreadsheet();
+            }
+            renderTabs();
+        }
+        
+        function addTab() {
+            tabs[nextTabNumber] = { 
+                title: `Planilha ${nextTabNumber}`,
+                rows: INITIAL_ROWS,
+                cols: INITIAL_COLS,
+                data: {},
+                styles: {},
+                formulas: {}
+            };
+            activeTab = nextTabNumber;
+            nextTabNumber++;
+            renderTabs();
+            initializeSpreadsheet();
+        }
+        
+        // Funções da planilha
+        function initializeSpreadsheet() {
+            if (!tabs[activeTab]) return;
+            
+            const tab = tabs[activeTab];
+            spreadsheetData = tab.data || {};
+            spreadsheetStyles = tab.styles || {};
+            formulas = tab.formulas || {};
+            
+            renderSpreadsheet();
+        }
+        
+        function loadSpreadsheetData() {
+            if (!tabs[activeTab]) return;
+            
+            const tab = tabs[activeTab];
+            spreadsheetData = tab.data || {};
+            spreadsheetStyles = tab.styles || {};
+            formulas = tab.formulas || {};
+            
+            renderSpreadsheet();
+        }
+        
+        function saveSpreadsheetData() {
+            if (!tabs[activeTab]) return;
+            
+            tabs[activeTab].data = { ...spreadsheetData };
+            tabs[activeTab].styles = { ...spreadsheetStyles };
+            tabs[activeTab].formulas = { ...formulas };
+        }
+        
+        function renderSpreadsheet() {
+            const header = document.getElementById('spreadsheet-header');
+            const body = document.getElementById('spreadsheet-body');
+            
+            if (!tabs[activeTab]) {
+                header.innerHTML = '';
+                body.innerHTML = '';
+                return;
+            }
+            
+            const tab = tabs[activeTab];
+            const rows = tab.rows || INITIAL_ROWS;
+            const cols = tab.cols || INITIAL_COLS;
+            
+            // Renderizar cabeçalho
+            let headerHTML = '<tr><th class="row-header"></th>';
+            for (let col = 0; col < cols; col++) {
+                const colLetter = getColumnLetter(col);
+                headerHTML += `<th class="column-header">${colLetter}</th>`;
+            }
+            headerHTML += '</tr>';
+            header.innerHTML = headerHTML;
+            
+            // Renderizar corpo
+            let bodyHTML = '';
+            for (let row = 0; row < rows; row++) {
+                bodyHTML += `<tr><td class="row-header">${row + 1}</td>`;
+                
+                for (let col = 0; col < cols; col++) {
+                    const cellId = `${getColumnLetter(col)}${row + 1}`;
+                    const cellValue = getCellValue(cellId);
+                    const cellStyle = getCellStyle(cellId);
+                    const cellClass = getCellClass(cellId);
+                    
+                    bodyHTML += `
+                        <td id="cell-${cellId}" 
+                            class="${cellClass}"
+                            style="${cellStyle}"
+                            data-row="${row}" 
+                            data-col="${col}"
+                            data-cell="${cellId}"
+                            contenteditable="true"
+                            onclick="selectCell('${cellId}')"
+                            oninput="updateCell('${cellId}', this.textContent)"
+                            onkeydown="handleCellKeydown(event, '${cellId}')">
+                            ${cellValue}
+                        </td>
+                    `;
+                }
+                bodyHTML += '</tr>';
+            }
+            
+            body.innerHTML = bodyHTML;
+            
+            // Atualizar título da aba se necessário
+            const tabTitle = document.getElementById('tab-title');
+            if (tabTitle) {
+                tabTitle.value = tab.title || '';
+            }
+        }
+        
+        function getColumnLetter(colIndex) {
+            let letter = '';
+            let index = colIndex;
+            
+            while (index >= 0) {
+                letter = COLUMN_LETTERS[index % 26] + letter;
+                index = Math.floor(index / 26) - 1;
+                if (index < 0) break;
+            }
+            
+            return letter;
+        }
+        
+        function getCellValue(cellId) {
+            if (formulas[cellId]) {
+                try {
+                    return evaluateFormula(formulas[cellId]);
+                } catch (e) {
+                    return '#ERRO!';
+                }
+            }
+            return spreadsheetData[cellId] || '';
+        }
+        
+        function getCellStyle(cellId) {
+            const style = spreadsheetStyles[cellId] || {};
+            let styleString = '';
+            
+            if (style.fontSize) {
+                styleString += `font-size: ${style.fontSize}; `;
+            }
+            if (style.backgroundColor) {
+                styleString += `background-color: ${style.backgroundColor}; `;
+            }
+            if (style.color) {
+                styleString += `color: ${style.color}; `;
+            }
+            if (style.fontWeight) {
+                styleString += `font-weight: ${style.fontWeight}; `;
+            }
+            
+            return styleString;
+        }
+        
+        function getCellClass(cellId) {
+            let className = '';
+            
+            if (formulas[cellId]) {
+                className += 'cell-with-formula ';
+            }
+            
+            const style = spreadsheetStyles[cellId] || {};
+            if (style.size === 'small') className += 'cell-small ';
+            if (style.size === 'medium') className += 'cell-medium ';
+            if (style.size === 'large') className += 'cell-large ';
+            if (style.highlight === 'red') className += 'highlight-red ';
+            if (style.highlight === 'green') className += 'highlight-green ';
+            if (style.highlight === 'blue') className += 'highlight-blue ';
+            if (style.highlight === 'yellow') className += 'highlight-yellow ';
+            
+            if (cellId === selectedCell) {
+                className += 'selected ';
+            }
+            
+            return className;
+        }
+        
+        function selectCell(cellId) {
+            if (selectedCell) {
+                const prevCell = document.getElementById(`cell-${selectedCell}`);
+                if (prevCell) {
+                    prevCell.classList.remove('selected');
+                    prevCell.classList.remove('editing');
+                }
+            }
+            
+            selectedCell = cellId;
+            const cell = document.getElementById(`cell-${cellId}`);
+            if (cell) {
+                cell.classList.add('selected');
+                document.getElementById('current-cell').textContent = cellId;
+                
+                if (formulas[cellId]) {
+                    document.getElementById('formula-input').value = formulas[cellId];
+                } else {
+                    document.getElementById('formula-input').value = spreadsheetData[cellId] || '';
+                }
+            }
+        }
+        
+        function updateCell(cellId, value) {
+            if (value.startsWith('=')) {
+                // É uma fórmula
+                formulas[cellId] = value;
+                delete spreadsheetData[cellId];
+            } else {
+                // É um valor direto
+                spreadsheetData[cellId] = value;
+                delete formulas[cellId];
+            }
+            
+            saveSpreadsheetData();
+            updateDependentCells(cellId);
+        }
+        
+        function evaluateFormula(formula) {
+            // Remover o = inicial
+            let expr = formula.substring(1).toUpperCase();
+            
+            // Substituir referências de célula por seus valores
+            expr = expr.replace(/([A-Z]+[0-9]+)/g, (match) => {
+                const cellValue = getCellValue(match);
+                return isNaN(cellValue) ? '0' : parseFloat(cellValue);
+            });
+            
+            // Funções de planilha
+            const functions = {
+                'SOMA': (...args) => {
+                    const range = parseRange(args[0]);
+                    return range.reduce((sum, cellId) => {
+                        const val = parseFloat(getCellValue(cellId));
+                        return sum + (isNaN(val) ? 0 : val);
+                    }, 0);
+                },
+                'MEDIA': (...args) => {
+                    const range = parseRange(args[0]);
+                    const sum = functions.SOMA(args[0]);
+                    return range.length > 0 ? sum / range.length : 0;
+                },
+                'CONTAR': (...args) => {
+                    const range = parseRange(args[0]);
+                    return range.filter(cellId => {
+                        const val = getCellValue(cellId);
+                        return val !== '' && val !== undefined;
+                    }).length;
+                },
+                'MAX': (...args) => {
+                    const range = parseRange(args[0]);
+                    const values = range.map(cellId => parseFloat(getCellValue(cellId))).filter(v => !isNaN(v));
+                    return values.length > 0 ? Math.max(...values) : 0;
+                },
+                'MIN': (...args) => {
+                    const range = parseRange(args[0]);
+                    const values = range.map(cellId => parseFloat(getCellValue(cellId))).filter(v => !isNaN(v));
+                    return values.length > 0 ? Math.min(...values) : 0;
+                }
+            };
+            
+            // Avaliar funções
+            for (const [funcName, func] of Object.entries(functions)) {
+                const regex = new RegExp(`${funcName}\\(([^)]+)\\)`, 'g');
+                expr = expr.replace(regex, (match, args) => {
+                    return func(args);
+                });
+            }
+            
+            try {
+                // Usar Function para avaliar expressões matemáticas
+                const result = new Function('return ' + expr)();
+                return isNaN(result) ? '#ERRO!' : result.toString();
+            } catch (e) {
+                return '#ERRO!';
+            }
+        }
+        
+        function parseRange(rangeStr) {
+            // Formato: A1:B10
+            const [start, end] = rangeStr.split(':');
+            const cells = [];
+            
+            if (!start || !end) return [];
+            
+            const startCol = start.match(/[A-Z]+/)[0];
+            const startRow = parseInt(start.match(/[0-9]+/)[0]);
+            const endCol = end.match(/[A-Z]+/)[0];
+            const endRow = parseInt(end.match(/[0-9]+/)[0]);
+            
+            let colIndexStart = columnLetterToIndex(startCol);
+            let colIndexEnd = columnLetterToIndex(endCol);
+            
+            for (let row = startRow; row <= endRow; row++) {
+                for (let col = colIndexStart; col <= colIndexEnd; col++) {
+                    cells.push(`${getColumnLetter(col)}${row}`);
+                }
+            }
+            
+            return cells;
+        }
+        
+        function columnLetterToIndex(letter) {
+            let index = 0;
+            for (let i = 0; i < letter.length; i++) {
+                index = index * 26 + (letter.charCodeAt(i) - 64);
+            }
+            return index - 1;
+        }
+        
+        function updateDependentCells(changedCell) {
+            // Atualizar células que dependem da célula alterada
+            Object.keys(formulas).forEach(cellId => {
+                if (formulas[cellId].includes(changedCell)) {
+                    const cell = document.getElementById(`cell-${cellId}`);
+                    if (cell) {
+                        cell.textContent = getCellValue(cellId);
+                    }
+                }
+            });
+        }
+        
+        // Operações da planilha
+        function addRow() {
+            if (!tabs[activeTab]) return;
+            
+            tabs[activeTab].rows = (tabs[activeTab].rows || INITIAL_ROWS) + 1;
+            saveSpreadsheetData();
+            renderSpreadsheet();
+        }
+        
+        function addColumn() {
+            if (!tabs[activeTab]) return;
+            
+            tabs[activeTab].cols = (tabs[activeTab].cols || INITIAL_COLS) + 1;
+            saveSpreadsheetData();
+            renderSpreadsheet();
+        }
+        
+        function deleteRow() {
+            if (!tabs[activeTab]) return;
+            
+            const rows = tabs[activeTab].rows || INITIAL_ROWS;
+            if (rows > 1) {
+                tabs[activeTab].rows = rows - 1;
+                
+                // Remover dados das células da última linha
+                const cols = tabs[activeTab].cols || INITIAL_COLS;
+                for (let col = 0; col < cols; col++) {
+                    const cellId = `${getColumnLetter(col)}${rows}`;
+                    delete spreadsheetData[cellId];
+                    delete spreadsheetStyles[cellId];
+                    delete formulas[cellId];
+                }
+                
+                saveSpreadsheetData();
+                renderSpreadsheet();
+            }
+        }
+        
+        function deleteColumn() {
+            if (!tabs[activeTab]) return;
+            
+            const cols = tabs[activeTab].cols || INITIAL_COLS;
+            if (cols > 1) {
+                tabs[activeTab].cols = cols - 1;
+                
+                // Remover dados das células da última coluna
+                const rows = tabs[activeTab].rows || INITIAL_ROWS;
+                const lastColLetter = getColumnLetter(cols - 1);
+                for (let row = 1; row <= rows; row++) {
+                    const cellId = `${lastColLetter}${row}`;
+                    delete spreadsheetData[cellId];
+                    delete spreadsheetStyles[cellId];
+                    delete formulas[cellId];
+                }
+                
+                saveSpreadsheetData();
+                renderSpreadsheet();
+            }
+        }
+        
+        function changeCellSize() {
+            if (!selectedCell) return;
+            
+            const size = document.getElementById('cell-size').value;
+            if (!spreadsheetStyles[selectedCell]) {
+                spreadsheetStyles[selectedCell] = {};
+            }
+            
+            spreadsheetStyles[selectedCell].size = size;
+            saveSpreadsheetData();
+            
+            const cell = document.getElementById(`cell-${selectedCell}`);
+            if (cell) {
+                cell.className = getCellClass(selectedCell);
+            }
+        }
+        
+        function changeCellHighlight() {
+            if (!selectedCell) return;
+            
+            const highlight = document.getElementById('cell-highlight').value;
+            if (!spreadsheetStyles[selectedCell]) {
+                spreadsheetStyles[selectedCell] = {};
+            }
+            
+            if (!highlight) {
+                delete spreadsheetStyles[selectedCell].highlight;
+            } else {
+                spreadsheetStyles[selectedCell].highlight = highlight;
+            }
+            
+            saveSpreadsheetData();
+            
+            const cell = document.getElementById(`cell-${selectedCell}`);
+            if (cell) {
+                cell.className = getCellClass(selectedCell);
+            }
+        }
+        
+        function clearSelection() {
+            if (!selectedCell) return;
+            
+            delete spreadsheetData[selectedCell];
+            delete spreadsheetStyles[selectedCell];
+            delete formulas[selectedCell];
+            
+            saveSpreadsheetData();
+            
+            const cell = document.getElementById(`cell-${selectedCell}`);
+            if (cell) {
+                cell.textContent = '';
+                cell.className = getCellClass(selectedCell);
+            }
+            
+            document.getElementById('formula-input').value = '';
+        }
+        
+        function applyFormula() {
+            if (!selectedCell) return;
+            
+            const formula = document.getElementById('formula-input').value;
+            updateCell(selectedCell, formula);
+            
+            const cell = document.getElementById(`cell-${selectedCell}`);
+            if (cell) {
+                cell.textContent = getCellValue(selectedCell);
+                cell.className = getCellClass(selectedCell);
+            }
+        }
+        
+        function calculateSum() {
+            if (!selectedCell) return;
+            
+            const tab = tabs[activeTab];
+            const rows = tab.rows || INITIAL_ROWS;
+            const cols = tab.cols || INITIAL_COLS;
+            
+            let sum = 0;
+            let count = 0;
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const cellId = `${getColumnLetter(col)}${row + 1}`;
+                    const value = getCellValue(cellId);
+                    const numValue = parseFloat(value);
+                    
+                    if (!isNaN(numValue)) {
+                        sum += numValue;
+                        count++;
+                    }
+                }
+            }
+            
+            showMessage('firebase-success', `Somatório: ${sum.toFixed(2)} (${count} valores numéricos)`);
+        }
+        
+        // Modal de fórmulas
+        function showFormulasModal() {
+            document.getElementById('formulas-modal').style.display = 'block';
+        }
+        
+        function closeFormulasModal() {
+            document.getElementById('formulas-modal').style.display = 'none';
+        }
+        
+        // Manipulação de teclado
+        function handleCellKeydown(event, cellId) {
+            const cell = document.getElementById(`cell-${cellId}`);
+            
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                cell.blur();
+                
+                // Mover para célula abaixo
+                const row = parseInt(cell.dataset.row) + 1;
+                const col = parseInt(cell.dataset.col);
+                const nextCellId = `${getColumnLetter(col)}${row + 1}`;
+                
+                if (row < (tabs[activeTab]?.rows || INITIAL_ROWS)) {
+                    selectCell(nextCellId);
+                    const nextCell = document.getElementById(`cell-${nextCellId}`);
+                    if (nextCell) {
+                        nextCell.focus();
+                    }
+                }
+            } else if (event.key === 'Tab') {
+                event.preventDefault();
+                cell.blur();
+                
+                // Mover para próxima célula à direita
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col) + 1;
+                const nextCellId = `${getColumnLetter(col)}${row + 1}`;
+                
+                if (col < (tabs[activeTab]?.cols || INITIAL_COLS)) {
+                    selectCell(nextCellId);
+                    const nextCell = document.getElementById(`cell-${nextCellId}`);
+                    if (nextCell) {
+                        nextCell.focus();
+                    }
+                }
+            }
+        }
+        
+        // Funções do Firebase
+        async function saveToFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para salvar.');
+                return;
+            }
+            
+            try {
+                // Salvar dados atuais antes de enviar
+                saveSpreadsheetData();
+                
+                let dataToSave = { 
+                    ...tabs,
+                    activeTab: activeTab,
+                    nextTabNumber: nextTabNumber
+                };
+                
+                const password = document.getElementById('encryption-password').value;
+                
+                if (encrypted && password) {
+                    const jsonData = JSON.stringify(dataToSave);
+                    const encryptedData = CryptoJS.AES.encrypt(jsonData, password).toString();
+                    dataToSave = { 
+                        encrypted: true, 
+                        data: encryptedData 
+                    };
+                } else {
+                    dataToSave = { 
+                        encrypted: false, 
+                        data: dataToSave 
+                    };
+                }
+                
+                dataToSave.lastModified = firebase.firestore.FieldValue.serverTimestamp();
+                dataToSave.userId = currentUser.uid;
+                dataToSave.userEmail = currentUser.email;
+                
+                await db.collection('planilhadinamica')
+                    .doc(currentUser.uid)
+                    .set(dataToSave);
+                
+                showMessage('firebase-success', 'Planilha salva com sucesso no Firebase!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao salvar: ' + error.message);
+            }
+        }
+        
+        async function loadFromFirebase(encrypted = false) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para carregar.');
+                return;
+            }
+            
+            try {
+                const doc = await db.collection('planilhadinamica')
+                    .doc(currentUser.uid)
+                    .get();
+                
+                if (!doc.exists) {
+                    showMessage('firebase-error', 'Nenhuma planilha encontrada para este usuário.');
+                    return;
+                }
+                
+                const data = doc.data();
+                
+                if (data.encrypted && !encrypted) {
+                    showMessage('firebase-error', 'Os dados estão criptografados. Use "Carregar Criptografado".');
+                    return;
+                }
+                
+                if (!data.encrypted && encrypted) {
+                    showMessage('firebase-error', 'Os dados não estão criptografados. Use "Carregar do Firebase".');
+                    return;
+                }
+                
+                let loadedData;
+                if (encrypted) {
+                    const password = document.getElementById('encryption-password').value;
+                    if (!password) {
+                        showMessage('firebase-error', 'Digite a senha para descriptografar.');
+                        return;
+                    }
+                    
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(data.data, password);
+                        const decryptedJson = bytes.toString(CryptoJS.enc.Utf8);
+                        
+                        if (!decryptedJson) {
+                            throw new Error('Senha incorreta');
+                        }
+                        
+                        loadedData = JSON.parse(decryptedJson);
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao descriptografar. Senha incorreta ou dados corrompidos.');
+                        return;
+                    }
+                } else {
+                    loadedData = data.data;
+                }
+                
+                tabs = loadedData;
+                activeTab = loadedData.activeTab || 1;
+                nextTabNumber = loadedData.nextTabNumber || 1;
+                
+                renderTabs();
+                loadSpreadsheetData();
+                
+                showMessage('firebase-success', 'Planilha carregada com sucesso do Firebase!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao carregar: ' + error.message);
+            }
+        }
+        
+        // Funções de exportação
+        function exportToExcel() {
+            saveSpreadsheetData();
+            
+            const tab = tabs[activeTab];
+            if (!tab) return;
+            
+            const rows = tab.rows || INITIAL_ROWS;
+            const cols = tab.cols || INITIAL_COLS;
+            
+            // Preparar dados para Excel
+            const data = [];
+            
+            // Cabeçalho
+            const header = [];
+            header.push('');
+            for (let col = 0; col < cols; col++) {
+                header.push(getColumnLetter(col));
+            }
+            data.push(header);
+            
+            // Dados
+            for (let row = 0; row < rows; row++) {
+                const rowData = [];
+                rowData.push(row + 1); // Número da linha
+                
+                for (let col = 0; col < cols; col++) {
+                    const cellId = `${getColumnLetter(col)}${row + 1}`;
+                    rowData.push(getCellValue(cellId));
+                }
+                
+                data.push(rowData);
+            }
+            
+            // Criar worksheet
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Criar workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, tab.title || 'Planilha1');
+            
+            // Exportar
+            XLSX.writeFile(wb, 'planilha.xlsx');
+        }
+        
+        function exportToCSV() {
+            saveSpreadsheetData();
+            
+            const tab = tabs[activeTab];
+            if (!tab) return;
+            
+            const rows = tab.rows || INITIAL_ROWS;
+            const cols = tab.cols || INITIAL_COLS;
+            
+            let csv = '';
+            
+            // Cabeçalho
+            const headers = [];
+            headers.push('');
+            for (let col = 0; col < cols; col++) {
+                headers.push(getColumnLetter(col));
+            }
+            csv += headers.join(',') + '\n';
+            
+            // Dados
+            for (let row = 0; row < rows; row++) {
+                const rowData = [];
+                rowData.push(row + 1);
+                
+                for (let col = 0; col < cols; col++) {
+                    const cellId = `${getColumnLetter(col)}${row + 1}`;
+                    const value = getCellValue(cellId);
+                    // Escapar vírgulas e aspas
+                    rowData.push(`"${value.replace(/"/g, '""')}"`);
+                }
+                
+                csv += rowData.join(',') + '\n';
+            }
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'planilha.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function exportToJSON() {
+            saveSpreadsheetData();
+            
+            const data = {
+                tabs: tabs,
+                activeTab: activeTab,
+                nextTabNumber: nextTabNumber,
+                timestamp: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const json = JSON.stringify(data, null, 2);
+            downloadFile(json, 'planilha.json', 'application/json');
+        }
+        
+        // Funções de importação
+        function importFromExcel() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xlsx,.xls';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const data = await file.arrayBuffer();
+                    const workbook = XLSX.read(data);
+                    
+                    // Pegar a primeira sheet
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Converter para JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    // Processar dados
+                    processImportedData(jsonData);
+                    
+                    showMessage('firebase-success', 'Planilha importada com sucesso!');
+                } catch (error) {
+                    showMessage('firebase-error', 'Erro ao importar arquivo Excel: ' + error.message);
+                }
+            };
+            input.click();
+        }
+        
+        function importFromCSV() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.csv';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const csvData = event.target.result;
+                        const rows = csvData.split('\n');
+                        const jsonData = rows.map(row => row.split(',').map(cell => 
+                            cell.replace(/^"(.*)"$/, '$1').replace(/""/g, '"')
+                        ));
+                        
+                        processImportedData(jsonData);
+                        showMessage('firebase-success', 'CSV importado com sucesso!');
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao importar arquivo CSV: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        function importFromJSON() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        
+                        if (data.tabs) {
+                            tabs = data.tabs;
+                            activeTab = data.activeTab || 1;
+                            nextTabNumber = data.nextTabNumber || 1;
+                            
+                            renderTabs();
+                            loadSpreadsheetData();
+                            showMessage('firebase-success', 'JSON importado com sucesso!');
+                        } else {
+                            showMessage('firebase-error', 'Formato JSON inválido.');
+                        }
+                    } catch (error) {
+                        showMessage('firebase-error', 'Erro ao importar arquivo JSON: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        function processImportedData(data) {
+            if (!data || data.length === 0) return;
+            
+            // Limpar planilha atual
+            spreadsheetData = {};
+            spreadsheetStyles = {};
+            formulas = {};
+            
+            // Determinar tamanho
+            const rows = data.length - 1; // Subtrair cabeçalho
+            const cols = data[0] ? data[0].length - 1 : 0; // Subtrair coluna de índice
+            
+            if (!tabs[activeTab]) {
+                addTab();
+            }
+            
+            tabs[activeTab].rows = Math.max(rows, INITIAL_ROWS);
+            tabs[activeTab].cols = Math.max(cols, INITIAL_COLS);
+            
+            // Processar dados (ignorar primeira linha e primeira coluna)
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row) continue;
+                
+                for (let j = 1; j < row.length; j++) {
+                    const cellValue = row[j];
+                    if (cellValue === undefined || cellValue === '') continue;
+                    
+                    const cellId = `${getColumnLetter(j - 1)}${i}`;
+                    spreadsheetData[cellId] = cellValue;
+                }
+            }
+            
+            saveSpreadsheetData();
+            renderSpreadsheet();
+        }
+        
+        // Utilitários
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type: type || 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Inicialização
+        window.onload = function() {
+            addTab();
+            
+            // Fechar modal ao clicar fora
+            window.onclick = function(event) {
+                const modal = document.getElementById('formulas-modal');
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        };
+    </script>
+</body>
+</html>
