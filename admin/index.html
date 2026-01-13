@@ -442,6 +442,83 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(77, 171, 247, 0.8);
         }
+
+        /* Modal de inatividade */
+        .inactivity-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            display: none;
+        }
+
+        .inactivity-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .inactivity-content h2 {
+            color: #e74c3c;
+            margin-bottom: 20px;
+        }
+
+        .inactivity-content p {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .countdown {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e74c3c;
+            margin: 20px 0;
+        }
+
+        .inactivity-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .inactivity-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .stay-logged-btn {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .stay-logged-btn:hover {
+            background: #27ae60;
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
     </style>
 </head>
 <body>
@@ -455,6 +532,24 @@
             <button id="loginBtn">
                 <i class="fab fa-google"></i> Entrar com Google
             </button>
+        </div>
+    </div>
+
+    <!-- Modal de inatividade -->
+    <div class="inactivity-modal" id="inactivityModal">
+        <div class="inactivity-content">
+            <h2><i class="fas fa-exclamation-triangle"></i> Sessão Pausada</h2>
+            <p>Você saiu da janela de administração. Por motivos de segurança, sua sessão será encerrada automaticamente.</p>
+            <div class="countdown" id="countdown">10</div>
+            <p>Deseja permanecer logado?</p>
+            <div class="inactivity-buttons">
+                <button class="inactivity-btn stay-logged-btn" id="stayLoggedBtn">
+                    <i class="fas fa-check"></i> Permanecer Logado
+                </button>
+                <button class="inactivity-btn logout-btn" id="modalLogoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Sair Agora
+                </button>
+            </div>
         </div>
     </div>
 
@@ -518,25 +613,25 @@
                         </p>
                         
                         <div class="menu-grid">
-                            <div class="menu-card" onclick="openPage('Painel Administrativo', 'https://wazzimagiygg.com/central/?uid=admin')">
+                            <div class="menu-card" data-title="Painel Administrativo" data-url="https://wazzimagiygg.com/central/?uid=admin">
                                 <i class="fas fa-tachometer-alt"></i>
                                 <h3>Painel Administrativo</h3>
                                 <p>Acesso central às ferramentas de gestão</p>
                             </div>
                             
-                            <div class="menu-card" onclick="openPage('Adicionar Artigo', 'https://wazzimagiygg.com/admin/admintools/editordeartigos.html')">
+                            <div class="menu-card" data-title="Adicionar Artigo" data-url="https://wazzimagiygg.com/admin/admintools/editordeartigos.html">
                                 <i class="fas fa-edit"></i>
                                 <h3>Adicionar Artigo</h3>
                                 <p>Crie e edite artigos do sistema</p>
                             </div>
                             
-                            <div class="menu-card" onclick="openPage('Ferramentas Admin', 'https://wazzimagiygg.com/admin/ferramentasadministrativas.html')">
+                            <div class="menu-card" data-title="Ferramentas Admin" data-url="https://wazzimagiygg.com/admin/ferramentasadministrativas.html">
                                 <i class="fas fa-tools"></i>
                                 <h3>Ferramentas Admin</h3>
                                 <p>Utilitários administrativos</p>
                             </div>
                             
-                            <div class="menu-card" onclick="openPage('Chat Admin', 'https://wazzimagiygg.com/admin/chat/admin/')">
+                            <div class="menu-card" data-title="Chat Admin" data-url="https://wazzimagiygg.com/admin/chat/admin/">
                                 <i class="fas fa-comments"></i>
                                 <h3>Chat Admin</h3>
                                 <p>Sistema de comunicação interna</p>
@@ -598,6 +693,10 @@
         const welcomeScreen = document.getElementById('welcomeScreen');
         const refreshBtn = document.getElementById('refreshBtn');
         const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const inactivityModal = document.getElementById('inactivityModal');
+        const countdownElement = document.getElementById('countdown');
+        const stayLoggedBtn = document.getElementById('stayLoggedBtn');
+        const modalLogoutBtn = document.getElementById('modalLogoutBtn');
 
         // 🔹 Itens do menu principal (com a opção Logoff)
         const menuLinks = [
@@ -626,6 +725,135 @@
         // Variáveis de estado
         let currentPageTitle = "";
         let isFullscreen = false;
+        let userActivityTimer = null;
+        let countdownTimer = null;
+        let countdownSeconds = 10;
+        let isLoggedIn = false;
+        let sessionTimeout = null;
+
+        // 🔹 Configuração da detecção de inatividade
+        function setupInactivityDetection() {
+            // Resetar sempre que houver interação do usuário
+            const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+            events.forEach(event => {
+                document.addEventListener(event, resetActivityTimer);
+            });
+            
+            // Detectar quando a janela perde o foco
+            window.addEventListener('blur', handleWindowBlur);
+            
+            // Detectar quando a janela ganha foco novamente
+            window.addEventListener('focus', handleWindowFocus);
+            
+            // Detectar mudança de visibilidade da página (mudar de aba)
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            
+            // Detectar quando o usuário tenta sair da página
+            window.addEventListener('beforeunload', handleBeforeUnload);
+            
+            // Iniciar timer de atividade
+            startActivityTimer();
+        }
+
+        function handleWindowBlur() {
+            if (isLoggedIn) {
+                // Usuário mudou para outra janela/aba
+                console.log('Janela perdeu o foco - iniciando contagem regressiva');
+                startCountdown();
+            }
+        }
+
+        function handleWindowFocus() {
+            // Usuário voltou para a janela
+            if (inactivityModal.style.display === 'flex') {
+                clearCountdown();
+                inactivityModal.style.display = 'none';
+                resetActivityTimer();
+            }
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden && isLoggedIn) {
+                // Página não está visível (usuário mudou de aba ou minimizou)
+                console.log('Página não está visível - iniciando contagem regressiva');
+                startCountdown();
+            } else if (!document.hidden && inactivityModal.style.display === 'flex') {
+                // Página voltou a ser visível
+                clearCountdown();
+                inactivityModal.style.display = 'none';
+                resetActivityTimer();
+            }
+        }
+
+        function handleBeforeUnload(event) {
+            if (isLoggedIn) {
+                // Opcional: Mostrar mensagem de confirmação
+                // event.preventDefault();
+                // event.returnValue = 'Você será desconectado ao sair desta página. Tem certeza?';
+            }
+        }
+
+        function startCountdown() {
+            countdownSeconds = 10;
+            countdownElement.textContent = countdownSeconds;
+            inactivityModal.style.display = 'flex';
+            
+            countdownTimer = setInterval(() => {
+                countdownSeconds--;
+                countdownElement.textContent = countdownSeconds;
+                
+                if (countdownSeconds <= 0) {
+                    clearCountdown();
+                    handleLogout();
+                }
+            }, 1000);
+        }
+
+        function clearCountdown() {
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+        }
+
+        function startActivityTimer() {
+            // Limpar timer anterior se existir
+            if (sessionTimeout) {
+                clearTimeout(sessionTimeout);
+            }
+            
+            // Configurar novo timer de sessão (30 minutos de inatividade)
+            sessionTimeout = setTimeout(() => {
+                if (isLoggedIn) {
+                    handleLogout();
+                }
+            }, 30 * 60 * 1000); // 30 minutos
+        }
+
+        function resetActivityTimer() {
+            // Reiniciar o timer de inatividade
+            startActivityTimer();
+        }
+
+        function cleanupInactivityDetection() {
+            // Limpar todos os event listeners e timers
+            const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+            events.forEach(event => {
+                document.removeEventListener(event, resetActivityTimer);
+            });
+            
+            window.removeEventListener('blur', handleWindowBlur);
+            window.removeEventListener('focus', handleWindowFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            
+            if (sessionTimeout) {
+                clearTimeout(sessionTimeout);
+                sessionTimeout = null;
+            }
+            
+            clearCountdown();
+        }
 
         // 🔹 Login com Google
         loginBtn.addEventListener("click", () => {
@@ -638,17 +866,35 @@
         // 🔹 Verificação de estado de autenticação
         onAuthStateChanged(auth, (user) => {
             if (user && adminUIDs.includes(user.uid)) {
+                isLoggedIn = true;
                 loginScreen.style.display = "none";
                 desktop.style.display = "block";
                 updateClock();
                 initMenuItems();
                 initAdminMenu();
+                
+                // Configurar detecção de inatividade
+                setupInactivityDetection();
+                
+                // Iniciar timer de sessão
+                startActivityTimer();
+                
+                console.log("Usuário logado com UID:", user.uid);
             } else if (user) {
                 alert("Acesso negado. Somente administradores podem entrar.");
                 signOut(auth);
+                isLoggedIn = false;
             } else {
+                isLoggedIn = false;
                 loginScreen.style.display = "flex";
                 desktop.style.display = "none";
+                
+                // Limpar detecção de inatividade
+                cleanupInactivityDetection();
+                
+                // Esconder modal se estiver visível
+                inactivityModal.style.display = "none";
+                clearCountdown();
             }
         });
 
@@ -733,6 +979,9 @@
             setTimeout(() => {
                 mainIframe.src = url;
             }, 500);
+            
+            // Resetar timer de atividade
+            resetActivityTimer();
         }
 
         // 🔹 Logoff
@@ -744,21 +993,45 @@
                 document.querySelector('.admin-title').innerHTML = `
                     <i class="fas fa-cogs"></i> Setor de Administração WazzimaGiygg
                 `;
+                
+                // Limpar detecção de inatividade
+                cleanupInactivityDetection();
+                
+                // Esconder modal se estiver visível
+                inactivityModal.style.display = "none";
+                clearCountdown();
+                
+                console.log("Usuário deslogado com sucesso");
             }).catch((error) => {
                 console.error("Erro ao sair:", error);
                 alert("Erro ao tentar fazer logoff.");
             });
         }
 
+        // 🔹 Botões do modal de inatividade
+        stayLoggedBtn.addEventListener('click', () => {
+            inactivityModal.style.display = 'none';
+            clearCountdown();
+            resetActivityTimer();
+        });
+
+        modalLogoutBtn.addEventListener('click', () => {
+            inactivityModal.style.display = 'none';
+            clearCountdown();
+            handleLogout();
+        });
+
         // 🔹 Controles dos menus
         startBtn.onclick = () => {
             startMenu.style.display = startMenu.style.display === "block" ? "none" : "block";
             adminMenu.style.display = "none";
+            resetActivityTimer();
         };
 
         adminBtn.onclick = () => {
             adminMenu.style.display = adminMenu.style.display === "block" ? "none" : "block";
             startMenu.style.display = "none";
+            resetActivityTimer();
         };
 
         // Fechar menus ao clicar fora
@@ -775,6 +1048,7 @@
         mainIframe.addEventListener('load', () => {
             loadingMessage.style.display = 'none';
             mainIframe.style.display = 'block';
+            resetActivityTimer();
         });
         
         mainIframe.addEventListener('error', () => {
@@ -801,6 +1075,7 @@
                 </p>
             `;
             welcomeScreen.style.display = 'flex';
+            resetActivityTimer();
         });
         
         // 🔹 Controles do iframe
@@ -809,6 +1084,7 @@
                 loadingMessage.style.display = 'flex';
                 mainIframe.style.display = 'none';
                 mainIframe.src = mainIframe.src;
+                resetActivityTimer();
             }
         });
         
@@ -842,6 +1118,8 @@
                 fullscreenBtn.title = "Tela cheia";
                 isFullscreen = false;
             }
+            
+            resetActivityTimer();
         }
         
         document.addEventListener('fullscreenchange', () => {
@@ -850,6 +1128,16 @@
                 fullscreenBtn.title = "Tela cheia";
                 isFullscreen = false;
             }
+            resetActivityTimer();
+        });
+
+        // 🔹 Configurar cards de menu
+        document.querySelectorAll('.menu-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const title = this.getAttribute('data-title');
+                const url = this.getAttribute('data-url');
+                openPage(title, url);
+            });
         });
 
         // 🔹 Função global para abrir páginas (usada pelos cards)
