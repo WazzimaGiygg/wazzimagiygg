@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wiki Not Pédia - Login e Cadastro</title>
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <!-- Removendo favicon problemático e usando base64 inline -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Reset e configurações básicas */
@@ -600,6 +601,22 @@
             margin-top: 5px;
             text-align: right;
         }
+
+        /* Modo offline */
+        .offline-mode {
+            background: linear-gradient(to right, #f39c12, #e67e22);
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .offline-mode i {
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -671,6 +688,11 @@
             <div class="decoration-circle circle-2"></div>
             
             <div class="auth-container">
+                <!-- Indicador de modo offline -->
+                <div class="offline-mode" id="offlineIndicator">
+                    <i class="fas fa-wifi-slash"></i> Modo offline - Algumas funcionalidades podem estar limitadas
+                </div>
+                
                 <div class="auth-header">
                     <h2>Bem-vindo de volta</h2>
                     <p>Entre na sua conta para continuar</p>
@@ -799,6 +821,21 @@
 
     <!-- Scripts do Firebase e da aplicação -->
     <script type="module">
+        // 🔹 Detectar se está online
+        function updateOnlineStatus() {
+            const offlineIndicator = document.getElementById('offlineIndicator');
+            const isOnline = navigator.onLine;
+            
+            if (!isOnline) {
+                offlineIndicator.style.display = 'block';
+                console.log('Modo offline detectado');
+            } else {
+                offlineIndicator.style.display = 'none';
+            }
+            
+            return isOnline;
+        }
+
         // 🔹 Configuração do Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { 
@@ -809,11 +846,13 @@
             GoogleAuthProvider, 
             sendPasswordResetEmail,
             onAuthStateChanged,
-            signOut
+            signOut,
+            setPersistence,
+            browserSessionPersistence,
+            browserLocalPersistence
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-        // 🔹 Configuração do Firebase (use sua própria configuração)
+        
+        // 🔹 Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -825,17 +864,32 @@
         };
 
         // 🔹 Inicializar Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const googleProvider = new GoogleAuthProvider();
+        let app;
+        let auth;
+        let googleProvider;
+        let isFirebaseInitialized = false;
 
-        // 🔹 Configurar seleção de conta do Google
-        googleProvider.setCustomParameters({
-            prompt: 'select_account'
-        });
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            googleProvider = new GoogleAuthProvider();
+            
+            // Configurar seleção de conta do Google
+            googleProvider.setCustomParameters({
+                prompt: 'select_account'
+            });
+            
+            // Configurar persistência baseada na escolha do usuário
+            auth.setPersistence(browserSessionPersistence);
+            
+            isFirebaseInitialized = true;
+            console.log('Firebase inicializado com sucesso');
+        } catch (error) {
+            console.error('Erro ao inicializar Firebase:', error);
+            showMessage(statusMessage, 'Erro de conexão com o servidor. Por favor, verifique sua conexão de internet.', 'error');
+        }
 
-        // 🔹 UIDs de administradores (do seu código original)
+        // 🔹 UIDs de administradores
         const adminUIDs = [
             "sZxfMuOBPbXdR8nttVPXIN8QOOl1",
             "6aPqWVh8JVYL5NqEb78iDGPD7dH3",
@@ -884,6 +938,8 @@
 
         // 🔹 Funções auxiliares
         function showMessage(element, message, type = 'info') {
+            if (!element) return;
+            
             element.textContent = message;
             element.className = `status-message ${type}`;
             element.style.display = 'block';
@@ -896,13 +952,19 @@
         }
 
         function clearMessages() {
-            statusMessage.style.display = 'none';
-            statusMessage.className = 'status-message';
-            modalMessage.style.display = 'none';
-            modalMessage.className = 'status-message';
+            if (statusMessage) {
+                statusMessage.style.display = 'none';
+                statusMessage.className = 'status-message';
+            }
+            if (modalMessage) {
+                modalMessage.style.display = 'none';
+                modalMessage.className = 'status-message';
+            }
         }
 
         function togglePasswordVisibility(inputElement, toggleButton, isVisible) {
+            if (!inputElement || !toggleButton) return;
+            
             if (isVisible) {
                 inputElement.type = 'text';
                 toggleButton.innerHTML = '<i class="fas fa-eye-slash"></i>';
@@ -930,6 +992,8 @@
         }
 
         function updatePasswordStrength(password) {
+            if (!passwordStrengthBar || !passwordStrengthText) return;
+            
             const strength = validatePassword(password);
             
             // Atualizar barra de força
@@ -979,6 +1043,15 @@
 
         async function handleEmailLogin(email, password) {
             try {
+                if (!isFirebaseInitialized) {
+                    throw new Error('Serviço de autenticação não disponível. Verifique sua conexão.');
+                }
+
+                // Verificar conexão
+                if (!updateOnlineStatus()) {
+                    throw new Error('Sem conexão com a internet. Conecte-se para fazer login.');
+                }
+
                 loginSubmitBtn.disabled = true;
                 loginSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
                 
@@ -990,6 +1063,12 @@
                 // Verificar se é admin
                 if (adminUIDs.includes(user.uid)) {
                     showMessage(statusMessage, 'Bem-vindo, administrador!', 'success');
+                }
+                
+                // Configurar persistência se "Lembrar-me" estiver marcado
+                const rememberMe = document.getElementById('rememberMe').checked;
+                if (rememberMe) {
+                    await setPersistence(auth, browserLocalPersistence);
                 }
                 
                 // Redirecionar após login bem-sucedido
@@ -1017,8 +1096,14 @@
                     case 'auth/too-many-requests':
                         errorMessage += 'Muitas tentativas. Tente novamente mais tarde.';
                         break;
+                    case 'auth/network-request-failed':
+                        errorMessage = 'Erro de conexão. Verifique sua internet.';
+                        break;
+                    case 'auth/internal-error':
+                        errorMessage = 'Erro interno do servidor. Tente novamente.';
+                        break;
                     default:
-                        errorMessage += error.message;
+                        errorMessage += error.message || 'Erro desconhecido.';
                 }
                 
                 showMessage(statusMessage, errorMessage, 'error');
@@ -1029,6 +1114,15 @@
 
         async function handleEmailRegister(name, email, password) {
             try {
+                if (!isFirebaseInitialized) {
+                    throw new Error('Serviço de autenticação não disponível. Verifique sua conexão.');
+                }
+
+                // Verificar conexão
+                if (!updateOnlineStatus()) {
+                    throw new Error('Sem conexão com a internet. Conecte-se para criar uma conta.');
+                }
+
                 registerSubmitBtn.disabled = true;
                 registerSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Criando conta...';
                 
@@ -1041,16 +1135,6 @@
                 // Criar usuário no Firebase Authentication
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
-                
-                // Salvar informações adicionais no Firestore
-                await setDoc(doc(db, "users", user.uid), {
-                    uid: user.uid,
-                    name: name,
-                    email: email,
-                    createdAt: new Date().toISOString(),
-                    isAdmin: adminUIDs.includes(user.uid),
-                    lastLogin: new Date().toISOString()
-                });
                 
                 showMessage(statusMessage, 'Conta criada com sucesso!', 'success');
                 
@@ -1076,8 +1160,11 @@
                     case 'auth/operation-not-allowed':
                         errorMessage += 'Operação não permitida.';
                         break;
+                    case 'auth/network-request-failed':
+                        errorMessage = 'Erro de conexão. Verifique sua internet.';
+                        break;
                     default:
-                        errorMessage += error.message;
+                        errorMessage += error.message || 'Erro desconhecido.';
                 }
                 
                 showMessage(statusMessage, errorMessage, 'error');
@@ -1088,30 +1175,17 @@
 
         async function handleGoogleLogin() {
             try {
+                if (!isFirebaseInitialized) {
+                    throw new Error('Serviço de autenticação não disponível. Verifique sua conexão.');
+                }
+
+                // Verificar conexão
+                if (!updateOnlineStatus()) {
+                    throw new Error('Sem conexão com a internet. Conecte-se para fazer login.');
+                }
+
                 const result = await signInWithPopup(auth, googleProvider);
                 const user = result.user;
-                
-                // Verificar se o usuário já existe no Firestore
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                
-                if (!userDoc.exists()) {
-                    // Criar documento do usuário se não existir
-                    await setDoc(doc(db, "users", user.uid), {
-                        uid: user.uid,
-                        name: user.displayName || 'Usuário Google',
-                        email: user.email,
-                        photoURL: user.photoURL,
-                        provider: 'google',
-                        createdAt: new Date().toISOString(),
-                        isAdmin: adminUIDs.includes(user.uid),
-                        lastLogin: new Date().toISOString()
-                    });
-                } else {
-                    // Atualizar último login
-                    await setDoc(doc(db, "users", user.uid), {
-                        lastLogin: new Date().toISOString()
-                    }, { merge: true });
-                }
                 
                 showMessage(statusMessage, 'Login com Google realizado com sucesso!', 'success');
                 
@@ -1131,8 +1205,20 @@
                     case 'auth/cancelled-popup-request':
                         errorMessage = 'Login cancelado.';
                         break;
+                    case 'auth/popup-blocked':
+                        errorMessage = 'Popup bloqueado pelo navegador. Permita popups para este site.';
+                        break;
+                    case 'auth/unauthorized-domain':
+                        errorMessage = 'Este domínio não está autorizado para login com Google.';
+                        break;
+                    case 'auth/network-request-failed':
+                        errorMessage = 'Erro de conexão. Verifique sua internet.';
+                        break;
+                    case 'auth/internal-error':
+                        errorMessage = 'Erro interno. Tente novamente.';
+                        break;
                     default:
-                        errorMessage += error.message;
+                        errorMessage += error.message || 'Erro desconhecido.';
                 }
                 
                 showMessage(statusMessage, errorMessage, 'error');
@@ -1141,6 +1227,10 @@
 
         async function handlePasswordReset(email) {
             try {
+                if (!isFirebaseInitialized) {
+                    throw new Error('Serviço de autenticação não disponível.');
+                }
+
                 const resetBtn = document.getElementById('resetSubmitBtn');
                 resetBtn.disabled = true;
                 resetBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
@@ -1167,8 +1257,11 @@
                     case 'auth/invalid-email':
                         errorMessage += 'E-mail inválido.';
                         break;
+                    case 'auth/too-many-requests':
+                        errorMessage += 'Muitas tentativas. Tente novamente mais tarde.';
+                        break;
                     default:
-                        errorMessage += error.message;
+                        errorMessage += error.message || 'Erro desconhecido.';
                 }
                 
                 showMessage(modalMessage, errorMessage, 'error');
@@ -1204,102 +1297,170 @@
         });
 
         // Força da senha em tempo real
-        registerPasswordInput.addEventListener('input', (e) => {
-            updatePasswordStrength(e.target.value);
-        });
+        if (registerPasswordInput) {
+            registerPasswordInput.addEventListener('input', (e) => {
+                updatePasswordStrength(e.target.value);
+            });
+        }
 
         // Login com e-mail
-        loginFormElement.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearMessages();
-            
-            const email = loginEmailInput.value.trim();
-            const password = loginPasswordInput.value;
-            
-            if (!email || !password) {
-                showMessage(statusMessage, 'Preencha todos os campos.', 'error');
-                return;
-            }
-            
-            await handleEmailLogin(email, password);
-        });
+        if (loginFormElement) {
+            loginFormElement.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                clearMessages();
+                
+                const email = loginEmailInput.value.trim();
+                const password = loginPasswordInput.value;
+                
+                if (!email || !password) {
+                    showMessage(statusMessage, 'Preencha todos os campos.', 'error');
+                    return;
+                }
+                
+                await handleEmailLogin(email, password);
+            });
+        }
 
         // Cadastro com e-mail
-        registerFormElement.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearMessages();
-            
-            const name = registerNameInput.value.trim();
-            const email = registerEmailInput.value.trim();
-            const password = registerPasswordInput.value;
-            const confirmPassword = confirmPasswordInput.value;
-            
-            // Validações
-            if (!name || !email || !password || !confirmPassword) {
-                showMessage(statusMessage, 'Preencha todos os campos.', 'error');
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                showMessage(statusMessage, 'As senhas não coincidem.', 'error');
-                return;
-            }
-            
-            if (!document.getElementById('acceptTerms').checked) {
-                showMessage(statusMessage, 'Você deve aceitar os Termos de Serviço.', 'error');
-                return;
-            }
-            
-            await handleEmailRegister(name, email, password);
-        });
+        if (registerFormElement) {
+            registerFormElement.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                clearMessages();
+                
+                const name = registerNameInput.value.trim();
+                const email = registerEmailInput.value.trim();
+                const password = registerPasswordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+                
+                // Validações
+                if (!name || !email || !password || !confirmPassword) {
+                    showMessage(statusMessage, 'Preencha todos os campos.', 'error');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    showMessage(statusMessage, 'As senhas não coincidem.', 'error');
+                    return;
+                }
+                
+                if (!document.getElementById('acceptTerms').checked) {
+                    showMessage(statusMessage, 'Você deve aceitar os Termos de Serviço.', 'error');
+                    return;
+                }
+                
+                await handleEmailRegister(name, email, password);
+            });
+        }
 
         // Login com Google
-        googleLoginBtn.addEventListener('click', handleGoogleLogin);
-        googleRegisterBtn.addEventListener('click', handleGoogleLogin);
+        if (googleLoginBtn) {
+            googleLoginBtn.addEventListener('click', handleGoogleLogin);
+        }
+        if (googleRegisterBtn) {
+            googleRegisterBtn.addEventListener('click', handleGoogleLogin);
+        }
 
         // Recuperação de senha
-        forgotPassword.addEventListener('click', (e) => {
-            e.preventDefault();
-            passwordModal.style.display = 'flex';
-            clearMessages();
-        });
+        if (forgotPassword) {
+            forgotPassword.addEventListener('click', (e) => {
+                e.preventDefault();
+                passwordModal.style.display = 'flex';
+                clearMessages();
+            });
+        }
 
-        closeModal.addEventListener('click', () => {
-            passwordModal.style.display = 'none';
-        });
-
-        passwordModal.addEventListener('click', (e) => {
-            if (e.target === passwordModal) {
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
                 passwordModal.style.display = 'none';
-            }
-        });
+            });
+        }
 
-        passwordResetForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearMessages();
-            
-            const email = document.getElementById('resetEmail').value.trim();
-            
-            if (!email) {
-                showMessage(modalMessage, 'Digite seu e-mail.', 'error');
-                return;
-            }
-            
-            await handlePasswordReset(email);
-        });
+        if (passwordModal) {
+            passwordModal.addEventListener('click', (e) => {
+                if (e.target === passwordModal) {
+                    passwordModal.style.display = 'none';
+                }
+            });
+        }
+
+        if (passwordResetForm) {
+            passwordResetForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                clearMessages();
+                
+                const email = document.getElementById('resetEmail').value.trim();
+                
+                if (!email) {
+                    showMessage(modalMessage, 'Digite seu e-mail.', 'error');
+                    return;
+                }
+                
+                await handlePasswordReset(email);
+            });
+        }
 
         // Verificar se usuário já está logado
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // Usuário já está logado, redirecionar
-                window.location.href = 'https://wazzimagiygg.com/wnpx.html';
-            }
-        });
+        if (isFirebaseInitialized) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // Usuário já está logado, redirecionar
+                    window.location.href = 'https://wazzimagiygg.com/wnpx.html';
+                }
+            });
+        }
+
+        // Monitorar status de conexão
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        
+        // Inicializar status de conexão
+        updateOnlineStatus();
 
         // Focar no primeiro campo
         setTimeout(() => {
-            loginEmailInput.focus();
+            if (loginEmailInput) {
+                loginEmailInput.focus();
+            }
         }, 500);
+
+        // Tratamento de erros globais
+        window.addEventListener('error', function(e) {
+            console.error('Erro global:', e.error);
+            
+            // Ignorar erros de favicon
+            if (e.message && e.message.includes('favicon')) {
+                return;
+            }
+            
+            // Ignorar warnings de CORS/COOP
+            if (e.message && (
+                e.message.includes('Cross-Origin-Opener-Policy') || 
+                e.message.includes('Cross-Origin-Embedder-Policy')
+            )) {
+                console.warn('Aviso de política CORS:', e.message);
+                return;
+            }
+            
+            // Mostrar erro genérico para o usuário se for crítico
+            if (e.error && e.error.message && e.error.message.includes('critical')) {
+                showMessage(statusMessage, 'Ocorreu um erro no sistema. Por favor, recarregue a página.', 'error');
+            }
+        });
+
+        // Tratamento de promises não capturadas
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Promise rejeitada não tratada:', e.reason);
+            
+            // Ignorar erros comuns do Firebase
+            if (e.reason && (
+                e.reason.message.includes('offline') ||
+                e.reason.message.includes('network') ||
+                e.reason.message.includes('permission')
+            )) {
+                console.warn('Erro de rede/permissão ignorado:', e.reason.message);
+                return;
+            }
+        });
     </script>
 </body>
 </html>
