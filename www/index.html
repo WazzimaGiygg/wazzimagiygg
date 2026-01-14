@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wiki Not Pédia - Login e Cadastro</title>
-    <!-- Removendo favicon problemático e usando base64 inline -->
+    <title>Wiki Not Pédia - Login</title>
+    <!-- Favicon inline para evitar erro 404 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -695,7 +695,7 @@
                 
                 <div class="auth-header">
                     <h2>Bem-vindo de volta</h2>
-                    <p>Entre na sua conta para continuar</p>
+                    <p>Entre na sua conta para acessar a enciclopédia</p>
                 </div>
 
                 <!-- Tabs de autenticação -->
@@ -819,8 +819,81 @@
         </div>
     </div>
 
-    <!-- Scripts do Firebase e da aplicação -->
     <script type="module">
+        // 🔹 Sistema de Login com Armazenamento Local
+        // Este sistema armazena os dados do usuário no localStorage do navegador
+        // e redireciona para wnpx.html no mesmo diretório
+
+        // 🔹 Função para armazenar usuário no localStorage
+        function storeUserInLocalStorage(userData) {
+            try {
+                // Adicionar timestamp de login
+                userData.loginTimestamp = new Date().toISOString();
+                userData.sessionExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 dias
+                
+                // Armazenar no localStorage
+                localStorage.setItem('wikiUser', JSON.stringify(userData));
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('lastLogin', new Date().toISOString());
+                
+                console.log('Usuário armazenado no localStorage:', userData.email);
+                return true;
+            } catch (error) {
+                console.error('Erro ao armazenar usuário no localStorage:', error);
+                return false;
+            }
+        }
+
+        // 🔹 Função para obter usuário do localStorage
+        function getUserFromLocalStorage() {
+            try {
+                const userData = localStorage.getItem('wikiUser');
+                if (!userData) return null;
+                
+                const user = JSON.parse(userData);
+                
+                // Verificar se a sessão expirou
+                if (user.sessionExpires && new Date(user.sessionExpires) < new Date()) {
+                    clearUserFromLocalStorage();
+                    return null;
+                }
+                
+                return user;
+            } catch (error) {
+                console.error('Erro ao obter usuário do localStorage:', error);
+                return null;
+            }
+        }
+
+        // 🔹 Função para limpar dados do usuário do localStorage
+        function clearUserFromLocalStorage() {
+            try {
+                localStorage.removeItem('wikiUser');
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('lastLogin');
+                console.log('Dados do usuário removidos do localStorage');
+            } catch (error) {
+                console.error('Erro ao limpar dados do localStorage:', error);
+            }
+        }
+
+        // 🔹 Função para verificar se usuário está logado
+        function isUserLoggedIn() {
+            const user = getUserFromLocalStorage();
+            return user !== null;
+        }
+
+        // 🔹 Função para redirecionar para wnpx.html
+        function redirectToWikiPage() {
+            // Redirecionar para wnpx.html no mesmo diretório
+            const redirectUrl = 'wnpx.html';
+            
+            // Adicionar pequeno delay para mostrar mensagem de sucesso
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, 1500);
+        }
+
         // 🔹 Detectar se está online
         function updateOnlineStatus() {
             const offlineIndicator = document.getElementById('offlineIndicator');
@@ -836,71 +909,9 @@
             return isOnline;
         }
 
-        // 🔹 Configuração do Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { 
-            getAuth, 
-            createUserWithEmailAndPassword, 
-            signInWithEmailAndPassword,
-            signInWithPopup, 
-            GoogleAuthProvider, 
-            sendPasswordResetEmail,
-            onAuthStateChanged,
-            signOut,
-            setPersistence,
-            browserSessionPersistence,
-            browserLocalPersistence
-        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        
-        // 🔹 Configuração do Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
-
-        // 🔹 Inicializar Firebase
-        let app;
-        let auth;
-        let googleProvider;
-        let isFirebaseInitialized = false;
-
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            googleProvider = new GoogleAuthProvider();
-            
-            // Configurar seleção de conta do Google
-            googleProvider.setCustomParameters({
-                prompt: 'select_account'
-            });
-            
-            // Configurar persistência baseada na escolha do usuário
-            auth.setPersistence(browserSessionPersistence);
-            
-            isFirebaseInitialized = true;
-            console.log('Firebase inicializado com sucesso');
-        } catch (error) {
-            console.error('Erro ao inicializar Firebase:', error);
-            showMessage(statusMessage, 'Erro de conexão com o servidor. Por favor, verifique sua conexão de internet.', 'error');
-        }
-
-        // 🔹 UIDs de administradores
-        const adminUIDs = [
-            "sZxfMuOBPbXdR8nttVPXIN8QOOl1",
-            "6aPqWVh8JVYL5NqEb78iDGPD7dH3",
-            "QVqYRARlcsU5TsFT4ePYnFrYrdA3"
-        ];
-
         // 🔹 Elementos DOM
         const loginTab = document.querySelector('[data-tab="login"]');
         const registerTab = document.querySelector('[data-tab="register"]');
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
         const switchToRegister = document.getElementById('switchToRegister');
         const switchToLogin = document.getElementById('switchToLogin');
         const statusMessage = document.getElementById('statusMessage');
@@ -932,10 +943,6 @@
         const googleLoginBtn = document.getElementById('googleLoginBtn');
         const googleRegisterBtn = document.getElementById('googleRegisterBtn');
 
-        // 🔹 Variáveis de estado
-        let isLoginPasswordVisible = false;
-        let isRegisterPasswordVisible = false;
-
         // 🔹 Funções auxiliares
         function showMessage(element, message, type = 'info') {
             if (!element) return;
@@ -962,9 +969,10 @@
             }
         }
 
-        function togglePasswordVisibility(inputElement, toggleButton, isVisible) {
+        function togglePasswordVisibility(inputElement, toggleButton) {
             if (!inputElement || !toggleButton) return;
             
+            const isVisible = inputElement.type === 'password';
             if (isVisible) {
                 inputElement.type = 'text';
                 toggleButton.innerHTML = '<i class="fas fa-eye-slash"></i>';
@@ -1041,12 +1049,76 @@
             clearMessages();
         }
 
+        // 🔹 SIMULAÇÃO DE BANCO DE DADOS EM LOCALSTORAGE
+        // Esta função simula um banco de dados de usuários no localStorage
+        function getUsersDatabase() {
+            try {
+                const usersDB = localStorage.getItem('wikiUsersDB');
+                return usersDB ? JSON.parse(usersDB) : {};
+            } catch (error) {
+                console.error('Erro ao acessar banco de dados de usuários:', error);
+                return {};
+            }
+        }
+
+        function saveUserToDatabase(userData) {
+            try {
+                const usersDB = getUsersDatabase();
+                usersDB[userData.email] = {
+                    id: Date.now().toString(),
+                    name: userData.name,
+                    email: userData.email,
+                    password: userData.password, // Em produção, isso seria hasheado
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString()
+                };
+                
+                localStorage.setItem('wikiUsersDB', JSON.stringify(usersDB));
+                console.log('Usuário salvo no banco de dados local');
+                return true;
+            } catch (error) {
+                console.error('Erro ao salvar usuário no banco de dados:', error);
+                return false;
+            }
+        }
+
+        function authenticateUser(email, password) {
+            try {
+                const usersDB = getUsersDatabase();
+                const user = usersDB[email];
+                
+                if (!user) {
+                    return { success: false, message: 'Usuário não encontrado' };
+                }
+                
+                if (user.password !== password) {
+                    return { success: false, message: 'Senha incorreta' };
+                }
+                
+                // Atualizar último login
+                user.lastLogin = new Date().toISOString();
+                usersDB[email] = user;
+                localStorage.setItem('wikiUsersDB', JSON.stringify(usersDB));
+                
+                return { 
+                    success: true, 
+                    user: {
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        createdAt: user.createdAt,
+                        lastLogin: user.lastLogin
+                    }
+                };
+            } catch (error) {
+                console.error('Erro na autenticação:', error);
+                return { success: false, message: 'Erro na autenticação' };
+            }
+        }
+
+        // 🔹 Login com e-mail e senha (sistema local)
         async function handleEmailLogin(email, password) {
             try {
-                if (!isFirebaseInitialized) {
-                    throw new Error('Serviço de autenticação não disponível. Verifique sua conexão.');
-                }
-
                 // Verificar conexão
                 if (!updateOnlineStatus()) {
                     throw new Error('Sem conexão com a internet. Conecte-se para fazer login.');
@@ -1055,56 +1127,45 @@
                 loginSubmitBtn.disabled = true;
                 loginSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
                 
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
+                // Autenticar usuário no sistema local
+                const authResult = authenticateUser(email, password);
+                
+                if (!authResult.success) {
+                    throw new Error(authResult.message);
+                }
+                
+                // Armazenar usuário no localStorage
+                const userData = {
+                    id: authResult.user.id,
+                    name: authResult.user.name,
+                    email: authResult.user.email,
+                    isLocalUser: true,
+                    provider: 'local'
+                };
+                
+                const stored = storeUserInLocalStorage(userData);
+                
+                if (!stored) {
+                    throw new Error('Erro ao salvar sessão');
+                }
                 
                 showMessage(statusMessage, 'Login realizado com sucesso!', 'success');
-                
-                // Verificar se é admin
-                if (adminUIDs.includes(user.uid)) {
-                    showMessage(statusMessage, 'Bem-vindo, administrador!', 'success');
-                }
                 
                 // Configurar persistência se "Lembrar-me" estiver marcado
                 const rememberMe = document.getElementById('rememberMe').checked;
                 if (rememberMe) {
-                    await setPersistence(auth, browserLocalPersistence);
+                    // Para sessão local, já estamos usando localStorage que persiste
+                    console.log('Sessão será lembrada');
                 }
                 
-                // Redirecionar após login bem-sucedido
-                setTimeout(() => {
-                    window.location.href = 'https://wazzimagiygg.com/wnpx.html';
-                }, 1500);
+                // Redirecionar para wnpx.html
+                redirectToWikiPage();
                 
             } catch (error) {
                 console.error('Erro no login:', error);
                 
                 let errorMessage = 'Erro ao fazer login. ';
-                switch (error.code) {
-                    case 'auth/user-not-found':
-                        errorMessage += 'Usuário não encontrado.';
-                        break;
-                    case 'auth/wrong-password':
-                        errorMessage += 'Senha incorreta.';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessage += 'E-mail inválido.';
-                        break;
-                    case 'auth/user-disabled':
-                        errorMessage += 'Esta conta foi desativada.';
-                        break;
-                    case 'auth/too-many-requests':
-                        errorMessage += 'Muitas tentativas. Tente novamente mais tarde.';
-                        break;
-                    case 'auth/network-request-failed':
-                        errorMessage = 'Erro de conexão. Verifique sua internet.';
-                        break;
-                    case 'auth/internal-error':
-                        errorMessage = 'Erro interno do servidor. Tente novamente.';
-                        break;
-                    default:
-                        errorMessage += error.message || 'Erro desconhecido.';
-                }
+                errorMessage += error.message || 'Erro desconhecido.';
                 
                 showMessage(statusMessage, errorMessage, 'error');
                 loginSubmitBtn.disabled = false;
@@ -1112,12 +1173,9 @@
             }
         }
 
+        // 🔹 Cadastro com e-mail e senha (sistema local)
         async function handleEmailRegister(name, email, password) {
             try {
-                if (!isFirebaseInitialized) {
-                    throw new Error('Serviço de autenticação não disponível. Verifique sua conexão.');
-                }
-
                 // Verificar conexão
                 if (!updateOnlineStatus()) {
                     throw new Error('Sem conexão com a internet. Conecte-se para criar uma conta.');
@@ -1132,40 +1190,50 @@
                     throw new Error('A senha é muito fraca. Use pelo menos 8 caracteres com letras maiúsculas, minúsculas e números.');
                 }
                 
-                // Criar usuário no Firebase Authentication
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
+                // Verificar se usuário já existe
+                const usersDB = getUsersDatabase();
+                if (usersDB[email]) {
+                    throw new Error('Este e-mail já está em uso.');
+                }
+                
+                // Criar usuário no sistema local
+                const userData = {
+                    name: name,
+                    email: email,
+                    password: password, // Em produção, isso seria hasheado
+                    isLocalUser: true,
+                    provider: 'local'
+                };
+                
+                // Salvar no banco de dados local
+                const saved = saveUserToDatabase(userData);
+                if (!saved) {
+                    throw new Error('Erro ao criar conta.');
+                }
+                
+                // Armazenar no localStorage para sessão atual
+                const stored = storeUserInLocalStorage({
+                    id: Date.now().toString(),
+                    name: name,
+                    email: email,
+                    isLocalUser: true,
+                    provider: 'local'
+                });
+                
+                if (!stored) {
+                    throw new Error('Erro ao iniciar sessão.');
+                }
                 
                 showMessage(statusMessage, 'Conta criada com sucesso!', 'success');
                 
-                // Login automático após cadastro
-                setTimeout(() => {
-                    window.location.href = 'https://wazzimagiygg.com/wnpx.html';
-                }, 1500);
+                // Redirecionar para wnpx.html
+                redirectToWikiPage();
                 
             } catch (error) {
                 console.error('Erro no cadastro:', error);
                 
                 let errorMessage = 'Erro ao criar conta. ';
-                switch (error.code) {
-                    case 'auth/email-already-in-use':
-                        errorMessage += 'Este e-mail já está em uso.';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessage += 'E-mail inválido.';
-                        break;
-                    case 'auth/weak-password':
-                        errorMessage += 'A senha é muito fraca. Use pelo menos 6 caracteres.';
-                        break;
-                    case 'auth/operation-not-allowed':
-                        errorMessage += 'Operação não permitida.';
-                        break;
-                    case 'auth/network-request-failed':
-                        errorMessage = 'Erro de conexão. Verifique sua internet.';
-                        break;
-                    default:
-                        errorMessage += error.message || 'Erro desconhecido.';
-                }
+                errorMessage += error.message || 'Erro desconhecido.';
                 
                 showMessage(statusMessage, errorMessage, 'error');
                 registerSubmitBtn.disabled = false;
@@ -1173,71 +1241,94 @@
             }
         }
 
+        // 🔹 Login com Google (integrado com Firebase)
         async function handleGoogleLogin() {
             try {
-                if (!isFirebaseInitialized) {
-                    throw new Error('Serviço de autenticação não disponível. Verifique sua conexão.');
-                }
-
                 // Verificar conexão
                 if (!updateOnlineStatus()) {
                     throw new Error('Sem conexão com a internet. Conecte-se para fazer login.');
                 }
 
-                const result = await signInWithPopup(auth, googleProvider);
+                // Importar Firebase dinamicamente
+                const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js");
+                const { getAuth, signInWithPopup, GoogleAuthProvider } = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js");
+                
+                const firebaseConfig = {
+                    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+                    authDomain: "wzzm-ce3fc.firebaseapp.com",
+                    projectId: "wzzm-ce3fc",
+                    storageBucket: "wzzm-ce3fc.appspot.com",
+                    messagingSenderId: "249427877153",
+                    appId: "1:249427877153:web:0e4297294794a5aadeb260",
+                    measurementId: "G-PLKNZNFCQ8"
+                };
+                
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const provider = new GoogleAuthProvider();
+                
+                provider.setCustomParameters({
+                    prompt: 'select_account'
+                });
+                
+                const result = await signInWithPopup(auth, provider);
                 const user = result.user;
+                
+                // Armazenar usuário do Google no localStorage
+                const userData = {
+                    id: user.uid,
+                    name: user.displayName,
+                    email: user.email,
+                    photoURL: user.photoURL,
+                    isGoogleUser: true,
+                    provider: 'google'
+                };
+                
+                storeUserInLocalStorage(userData);
                 
                 showMessage(statusMessage, 'Login com Google realizado com sucesso!', 'success');
                 
-                // Redirecionar após login
-                setTimeout(() => {
-                    window.location.href = 'https://wazzimagiygg.com/wnpx.html';
-                }, 1500);
+                // Redirecionar para wnpx.html
+                redirectToWikiPage();
                 
             } catch (error) {
                 console.error('Erro no login com Google:', error);
                 
                 let errorMessage = 'Erro ao fazer login com Google. ';
-                switch (error.code) {
-                    case 'auth/popup-closed-by-user':
-                        errorMessage = 'Login cancelado pelo usuário.';
-                        break;
-                    case 'auth/cancelled-popup-request':
-                        errorMessage = 'Login cancelado.';
-                        break;
-                    case 'auth/popup-blocked':
-                        errorMessage = 'Popup bloqueado pelo navegador. Permita popups para este site.';
-                        break;
-                    case 'auth/unauthorized-domain':
-                        errorMessage = 'Este domínio não está autorizado para login com Google.';
-                        break;
-                    case 'auth/network-request-failed':
-                        errorMessage = 'Erro de conexão. Verifique sua internet.';
-                        break;
-                    case 'auth/internal-error':
-                        errorMessage = 'Erro interno. Tente novamente.';
-                        break;
-                    default:
-                        errorMessage += error.message || 'Erro desconhecido.';
+                
+                // Tratamento de erros específicos do Firebase
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage = 'Login cancelado pelo usuário.';
+                } else if (error.code === 'auth/cancelled-popup-request') {
+                    errorMessage = 'Login cancelado.';
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorMessage = 'Popup bloqueado pelo navegador. Permita popups para este site.';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorMessage = 'Erro de conexão. Verifique sua internet.';
+                } else {
+                    errorMessage += error.message || 'Erro desconhecido.';
                 }
                 
                 showMessage(statusMessage, errorMessage, 'error');
             }
         }
 
+        // 🔹 Recuperação de senha (sistema local simplificado)
         async function handlePasswordReset(email) {
             try {
-                if (!isFirebaseInitialized) {
-                    throw new Error('Serviço de autenticação não disponível.');
-                }
-
                 const resetBtn = document.getElementById('resetSubmitBtn');
                 resetBtn.disabled = true;
                 resetBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
                 
-                await sendPasswordResetEmail(auth, email);
+                // Verificar se o e-mail existe no banco de dados local
+                const usersDB = getUsersDatabase();
+                if (!usersDB[email]) {
+                    throw new Error('Usuário não encontrado.');
+                }
                 
-                showMessage(modalMessage, 'E-mail de recuperação enviado! Verifique sua caixa de entrada.', 'success');
+                // Em um sistema real, aqui enviaríamos um e-mail
+                // Para demonstração, apenas mostramos uma mensagem
+                showMessage(modalMessage, 'Se o e-mail existir em nosso sistema, você receberá um link de recuperação.', 'info');
                 
                 setTimeout(() => {
                     passwordModal.style.display = 'none';
@@ -1249,26 +1340,24 @@
             } catch (error) {
                 console.error('Erro ao enviar e-mail de recuperação:', error);
                 
-                let errorMessage = 'Erro ao enviar e-mail. ';
-                switch (error.code) {
-                    case 'auth/user-not-found':
-                        errorMessage += 'Usuário não encontrado.';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessage += 'E-mail inválido.';
-                        break;
-                    case 'auth/too-many-requests':
-                        errorMessage += 'Muitas tentativas. Tente novamente mais tarde.';
-                        break;
-                    default:
-                        errorMessage += error.message || 'Erro desconhecido.';
-                }
+                let errorMessage = 'Erro ao processar solicitação. ';
+                errorMessage += error.message || 'Erro desconhecido.';
                 
                 showMessage(modalMessage, errorMessage, 'error');
                 
                 const resetBtn = document.getElementById('resetSubmitBtn');
                 resetBtn.disabled = false;
                 resetBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Link de Recuperação';
+            }
+        }
+
+        // 🔹 Verificar se usuário já está logado
+        function checkIfUserIsAlreadyLoggedIn() {
+            const user = getUserFromLocalStorage();
+            if (user) {
+                // Usuário já está logado, redirecionar para wnpx.html
+                console.log('Usuário já logado, redirecionando...');
+                window.location.href = 'wnpx.html';
             }
         }
 
@@ -1287,13 +1376,11 @@
 
         // Toggle visibilidade da senha
         toggleLoginPassword.addEventListener('click', () => {
-            isLoginPasswordVisible = !isLoginPasswordVisible;
-            togglePasswordVisibility(loginPasswordInput, toggleLoginPassword, isLoginPasswordVisible);
+            togglePasswordVisibility(loginPasswordInput, toggleLoginPassword);
         });
 
         toggleRegisterPassword.addEventListener('click', () => {
-            isRegisterPasswordVisible = !isRegisterPasswordVisible;
-            togglePasswordVisibility(registerPasswordInput, toggleRegisterPassword, isRegisterPasswordVisible);
+            togglePasswordVisibility(registerPasswordInput, toggleRegisterPassword);
         });
 
         // Força da senha em tempo real
@@ -1399,16 +1486,6 @@
             });
         }
 
-        // Verificar se usuário já está logado
-        if (isFirebaseInitialized) {
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    // Usuário já está logado, redirecionar
-                    window.location.href = 'https://wazzimagiygg.com/wnpx.html';
-                }
-            });
-        }
-
         // Monitorar status de conexão
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
@@ -1416,51 +1493,15 @@
         // Inicializar status de conexão
         updateOnlineStatus();
 
+        // Verificar se usuário já está logado
+        checkIfUserIsAlreadyLoggedIn();
+
         // Focar no primeiro campo
         setTimeout(() => {
             if (loginEmailInput) {
                 loginEmailInput.focus();
             }
         }, 500);
-
-        // Tratamento de erros globais
-        window.addEventListener('error', function(e) {
-            console.error('Erro global:', e.error);
-            
-            // Ignorar erros de favicon
-            if (e.message && e.message.includes('favicon')) {
-                return;
-            }
-            
-            // Ignorar warnings de CORS/COOP
-            if (e.message && (
-                e.message.includes('Cross-Origin-Opener-Policy') || 
-                e.message.includes('Cross-Origin-Embedder-Policy')
-            )) {
-                console.warn('Aviso de política CORS:', e.message);
-                return;
-            }
-            
-            // Mostrar erro genérico para o usuário se for crítico
-            if (e.error && e.error.message && e.error.message.includes('critical')) {
-                showMessage(statusMessage, 'Ocorreu um erro no sistema. Por favor, recarregue a página.', 'error');
-            }
-        });
-
-        // Tratamento de promises não capturadas
-        window.addEventListener('unhandledrejection', function(e) {
-            console.error('Promise rejeitada não tratada:', e.reason);
-            
-            // Ignorar erros comuns do Firebase
-            if (e.reason && (
-                e.reason.message.includes('offline') ||
-                e.reason.message.includes('network') ||
-                e.reason.message.includes('permission')
-            )) {
-                console.warn('Erro de rede/permissão ignorado:', e.reason.message);
-                return;
-            }
-        });
     </script>
 </body>
 </html>
