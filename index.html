@@ -1107,6 +1107,10 @@
         const DEEPSEEK_API_COLLECTION = "deepseek_api_keys";
         const JSON_URL = 'cidades_sancionadas.json';
         const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+        
+        // API KEY DO DEEPSEEK (PARA TESTES - EM PRODUÇÃO REMOVA ESTA LINHA)
+        // EM PRODUÇÃO, O USUÁRIO DEVE CONFIGURAR SUA PRÓPRIA API KEY
+        const DEFAULT_DEEPSEEK_API_KEY = sk-d1784986e1c34ded88f447283280b7e9; // Não coloque sua API key aqui no código fonte!
 
         // ============================================
         // ELEMENTOS DO DOM
@@ -1136,7 +1140,7 @@
         // VARIÁVEIS GLOBAIS
         // ============================================
         let currentUser = null;
-        let currentDeepSeekApiKey = null;
+        let currentDeepSeekApiKey = DEFAULT_DEEPSEEK_API_KEY;
         let openWindows = [];
         let chatHistory = [];
         let isDeepSeekConfigured = false;
@@ -1337,7 +1341,7 @@
         }
 
         // ============================================
-        // FUNÇÕES DE DEEPSEEK API
+        // FUNÇÕES DE DEEPSEEK API - ATUALIZADAS
         // ============================================
         async function loadDeepSeekApiKey(userId) {
             try {
@@ -1345,10 +1349,27 @@
                 const docSnap = await getDoc(docRef);
                 
                 if (docSnap.exists()) {
-                    currentDeepSeekApiKey = docSnap.data().apiKey;
-                    isDeepSeekConfigured = true;
+                    const data = docSnap.data();
+                    currentDeepSeekApiKey = data.apiKey;
+                    isDeepSeekConfigured = !!currentDeepSeekApiKey;
+                    
+                    // Se não houver API key no Firestore, usar a padrão (apenas para testes)
+                    if (!currentDeepSeekApiKey && DEFAULT_DEEPSEEK_API_KEY) {
+                        currentDeepSeekApiKey = DEFAULT_DEEPSEEK_API_KEY;
+                        isDeepSeekConfigured = true;
+                        console.log("Usando API key padrão para testes");
+                    }
+                    
                     return currentDeepSeekApiKey;
                 } else {
+                    // Se não existir documento, usar a API key padrão (apenas para testes)
+                    if (DEFAULT_DEEPSEEK_API_KEY) {
+                        currentDeepSeekApiKey = DEFAULT_DEEPSEEK_API_KEY;
+                        isDeepSeekConfigured = true;
+                        console.log("Usando API key padrão para testes");
+                        return currentDeepSeekApiKey;
+                    }
+                    
                     currentDeepSeekApiKey = null;
                     isDeepSeekConfigured = false;
                     return null;
@@ -1386,6 +1407,8 @@
             }
 
             try {
+                console.log("Chamando API do DeepSeek...");
+                
                 const response = await fetch(DEEPSEEK_API_URL, {
                     method: 'POST',
                     headers: {
@@ -1404,12 +1427,37 @@
                     })
                 });
 
+                console.log("Status da resposta:", response.status);
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+                    let errorMessage = `Erro na API: ${response.status}`;
+                    
+                    if (response.status === 401) {
+                        errorMessage = "API Key inválida ou expirada. Verifique sua chave.";
+                    } else if (response.status === 429) {
+                        errorMessage = "Limite de requisições excedido. Tente novamente mais tarde.";
+                    } else if (response.status === 403) {
+                        errorMessage = "Acesso não autorizado. Verifique sua API Key.";
+                    }
+                    
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.error?.message) {
+                            errorMessage += ` - ${errorData.error.message}`;
+                        }
+                    } catch (e) {
+                        // Ignora erro de parsing
+                    }
+                    
+                    throw new Error(errorMessage);
                 }
 
                 const data = await response.json();
+                console.log("Resposta recebida:", data);
+                
+                if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                    throw new Error("Resposta da API em formato inválido");
+                }
                 
                 // Adicionar ao histórico
                 chatHistory.push({ role: 'user', content: message });
@@ -1429,29 +1477,86 @@
 
         async function testDeepSeekApiKey(apiKey) {
             try {
+                console.log("Testando API Key...");
+                
+                // Limpar a chave
+                const cleanApiKey = apiKey.trim().replace('Bearer ', '').replace('bearer ', '');
+                
+                // Verificar formato básico
+                if (!cleanApiKey.startsWith('sk-')) {
+                    return {
+                        success: false,
+                        message: 'Formato inválido. A API Key deve começar com "sk-"',
+                        details: `Recebido: ${cleanApiKey.substring(0, 10)}...`
+                    };
+                }
+
+                // Testar a API com uma requisição simples
                 const response = await fetch(DEEPSEEK_API_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
+                        'Authorization': `Bearer ${cleanApiKey}`
                     },
                     body: JSON.stringify({
                         model: 'deepseek-chat',
-                        messages: [{ role: 'user', content: 'Teste de conexão. Responda apenas com "Conexão estabelecida com sucesso!"' }],
-                        max_tokens: 20,
+                        messages: [{ 
+                            role: 'user', 
+                            content: 'Responda apenas com "OK" para teste de conexão.' 
+                        }],
+                        max_tokens: 10,
                         temperature: 0.1
                     })
                 });
 
+                console.log("Status do teste:", response.status);
+                
+                if (response.status === 401) {
+                    return {
+                        success: false,
+                        message: 'API Key inválida ou expirada',
+                        details: 'Status: 401 Unauthorized'
+                    };
+                }
+
+                if (response.status === 403) {
+                    return {
+                        success: false,
+                        message: 'API Key sem permissões suficientes',
+                        details: 'Status: 403 Forbidden'
+                    };
+                }
+
                 if (!response.ok) {
-                    throw new Error(`API Test Failed: ${response.status}`);
+                    return {
+                        success: false,
+                        message: `Erro na API: ${response.status}`,
+                        details: `Status: ${response.status} ${response.statusText}`
+                    };
                 }
 
                 const data = await response.json();
-                return data.choices[0].message.content === "Conexão estabelecida com sucesso!";
+                
+                if (data.choices && data.choices[0]) {
+                    return {
+                        success: true,
+                        message: '✅ API Key válida! Conexão estabelecida com sucesso.',
+                        details: 'Teste de conexão bem-sucedido'
+                    };
+                } else {
+                    return {
+                        success: false,
+                        message: 'Resposta da API em formato inválido',
+                        details: 'A API retornou uma resposta inesperada'
+                    };
+                }
             } catch (error) {
-                console.error("Teste de API falhou:", error);
-                return false;
+                console.error("Erro no teste da API:", error);
+                return {
+                    success: false,
+                    message: `Erro de conexão: ${error.message}`,
+                    details: error.toString()
+                };
             }
         }
 
@@ -1487,6 +1592,7 @@
                 ${isDeepSeekConfigured 
                     ? 'Como posso ajudar você hoje? Posso responder perguntas, escrever código, analisar textos e muito mais!' 
                     : 'Para usar o DeepSeek AI, você precisa configurar sua API Key. Clique no botão "Configurar API" abaixo.'}
+                ${currentDeepSeekApiKey === DEFAULT_DEEPSEEK_API_KEY ? '<br><br><small style="color: #ff9800;">⚠ Usando API key padrão para testes</small>' : ''}
             `;
             messagesArea.appendChild(welcomeMsg);
             
@@ -1538,6 +1644,8 @@
                         sendDeepSeekMessage();
                     }
                 };
+                // Auto-focus no input
+                setTimeout(() => deepseekInput.focus(), 100);
             } else {
                 deepseekSend.onclick = showApiKeyConfiguration;
             }
@@ -1559,11 +1667,6 @@
                 `;
                 messagesArea.appendChild(newWelcomeMsg);
             };
-            
-            // Auto-focus input if configured
-            if (isDeepSeekConfigured) {
-                setTimeout(() => deepseekInput.focus(), 100);
-            }
         }
 
         async function sendDeepSeekMessage() {
@@ -1584,7 +1687,7 @@
             input.value = '';
             input.disabled = true;
             sendBtn.disabled = true;
-            sendBtn.innerHTML = '<span class="spinner"></span>';
+            sendBtn.innerHTML = '<span class="spinner"></span> Enviando...';
             
             // Add thinking message
             const thinkingMessage = document.createElement('div');
@@ -1618,7 +1721,7 @@
                 messagesArea.appendChild(errorMessage);
                 
                 // If it's an API key error, suggest reconfiguration
-                if (error.message.includes('API Key') || error.message.includes('401')) {
+                if (error.message.includes('API Key') || error.message.includes('401') || error.message.includes('403')) {
                     const configPrompt = document.createElement('div');
                     configPrompt.className = 'deepseek-message deepseek-assistant';
                     configPrompt.innerHTML = `
@@ -1627,10 +1730,12 @@
                     `;
                     messagesArea.appendChild(configPrompt);
                     
-                    document.getElementById('reconfigureApi')?.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        showApiKeyConfiguration();
-                    });
+                    setTimeout(() => {
+                        document.getElementById('reconfigureApi')?.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            showApiKeyConfiguration();
+                        });
+                    }, 100);
                 }
             } finally {
                 // Re-enable input
@@ -1676,12 +1781,13 @@
                 
                 <p>
                     Para usar o DeepSeek AI, você precisa de uma API Key. 
-                    <strong>É gratuito!</strong> Obtenha sua chave em:
+                    <strong>É gratuito para uso básico!</strong> Obtenha sua chave em:
                 </p>
                 
                 <p style="text-align: center; margin: 20px 0;">
                     <a href="https://platform.deepseek.com/api-keys" 
                        target="_blank" 
+                       rel="noopener noreferrer"
                        style="color: #0078d7; font-weight: bold; text-decoration: none; border: 1px solid #0078d7; padding: 10px 20px; border-radius: 6px; display: inline-block;">
                         🌐 platform.deepseek.com/api-keys
                     </a>
@@ -1695,7 +1801,7 @@
                            class="api-key-input" 
                            id="apiKeyInput" 
                            placeholder="Cole sua API Key aqui (ex: sk-xxxxxxxxxxxxxxxxxxxxxxxx)"
-                           value="${currentDeepSeekApiKey || ''}">
+                           value="${currentDeepSeekApiKey && currentDeepSeekApiKey !== DEFAULT_DEEPSEEK_API_KEY ? currentDeepSeekApiKey : ''}">
                     <small style="display: block; margin-top: 5px; color: rgba(255,255,255,0.6);">
                         Sua API Key é armazenada com segurança no Firebase e só você tem acesso.
                     </small>
@@ -1715,13 +1821,23 @@
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
                     <h4>📋 Instruções:</h4>
                     <ol style="margin-left: 20px; color: rgba(255,255,255,0.8); line-height: 1.8;">
-                        <li>Acesse <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a></li>
+                        <li>Acesse <a href="https://platform.deepseek.com" target="_blank" rel="noopener noreferrer">platform.deepseek.com</a></li>
                         <li>Faça login ou crie uma conta (gratuita)</li>
                         <li>Vá em "API Keys" no menu</li>
                         <li>Clique em "Create new API Key"</li>
-                        <li>Copie a chave gerada</li>
+                        <li>Copie a chave gerada (começa com "sk-")</li>
                         <li>Cole acima e clique em "Salvar API Key"</li>
                     </ol>
+                    
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                        <strong>⚠️ Importante:</strong>
+                        <ul style="margin-left: 20px; margin-top: 5px;">
+                            <li>Não compartilhe sua API Key com ninguém</li>
+                            <li>A chave deve começar com "sk-"</li>
+                            <li>Limite de requisições gratuitas: 1.000 por mês</li>
+                            <li>Para produção, use variáveis de ambiente</li>
+                        </ul>
+                    </div>
                 </div>
             `;
             
@@ -1747,13 +1863,20 @@
                 
                 testApiKeyBtn.disabled = true;
                 testApiKeyBtn.innerHTML = '<span class="spinner"></span> Testando...';
+                testResult.style.display = 'none';
                 
                 try {
-                    const isValid = await testDeepSeekApiKey(apiKey);
-                    if (isValid) {
-                        showTestResult('✅ API Key válida! Conexão estabelecida com sucesso.', 'success');
+                    const result = await testDeepSeekApiKey(apiKey);
+                    
+                    if (result.success) {
+                        showTestResult(result.message, 'success');
+                        // Habilitar botão de salvar se o teste foi bem-sucedido
+                        saveApiKeyBtn.disabled = false;
                     } else {
-                        showTestResult('❌ API Key inválida. Verifique se a chave está correta.', 'error');
+                        showTestResult(`❌ ${result.message}`, 'error');
+                        if (result.details) {
+                            testResult.innerHTML += `<br><small>${result.details}</small>`;
+                        }
                     }
                 } catch (error) {
                     showTestResult(`❌ Erro: ${error.message}`, 'error');
@@ -1800,11 +1923,11 @@
                 testResult.textContent = message;
                 testResult.className = `api-test-result ${type}`;
                 testResult.style.display = 'block';
-                
-                setTimeout(() => {
-                    testResult.style.display = 'none';
-                }, 5000);
+                testResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
+            
+            // Auto-focus no input
+            setTimeout(() => apiKeyInput.focus(), 100);
         }
 
         // ============================================
@@ -2397,6 +2520,10 @@
         // ============================================
         console.log("Sistema Wiki Not Pedia WZZM inicializado");
         console.log("DeepSeek AI Integration: ✅ Pronto");
+
+        // Para testes, você pode definir uma API key padrão aqui:
+        // ATENÇÃO: EM PRODUÇÃO, NÃO COLOQUE SUA API KEY NO CÓDIGO FONTE!
+        // const DEFAULT_DEEPSEEK_API_KEY = "sua-api-key-aqui"; // ← NÃO FAÇA ISSO EM PRODUÇÃO!
 
     </script>
 
