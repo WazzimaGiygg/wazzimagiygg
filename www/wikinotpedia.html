@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiki Not Pédia - A Enciclopédia Livre</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>
+        /* Reset e estilos gerais */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #3366cc;
+            --secondary-color: #2a4b8d;
+            --accent-color: #f8f9fa;
+            --text-color: #222;
+            --text-secondary: #54595d;
+            --border-color: #a2a9b1;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --success-color: #00af89;
+            --warning-color: #fc3;
+            --danger-color: #d33;
+            --sidebar-width: 280px;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: var(--text-color);
+            background-color: #f6f6f6;
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Cabeçalho */
+        .header {
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 5px var(--shadow-color);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            font-size: 36px;
+            color: var(--primary-color);
+        }
+
+        .logo-text {
+            font-family: 'Merriweather', serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+
+        .logo-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .search-bar {
+            flex: 1;
+            max-width: 600px;
+            margin: 0 40px;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 15px 10px 45px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(51, 102, 204, 0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        /* Conteúdo principal */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            max-width: calc(100% - var(--sidebar-width));
+            overflow-y: auto;
+        }
+
+        .welcome-message {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px var(--shadow-color);
+        }
+
+        .welcome-message h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .welcome-message p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .articles-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 24px;
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+
+        .create-article-btn {
+            background: var(--success-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+        }
+
+        .create-article-btn:hover {
+            background: #009973;
+        }
+
+        /* Lista de artigos */
+        .articles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .article-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px var(--shadow-color);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid var(--border-color);
+        }
+
+        .article-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px var(--shadow-color);
+        }
+
+        .article-header {
+            background: var(--accent-color);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .article-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+            line-height: 1.4;
+        }
+
+        .article-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .article-author {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .article-content {
+            padding: 20px;
+        }
+
+        .article-description {
+            color: var(--text-color);
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .article-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border-color);
+            background: var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .article-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: var(--primary-color);
+        }
+
+        .read-more {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .read-more:hover {
+            text-decoration: underline;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: var(--border-color);
+        }
+
+        .empty-state h3 {
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: white;
+            border-left: 1px solid var(--border-color);
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+
+        .sidebar-section {
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .sidebar-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-color);
+            padding: 0 20px 10px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 2px;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-menu a:hover {
+            background: var(--accent-color);
+            border-left-color: var(--primary-color);
+        }
+
+        .sidebar-menu a i {
+            width: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .sidebar-submenu {
+            list-style: none;
+            padding-left: 40px;
+            margin-top: 5px;
+        }
+
+        .sidebar-submenu li a {
+            padding: 8px 20px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .appearance-options {
+            padding: 0 20px;
+        }
+
+        .appearance-group {
+            margin-bottom: 15px;
+        }
+
+        .appearance-group h4 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .appearance-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .appearance-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .appearance-btn:hover {
+            background: var(--accent-color);
+        }
+
+        .appearance-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(51, 102, 204, 0.2);
+        }
+
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary-color);
+        }
+
+        .btn-secondary {
+            background: var(--accent-color);
+            color: var(--text-color);
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b32424;
+        }
+
+        /* Responsividade */
+        @media (max-width: 1200px) {
+            .articles-grid {
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            }
+        }
+
+        @media (max-width: 992px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .main-content {
+                max-width: 100%;
+            }
+            
+            .sidebar {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+                order: 3;
+            }
+            
+            .search-bar {
+                margin: 0 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-wrap: wrap;
+                padding: 10px;
+            }
+            
+            .logo {
+                order: 1;
+            }
+            
+            .search-bar {
+                order: 3;
+                margin: 10px 0 0;
+                max-width: 100%;
+            }
+            
+            .user-info {
+                order: 2;
+                margin-left: auto;
+            }
+            
+            .articles-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .articles-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+        }
+
+        /* Animações */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .article-card {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- Cabeçalho -->
+    <div class="header">
+        <div class="logo">
+            <i class="fas fa-book-open logo-icon"></i>
+            <div>
+                <div class="logo-text">Wiki Not Pédia</div>
+                <div class="logo-subtitle">A enciclopédia livre que todos podem editar</div>
+            </div>
+        </div>
+        
+        <div class="search-bar">
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" placeholder="Buscar na Wiki Not Pédia...">
+            </div>
+        </div>
+        
+        <div class="user-info">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <button class="create-article-btn" onclick="openCreateModal()">
+                <i class="fas fa-plus"></i> Criar Artigo
+            </button>
+        </div>
+    </div>
+
+    <!-- Container Principal -->
+    <div class="container">
+        <!-- Conteúdo Principal -->
+        <main class="main-content">
+            <div class="welcome-message">
+                <h1>Bem-vindo à Wiki Not Pédia!</h1>
+                <p>Explore milhares de artigos sobre os mais diversos temas. Todos podem contribuir com conhecimento.</p>
+            </div>
+            
+            <div class="articles-header">
+                <h2 class="section-title">Artigos Recentes</h2>
+                <button class="create-article-btn" onclick="openCreateModal()">
+                    <i class="fas fa-plus"></i> Novo Artigo
+                </button>
+            </div>
+            
+            <div id="articlesContainer" class="articles-grid">
+                <!-- Os artigos serão carregados dinamicamente aqui -->
+                <div class="empty-state" id="emptyState">
+                    <i class="fas fa-newspaper"></i>
+                    <h3>Nenhum artigo encontrado</h3>
+                    <p>Seja o primeiro a criar um artigo!</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Seção: Ações -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Ações</h3>
+                <ul class="sidebar-menu">
+                    <li><a href="#" onclick="showAction('excluir')"><i class="fas fa-trash"></i> Excluir</a></li>
+                    <li><a href="#" onclick="showAction('mover')"><i class="fas fa-arrows-alt"></i> Mover</a></li>
+                    <li><a href="#" onclick="showAction('protecao')"><i class="fas fa-shield-alt"></i> Alterar a proteção</a></li>
+                    <li><a href="#" onclick="showAction('purgar')"><i class="fas fa-broom"></i> Purgar</a></li>
+                </ul>
+            </div>
+
+            <!-- Seção: Geral -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Geral</h3>
+                <ul class="sidebar-menu">
+                    <li><a href="#" onclick="showAction('afluentes')"><i class="fas fa-project-diagram"></i> Páginas afluentes</a></li>
+                    <li><a href="#" onclick="showAction('mudanças')"><i class="fas fa-history"></i> Mudanças relacionadas</a></li>
+                    <li><a href="#" onclick="showAction('upload')"><i class="fas fa-upload"></i> Enviar arquivo</a></li>
+                    <li><a href="#" onclick="showAction('imprimir')"><i class="fas fa-print"></i> Versão para imprimir</a></li>
+                    <li><a href="#" onclick="showAction('link')"><i class="fas fa-link"></i> Link permanente</a></li>
+                    <li><a href="#" onclick="showAction('informacoes')"><i class="fas fa-info-circle"></i> Informações da página</a></li>
+                    <li><a href="#" onclick="showAction('citar')"><i class="fas fa-quote-right"></i> Citar esta página</a></li>
+                    <li><a href="#" onclick="showAction('encurtado')"><i class="fas fa-shortlink"></i> Obter URL encurtado</a></li>
+                    <li><a href="#" onclick="showAction('redirecionamento')"><i class="fas fa-directions"></i> Criar Redirecionamento</a></li>
+                </ul>
+            </div>
+
+            <!-- Seção: Administração -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Administração</h3>
+                <ul class="sidebar-menu">
+                    <li><a href="#" onclick="showAction('configuracoes')"><i class="fas fa-cog"></i> Gerenciar as configurações principais dessa wiki</a></li>
+                    <li><a href="#" onclick="showAction('extensoes')"><i class="fas fa-puzzle-piece"></i> Gerenciar as extensões desta wiki</a></li>
+                    <li><a href="#" onclick="showAction('espaco-nominal')"><i class="fas fa-sitemap"></i> Gerenciar espaço nominal desta wiki</a></li>
+                    <li><a href="#" onclick="showAction('permissoes')"><i class="fas fa-user-shield"></i> Gerenciar as permissões desta wiki</a></li>
+                    <li><a href="#" onclick="showAction('config-adicionais')"><i class="fas fa-sliders-h"></i> Gerenciar configurações adicionais desta wiki</a></li>
+                    <li><a href="#" onclick="showAction('despejo')"><i class="fas fa-database"></i> Gerenciar/baixar o despejo dessa wiki</a></li>
+                </ul>
+            </div>
+
+            <!-- Seção: Aparência -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Aparência</h3>
+                <div class="appearance-options">
+                    <div class="appearance-group">
+                        <h4>Texto</h4>
+                        <div class="appearance-buttons">
+                            <button class="appearance-btn active" onclick="changeAppearance('text', 'small')">Pequeno</button>
+                            <button class="appearance-btn" onclick="changeAppearance('text', 'default')">Padrão</button>
+                            <button class="appearance-btn" onclick="changeAppearance('text', 'large')">Grande</button>
+                        </div>
+                    </div>
+                    
+                    <div class="appearance-group">
+                        <h4>Largura</h4>
+                        <div class="appearance-buttons">
+                            <button class="appearance-btn active" onclick="changeAppearance('width', 'default')">Padrão</button>
+                            <button class="appearance-btn" onclick="changeAppearance('width', 'wide')">Largo</button>
+                        </div>
+                    </div>
+                    
+                    <div class="appearance-group">
+                        <h4>Cor (beta)</h4>
+                        <div class="appearance-buttons">
+                            <button class="appearance-btn active" onclick="changeAppearance('color', 'auto')">Automático</button>
+                            <button class="appearance-btn" onclick="changeAppearance('color', 'light')">Claro</button>
+                            <button class="appearance-btn" onclick="changeAppearance('color', 'night')">Noite</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modal para criar/editar artigo -->
+    <div id="articleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Criar Novo Artigo</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="articleForm">
+                    <div class="form-group">
+                        <label class="form-label" for="articleTitle">Título do Artigo</label>
+                        <input type="text" id="articleTitle" class="form-input" required placeholder="Digite o título do artigo">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="articleDescription">Descrição/Conteúdo</label>
+                        <textarea id="articleDescription" class="form-input form-textarea" required placeholder="Digite o conteúdo do artigo"></textarea>
+                    </div>
+                    <input type="hidden" id="articleId">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveArticle()">Salvar Artigo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmação -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirmTitle">Confirmar Ação</h3>
+                <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Tem certeza que deseja realizar esta ação?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancelar</button>
+                <button class="btn btn-danger" id="confirmActionBtn">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        // Inicialização do Firebase
+        let firebaseApp;
+        let db;
+        let currentUser = null;
+        let currentArticleId = null;
+
+        try {
+            firebaseApp = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            
+            // Verificar autenticação
+            firebase.auth().onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user;
+                    updateUserInfo();
+                    loadArticles();
+                } else {
+                    // Redirecionar para login se não estiver autenticado
+                    window.location.href = 'login.html';
+                }
+            });
+        } catch (error) {
+            console.error("Erro ao inicializar Firebase:", error);
+            // Modo de demonstração se Firebase não estiver configurado
+            setupDemoMode();
+        }
+
+        function setupDemoMode() {
+            console.log("Modo de demonstração ativado");
+            currentUser = { displayName: "Usuário Demo", email: "demo@example.com" };
+            updateUserInfo();
+            loadDemoArticles();
+        }
+
+        function updateUserInfo() {
+            const avatar = document.getElementById('userAvatar');
+            if (currentUser && currentUser.displayName) {
+                avatar.textContent = currentUser.displayName.charAt(0).toUpperCase();
+            }
+        }
+
+        // Carregar artigos do Firebase
+        async function loadArticles() {
+            const container = document.getElementById('articlesContainer');
+            const emptyState = document.getElementById('emptyState');
+            
+            try {
+                const querySnapshot = await db.collection('wnpx')
+                    .orderBy('createdAt', 'desc')
+                    .limit(20)
+                    .get();
+                
+                if (querySnapshot.empty) {
+                    emptyState.style.display = 'block';
+                    container.innerHTML = '';
+                    container.appendChild(emptyState);
+                    return;
+                }
+                
+                emptyState.style.display = 'none';
+                container.innerHTML = '';
+                
+                querySnapshot.forEach((doc) => {
+                    const article = doc.data();
+                    article.id = doc.id;
+                    container.appendChild(createArticleCard(article));
+                });
+            } catch (error) {
+                console.error("Erro ao carregar artigos:", error);
+                loadDemoArticles();
+            }
+        }
+
+        // Modo de demonstração
+        function loadDemoArticles() {
+            const container = document.getElementById('articlesContainer');
+            const emptyState = document.getElementById('emptyState');
+            
+            const demoArticles = [
+                {
+                    id: '1',
+                    title: 'Introdução à Inteligência Artificial',
+                    description: 'A Inteligência Artificial (IA) é um campo da ciência da computação que se dedica ao estudo e desenvolvimento de sistemas capazes de realizar tarefas que normalmente requerem inteligência humana.',
+                    author: 'Carlos Silva',
+                    createdAt: new Date().toISOString(),
+                    views: 1245
+                },
+                {
+                    id: '2',
+                    title: 'História da Internet',
+                    description: 'A história da Internet remonta ao desenvolvimento das primeiras redes de comunicação na década de 1960. A ideia era criar uma rede que pudesse sobreviver a falhas em partes do sistema.',
+                    author: 'Ana Oliveira',
+                    createdAt: new Date(Date.now() - 86400000).toISOString(),
+                    views: 987
+                },
+                {
+                    id: '3',
+                    title: 'Mudanças Climáticas Globais',
+                    description: 'As mudanças climáticas referem-se a alterações significativas e duradouras nos padrões climáticos da Terra. Essas mudanças podem ser naturais ou causadas por atividades humanas.',
+                    author: 'Pedro Santos',
+                    createdAt: new Date(Date.now() - 172800000).toISOString(),
+                    views: 1567
+                },
+                {
+                    id: '4',
+                    title: 'Filosofia Estóica',
+                    description: 'O estoicismo é uma escola de filosofia helenística fundada por Zenão de Cítio no século III a.C. Ensinava que a virtude, o maior bem, baseia-se no conhecimento.',
+                    author: 'Mariana Costa',
+                    createdAt: new Date(Date.now() - 259200000).toISOString(),
+                    views: 743
+                }
+            ];
+            
+            if (demoArticles.length === 0) {
+                emptyState.style.display = 'block';
+                container.innerHTML = '';
+                container.appendChild(emptyState);
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            container.innerHTML = '';
+            
+            demoArticles.forEach(article => {
+                container.appendChild(createArticleCard(article));
+            });
+        }
+
+        // Criar elemento de card do artigo
+        function createArticleCard(article) {
+            const card = document.createElement('div');
+            card.className = 'article-card';
+            card.dataset.id = article.id;
+            
+            const date = new Date(article.createdAt);
+            const formattedDate = date.toLocaleDateString('pt-BR');
+            
+            card.innerHTML = `
+                <div class="article-header">
+                    <h3 class="article-title">${article.title}</h3>
+                    <div class="article-meta">
+                        <div class="article-author">
+                            <i class="fas fa-user"></i>
+                            <span>${article.author || 'Autor desconhecido'}</span>
+                        </div>
+                        <div class="article-date">
+                            <i class="far fa-calendar"></i>
+                            <span>${formattedDate}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="article-content">
+                    <p class="article-description">${article.description}</p>
+                </div>
+                <div class="article-footer">
+                    <div class="article-actions">
+                        <button class="action-btn" onclick="editArticle('${article.id}')" title="Editar">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="action-btn" onclick="deleteArticle('${article.id}', '${article.title}')" title="Excluir">
+                            <i class="fas fa-trash"></i> Excluir
+                        </button>
+                    </div>
+                    <a href="#" class="read-more" onclick="viewArticle('${article.id}')">
+                        Ler mais <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Modal Functions
+        function openCreateModal() {
+            document.getElementById('modalTitle').textContent = 'Criar Novo Artigo';
+            document.getElementById('articleTitle').value = '';
+            document.getElementById('articleDescription').value = '';
+            document.getElementById('articleId').value = '';
+            document.getElementById('articleModal').style.display = 'flex';
+        }
+
+        function editArticle(articleId) {
+            // Buscar artigo no Firebase
+            db.collection('wnpx').doc(articleId).get()
+                .then((doc) => {
+                    if (doc.exists) {
+                        const article = doc.data();
+                        document.getElementById('modalTitle').textContent = 'Editar Artigo';
+                        document.getElementById('articleTitle').value = article.title;
+                        document.getElementById('articleDescription').value = article.description;
+                        document.getElementById('articleId').value = articleId;
+                        document.getElementById('articleModal').style.display = 'flex';
+                    }
+                })
+                .catch((error) => {
+                    console.error("Erro ao buscar artigo:", error);
+                    alert("Erro ao carregar artigo para edição.");
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('articleModal').style.display = 'none';
+        }
+
+        async function saveArticle() {
+            const title = document.getElementById('articleTitle').value.trim();
+            const description = document.getElementById('articleDescription').value.trim();
+            const articleId = document.getElementById('articleId').value;
+            
+            if (!title || !description) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            const articleData = {
+                title: title,
+                description: description,
+                author: currentUser?.displayName || 'Usuário Anônimo',
+                authorId: currentUser?.uid || 'demo',
+                createdAt: articleId ? firebase.firestore.FieldValue.serverTimestamp() : firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                views: 0
+            };
+            
+            try {
+                if (articleId) {
+                    // Atualizar artigo existente
+                    await db.collection('wnpx').doc(articleId).update(articleData);
+                } else {
+                    // Criar novo artigo
+                    await db.collection('wnpx').add(articleData);
+                }
+                
+                closeModal();
+                loadArticles();
+            } catch (error) {
+                console.error("Erro ao salvar artigo:", error);
+                alert("Erro ao salvar artigo. Tente novamente.");
+            }
+        }
+
+        function deleteArticle(articleId, articleTitle) {
+            document.getElementById('confirmTitle').textContent = 'Excluir Artigo';
+            document.getElementById('confirmMessage').textContent = `Tem certeza que deseja excluir o artigo "${articleTitle}"? Esta ação não pode ser desfeita.`;
+            
+            document.getElementById('confirmActionBtn').onclick = async () => {
+                try {
+                    await db.collection('wnpx').doc(articleId).delete();
+                    closeConfirmModal();
+                    loadArticles();
+                } catch (error) {
+                    console.error("Erro ao excluir artigo:", error);
+                    alert("Erro ao excluir artigo.");
+                }
+            };
+            
+            document.getElementById('confirmModal').style.display = 'flex';
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+        }
+
+        function viewArticle(articleId) {
+            // Aqui você pode implementar a visualização completa do artigo
+            alert(`Visualizando artigo ${articleId}. Implemente a página de visualização completa aqui.`);
+        }
+
+        // Sidebar Actions
+        function showAction(action) {
+            const actionMessages = {
+                'excluir': 'Ação: Excluir artigo selecionado',
+                'mover': 'Ação: Mover artigo para outra categoria',
+                'protecao': 'Ação: Alterar nível de proteção do artigo',
+                'purgar': 'Ação: Purgar cache do artigo',
+                'afluentes': 'Mostrando páginas afluentes',
+                'mudanças': 'Mostrando mudanças relacionadas',
+                'upload': 'Abrindo upload de arquivo',
+                'imprimir': 'Gerando versão para impressão',
+                'link': 'Copiando link permanente',
+                'informacoes': 'Mostrando informações da página',
+                'citar': 'Gerando citação para esta página',
+                'encurtado': 'Gerando URL encurtado',
+                'redirecionamento': 'Criando redirecionamento',
+                'configuracoes': 'Abrindo configurações principais',
+                'extensoes': 'Gerenciando extensões',
+                'espaco-nominal': 'Gerenciando espaço nominal',
+                'permissoes': 'Gerenciando permissões',
+                'config-adicionais': 'Abrindo configurações adicionais',
+                'despejo': 'Preparando despejo da wiki'
+            };
+            
+            alert(actionMessages[action] || `Ação: ${action}`);
+        }
+
+        // Appearance Functions
+        function changeAppearance(type, value) {
+            // Atualizar botões ativos
+            const buttons = document.querySelectorAll(`.appearance-group:nth-child(${type === 'text' ? 1 : type === 'width' ? 2 : 3}) .appearance-btn`);
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Aplicar mudanças
+            if (type === 'text') {
+                document.body.style.fontSize = value === 'small' ? '14px' : value === 'large' ? '18px' : '16px';
+            } else if (type === 'width') {
+                document.querySelector('.main-content').style.maxWidth = value === 'wide' ? '100%' : 'calc(100% - var(--sidebar-width))';
+            } else if (type === 'color') {
+                if (value === 'light') {
+                    document.documentElement.style.setProperty('--accent-color', '#f8f9fa');
+                    document.documentElement.style.setProperty('--text-color', '#222');
+                    document.body.style.backgroundColor = '#f6f6f6';
+                } else if (value === 'night') {
+                    document.documentElement.style.setProperty('--accent-color', '#2c2c2c');
+                    document.documentElement.style.setProperty('--text-color', '#e6e6e6');
+                    document.body.style.backgroundColor = '#1a1a1a';
+                } else {
+                    // Automático
+                    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (isDarkMode) {
+                        document.documentElement.style.setProperty('--accent-color', '#2c2c2c');
+                        document.documentElement.style.setProperty('--text-color', '#e6e6e6');
+                        document.body.style.backgroundColor = '#1a1a1a';
+                    } else {
+                        document.documentElement.style.setProperty('--accent-color', '#f8f9fa');
+                        document.documentElement.style.setProperty('--text-color', '#222');
+                        document.body.style.backgroundColor = '#f6f6f6';
+                    }
+                }
+            }
+            
+            // Salvar preferência
+            localStorage.setItem(`appearance_${type}`, value);
+        }
+
+        // Carregar preferências salvas
+        function loadAppearancePreferences() {
+            const textSize = localStorage.getItem('appearance_text') || 'default';
+            const width = localStorage.getItem('appearance_width') || 'default';
+            const color = localStorage.getItem('appearance_color') || 'auto';
+            
+            changeAppearance('text', textSize);
+            changeAppearance('width', width);
+            changeAppearance('color', color);
+        }
+
+        // Busca de artigos
+        document.querySelector('.search-input').addEventListener('input', debounce(function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const articles = document.querySelectorAll('.article-card');
+            
+            articles.forEach(article => {
+                const title = article.querySelector('.article-title').textContent.toLowerCase();
+                const description = article.querySelector('.article-description').textContent.toLowerCase();
+                
+                if (title.includes(searchTerm) || description.includes(searchTerm)) {
+                    article.style.display = 'block';
+                } else {
+                    article.style.display = 'none';
+                }
+            });
+        }, 300));
+
+        // Debounce para busca
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAppearancePreferences();
+            
+            // Verificar se está no modo de demonstração
+            if (!firebaseApp) {
+                console.warn("Firebase não configurado. Modo de demonstração ativado.");
+                setupDemoMode();
+            }
+        });
+
+        // Fechar modais ao clicar fora
+        window.onclick = function(event) {
+            const modal = document.getElementById('articleModal');
+            const confirmModal = document.getElementById('confirmModal');
+            
+            if (event.target === modal) {
+                closeModal();
+            }
+            if (event.target === confirmModal) {
+                closeConfirmModal();
+            }
+        };
+    </script>
+</body>
+</html>
