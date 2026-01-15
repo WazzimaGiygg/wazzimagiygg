@@ -42,6 +42,21 @@
             overflow: hidden;
         }
 
+        /* CÉLULAS DO DESKTOP */
+        .desktop-cell {
+            position: relative;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+
+        .desktop-cell:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .desktop-cell.drag-over {
+            background-color: rgba(0, 120, 215, 0.3) !important;
+        }
+
         /* ÍCONES DO DESKTOP */
         .desktop-icon {
             position: relative;
@@ -54,12 +69,11 @@
             cursor: pointer;
             user-select: none;
             border-radius: 5px;
-            transition: background-color 0.2s, transform 0.2s;
+            transition: transform 0.2s;
             padding: 2px;
         }
 
         .desktop-icon:hover {
-            background-color: rgba(255, 255, 255, 0.1);
             transform: scale(1.05);
         }
 
@@ -201,6 +215,26 @@
 
         .modal-button:hover {
             transform: translateY(-1px);
+        }
+
+        /* NOTIFICAÇÃO DE SALVAMENTO */
+        .save-notification {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        .save-notification.error {
+            background: #ff6b6b !important;
         }
 
         /* BARRA DE TAREFAS */
@@ -806,60 +840,32 @@
             to { transform: translateY(0); opacity: 1; }
         }
 
-        /* ESTILOS PARA MARCAÇÃO DE CÓDIGO NO CHAT */
-        .code-block {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 6px;
-            padding: 10px;
-            margin: 8px 0;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            overflow-x: auto;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        .inline-code {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        @keyframes slideDown {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
         }
 
-        /* BOTÃO DE VOLTAR */
-        .back-button {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-            font-size: 14px;
-        }
-
-        .back-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateX(-2px);
-        }
-
-        /* LOADING SPINNER */
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
         }
 
         /* ESTADO INATIVO */
@@ -1032,8 +1038,9 @@
         // ============================================
         let currentUser = null;
         let desktopIcons = [];
-        let currentContextMenuPosition = { x: 0, y: 0 };
-        let draggedIcon = null;
+        let draggedIconId = null;
+        let saveTimeout = null;
+        let hasUnsavedChanges = false;
 
         // ============================================
         // GERENCIADOR DE DESKTOP
@@ -1063,17 +1070,97 @@
                 }
             },
             
-            // Salvar ícones no Firebase
-            saveIcons: async function() {
+            // Salvar ícones no Firebase com debounce
+            saveIcons: function() {
+                if (!currentUser) {
+                    console.log("⚠️ Usuário não autenticado, não é possível salvar");
+                    return;
+                }
+                
+                // Marcar que há mudanças não salvas
+                hasUnsavedChanges = true;
+                
+                // Cancelar timeout anterior
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                }
+                
+                // Agendar salvamento (debounce de 2 segundos)
+                saveTimeout = setTimeout(async () => {
+                    try {
+                        const userDocRef = doc(db, "user_desktop", currentUser.uid);
+                        await updateDoc(userDocRef, { icons: desktopIcons });
+                        console.log("💾 Ícones do desktop salvos automaticamente");
+                        hasUnsavedChanges = false;
+                        
+                        // Mostrar notificação visual
+                        this.showSaveNotification("Desktop salvo!");
+                    } catch (error) {
+                        console.error("❌ Erro ao salvar ícones:", error);
+                        this.showSaveNotification("Erro ao salvar!", true);
+                    }
+                }, 2000);
+            },
+            
+            // Salvar imediatamente (sem debounce)
+            saveIconsImmediately: async function() {
                 if (!currentUser) return;
+                
+                // Cancelar timeout pendente
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                }
                 
                 try {
                     const userDocRef = doc(db, "user_desktop", currentUser.uid);
                     await updateDoc(userDocRef, { icons: desktopIcons });
-                    console.log("💾 Ícones do desktop salvos");
+                    console.log("💾 Ícones do desktop salvos imediatamente");
+                    hasUnsavedChanges = false;
+                    
+                    // Mostrar notificação visual
+                    this.showSaveNotification("Desktop salvo!");
                 } catch (error) {
                     console.error("❌ Erro ao salvar ícones:", error);
+                    this.showSaveNotification("Erro ao salvar!", true);
                 }
+            },
+            
+            // Mostrar notificação de salvamento
+            showSaveNotification: function(message = "Salvando...", isError = false) {
+                // Remover notificação anterior se existir
+                const existingNotification = document.querySelector('.save-notification');
+                if (existingNotification) {
+                    existingNotification.remove();
+                }
+                
+                // Criar nova notificação
+                const notification = document.createElement('div');
+                notification.className = `save-notification ${isError ? 'error' : ''}`;
+                notification.textContent = message;
+                notification.style.cssText = `
+                    position: fixed;
+                    bottom: 60px;
+                    right: 20px;
+                    background: ${isError ? '#ff6b6b' : '#4CAF50'};
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    z-index: 10000;
+                    font-size: 14px;
+                    font-weight: 500;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideUp 0.3s ease;
+                `;
+                
+                document.body.appendChild(notification);
+                
+                // Remover após 2 segundos
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.style.animation = 'slideDown 0.3s ease';
+                        setTimeout(() => notification.remove(), 300);
+                    }
+                }, 2000);
             },
             
             // Renderizar ícones na grade
@@ -1109,8 +1196,16 @@
                             `;
                             
                             // Eventos de drag and drop
-                            iconElement.addEventListener('dragstart', this.handleDragStart.bind(this));
-                            iconElement.addEventListener('dragend', this.handleDragEnd.bind(this));
+                            iconElement.addEventListener('dragstart', (e) => {
+                                draggedIconId = icon.id;
+                                iconElement.classList.add('dragging');
+                                e.dataTransfer.setData('text/plain', icon.id);
+                            });
+                            
+                            iconElement.addEventListener('dragend', () => {
+                                iconElement.classList.remove('dragging');
+                                draggedIconId = null;
+                            });
                             
                             // Evento de clique
                             iconElement.addEventListener('click', (e) => {
@@ -1122,6 +1217,7 @@
                             // Evento de clique direito
                             iconElement.addEventListener('contextmenu', (e) => {
                                 e.preventDefault();
+                                e.stopPropagation();
                                 this.showIconContextMenu(e, icon);
                             });
                             
@@ -1154,7 +1250,7 @@
                 };
                 
                 desktopIcons.push(newIcon);
-                this.saveIcons();
+                this.saveIcons(); // Salvar automaticamente
                 this.renderIcons();
                 
                 console.log(`➕ Atalho adicionado: ${title} em ${emptyPosition.x},${emptyPosition.y}`);
@@ -1181,7 +1277,8 @@
                 const iconIndex = desktopIcons.findIndex(icon => icon.id === iconId);
                 if (iconIndex !== -1) {
                     // Verificar se a nova posição está ocupada
-                    const occupied = desktopIcons.some(icon => 
+                    const occupied = desktopIcons.some((icon, index) => 
+                        index !== iconIndex && // Não contar o próprio ícone
                         icon.position && 
                         icon.position.x === newPosition.x && 
                         icon.position.y === newPosition.y
@@ -1189,17 +1286,22 @@
                     
                     if (!occupied) {
                         desktopIcons[iconIndex].position = newPosition;
-                        this.saveIcons();
+                        this.saveIcons(); // Salvar automaticamente
                         this.renderIcons();
                         console.log(`➡️ Ícone movido para ${newPosition.x},${newPosition.y}`);
+                        return true;
+                    } else {
+                        console.log("❌ Posição já ocupada");
+                        return false;
                     }
                 }
+                return false;
             },
             
             // Remover ícone
             removeIcon: function(iconId) {
                 desktopIcons = desktopIcons.filter(icon => icon.id !== iconId);
-                this.saveIcons();
+                this.saveIcons(); // Salvar automaticamente
                 this.renderIcons();
                 console.log("🗑️ Ícone removido");
             },
@@ -1210,27 +1312,9 @@
                 windowManager.createWindow(icon.title, url, icon.icon || 'iconmagic.png');
             },
             
-            // Drag and Drop handlers
-            handleDragStart: function(e) {
-                draggedIcon = e.target;
-                draggedIcon.classList.add('dragging');
-                const iconId = draggedIcon.dataset.id;
-                
-                e.dataTransfer.setData('text/plain', iconId);
-                e.dataTransfer.effectAllowed = 'move';
-            },
-            
-            handleDragEnd: function(e) {
-                if (draggedIcon) {
-                    draggedIcon.classList.remove('dragging');
-                    draggedIcon = null;
-                }
-            },
-            
             // Menu de contexto para desktop
             showDesktopContextMenu: function(e, x, y) {
                 e.preventDefault();
-                currentContextMenuPosition = { x, y };
                 
                 contextMenu.style.left = e.clientX + 'px';
                 contextMenu.style.top = e.clientY + 'px';
@@ -1238,7 +1322,11 @@
                 
                 // Fechar menu ao clicar fora
                 setTimeout(() => {
-                    document.addEventListener('click', this.hideContextMenu.bind(this), { once: true });
+                    const closeMenu = () => {
+                        contextMenu.style.display = 'none';
+                        document.removeEventListener('click', closeMenu);
+                    };
+                    document.addEventListener('click', closeMenu, { once: true });
                 }, 100);
             },
             
@@ -1251,10 +1339,10 @@
                 const iconContextMenu = document.createElement('div');
                 iconContextMenu.className = 'context-menu';
                 iconContextMenu.innerHTML = `
-                    <div class="context-menu-item" onclick="desktopManager.openShortcut(${JSON.stringify(icon).replace(/"/g, '&quot;')})">
+                    <div class="context-menu-item open-icon">
                         <img src="iconmagic.png" alt="▶️"> Abrir
                     </div>
-                    <div class="context-menu-item" onclick="desktopManager.removeIcon('${icon.id}')">
+                    <div class="context-menu-item remove-icon">
                         <img src="iconmagic.png" alt="🗑️"> Remover
                     </div>
                 `;
@@ -1263,12 +1351,25 @@
                 iconContextMenu.style.top = e.clientY + 'px';
                 iconContextMenu.style.display = 'block';
                 
+                // Adicionar eventos
+                iconContextMenu.querySelector('.open-icon').onclick = () => {
+                    this.openShortcut(icon);
+                    iconContextMenu.remove();
+                };
+                
+                iconContextMenu.querySelector('.remove-icon').onclick = () => {
+                    this.removeIcon(icon.id);
+                    iconContextMenu.remove();
+                };
+                
                 document.body.appendChild(iconContextMenu);
                 
                 // Remover menu ao clicar fora
                 setTimeout(() => {
                     const removeMenu = () => {
-                        iconContextMenu.remove();
+                        if (iconContextMenu.parentNode) {
+                            iconContextMenu.remove();
+                        }
                         document.removeEventListener('click', removeMenu);
                     };
                     document.addEventListener('click', removeMenu, { once: true });
@@ -1277,8 +1378,178 @@
             
             hideContextMenu: function() {
                 contextMenu.style.display = 'none';
+            },
+            
+            // Forçar salvamento agora
+            forceSave: function() {
+                return this.saveIconsImmediately();
             }
         };
+
+        // ============================================
+        // EVENTOS DE DRAG AND DROP DO DESKTOP
+        // ============================================
+        // Drag over no desktop
+        desktopArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // Destacar célula sob o cursor
+            const cell = e.target.closest('.desktop-cell');
+            if (cell) {
+                // Remover highlight de todas as células
+                document.querySelectorAll('.desktop-cell').forEach(c => {
+                    c.classList.remove('drag-over');
+                });
+                // Destacar célula atual
+                cell.classList.add('drag-over');
+            }
+        });
+
+        // Drag leave do desktop
+        desktopArea.addEventListener('dragleave', (e) => {
+            // Remover highlight quando sai do desktop
+            if (!e.relatedTarget || !desktopArea.contains(e.relatedTarget)) {
+                document.querySelectorAll('.desktop-cell').forEach(c => {
+                    c.classList.remove('drag-over');
+                });
+            }
+        });
+
+        // Drop no desktop
+        desktopArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            
+            // Remover highlight
+            document.querySelectorAll('.desktop-cell').forEach(c => {
+                c.classList.remove('drag-over');
+            });
+            
+            if (!draggedIconId) return;
+            
+            // Encontrar célula sob o cursor
+            const cell = e.target.closest('.desktop-cell');
+            if (cell) {
+                const newX = parseInt(cell.dataset.x);
+                const newY = parseInt(cell.dataset.y);
+                
+                // Mover ícone
+                const moved = desktopManager.moveIcon(draggedIconId, { x: newX, y: newY });
+                
+                if (!moved) {
+                    // Se não foi possível mover (posição ocupada), mostrar feedback
+                    cell.style.animation = 'shake 0.5s';
+                    setTimeout(() => {
+                        cell.style.animation = '';
+                    }, 500);
+                }
+            }
+        });
+
+        // Clique direito no desktop
+        desktopArea.addEventListener('contextmenu', (e) => {
+            const cell = e.target.closest('.desktop-cell');
+            if (cell && !e.target.closest('.desktop-icon')) {
+                const x = parseInt(cell.dataset.x);
+                const y = parseInt(cell.dataset.y);
+                desktopManager.showDesktopContextMenu(e, x, y);
+            }
+        });
+
+        // ============================================
+        // MODAL DE ADICIONAR ATALHO
+        // ============================================
+        saveShortcutBtn.addEventListener('click', async () => {
+            const uid = shortcutUid.value.trim();
+            const collection = shortcutCollection.value.trim();
+            const title = shortcutTitle.value.trim();
+            const iconUrl = shortcutIcon.value.trim() || 'iconmagic.png';
+            
+            if (!uid || !collection || !title) {
+                alert("❌ Por favor, preencha todos os campos obrigatórios");
+                return;
+            }
+            
+            // Validar UID (exemplo básico)
+            if (uid.length < 10) {
+                alert("❌ UID muito curto");
+                return;
+            }
+            
+            desktopManager.addShortcut(uid, collection, title, iconUrl);
+            
+            // Limpar e fechar modal
+            shortcutUid.value = '';
+            shortcutCollection.value = '';
+            shortcutTitle.value = '';
+            shortcutIcon.value = '';
+            addShortcutModal.style.display = 'none';
+        });
+
+        cancelShortcutBtn.addEventListener('click', () => {
+            addShortcutModal.style.display = 'none';
+        });
+
+        // Fechar modal ao clicar fora
+        addShortcutModal.addEventListener('click', (e) => {
+            if (e.target === addShortcutModal) {
+                addShortcutModal.style.display = 'none';
+            }
+        });
+
+        // Botão para adicionar atalho no menu de contexto
+        addShortcutBtn.addEventListener('click', () => {
+            desktopManager.hideContextMenu();
+            addShortcutModal.style.display = 'flex';
+            
+            // Preencher com valores da área de transferência
+            navigator.clipboard.readText().then(text => {
+                if (text && text.length > 10) {
+                    shortcutUid.value = text;
+                }
+            }).catch(() => {});
+        });
+
+        // Botão para atualizar desktop
+        refreshDesktopBtn.addEventListener('click', () => {
+            desktopManager.hideContextMenu();
+            desktopManager.renderIcons();
+        });
+
+        // ============================================
+        // SISTEMA DE SALVAMENTO AUTOMÁTICO
+        // ============================================
+
+        // Salvar quando a página for fechada ou atualizada
+        window.addEventListener('beforeunload', (e) => {
+            if (hasUnsavedChanges && currentUser) {
+                e.preventDefault();
+                e.returnValue = 'Você tem alterações não salvas no desktop. Deseja sair mesmo assim?';
+                return e.returnValue;
+            }
+        });
+
+        // Salvar quando a página perder foco
+        window.addEventListener('blur', () => {
+            if (hasUnsavedChanges) {
+                desktopManager.forceSave();
+            }
+        });
+
+        // Salvar periodicamente a cada 30 segundos (backup)
+        setInterval(() => {
+            if (hasUnsavedChanges && currentUser) {
+                console.log("⏰ Salvamento periódico...");
+                desktopManager.saveIconsImmediately();
+            }
+        }, 30000);
+
+        // Salvar quando o usuário mudar de aba
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && hasUnsavedChanges) {
+                desktopManager.forceSave();
+            }
+        });
 
         // ============================================
         // GERENCIADOR DE JANELAS
@@ -1551,100 +1822,6 @@
         };
 
         // ============================================
-        // EVENTOS DO DESKTOP
-        // ============================================
-        // Drag over no desktop
-        desktopArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-        });
-
-        // Drop no desktop
-        desktopArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            
-            const iconId = e.dataTransfer.getData('text/plain');
-            if (!iconId) return;
-            
-            // Encontrar célula sob o cursor
-            const cell = e.target.closest('.desktop-cell');
-            if (cell) {
-                const newX = parseInt(cell.dataset.x);
-                const newY = parseInt(cell.dataset.y);
-                
-                // Verificar se a célula está vazia
-                const hasIcon = cell.querySelector('.desktop-icon');
-                if (!hasIcon) {
-                    desktopManager.moveIcon(iconId, { x: newX, y: newY });
-                }
-            }
-        });
-
-        // Clique direito no desktop
-        desktopArea.addEventListener('contextmenu', (e) => {
-            const cell = e.target.closest('.desktop-cell');
-            if (cell) {
-                const x = parseInt(cell.dataset.x);
-                const y = parseInt(cell.dataset.y);
-                desktopManager.showDesktopContextMenu(e, x, y);
-            }
-        });
-
-        // Botão para adicionar atalho no menu de contexto
-        addShortcutBtn.addEventListener('click', () => {
-            desktopManager.hideContextMenu();
-            addShortcutModal.style.display = 'flex';
-            
-            // Preencher com valores padrão se houver UID na área de transferência
-            navigator.clipboard.readText().then(text => {
-                if (text && text.length > 10) {
-                    shortcutUid.value = text;
-                }
-            }).catch(() => {});
-        });
-
-        // Botão para atualizar desktop
-        refreshDesktopBtn.addEventListener('click', () => {
-            desktopManager.hideContextMenu();
-            desktopManager.renderIcons();
-        });
-
-        // ============================================
-        // MODAL DE ADICIONAR ATALHO
-        // ============================================
-        saveShortcutBtn.addEventListener('click', () => {
-            const uid = shortcutUid.value.trim();
-            const collection = shortcutCollection.value.trim();
-            const title = shortcutTitle.value.trim();
-            const iconUrl = shortcutIcon.value.trim() || 'iconmagic.png';
-            
-            if (!uid || !collection || !title) {
-                alert("❌ Por favor, preencha todos os campos obrigatórios");
-                return;
-            }
-            
-            desktopManager.addShortcut(uid, collection, title, iconUrl);
-            
-            // Limpar e fechar modal
-            shortcutUid.value = '';
-            shortcutCollection.value = '';
-            shortcutTitle.value = '';
-            shortcutIcon.value = '';
-            addShortcutModal.style.display = 'none';
-        });
-
-        cancelShortcutBtn.addEventListener('click', () => {
-            addShortcutModal.style.display = 'none';
-        });
-
-        // Fechar modal ao clicar fora
-        addShortcutModal.addEventListener('click', (e) => {
-            if (e.target === addShortcutModal) {
-                addShortcutModal.style.display = 'none';
-            }
-        });
-
-        // ============================================
         // FUNÇÕES DE UTILIDADE
         // ============================================
         function closeAllMenus() {
@@ -1700,6 +1877,9 @@
                 // Verificar notificações
                 await checkNotifications();
                 
+                // Salvar estado inicial
+                desktopManager.saveIconsImmediately();
+                
             } else {
                 currentUser = null;
                 loginScreen.style.display = "flex";
@@ -1709,11 +1889,16 @@
                 notificationIcon.style.color = 'white';
                 closeAllMenus();
                 windowManager.closeAllWindows();
+                hasUnsavedChanges = false;
             }
         });
 
         async function handleLogout() {
             try {
+                // Salvar antes de sair
+                if (hasUnsavedChanges) {
+                    await desktopManager.forceSave();
+                }
                 await signOut(auth);
                 console.log("✅ Logout realizado");
             } catch (error) {
@@ -1723,6 +1908,10 @@
 
         async function handleSwitchAccount() {
             try {
+                // Salvar antes de trocar
+                if (hasUnsavedChanges) {
+                    await desktopManager.forceSave();
+                }
                 await signOut(auth);
                 provider.setCustomParameters({ prompt: 'select_account' });
                 await signInWithPopup(auth, provider);
@@ -1749,6 +1938,9 @@
                         <div class="user-name">${userName || 'Usuário'}</div>
                         <div class="user-email">${userEmail || ''}</div>
                     </div>
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    ${hasUnsavedChanges ? '⚠️ Alterações não salvas' : '✓ Tudo salvo'}
                 </div>
             `;
             userMenu.appendChild(userHeader);
@@ -2115,6 +2307,12 @@
                     windowManager.minimizeWindow(windowManager.activeWindow);
                 }
             }
+            
+            // Atalho para salvar (Ctrl+S)
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                desktopManager.forceSave();
+            }
         });
 
         // Bloquear botão direito
@@ -2134,7 +2332,20 @@
         // ============================================
         console.log("🚀 Sistema Wiki Not Pedia WZZM inicializado");
 
-    </script>
+        // Adicionar estilos para animações
+        const animationsStyle = document.createElement('style');
+        animationsStyle.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            .desktop-icon {
+                animation: fadeIn 0.3s ease;
+            }
+        `;
+        document.head.appendChild(animationsStyle);
 
+    </script>
 </body>
 </html>
