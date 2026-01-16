@@ -962,7 +962,10 @@
             doc, 
             getDoc,
             setDoc,
-            updateDoc
+            updateDoc,
+            collection,
+            addDoc,
+            serverTimestamp
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -987,6 +990,371 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
+
+        // ============================================
+        // SISTEMA DE LOG DE ERROS E ALERTAS
+        // ============================================
+        const errorLogger = {
+            errorBuffer: [],
+            isSending: false,
+            lastErrorType: '',
+            errorCount: 0,
+            
+            // Capturar erros globais
+            init: function() {
+                // Capturar erros JavaScript
+                window.addEventListener('error', (e) => {
+                    this.logError({
+                        type: 'javascript_error',
+                        message: e.message,
+                        filename: e.filename,
+                        lineno: e.lineno,
+                        colno: e.colno,
+                        stack: e.error?.stack || 'N/A'
+                    });
+                });
+
+                // Capturar promessas não tratadas
+                window.addEventListener('unhandledrejection', (e) => {
+                    this.logError({
+                        type: 'unhandled_promise_rejection',
+                        message: e.reason?.message || 'Promise rejection',
+                        stack: e.reason?.stack || 'N/A'
+                    });
+                });
+
+                // Monitorar performance
+                this.monitorPerformance();
+
+                // Sobrescrever console.error
+                const originalConsoleError = console.error;
+                console.error = (...args) => {
+                    originalConsoleError.apply(console, args);
+                    this.logError({
+                        type: 'console_error',
+                        message: args.map(arg => 
+                            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+                        ).join(' '),
+                        timestamp: new Date().toISOString()
+                    });
+                };
+
+                // Sobrescrever console.warn
+                const originalConsoleWarn = console.warn;
+                console.warn = (...args) => {
+                    originalConsoleWarn.apply(console, args);
+                    this.logError({
+                        type: 'console_warn',
+                        message: args.map(arg => 
+                            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+                        ).join(' '),
+                        timestamp: new Date().toISOString()
+                    });
+                };
+
+                // Monitorar erros de rede
+                this.monitorNetworkErrors();
+
+                // Verificar periodicamente o status
+                setInterval(() => this.checkSystemStatus(), 30000);
+            },
+
+            // Monitorar performance
+            monitorPerformance: function() {
+                if ('performance' in window) {
+                    const observer = new PerformanceObserver((list) => {
+                        list.getEntries().forEach((entry) => {
+                            if (entry.duration > 1000) { // Mais de 1 segundo
+                                this.logError({
+                                    type: 'performance_issue',
+                                    message: `Lentidão detectada: ${entry.name}`,
+                                    duration: entry.duration,
+                                    entryType: entry.entryType
+                                });
+                            }
+                        });
+                    });
+                    
+                    try {
+                        observer.observe({ entryTypes: ['longtask', 'resource', 'navigation'] });
+                    } catch (e) {
+                        console.log('PerformanceObserver não suportado');
+                    }
+                }
+            },
+
+            // Monitorar erros de rede
+            monitorNetworkErrors: function() {
+                const originalFetch = window.fetch;
+                window.fetch = (...args) => {
+                    const startTime = Date.now();
+                    return originalFetch(...args).then(response => {
+                        if (!response.ok) {
+                            this.logError({
+                                type: 'network_error',
+                                message: `Fetch error: ${response.status} ${response.statusText}`,
+                                url: args[0],
+                                status: response.status,
+                                duration: Date.now() - startTime
+                            });
+                        }
+                        return response;
+                    }).catch(error => {
+                        this.logError({
+                            type: 'network_error',
+                            message: `Fetch failed: ${error.message}`,
+                            url: args[0],
+                            duration: Date.now() - startTime
+                        });
+                        throw error;
+                    });
+                };
+            },
+
+            // Verificar status do sistema
+            checkSystemStatus: function() {
+                // Verificar memória (se disponível)
+                if ('memory' in performance) {
+                    const memory = performance.memory;
+                    const usedJSHeapSize = memory.usedJSHeapSize;
+                    const totalJSHeapSize = memory.totalJSHeapSize;
+                    const heapLimit = memory.jsHeapSizeLimit;
+                    
+                    const usagePercent = (usedJSHeapSize / heapLimit) * 100;
+                    
+                    if (usagePercent > 80) {
+                        this.logError({
+                            type: 'memory_warning',
+                            message: `Uso alto de memória: ${Math.round(usagePercent)}%`,
+                            usedMB: Math.round(usedJSHeapSize / 1024 / 1024),
+                            totalMB: Math.round(totalJSHeapSize / 1024 / 1024),
+                            limitMB: Math.round(heapLimit / 1024 / 1024)
+                        });
+                    }
+                }
+
+                // Verificar FPS
+                this.checkFPS();
+            },
+
+            // Verificar FPS
+            checkFPS: function() {
+                let frameCount = 0;
+                let lastTime = Date.now();
+                
+                const checkFrame = () => {
+                    frameCount++;
+                    const currentTime = Date.now();
+                    if (currentTime - lastTime >= 1000) {
+                        const fps = frameCount;
+                        frameCount = 0;
+                        lastTime = currentTime;
+                        
+                        if (fps < 30) {
+                            this.logError({
+                                type: 'low_fps',
+                                message: `FPS baixo: ${fps}`,
+                                fps: fps
+                            });
+                        }
+                    }
+                    requestAnimationFrame(checkFrame);
+                };
+                requestAnimationFrame(checkFrame);
+            },
+
+            // Registrar erro
+            logError: async function(errorData) {
+                try {
+                    const errorEntry = {
+                        ...errorData,
+                        uid: currentUser?.uid || 'not_authenticated',
+                        userEmail: currentUser?.email || 'N/A',
+                        userAgent: navigator.userAgent,
+                        url: window.location.href,
+                        timestamp: serverTimestamp(),
+                        viewport: {
+                            width: window.innerWidth,
+                            height: window.innerHeight
+                        },
+                        platform: navigator.platform,
+                        language: navigator.language,
+                        online: navigator.onLine
+                    };
+
+                    // Adicionar ao buffer
+                    this.errorBuffer.push(errorEntry);
+                    this.errorCount++;
+
+                    // Limitar buffer a 50 entradas
+                    if (this.errorBuffer.length > 50) {
+                        this.errorBuffer = this.errorBuffer.slice(-50);
+                    }
+
+                    // Enviar imediatamente para erros críticos
+                    if (this.isCriticalError(errorData.type)) {
+                        await this.sendErrorToFirebase(errorEntry);
+                    } else {
+                        // Enviar em lote a cada 10 erros ou 30 segundos
+                        if (this.errorBuffer.length >= 10 || this.errorCount % 10 === 0) {
+                            await this.sendBatchToFirebase();
+                        }
+                    }
+
+                    // Atualizar notificação se houver usuário
+                    if (currentUser) {
+                        this.updateErrorNotification();
+                    }
+
+                } catch (error) {
+                    console.error('Falha ao registrar erro:', error);
+                }
+            },
+
+            // Verificar se é erro crítico
+            isCriticalError: function(type) {
+                const criticalErrors = [
+                    'javascript_error',
+                    'unhandled_promise_rejection',
+                    'network_error'
+                ];
+                return criticalErrors.includes(type);
+            },
+
+            // Enviar erro para Firebase
+            sendErrorToFirebase: async function(errorEntry) {
+                if (!currentUser?.uid) return;
+
+                try {
+                    await addDoc(collection(db, "errorlog"), errorEntry);
+                    console.log('✅ Erro registrado no Firebase');
+                } catch (error) {
+                    console.error('❌ Falha ao enviar erro para Firebase:', error);
+                }
+            },
+
+            // Enviar lote para Firebase
+            sendBatchToFirebase: async function() {
+                if (!currentUser?.uid || this.isSending || this.errorBuffer.length === 0) return;
+
+                this.isSending = true;
+                try {
+                    const batch = [...this.errorBuffer];
+                    this.errorBuffer = [];
+
+                    for (const errorEntry of batch) {
+                        await addDoc(collection(db, "errorlog"), errorEntry);
+                    }
+                    
+                    console.log(`✅ ${batch.length} erros enviados em lote`);
+                } catch (error) {
+                    console.error('❌ Falha ao enviar lote para Firebase:', error);
+                    // Restaurar buffer em caso de erro
+                    this.errorBuffer = [...this.errorBuffer, ...batch];
+                } finally {
+                    this.isSending = false;
+                }
+            },
+
+            // Atualizar notificação de erros
+            updateErrorNotification: function() {
+                const notificationIcon = document.getElementById('notificationIcon');
+                if (!notificationIcon || this.errorCount === 0) return;
+
+                // Adicionar indicador de erros
+                let errorIndicator = notificationIcon.querySelector('.error-indicator');
+                if (!errorIndicator) {
+                    errorIndicator = document.createElement('span');
+                    errorIndicator.className = 'error-indicator';
+                    errorIndicator.style.cssText = `
+                        position: absolute;
+                        top: -5px;
+                        right: -5px;
+                        background: #ff4757;
+                        color: white;
+                        border-radius: 50%;
+                        width: 18px;
+                        height: 18px;
+                        font-size: 10px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: bold;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    `;
+                    notificationIcon.style.position = 'relative';
+                    notificationIcon.appendChild(errorIndicator);
+                }
+
+                const count = this.errorCount > 99 ? '99+' : this.errorCount.toString();
+                errorIndicator.textContent = count;
+
+                // Piscar para erros recentes
+                if (this.errorCount > 0 && this.errorCount % 5 === 0) {
+                    errorIndicator.style.animation = 'pulse 1s infinite';
+                    setTimeout(() => {
+                        errorIndicator.style.animation = '';
+                    }, 3000);
+                }
+            },
+
+            // Obter resumo de erros
+            getErrorSummary: function() {
+                const summary = {
+                    totalErrors: this.errorCount,
+                    recentErrors: this.errorBuffer.length,
+                    errorTypes: {},
+                    firstError: this.errorBuffer[0]?.timestamp || 'N/A',
+                    lastError: this.errorBuffer[this.errorBuffer.length - 1]?.timestamp || 'N/A'
+                };
+
+                // Contar tipos de erro
+                this.errorBuffer.forEach(error => {
+                    summary.errorTypes[error.type] = (summary.errorTypes[error.type] || 0) + 1;
+                });
+
+                return summary;
+            },
+
+            // Exportar logs para texto
+            exportLogsToText: function() {
+                let text = `=== RESUMO DE ERROS ===\n`;
+                text += `Data: ${new Date().toLocaleString()}\n`;
+                text += `Usuário: ${currentUser?.email || 'N/A'}\n`;
+                text += `UID: ${currentUser?.uid || 'N/A'}\n`;
+                text += `Total de erros: ${this.errorCount}\n`;
+                text += `Erros recentes: ${this.errorBuffer.length}\n\n`;
+
+                text += `=== DETALHES DOS ERROS ===\n`;
+                this.errorBuffer.forEach((error, index) => {
+                    text += `\n--- Erro ${index + 1} ---\n`;
+                    text += `Tipo: ${error.type}\n`;
+                    text += `Mensagem: ${error.message}\n`;
+                    text += `Data: ${error.timestamp}\n`;
+                    if (error.stack) {
+                        text += `Stack Trace:\n${error.stack}\n`;
+                    }
+                    text += `URL: ${error.url}\n`;
+                    text += `User Agent: ${error.userAgent}\n`;
+                });
+
+                return text;
+            },
+
+            // Limpar logs locais
+            clearLocalLogs: function() {
+                this.errorBuffer = [];
+                this.errorCount = 0;
+                
+                const errorIndicator = document.querySelector('.error-indicator');
+                if (errorIndicator) {
+                    errorIndicator.remove();
+                }
+            }
+        };
+
+        // Inicializar sistema de logs
+        errorLogger.init();
 
         // ============================================
         // CONSTANTES E CONFIGURAÇÕES
@@ -1921,7 +2289,7 @@
         }
 
         // ============================================
-        // INTERFACE DO USUÁRIO
+        // INTERFACE DO USUÁRIO - MODIFICADA COM LOGS DE ERRO
         // ============================================
         function populateUserMenu(userName, userEmail, photoURL) {
             userMenu.innerHTML = '';
@@ -1942,6 +2310,9 @@
                 <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
                     ${hasUnsavedChanges ? '⚠️ Alterações não salvas' : '✓ Tudo salvo'}
                 </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    ${errorLogger.errorCount > 0 ? `⚠️ ${errorLogger.errorCount} erros detectados` : '✓ Sem erros'}
+                </div>
             `;
             userMenu.appendChild(userHeader);
             
@@ -1949,6 +2320,42 @@
             const separator = document.createElement('hr');
             separator.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;';
             userMenu.appendChild(separator);
+            
+            // Botão para ver logs de erro
+            const viewErrorsItem = document.createElement('div');
+            viewErrorsItem.className = 'menu-item';
+            viewErrorsItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 📊 Ver Logs de Erro (${errorLogger.errorCount})`;
+            viewErrorsItem.onclick = async () => {
+                closeAllMenus();
+                await showErrorLogs();
+            };
+            userMenu.appendChild(viewErrorsItem);
+            
+            // Botão para exportar logs
+            const exportLogsItem = document.createElement('div');
+            exportLogsItem.className = 'menu-item';
+            exportLogsItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 💾 Exportar Logs`;
+            exportLogsItem.onclick = async () => {
+                closeAllMenus();
+                await exportErrorLogs();
+            };
+            userMenu.appendChild(exportLogsItem);
+            
+            // Botão para limpar logs locais
+            const clearLogsItem = document.createElement('div');
+            clearLogsItem.className = 'menu-item';
+            clearLogsItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 🗑️ Limpar Logs Locais`;
+            clearLogsItem.onclick = () => {
+                errorLogger.clearLocalLogs();
+                closeAllMenus();
+                showNotification('Logs locais limpos!');
+                // Recarregar menu
+                setTimeout(() => populateUserMenu(userName, userEmail, photoURL), 100);
+            };
+            userMenu.appendChild(clearLogsItem);
+            
+            // Separador
+            userMenu.appendChild(separator.cloneNode());
             
             // Trocar de conta
             const switchAccountItem = document.createElement('div');
@@ -1963,6 +2370,206 @@
             logoutItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 🚪 Sair`;
             logoutItem.onclick = handleLogout;
             userMenu.appendChild(logoutItem);
+        }
+
+        // ============================================
+        // FUNÇÃO PARA MOSTRAR LOGS DE ERRO EM JANELA
+        // ============================================
+        async function showErrorLogs() {
+            const errorSummary = errorLogger.getErrorSummary();
+            const logsText = errorLogger.exportLogsToText();
+            
+            // Criar janela para exibir logs
+            const windowId = windowManager.createWindow(
+                `Logs de Erro (${errorLogger.errorCount})`,
+                'about:blank',
+                'iconmagic.png'
+            );
+            
+            // Aguardar a janela ser criada
+            setTimeout(() => {
+                const windowElement = document.querySelector(`[data-window-id="${windowId}"]`);
+                if (windowElement) {
+                    const iframe = windowElement.querySelector('iframe');
+                    iframe.srcdoc = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <style>
+                                body {
+                                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                                    margin: 20px;
+                                    background: #1e1e1e;
+                                    color: #ffffff;
+                                }
+                                .header {
+                                    background: linear-gradient(135deg, #0078d7, #005a9e);
+                                    padding: 20px;
+                                    border-radius: 8px;
+                                    margin-bottom: 20px;
+                                }
+                                .stats {
+                                    display: grid;
+                                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                                    gap: 15px;
+                                    margin-bottom: 20px;
+                                }
+                                .stat-card {
+                                    background: rgba(255,255,255,0.05);
+                                    padding: 15px;
+                                    border-radius: 8px;
+                                    border-left: 4px solid #0078d7;
+                                }
+                                .error-list {
+                                    background: rgba(255,255,255,0.03);
+                                    border-radius: 8px;
+                                    padding: 20px;
+                                    max-height: 400px;
+                                    overflow-y: auto;
+                                }
+                                .error-item {
+                                    background: rgba(255,255,255,0.05);
+                                    padding: 15px;
+                                    margin-bottom: 10px;
+                                    border-radius: 8px;
+                                    border-left: 4px solid #ff4757;
+                                }
+                                .error-type {
+                                    color: #ff4757;
+                                    font-weight: bold;
+                                }
+                                pre {
+                                    background: rgba(0,0,0,0.3);
+                                    padding: 10px;
+                                    border-radius: 5px;
+                                    overflow-x: auto;
+                                    font-size: 12px;
+                                }
+                                button {
+                                    background: #0078d7;
+                                    color: white;
+                                    border: none;
+                                    padding: 10px 20px;
+                                    border-radius: 5px;
+                                    cursor: pointer;
+                                    margin: 5px;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <h2>📊 Logs de Erros do Sistema</h2>
+                                <p>Total de erros: ${errorSummary.totalErrors} | Erros recentes: ${errorSummary.recentErrors}</p>
+                            </div>
+                            
+                            <div class="stats">
+                                <div class="stat-card">
+                                    <h3>📈 Estatísticas</h3>
+                                    <p>Primeiro erro: ${errorSummary.firstError}</p>
+                                    <p>Último erro: ${errorSummary.lastError}</p>
+                                </div>
+                                <div class="stat-card">
+                                    <h3>📋 Tipos de Erro</h3>
+                                    ${Object.entries(errorSummary.errorTypes).map(([type, count]) => 
+                                        `<p>${type}: ${count}</p>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <button onclick="copyLogs()">📋 Copiar Logs</button>
+                                <button onclick="downloadLogs()">💾 Download</button>
+                                <button onclick="clearLocalLogs()">🗑️ Limpar Locais</button>
+                            </div>
+                            
+                            <div class="error-list">
+                                <h3>Últimos Erros:</h3>
+                                ${errorLogger.errorBuffer.map((error, index) => `
+                                    <div class="error-item">
+                                        <div class="error-type">${error.type}</div>
+                                        <div>${error.message}</div>
+                                        <div><small>${error.timestamp}</small></div>
+                                        ${error.stack ? `<pre>${error.stack}</pre>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            
+                            <script>
+                                function copyLogs() {
+                                    const logsText = \`${logsText.replace(/`/g, '\\`')}\`;
+                                    navigator.clipboard.writeText(logsText)
+                                        .then(() => alert('Logs copiados para a área de transferência!'))
+                                        .catch(err => alert('Erro ao copiar: ' + err));
+                                }
+                                
+                                function downloadLogs() {
+                                    const logsText = \`${logsText.replace(/`/g, '\\`')}\`;
+                                    const blob = new Blob([logsText], { type: 'text/plain' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'error-logs-' + new Date().toISOString() + '.txt';
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                }
+                                
+                                function clearLocalLogs() {
+                                    if (confirm('Deseja limpar os logs locais?')) {
+                                        parent.postMessage({ action: 'clearLocalLogs' }, '*');
+                                    }
+                                }
+                            </script>
+                        </body>
+                        </html>
+                    `;
+                }
+            }, 100);
+        }
+
+        // ============================================
+        // FUNÇÃO PARA EXPORTAR LOGS PARA FIREBASE
+        // ============================================
+        async function exportErrorLogs() {
+            if (!currentUser) {
+                showNotification('Faça login para exportar logs!', true);
+                return;
+            }
+
+            try {
+                const logsText = errorLogger.exportLogsToText();
+                const errorData = {
+                    uid: currentUser.uid,
+                    userEmail: currentUser.email,
+                    logsText: logsText,
+                    errorCount: errorLogger.errorCount,
+                    exportTimestamp: serverTimestamp(),
+                    exportType: 'manual_export',
+                    userAgent: navigator.userAgent,
+                    url: window.location.href
+                };
+
+                // Salvar no Firebase
+                await addDoc(collection(db, "errorlog_exports"), errorData);
+                
+                // Também salvar um resumo na coleção principal
+                await addDoc(collection(db, "errorlog"), {
+                    uid: currentUser.uid,
+                    type: 'log_export',
+                    message: 'Logs exportados manualmente',
+                    exportSize: logsText.length,
+                    errorCount: errorLogger.errorCount,
+                    timestamp: serverTimestamp()
+                });
+
+                showNotification('✅ Logs exportados com sucesso!');
+                
+                // Atualizar notificação
+                errorLogger.updateErrorNotification();
+
+            } catch (error) {
+                console.error('Erro ao exportar logs:', error);
+                showNotification('❌ Erro ao exportar logs!', true);
+            }
         }
 
         // ============================================
@@ -2285,6 +2892,66 @@
         }
 
         // ============================================
+        // FUNÇÃO AUXILIAR PARA NOTIFICAÇÕES
+        // ============================================
+        function showNotification(message, isError = false) {
+            const existingNotification = document.querySelector('.save-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            const notification = document.createElement('div');
+            notification.className = `save-notification ${isError ? 'error' : ''}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 60px;
+                right: 20px;
+                background: ${isError ? '#ff6b6b' : '#4CAF50'};
+                color: white;
+                padding: 10px 20px;
+                border-radius: 8px;
+                z-index: 10000;
+                font-size: 14px;
+                font-weight: 500;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideUp 0.3s ease;
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.style.animation = 'slideDown 0.3s ease';
+                    setTimeout(() => notification.remove(), 300);
+                }
+            }, 3000);
+        }
+
+        // ============================================
+        // LISTENER PARA MENSAGENS DO IFRAME
+        // ============================================
+        window.addEventListener('message', (event) => {
+            if (event.data.action === 'clearLocalLogs') {
+                errorLogger.clearLocalLogs();
+                showNotification('Logs locais limpos!');
+            }
+        });
+
+        // ============================================
+        // ANIMAÇÃO PARA O INDICADOR DE ERRO
+        // ============================================
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+                100% { transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // ============================================
         // PROTEÇÃO E BLOQUEIO DE TECLAS
         // ============================================
         document.addEventListener('keydown', function(e) {
@@ -2312,6 +2979,12 @@
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
                 desktopManager.forceSave();
+            }
+
+            // Atalho para logs (Ctrl+L)
+            if (e.ctrlKey && e.key === 'l') {
+                e.preventDefault();
+                showErrorLogs();
             }
         });
 
