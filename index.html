@@ -978,13 +978,7 @@
             measurementId: "G-PLKNZNFCQ8"
         };
 
-        try {
-            const app = initializeApp(firebaseConfig);
-            console.log("✅ Firebase inicializado com sucesso");
-        } catch (error) {
-            console.error("❌ Erro ao inicializar Firebase:", error);
-        }
-
+        // Inicializar Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -997,7 +991,6 @@
         const errorLogger = {
             errorBuffer: [],
             isSending: false,
-            lastErrorType: '',
             errorCount: 0,
             
             // Capturar erros globais
@@ -1022,9 +1015,6 @@
                         stack: e.reason?.stack || 'N/A'
                     });
                 });
-
-                // Monitorar performance
-                this.monitorPerformance();
 
                 // Sobrescrever console.error
                 const originalConsoleError = console.error;
@@ -1057,30 +1047,6 @@
 
                 // Verificar periodicamente o status
                 setInterval(() => this.checkSystemStatus(), 30000);
-            },
-
-            // Monitorar performance
-            monitorPerformance: function() {
-                if ('performance' in window) {
-                    const observer = new PerformanceObserver((list) => {
-                        list.getEntries().forEach((entry) => {
-                            if (entry.duration > 1000) { // Mais de 1 segundo
-                                this.logError({
-                                    type: 'performance_issue',
-                                    message: `Lentidão detectada: ${entry.name}`,
-                                    duration: entry.duration,
-                                    entryType: entry.entryType
-                                });
-                            }
-                        });
-                    });
-                    
-                    try {
-                        observer.observe({ entryTypes: ['longtask', 'resource', 'navigation'] });
-                    } catch (e) {
-                        console.log('PerformanceObserver não suportado');
-                    }
-                }
             },
 
             // Monitorar erros de rede
@@ -1117,7 +1083,6 @@
                 if ('memory' in performance) {
                     const memory = performance.memory;
                     const usedJSHeapSize = memory.usedJSHeapSize;
-                    const totalJSHeapSize = memory.totalJSHeapSize;
                     const heapLimit = memory.jsHeapSizeLimit;
                     
                     const usagePercent = (usedJSHeapSize / heapLimit) * 100;
@@ -1127,7 +1092,6 @@
                             type: 'memory_warning',
                             message: `Uso alto de memória: ${Math.round(usagePercent)}%`,
                             usedMB: Math.round(usedJSHeapSize / 1024 / 1024),
-                            totalMB: Math.round(totalJSHeapSize / 1024 / 1024),
                             limitMB: Math.round(heapLimit / 1024 / 1024)
                         });
                     }
@@ -1172,7 +1136,7 @@
                         userEmail: currentUser?.email || 'N/A',
                         userAgent: navigator.userAgent,
                         url: window.location.href,
-                        timestamp: serverTimestamp(),
+                        timestamp: new Date().toISOString(),
                         viewport: {
                             width: window.innerWidth,
                             height: window.innerHeight
@@ -1558,8 +1522,10 @@
                             iconElement.className = 'desktop-icon';
                             iconElement.draggable = true;
                             iconElement.dataset.id = icon.id;
+                            // CORREÇÃO: Usar ícone padrão se não existir
+                            const iconUrl = icon.icon || 'https://via.placeholder.com/32x32/0078d7/ffffff?text=W';
                             iconElement.innerHTML = `
-                                <img src="${icon.icon || 'iconmagic.png'}" alt="${icon.title}">
+                                <img src="${iconUrl}" alt="${icon.title}" onerror="this.src='https://via.placeholder.com/32x32/0078d7/ffffff?text=W'">
                                 <span>${icon.title}</span>
                             `;
                             
@@ -1598,7 +1564,7 @@
             },
             
             // Adicionar novo atalho
-            addShortcut: function(uid, collection, title, iconUrl = 'iconmagic.png') {
+            addShortcut: function(uid, collection, title, iconUrl = 'https://via.placeholder.com/32x32/0078d7/ffffff?text=W') {
                 // Encontrar primeira posição vazia
                 let emptyPosition = this.findEmptyPosition();
                 
@@ -1677,7 +1643,7 @@
             // Abrir atalho
             openShortcut: function(icon) {
                 const url = `https://wazzimagiygg.com/central/uid/?uid=${icon.uid}&collection=${icon.collection}`;
-                windowManager.createWindow(icon.title, url, icon.icon || 'iconmagic.png');
+                windowManager.createWindow(icon.title, url, icon.icon || 'https://via.placeholder.com/32x32/0078d7/ffffff?text=W');
             },
             
             // Menu de contexto para desktop
@@ -1706,12 +1672,14 @@
                 // Criar menu específico para ícone
                 const iconContextMenu = document.createElement('div');
                 iconContextMenu.className = 'context-menu';
+                // CORREÇÃO: Usar ícone padrão
+                const defaultIcon = 'https://via.placeholder.com/16x16/0078d7/ffffff?text=W';
                 iconContextMenu.innerHTML = `
                     <div class="context-menu-item open-icon">
-                        <img src="iconmagic.png" alt="▶️"> Abrir
+                        <img src="${defaultIcon}" alt="▶️"> Abrir
                     </div>
                     <div class="context-menu-item remove-icon">
-                        <img src="iconmagic.png" alt="🗑️"> Remover
+                        <img src="${defaultIcon}" alt="🗑️"> Remover
                     </div>
                 `;
                 
@@ -1831,7 +1799,7 @@
             const uid = shortcutUid.value.trim();
             const collection = shortcutCollection.value.trim();
             const title = shortcutTitle.value.trim();
-            const iconUrl = shortcutIcon.value.trim() || 'iconmagic.png';
+            const iconUrl = shortcutIcon.value.trim() || 'https://via.placeholder.com/32x32/0078d7/ffffff?text=W';
             
             if (!uid || !collection || !title) {
                 alert("❌ Por favor, preencha todos os campos obrigatórios");
@@ -1926,7 +1894,7 @@
             windows: [],
             activeWindow: null,
             
-            createWindow: function(title, url, icon = 'iconmagic.png') {
+            createWindow: function(title, url, icon = 'https://via.placeholder.com/32x32/0078d7/ffffff?text=W') {
                 const win = document.createElement("div");
                 win.className = "window";
                 win.innerHTML = `
@@ -2023,7 +1991,7 @@
                 return windowId;
             },
             
-            addWindow: function(windowElement, title, icon = 'iconmagic.png', url) {
+            addWindow: function(windowElement, title, icon = 'https://via.placeholder.com/32x32/0078d7/ffffff?text=W', url) {
                 const windowId = 'window_' + Date.now() + Math.random().toString(36).substr(2, 9);
                 windowElement.dataset.windowId = windowId;
                 
@@ -2115,7 +2083,7 @@
                 const icon = document.createElement('button');
                 icon.className = 'taskbar-icon';
                 icon.title = windowData.title;
-                icon.innerHTML = `<img src="${windowData.icon}" alt="icon"> <span>${windowData.title.substring(0, 20)}${windowData.title.length > 20 ? '...' : ''}</span>`;
+                icon.innerHTML = `<img src="${windowData.icon}" alt="icon" onerror="this.src='https://via.placeholder.com/16x16/0078d7/ffffff?text=W'"> <span>${windowData.title.substring(0, 20)}${windowData.title.length > 20 ? '...' : ''}</span>`;
                 
                 icon.onclick = (e) => {
                     e.stopPropagation();
@@ -2324,7 +2292,7 @@
             // Botão para ver logs de erro
             const viewErrorsItem = document.createElement('div');
             viewErrorsItem.className = 'menu-item';
-            viewErrorsItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 📊 Ver Logs de Erro (${errorLogger.errorCount})`;
+            viewErrorsItem.innerHTML = `<img src="https://via.placeholder.com/20x20/0078d7/ffffff?text=📊" alt="icon"> 📊 Ver Logs de Erro (${errorLogger.errorCount})`;
             viewErrorsItem.onclick = async () => {
                 closeAllMenus();
                 await showErrorLogs();
@@ -2334,7 +2302,7 @@
             // Botão para exportar logs
             const exportLogsItem = document.createElement('div');
             exportLogsItem.className = 'menu-item';
-            exportLogsItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 💾 Exportar Logs`;
+            exportLogsItem.innerHTML = `<img src="https://via.placeholder.com/20x20/0078d7/ffffff?text=💾" alt="icon"> 💾 Exportar Logs`;
             exportLogsItem.onclick = async () => {
                 closeAllMenus();
                 await exportErrorLogs();
@@ -2344,7 +2312,7 @@
             // Botão para limpar logs locais
             const clearLogsItem = document.createElement('div');
             clearLogsItem.className = 'menu-item';
-            clearLogsItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 🗑️ Limpar Logs Locais`;
+            clearLogsItem.innerHTML = `<img src="https://via.placeholder.com/20x20/0078d7/ffffff?text=🗑️" alt="icon"> 🗑️ Limpar Logs Locais`;
             clearLogsItem.onclick = () => {
                 errorLogger.clearLocalLogs();
                 closeAllMenus();
@@ -2360,14 +2328,14 @@
             // Trocar de conta
             const switchAccountItem = document.createElement('div');
             switchAccountItem.className = 'menu-item';
-            switchAccountItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 🔄 Trocar de Conta`;
+            switchAccountItem.innerHTML = `<img src="https://via.placeholder.com/20x20/0078d7/ffffff?text=🔄" alt="icon"> 🔄 Trocar de Conta`;
             switchAccountItem.onclick = handleSwitchAccount;
             userMenu.appendChild(switchAccountItem);
             
             // Logout
             const logoutItem = document.createElement('div');
             logoutItem.className = 'menu-item';
-            logoutItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 🚪 Sair`;
+            logoutItem.innerHTML = `<img src="https://via.placeholder.com/20x20/0078d7/ffffff?text=🚪" alt="icon"> 🚪 Sair`;
             logoutItem.onclick = handleLogout;
             userMenu.appendChild(logoutItem);
         }
@@ -2383,7 +2351,7 @@
             const windowId = windowManager.createWindow(
                 `Logs de Erro (${errorLogger.errorCount})`,
                 'about:blank',
-                'iconmagic.png'
+                'https://via.placeholder.com/32x32/0078d7/ffffff?text=📊'
             );
             
             // Aguardar a janela ser criada
@@ -2391,137 +2359,143 @@
                 const windowElement = document.querySelector(`[data-window-id="${windowId}"]`);
                 if (windowElement) {
                     const iframe = windowElement.querySelector('iframe');
-                    iframe.srcdoc = `
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <style>
-                                body {
-                                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                                    margin: 20px;
-                                    background: #1e1e1e;
-                                    color: #ffffff;
-                                }
-                                .header {
-                                    background: linear-gradient(135deg, #0078d7, #005a9e);
-                                    padding: 20px;
-                                    border-radius: 8px;
-                                    margin-bottom: 20px;
-                                }
-                                .stats {
-                                    display: grid;
-                                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                                    gap: 15px;
-                                    margin-bottom: 20px;
-                                }
-                                .stat-card {
-                                    background: rgba(255,255,255,0.05);
-                                    padding: 15px;
-                                    border-radius: 8px;
-                                    border-left: 4px solid #0078d7;
-                                }
-                                .error-list {
-                                    background: rgba(255,255,255,0.03);
-                                    border-radius: 8px;
-                                    padding: 20px;
-                                    max-height: 400px;
-                                    overflow-y: auto;
-                                }
-                                .error-item {
-                                    background: rgba(255,255,255,0.05);
-                                    padding: 15px;
-                                    margin-bottom: 10px;
-                                    border-radius: 8px;
-                                    border-left: 4px solid #ff4757;
-                                }
-                                .error-type {
-                                    color: #ff4757;
-                                    font-weight: bold;
-                                }
-                                pre {
-                                    background: rgba(0,0,0,0.3);
-                                    padding: 10px;
-                                    border-radius: 5px;
-                                    overflow-x: auto;
-                                    font-size: 12px;
-                                }
-                                button {
-                                    background: #0078d7;
-                                    color: white;
-                                    border: none;
-                                    padding: 10px 20px;
-                                    border-radius: 5px;
-                                    cursor: pointer;
-                                    margin: 5px;
-                                }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="header">
-                                <h2>📊 Logs de Erros do Sistema</h2>
-                                <p>Total de erros: ${errorSummary.totalErrors} | Erros recentes: ${errorSummary.recentErrors}</p>
-                            </div>
-                            
-                            <div class="stats">
-                                <div class="stat-card">
-                                    <h3>📈 Estatísticas</h3>
-                                    <p>Primeiro erro: ${errorSummary.firstError}</p>
-                                    <p>Último erro: ${errorSummary.lastError}</p>
-                                </div>
-                                <div class="stat-card">
-                                    <h3>📋 Tipos de Erro</h3>
-                                    ${Object.entries(errorSummary.errorTypes).map(([type, count]) => 
-                                        `<p>${type}: ${count}</p>`
-                                    ).join('')}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <button onclick="copyLogs()">📋 Copiar Logs</button>
-                                <button onclick="downloadLogs()">💾 Download</button>
-                                <button onclick="clearLocalLogs()">🗑️ Limpar Locais</button>
-                            </div>
-                            
-                            <div class="error-list">
-                                <h3>Últimos Erros:</h3>
-                                ${errorLogger.errorBuffer.map((error, index) => `
-                                    <div class="error-item">
-                                        <div class="error-type">${error.type}</div>
-                                        <div>${error.message}</div>
-                                        <div><small>${error.timestamp}</small></div>
-                                        ${error.stack ? `<pre>${error.stack}</pre>` : ''}
-                                    </div>
-                                `).join('')}
-                            </div>
-                            
-                            <script>
-                                function copyLogs() {
-                                    const logsText = \`${logsText.replace(/`/g, '\\`')}\`;
-                                    navigator.clipboard.writeText(logsText)
-                                        .then(() => alert('Logs copiados para a área de transferência!'))
-                                        .catch(err => alert('Erro ao copiar: ' + err));
-                                }
-                                
-                                function downloadLogs() {
-                                    const logsText = \`${logsText.replace(/`/g, '\\`')}\`;
-                                    const blob = new Blob([logsText], { type: 'text/plain' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = 'error-logs-' + new Date().toISOString() + '.txt';
-                                    a.click();
-                                    URL.revokeObjectURL(url);
-                                }
-                                
-                                function clearLocalLogs() {
-                                    if (confirm('Deseja limpar os logs locais?')) {
-                                        parent.postMessage({ action: 'clearLocalLogs' }, '*');
-                                    }
-                                }
-                            </script>
-                        </body>
-                        </html>
-                    `;
+                    
+                    // CORREÇÃO: Criar HTML seguro sem problemas de interpolação
+                    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #1e1e1e;
+            color: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #0078d7, #005a9e);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #0078d7;
+        }
+        .error-list {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #ff4757;
+        }
+        .error-type {
+            color: #ff4757;
+            font-weight: bold;
+        }
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #0078d7;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>📊 Logs de Erros do Sistema</h2>
+        <p>Total de erros: ${errorSummary.totalErrors} | Erros recentes: ${errorSummary.recentErrors}</p>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-card">
+            <h3>📈 Estatísticas</h3>
+            <p>Primeiro erro: ${errorSummary.firstError}</p>
+            <p>Último erro: ${errorSummary.lastError}</p>
+        </div>
+        <div class="stat-card">
+            <h3>📋 Tipos de Erro</h3>
+            ${Object.entries(errorSummary.errorTypes).map(([type, count]) => 
+                `<p>${type}: ${count}</p>`
+            ).join('')}
+        </div>
+    </div>
+    
+    <div>
+        <button id="copyLogs">📋 Copiar Logs</button>
+        <button id="downloadLogs">💾 Download</button>
+        <button id="clearLocalLogs">🗑️ Limpar Locais</button>
+    </div>
+    
+    <div class="error-list">
+        <h3>Últimos Erros:</h3>
+        ${errorLogger.errorBuffer.map((error, index) => `
+            <div class="error-item">
+                <div class="error-type">${error.type}</div>
+                <div>${error.message}</div>
+                <div><small>${error.timestamp}</small></div>
+                ${error.stack ? `<pre>${error.stack}</pre>` : ''}
+            </div>
+        `).join('')}
+    </div>
+    
+    <script>
+        const logsText = ${JSON.stringify(logsText)};
+
+        document.getElementById('copyLogs').addEventListener('click', function() {
+            navigator.clipboard.writeText(logsText)
+                .then(() => alert('Logs copiados para a área de transferência!'))
+                .catch(err => alert('Erro ao copiar: ' + err));
+        });
+        
+        document.getElementById('downloadLogs').addEventListener('click', function() {
+            const blob = new Blob([logsText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'error-logs-' + new Date().toISOString() + '.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        document.getElementById('clearLocalLogs').addEventListener('click', function() {
+            if (confirm('Deseja limpar os logs locais?')) {
+                parent.postMessage({ action: 'clearLocalLogs' }, '*');
+            }
+        });
+    </script>
+</body>
+</html>`;
+                    
+                    // Criar um Blob com o HTML
+                    const blob = new Blob([htmlContent], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    iframe.src = url;
                 }
             }, 100);
         }
@@ -2542,7 +2516,7 @@
                     userEmail: currentUser.email,
                     logsText: logsText,
                     errorCount: errorLogger.errorCount,
-                    exportTimestamp: serverTimestamp(),
+                    exportTimestamp: new Date().toISOString(),
                     exportType: 'manual_export',
                     userAgent: navigator.userAgent,
                     url: window.location.href
@@ -2558,7 +2532,7 @@
                     message: 'Logs exportados manualmente',
                     exportSize: logsText.length,
                     errorCount: errorLogger.errorCount,
-                    timestamp: serverTimestamp()
+                    timestamp: new Date().toISOString()
                 });
 
                 showNotification('✅ Logs exportados com sucesso!');
@@ -2590,7 +2564,7 @@
                         allLinksFromDB = data[KEY_ARRAY_FIELD].map(item => ({
                             name: item.titulo,
                             url: item.link_url,
-                            iconUrl: item.url_imagem || 'iconmagic.png',
+                            iconUrl: item.url_imagem || 'https://via.placeholder.com/20x20/0078d7/ffffff?text=W',
                             menu_target: item.menu_target || 'outros'
                         }));
                     }
@@ -2601,23 +2575,23 @@
                 const linksParaFerramentas = allLinksFromDB.filter(item => item.menu_target === 'ferramentas');
 
                 const staticStartLinks = [
-                    { name: '📄 Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '🔒 Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '💬 Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '⚙️ Gerenciador GESPAI', url: 'https://wazzimagiygg.com/gespai/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '🚪 Sair do Sistema', action: 'logout', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' }
+                    { name: '📄 Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=📄', menu_target: 'menu_iniciar' },
+                    { name: '🔒 Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=🔒', menu_target: 'menu_iniciar' },
+                    { name: '💬 Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=💬', menu_target: 'menu_iniciar' },
+                    { name: '⚙️ Gerenciador GESPAI', url: 'https://wazzimagiygg.com/gespai/', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=⚙️', menu_target: 'menu_iniciar' },
+                    { name: '🚪 Sair do Sistema', action: 'logout', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=🚪', menu_target: 'menu_iniciar' }
                 ];
 
                 const staticAdminLinks = [
-                    { name: "📝 Criar um artigo", url: "https://wazzimagiygg.com/central/?uid=materiadeensaio", menu_target: 'wiki_pedia' },
-                    { name: '🔐 Gerador de Criptografia', url: 'https://jsonmulti-tabviewer.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '📝 Criptografia de Texto', url: 'https://ciphersafex.wazzimagiygg.com', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '📄 Editor Quill Sync', url: 'https://quill-sync.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '📊 Tab Writer', url: 'https://tabwriter.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '🔒 Encrypto JSON', url: 'https://encryptojson.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '🔀 File Scrambler', url: 'https://file-scrambler.vercel.app', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '📚 Bibliotecas de Estudo', url: 'https://wazzimagiygg.com/bibliotecas/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: "💬 Chat (Contato)", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", menu_target: 'wiki_pedia' }
+                    { name: "📝 Criar um artigo", url: "https://wazzimagiygg.com/central/?uid=materiadeensaio", iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=📝', menu_target: 'wiki_pedia' },
+                    { name: '🔐 Gerador de Criptografia', url: 'https://jsonmulti-tabviewer.wazzimagiygg.com/', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=🔐', menu_target: 'menu_iniciar' },
+                    { name: '📝 Criptografia de Texto', url: 'https://ciphersafex.wazzimagiygg.com', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=📝', menu_target: 'menu_iniciar' },
+                    { name: '📄 Editor Quill Sync', url: 'https://quill-sync.wazzimagiygg.com/', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=📄', menu_target: 'menu_iniciar' },
+                    { name: '📊 Tab Writer', url: 'https://tabwriter.wazzimagiygg.com/', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=📊', menu_target: 'menu_iniciar' },
+                    { name: '🔒 Encrypto JSON', url: 'https://encryptojson.wazzimagiygg.com/', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=🔒', menu_target: 'menu_iniciar' },
+                    { name: '🔀 File Scrambler', url: 'https://file-scrambler.vercel.app', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=🔀', menu_target: 'menu_iniciar' },
+                    { name: '📚 Bibliotecas de Estudo', url: 'https://wazzimagiygg.com/bibliotecas/', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=📚', menu_target: 'menu_iniciar' },
+                    { name: "💬 Chat (Contato)", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=💬', menu_target: 'wiki_pedia' }
                 ];
 
                 populateMenu(startMenu, [...linksParaIniciar, ...staticStartLinks]);
@@ -2627,10 +2601,10 @@
             } catch (error) {
                 console.error("❌ Erro ao carregar links:", error);
                 populateMenu(startMenu, [
-                    { name: '💬 Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
-                    { name: '🚪 Sair', action: 'logout', iconUrl: 'iconmagic.png' }
+                    { name: '💬 Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=💬' },
+                    { name: '🚪 Sair', action: 'logout', iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=🚪' }
                 ]);
-                populateMenu(adminMenu, [{ name: "💬 Chat de Suporte", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }]);
+                populateMenu(adminMenu, [{ name: "💬 Chat de Suporte", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", iconUrl: 'https://via.placeholder.com/20x20/0078d7/ffffff?text=💬' }]);
                 populateToolsMenu([]);
             }
         }
@@ -2641,7 +2615,9 @@
             linksArray.forEach(item => {
                 const div = document.createElement("div");
                 div.className = "menu-item";
-                div.innerHTML = `<img src="${item.iconUrl || 'iconmagic.png'}" alt="icon"> ${item.name}`;
+                // CORREÇÃO: Usar ícone padrão se não existir
+                const iconUrl = item.iconUrl || 'https://via.placeholder.com/20x20/0078d7/ffffff?text=W';
+                div.innerHTML = `<img src="${iconUrl}" alt="icon" onerror="this.src='https://via.placeholder.com/20x20/0078d7/ffffff?text=W'"> ${item.name}`;
                 
                 div.onclick = () => {
                     if (item.action === 'logout') {
