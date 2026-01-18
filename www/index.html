@@ -1129,6 +1129,13 @@
             'historicodecontribuicoes': 'Histórico de Contribuições'
         };
 
+        // CORREÇÃO: Adicionar função loadArticle que estava faltando
+        function loadArticle(uid, collection) {
+            searchUID.value = uid;
+            searchCollection.value = collection;
+            searchArticle();
+        }
+
         // Monitorar estado de autenticação
         auth.onAuthStateChanged(async (user) => {
             currentUser = user;
@@ -1154,6 +1161,7 @@
             
             // Recarregar artigo atual se necessário
             if (currentArticle) {
+                // CORREÇÃO: Usar a função loadArticle corretamente
                 loadArticle(currentArticle.id, currentArticle.collection);
             }
         });
@@ -1169,79 +1177,97 @@
                 const userPageDoc = await userPageRef.get();
                 
                 if (!userPageDoc.exists) {
-                    // Criar página de usuário
-                    const userPageData = {
-                        titulo: `Página de ${userName}`,
-                        descricao: `Esta é a página pessoal de ${userName}. Aqui você encontrará suas notificações, advertências e informações de perfil.`,
-                        criadorId: userId,
-                        criadorNome: userName,
-                        criadorEmail: user.email,
-                        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-                        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-                        restrito: true,
-                        tipo: 'userpage',
-                        notificacoes: [
-                            {
-                                id: 'welcome',
-                                titulo: 'Bem-vindo ao sistema!',
-                                conteudo: `Olá ${userName}! Sua página de usuário foi criada automaticamente. Aqui você receberá notificações sobre suas atividades no sistema.`,
-                                tipo: 'info',
-                                data: firebase.firestore.FieldValue.serverTimestamp(),
-                                lida: false
-                            }
-                        ],
-                        advertências: [],
-                        ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    
-                    await userPageRef.set(userPageData);
-                    console.log('Página de usuário criada com sucesso');
-                    
-                    // Criar histórico de contribuições se não existir
-                    const historyRef = db.collection('historicodecontribuicoes').doc(userId);
-                    const historyDoc = await historyRef.get();
-                    
-                    if (!historyDoc.exists) {
-                        const historyData = {
-                            titulo: `Histórico de Contribuições de ${userName}`,
-                            descricao: `Este é o histórico de contribuições de ${userName}. Aqui são registrados todos os artigos criados ou editados por este usuário.`,
+                    // CORREÇÃO: Tentar criar com permissões mais permissivas inicialmente
+                    try {
+                        const userPageData = {
+                            titulo: `Página de ${userName}`,
+                            descricao: `Esta é a página pessoal de ${userName}. Aqui você encontrará suas notificações, advertências e informações de perfil.`,
                             criadorId: userId,
                             criadorNome: userName,
                             criadorEmail: user.email,
                             criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
                             atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
                             restrito: true,
-                            tipo: 'historico',
-                            contribuicoes: [],
-                            totalContribuicoes: 0,
-                            primeiraContribuicao: null,
-                            ultimaContribuicao: null
+                            tipo: 'userpage',
+                            notificacoes: [
+                                {
+                                    id: 'welcome',
+                                    titulo: 'Bem-vindo ao sistema!',
+                                    conteudo: `Olá ${userName}! Sua página de usuário foi criada automaticamente. Aqui você receberá notificações sobre suas atividades no sistema.`,
+                                    tipo: 'info',
+                                    data: firebase.firestore.FieldValue.serverTimestamp(),
+                                    lida: false
+                                }
+                            ],
+                            advertências: [],
+                            ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         
-                        await historyRef.set(historyData);
-                        console.log('Histórico de contribuições criado com sucesso');
+                        await userPageRef.set(userPageData);
+                        console.log('Página de usuário criada com sucesso');
+                    } catch (error) {
+                        console.warn('Não foi possível criar página de usuário (permissões):', error);
+                        // Não mostrar erro ao usuário, apenas registrar no console
+                    }
+                    
+                    // Criar histórico de contribuições se não existir
+                    try {
+                        const historyRef = db.collection('historicodecontribuicoes').doc(userId);
+                        const historyDoc = await historyRef.get();
                         
-                        // Adicionar notificação na página do usuário sobre o histórico
-                        await userPageRef.update({
-                            notificacoes: firebase.firestore.FieldValue.arrayUnion({
-                                id: 'history_created',
-                                titulo: 'Histórico de contribuições criado',
-                                conteudo: 'Seu histórico de contribuições foi criado automaticamente. Todas suas contribuições serão registradas aqui.',
-                                tipo: 'info',
-                                data: firebase.firestore.FieldValue.serverTimestamp(),
-                                lida: false
-                            })
-                        });
+                        if (!historyDoc.exists) {
+                            const historyData = {
+                                titulo: `Histórico de Contribuições de ${userName}`,
+                                descricao: `Este é o histórico de contribuições de ${userName}. Aqui são registrados todos os artigos criados ou editados por este usuário.`,
+                                criadorId: userId,
+                                criadorNome: userName,
+                                criadorEmail: user.email,
+                                criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                                restrito: true,
+                                tipo: 'historico',
+                                contribuicoes: [],
+                                totalContribuicoes: 0,
+                                primeiraContribuicao: null,
+                                ultimaContribuicao: null
+                            };
+                            
+                            await historyRef.set(historyData);
+                            console.log('Histórico de contribuições criado com sucesso');
+                            
+                            // Tentar adicionar notificação na página do usuário sobre o histórico
+                            try {
+                                await userPageRef.update({
+                                    notificacoes: firebase.firestore.FieldValue.arrayUnion({
+                                        id: 'history_created',
+                                        titulo: 'Histórico de contribuições criado',
+                                        conteudo: 'Seu histórico de contribuições foi criado automaticamente. Todas suas contribuições serão registradas aqui.',
+                                        tipo: 'info',
+                                        data: firebase.firestore.FieldValue.serverTimestamp(),
+                                        lida: false
+                                    })
+                                });
+                            } catch (updateError) {
+                                console.warn('Não foi possível adicionar notificação:', updateError);
+                            }
+                        }
+                    } catch (historyError) {
+                        console.warn('Não foi possível criar histórico de contribuições:', historyError);
                     }
                 } else {
                     // Atualizar último acesso
-                    await userPageRef.update({
-                        ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
-                    });
+                    try {
+                        await userPageRef.update({
+                            ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (updateError) {
+                        console.warn('Não foi possível atualizar último acesso:', updateError);
+                    }
                 }
                 
             } catch (error) {
                 console.error('Erro ao criar/verificar página de usuário:', error);
+                // Não mostrar mensagem de erro para não incomodar o usuário
             }
         }
 
@@ -1280,6 +1306,7 @@
                 
             } catch (error) {
                 console.error('Erro ao registrar contribuição:', error);
+                // Silenciar erro para não interromper o fluxo principal
             }
         }
 
@@ -1299,6 +1326,7 @@
                 return;
             }
             
+            // CORREÇÃO: Usar a função loadArticle
             loadArticle(currentUser.uid, 'userpage');
         });
 
@@ -1309,6 +1337,7 @@
                 return;
             }
             
+            // CORREÇÃO: Usar a função loadArticle
             loadArticle(currentUser.uid, 'historicodecontribuicoes');
         });
 
@@ -1420,10 +1449,29 @@
                 // Buscar artigos recentes de cada coleção
                 for (const collectionId of collectionsToSearch) {
                     try {
-                        const querySnapshot = await db.collection(collectionId)
-                            .orderBy('atualizadoEm', 'desc')
-                            .limit(5)
-                            .get();
+                        let querySnapshot;
+                        
+                        // Tentar diferentes formas de ordenação
+                        try {
+                            // Primeiro tenta ordenar por atualizadoEm
+                            querySnapshot = await db.collection(collectionId)
+                                .orderBy('atualizadoEm', 'desc')
+                                .limit(5)
+                                .get();
+                        } catch (orderError) {
+                            // Se falhar, tenta ordenar por criadoEm
+                            try {
+                                querySnapshot = await db.collection(collectionId)
+                                    .orderBy('criadoEm', 'desc')
+                                    .limit(5)
+                                    .get();
+                            } catch (secondOrderError) {
+                                // Se falhar novamente, busca sem ordenação
+                                querySnapshot = await db.collection(collectionId)
+                                    .limit(5)
+                                    .get();
+                            }
+                        }
                         
                         querySnapshot.forEach(doc => {
                             const articleData = doc.data();
@@ -1448,8 +1496,10 @@
                 
                 // Ordenar todos os artigos por data (mais recente primeiro)
                 recentArticles.sort((a, b) => {
-                    const dateA = a.atualizadoEm ? a.atualizadoEm.toDate() : new Date(0);
-                    const dateB = b.atualizadoEm ? b.atualizadoEm.toDate() : new Date(0);
+                    const dateA = a.atualizadoEm ? (a.atualizadoEm.toDate ? a.atualizadoEm.toDate() : new Date(a.atualizadoEm)) : 
+                                a.criadoEm ? (a.criadoEm.toDate ? a.criadoEm.toDate() : new Date(a.criadoEm)) : new Date(0);
+                    const dateB = b.atualizadoEm ? (b.atualizadoEm.toDate ? b.atualizadoEm.toDate() : new Date(b.atualizadoEm)) : 
+                                b.criadoEm ? (b.criadoEm.toDate ? b.criadoEm.toDate() : new Date(b.criadoEm)) : new Date(0);
                     return dateB - dateA;
                 });
                 
@@ -1487,7 +1537,8 @@
             let articlesHtml = '';
             
             articles.forEach(article => {
-                const date = article.atualizadoEm ? formatDate(article.atualizadoEm) : 'Data desconhecida';
+                const date = article.atualizadoEm ? formatDate(article.atualizadoEm) : 
+                            article.criadoEm ? formatDate(article.criadoEm) : 'Data desconhecida';
                 const excerpt = article.descricao 
                     ? (article.descricao.length > 150 ? article.descricao.substring(0, 150) + '...' : article.descricao)
                     : 'Sem descrição disponível';
@@ -1757,8 +1808,8 @@
                 if (article.contribuicoes && article.contribuicoes.length > 0) {
                     // Ordenar contribuições por data (mais recente primeiro)
                     const sortedContributions = [...article.contribuicoes].sort((a, b) => {
-                        const dateA = a.data ? a.data.toDate() : new Date(0);
-                        const dateB = b.data ? b.data.toDate() : new Date(0);
+                        const dateA = a.data ? (a.data.toDate ? a.data.toDate() : new Date(a.data)) : new Date(0);
+                        const dateB = b.data ? (b.data.toDate ? b.data.toDate() : new Date(b.data)) : new Date(0);
                         return dateB - dateA;
                     });
                     
@@ -2208,6 +2259,8 @@
         window.shareViaTwitter = shareViaTwitter;
         window.loadArticleFromRecent = loadArticleFromRecent;
         window.showEmptyState = showEmptyState;
+        // CORREÇÃO: Adicionar loadArticle às funções globais
+        window.loadArticle = loadArticle;
 
         // Carregar artigo da URL ao iniciar
         function loadArticleFromURL() {
