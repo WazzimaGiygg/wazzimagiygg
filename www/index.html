@@ -1129,7 +1129,7 @@
             'historicodecontribuicoes': 'Histórico de Contribuições'
         };
 
-        // CORREÇÃO: Adicionar função loadArticle que estava faltando
+        // Função para carregar artigo
         function loadArticle(uid, collection) {
             searchUID.value = uid;
             searchCollection.value = collection;
@@ -1161,7 +1161,6 @@
             
             // Recarregar artigo atual se necessário
             if (currentArticle) {
-                // CORREÇÃO: Usar a função loadArticle corretamente
                 loadArticle(currentArticle.id, currentArticle.collection);
             }
         });
@@ -1177,7 +1176,7 @@
                 const userPageDoc = await userPageRef.get();
                 
                 if (!userPageDoc.exists) {
-                    // CORREÇÃO: Tentar criar com permissões mais permissivas inicialmente
+                    // Tentar criar página de usuário
                     try {
                         const userPageData = {
                             titulo: `Página de ${userName}`,
@@ -1206,51 +1205,12 @@
                         await userPageRef.set(userPageData);
                         console.log('Página de usuário criada com sucesso');
                     } catch (error) {
-                        console.warn('Não foi possível criar página de usuário (permissões):', error);
-                        // Não mostrar erro ao usuário, apenas registrar no console
+                        console.warn('Não foi possível criar página de usuário:', error);
                     }
                     
                     // Criar histórico de contribuições se não existir
                     try {
-                        const historyRef = db.collection('historicodecontribuicoes').doc(userId);
-                        const historyDoc = await historyRef.get();
-                        
-                        if (!historyDoc.exists) {
-                            const historyData = {
-                                titulo: `Histórico de Contribuições de ${userName}`,
-                                descricao: `Este é o histórico de contribuições de ${userName}. Aqui são registrados todos os artigos criados ou editados por este usuário.`,
-                                criadorId: userId,
-                                criadorNome: userName,
-                                criadorEmail: user.email,
-                                criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-                                atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-                                restrito: true,
-                                tipo: 'historico',
-                                contribuicoes: [],
-                                totalContribuicoes: 0,
-                                primeiraContribuicao: null,
-                                ultimaContribuicao: null
-                            };
-                            
-                            await historyRef.set(historyData);
-                            console.log('Histórico de contribuições criado com sucesso');
-                            
-                            // Tentar adicionar notificação na página do usuário sobre o histórico
-                            try {
-                                await userPageRef.update({
-                                    notificacoes: firebase.firestore.FieldValue.arrayUnion({
-                                        id: 'history_created',
-                                        titulo: 'Histórico de contribuições criado',
-                                        conteudo: 'Seu histórico de contribuições foi criado automaticamente. Todas suas contribuições serão registradas aqui.',
-                                        tipo: 'info',
-                                        data: firebase.firestore.FieldValue.serverTimestamp(),
-                                        lida: false
-                                    })
-                                });
-                            } catch (updateError) {
-                                console.warn('Não foi possível adicionar notificação:', updateError);
-                            }
-                        }
+                        await createHistoryForUser(user);
                     } catch (historyError) {
                         console.warn('Não foi possível criar histórico de contribuições:', historyError);
                     }
@@ -1267,7 +1227,60 @@
                 
             } catch (error) {
                 console.error('Erro ao criar/verificar página de usuário:', error);
-                // Não mostrar mensagem de erro para não incomodar o usuário
+            }
+        }
+
+        // Criar histórico de contribuições para usuário
+        async function createHistoryForUser(user) {
+            const userId = user.uid;
+            const userName = user.displayName || user.email;
+            
+            try {
+                const historyRef = db.collection('historicodecontribuicoes').doc(userId);
+                const historyDoc = await historyRef.get();
+                
+                if (!historyDoc.exists) {
+                    const historyData = {
+                        titulo: `Histórico de Contribuições de ${userName}`,
+                        descricao: `Este é o histórico de contribuições de ${userName}. Aqui são registrados todos os artigos criados ou editados por este usuário.`,
+                        criadorId: userId,
+                        criadorNome: userName,
+                        criadorEmail: user.email,
+                        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                        restrito: true,
+                        tipo: 'historico',
+                        contribuicoes: [],
+                        totalContribuicoes: 0,
+                        primeiraContribuicao: null,
+                        ultimaContribuicao: null
+                    };
+                    
+                    await historyRef.set(historyData);
+                    console.log('Histórico de contribuições criado com sucesso');
+                    
+                    // Adicionar notificação na página do usuário sobre o histórico
+                    try {
+                        const userPageRef = db.collection('userpage').doc(userId);
+                        await userPageRef.update({
+                            notificacoes: firebase.firestore.FieldValue.arrayUnion({
+                                id: 'history_created',
+                                titulo: 'Histórico de contribuições criado',
+                                conteudo: 'Seu histórico de contribuições foi criado automaticamente. Todas suas contribuições serão registradas aqui.',
+                                tipo: 'info',
+                                data: firebase.firestore.FieldValue.serverTimestamp(),
+                                lida: false
+                            })
+                        });
+                    } catch (updateError) {
+                        console.warn('Não foi possível adicionar notificação:', updateError);
+                    }
+                }
+                
+                return historyRef;
+            } catch (error) {
+                console.error('Erro ao criar/verificar histórico de contribuições:', error);
+                throw error;
             }
         }
 
@@ -1306,7 +1319,6 @@
                 
             } catch (error) {
                 console.error('Erro ao registrar contribuição:', error);
-                // Silenciar erro para não interromper o fluxo principal
             }
         }
 
@@ -1326,19 +1338,25 @@
                 return;
             }
             
-            // CORREÇÃO: Usar a função loadArticle
             loadArticle(currentUser.uid, 'userpage');
         });
 
         // Botão para minhas contribuições
-        btnMyContributions.addEventListener('click', () => {
+        btnMyContributions.addEventListener('click', async () => {
             if (!currentUser) {
                 showLoginRequired();
                 return;
             }
             
-            // CORREÇÃO: Usar a função loadArticle
-            loadArticle(currentUser.uid, 'historicodecontribuicoes');
+            // Primeiro verifica se o histórico existe, se não, cria
+            try {
+                await createHistoryForUser(currentUser);
+                // Depois de criar/verificar, carrega o artigo
+                loadArticle(currentUser.uid, 'historicodecontribuicoes');
+            } catch (error) {
+                console.error('Erro ao acessar histórico:', error);
+                showMessage('Erro ao acessar histórico de contribuições.', 'error');
+            }
         });
 
         // Buscar artigo
@@ -1579,26 +1597,7 @@
             searchArticle();
         }
 
-        // Voltar para estado vazio
-        function showEmptyState() {
-            recentArticlesPanel.style.display = 'none';
-            articleContent.style.display = 'block';
-            
-            articleContent.innerHTML = `
-                <div class="empty-state">
-                    <h3>Bem-vindo ao Sistema de Busca</h3>
-                    <p>Para buscar um artigo, você pode:</p>
-                    <ol style="text-align: left; max-width: 500px; margin: 20px auto;">
-                        <li>Usar o formulário acima para buscar por UID</li>
-                        <li>Acessar diretamente via URL: <code>?uid=SEU_UID&collection=SUA_COLECAO</code></li>
-                        <li>Ver os artigos mais recentes clicando em "Artigos Recentes"</li>
-                        <li>Se estiver logado, acessar sua página pessoal clicando em "Minha Página"</li>
-                    </ol>
-                    <p>Exemplo de URL: <code>?uid=artigo123&collection=materiadeensaio</code></p>
-                </div>
-            `;
-        }
-
+        // Função principal de busca de artigo
         async function searchArticle() {
             const uid = searchUID.value.trim();
             const collection = searchCollection.value;
@@ -1612,6 +1611,7 @@
                 showLoading();
                 
                 if (collection === 'todos') {
+                    // Buscar em todas as coleções
                     let foundArticle = null;
                     
                     for (const col of availableCollections.map(c => c.id)) {
@@ -1633,13 +1633,33 @@
                         showEmptyState(`Nenhum artigo encontrado com UID: ${uid} em nenhuma coleção.`);
                     }
                 } else {
+                    // Buscar em coleção específica
                     const article = await loadArticleFromFirestore(uid, collection);
                     
                     if (article) {
                         displayArticle(article);
                         showMessage('Artigo encontrado com sucesso!', 'success');
                     } else {
-                        showEmptyState(`Nenhum artigo encontrado com UID: ${uid} na coleção: ${collection}.`);
+                        // Verificar se é um histórico de contribuições que não existe
+                        if (collection === 'historicodecontribuicoes' && currentUser && uid === currentUser.uid) {
+                            try {
+                                // Criar o histórico automaticamente
+                                await createHistoryForUser(currentUser);
+                                // Tentar carregar novamente
+                                const newArticle = await loadArticleFromFirestore(uid, collection);
+                                if (newArticle) {
+                                    displayArticle(newArticle);
+                                    showMessage('Histórico de contribuições criado automaticamente!', 'success');
+                                } else {
+                                    showEmptyState(`Não foi possível criar o histórico de contribuições.`);
+                                }
+                            } catch (createError) {
+                                console.error('Erro ao criar histórico:', createError);
+                                showEmptyState(`Histórico de contribuições não encontrado e não foi possível criar automaticamente.`);
+                            }
+                        } else {
+                            showEmptyState(`Nenhum artigo encontrado com UID: ${uid} na coleção: ${collection}.`);
+                        }
                     }
                 }
                 
@@ -1649,6 +1669,7 @@
             }
         }
 
+        // Carregar artigo do Firestore
         async function loadArticleFromFirestore(uid, collection) {
             try {
                 const docRef = db.collection(collection).doc(uid);
@@ -1657,6 +1678,7 @@
                 if (doc.exists) {
                     const data = doc.data();
                     
+                    // Verificar se artigo é restrito
                     if (data.restrito && !currentUser) {
                         showLoginRequired();
                         return null;
@@ -1676,6 +1698,7 @@
             }
         }
 
+        // Exibir artigo na interface
         function displayArticle(article) {
             currentArticle = article;
             
@@ -1794,7 +1817,7 @@
                     <div class="article-section">
                         <h2>🔗 Links Importantes</h2>
                         <div class="article-content">
-                            <p><strong>Histórico de Contribuições:</strong> <a href="?uid=${article.id}&collection=historicodecontribuicoes" class="source-link">Ver minhas contribuições</a></p>
+                            <p><strong>Histórico de Contribuições:</strong> <a href="#" onclick="loadContributions('${article.id}')" class="source-link">Ver minhas contribuições</a></p>
                             <p><strong>Último acesso:</strong> ${article.ultimoAcesso ? formatDate(article.ultimoAcesso) : 'N/A'}</p>
                         </div>
                     </div>
@@ -1827,7 +1850,7 @@
                                     <span><i class="fas fa-key"></i> ${contrib.artigoId}</span>
                                 </div>
                                 <div class="contribution-actions">
-                                    <a href="?uid=${contrib.artigoId}&collection=${contrib.artigoColecao}" class="contribution-link">
+                                    <a href="#" onclick="loadArticle('${contrib.artigoId}', '${contrib.artigoColecao}')" class="contribution-link">
                                         <i class="fas fa-external-link-alt"></i> Ver artigo
                                     </a>
                                 </div>
@@ -1858,7 +1881,7 @@
                     <div class="article-section">
                         <h2>🔗 Link para Página do Usuário</h2>
                         <div class="article-content">
-                            <p><a href="?uid=${article.id}&collection=userpage" class="source-link">Voltar para página do usuário</a></p>
+                            <p><a href="#" onclick="loadArticle('${article.id}', 'userpage')" class="source-link">Voltar para página do usuário</a></p>
                         </div>
                     </div>
                 `;
@@ -1903,6 +1926,25 @@
             `;
         }
 
+        // Função para carregar contribuições
+        async function loadContributions(uid) {
+            if (!currentUser) {
+                showLoginRequired();
+                return;
+            }
+            
+            // Primeiro verifica se o histórico existe, se não, cria
+            try {
+                await createHistoryForUser(currentUser);
+                // Depois de criar/verificar, carrega o artigo
+                loadArticle(currentUser.uid, 'historicodecontribuicoes');
+            } catch (error) {
+                console.error('Erro ao acessar histórico:', error);
+                showMessage('Erro ao acessar histórico de contribuições.', 'error');
+            }
+        }
+
+        // Função para mostrar formulário de artigo
         function showArticleForm(uid = null, collection = null) {
             const isEdit = !!currentArticle;
             const articleData = isEdit ? currentArticle : null;
@@ -1994,6 +2036,7 @@
             });
         }
 
+        // Função para salvar artigo
         async function saveArticle(uid, collection, isEdit = false) {
             const titulo = document.getElementById('formTitulo').value.trim();
             const descricao = document.getElementById('formDescricao').value.trim();
@@ -2054,6 +2097,7 @@
             }
         }
 
+        // Função para deletar artigo
         async function deleteArticle(uid, collection) {
             if (!confirm('Tem certeza que deseja excluir este artigo? Esta ação não pode ser desfeita.')) {
                 return;
@@ -2072,6 +2116,27 @@
             }
         }
 
+        // Função para mostrar estado vazio
+        function showEmptyState() {
+            recentArticlesPanel.style.display = 'none';
+            articleContent.style.display = 'block';
+            
+            articleContent.innerHTML = `
+                <div class="empty-state">
+                    <h3>Bem-vindo ao Sistema de Busca</h3>
+                    <p>Para buscar um artigo, você pode:</p>
+                    <ol style="text-align: left; max-width: 500px; margin: 20px auto;">
+                        <li>Usar o formulário acima para buscar por UID</li>
+                        <li>Acessar diretamente via URL: <code>?uid=SEU_UID&collection=SUA_COLECAO</code></li>
+                        <li>Ver os artigos mais recentes clicando em "Artigos Recentes"</li>
+                        <li>Se estiver logado, acessar sua página pessoal clicando em "Minha Página"</li>
+                    </ol>
+                    <p>Exemplo de URL: <code>?uid=artigo123&collection=materiadeensaio</code></p>
+                </div>
+            `;
+        }
+
+        // Função para mostrar login necessário
         function showLoginRequired() {
             articleContent.innerHTML = `
                 <div class="article-container">
@@ -2086,6 +2151,7 @@
             `;
         }
 
+        // Função para mostrar loading
         function showLoading() {
             articleContent.innerHTML = `
                 <div class="loading">
@@ -2094,6 +2160,7 @@
             `;
         }
 
+        // Função para mostrar mensagens
         function showMessage(message, type = 'info') {
             const messageDiv = document.createElement('div');
             messageDiv.className = type === 'error' ? 'error-message' : 
@@ -2110,11 +2177,13 @@
             }, 5000);
         }
 
+        // Função para esconder mensagens
         function hideMessage() {
             messageArea.style.display = 'none';
             messageArea.innerHTML = '';
         }
 
+        // Função para tratar erros do Firestore
         function handleFirestoreError(error) {
             console.error('Erro do Firestore:', error);
             
@@ -2128,6 +2197,7 @@
             }
         }
 
+        // Função para login com Google
         async function googleLogin() {
             try {
                 await auth.signInWithPopup(googleProvider);
@@ -2143,6 +2213,7 @@
             }
         }
 
+        // Função para formatar data
         function formatDate(timestamp) {
             if (!timestamp) return 'N/A';
             try {
@@ -2259,8 +2330,8 @@
         window.shareViaTwitter = shareViaTwitter;
         window.loadArticleFromRecent = loadArticleFromRecent;
         window.showEmptyState = showEmptyState;
-        // CORREÇÃO: Adicionar loadArticle às funções globais
         window.loadArticle = loadArticle;
+        window.loadContributions = loadContributions;
 
         // Carregar artigo da URL ao iniciar
         function loadArticleFromURL() {
