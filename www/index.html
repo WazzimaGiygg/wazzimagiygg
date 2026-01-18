@@ -788,6 +788,84 @@
             text-decoration: underline;
         }
 
+        /* Estilos para o modal de cadastro inicial */
+        #initialSignupModal .share-modal-content {
+            max-width: 600px;
+        }
+
+        #initialSignupModal h3 {
+            color: var(--cor-destaque);
+            margin-bottom: 10px;
+        }
+
+        #initialSignupModal p {
+            color: var(--cor-texto-secundario);
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        #initialSignupForm {
+            margin-top: 20px;
+        }
+
+        #initialSignupForm .form-group {
+            margin-bottom: 20px;
+        }
+
+        #initialSignupForm label {
+            font-weight: 600;
+            color: var(--cor-texto-principal);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        #initialSignupForm input,
+        #initialSignupForm textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            transition: border-color 0.3s;
+        }
+
+        #initialSignupForm input:focus,
+        #initialSignupForm textarea:focus {
+            outline: none;
+            border-color: var(--cor-destaque);
+        }
+
+        #initialSignupForm textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        #initialSignupForm button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .required-field::after {
+            content: " *";
+            color: var(--cor-perigo);
+        }
+
+        #initialSignupForm input.valid {
+            border-color: var(--cor-sucesso);
+        }
+
+        #initialSignupForm input.invalid {
+            border-color: var(--cor-perigo);
+        }
+
+        #initialSignupForm button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         @keyframes dots {
             0%, 20% { content: "."; }
             40% { content: ".."; }
@@ -856,6 +934,11 @@
                 width: 100%;
                 justify-content: space-between;
             }
+            
+            #initialSignupModal .share-modal-content {
+                padding: 20px;
+                width: 95%;
+            }
         }
 
         @media print {
@@ -864,7 +947,8 @@
             .article-actions,
             .button-group,
             .share-modal,
-            .recent-articles-panel {
+            .recent-articles-panel,
+            #initialSignupModal {
                 display: none !important;
             }
             
@@ -1037,6 +1121,47 @@
         </div>
     </div>
 
+    <!-- Modal de Cadastro Inicial -->
+    <div id="initialSignupModal" class="share-modal">
+        <div class="share-modal-content">
+            <h3><i class="fas fa-user-plus"></i> Complete seu Cadastro</h3>
+            <p>É sua primeira vez aqui! Complete seu cadastro para criar sua página de usuário.</p>
+            
+            <form id="initialSignupForm">
+                <div class="form-group">
+                    <label for="signupNomeCompleto" class="required-field">Nome Completo</label>
+                    <input type="text" id="signupNomeCompleto" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupTelefone" class="required-field">Telefone</label>
+                    <input type="tel" id="signupTelefone" placeholder="(11) 99999-9999" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupDataNascimento">Data de Nascimento</label>
+                    <input type="date" id="signupDataNascimento">
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupEndereco">Endereço</label>
+                    <textarea id="signupEndereco" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupBiografia">Biografia</label>
+                    <textarea id="signupBiografia" rows="4" placeholder="Conte um pouco sobre você..."></textarea>
+                </div>
+                
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Completar Cadastro
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts do Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -1098,6 +1223,8 @@
         const shareModal = document.getElementById('shareModal');
         const shareLinkInput = document.getElementById('shareLinkInput');
         const qrcodeContainer = document.getElementById('qrcode');
+        const initialSignupModal = document.getElementById('initialSignupModal');
+        const initialSignupForm = document.getElementById('initialSignupForm');
 
         // Estado da aplicação
         let currentUser = null;
@@ -1136,39 +1263,166 @@
             searchArticle();
         }
 
-        // Monitorar estado de autenticação
-        auth.onAuthStateChanged(async (user) => {
-            currentUser = user;
+        // Função para mostrar modal de cadastro inicial
+        function showInitialSignupModal(user) {
+            const modal = document.getElementById('initialSignupModal');
             
-            if (user) {
-                // Usuário está logado
-                userDisplayName.textContent = user.displayName || 'Usuário';
-                userEmail.textContent = user.email;
-                userInfo.style.display = 'flex';
-                btnCreateNew.disabled = false;
-                btnCreateNew.title = 'Criar novo artigo';
-                
-                // Criar página de usuário se não existir
-                await createUserPageIfNotExists(user);
-                
-                showMessage('Login realizado com sucesso!', 'success');
-            } else {
-                // Usuário não está logado
-                userInfo.style.display = 'none';
-                btnCreateNew.disabled = true;
-                btnCreateNew.title = 'Faça login para criar artigos';
+            // Preencher dados básicos do usuário se disponíveis
+            const nomeCompletoInput = document.getElementById('signupNomeCompleto');
+            if (user.displayName && nomeCompletoInput) {
+                nomeCompletoInput.value = user.displayName;
             }
             
-            // Recarregar artigo atual se necessário
-            if (currentArticle) {
-                loadArticle(currentArticle.id, currentArticle.collection);
+            modal.classList.add('active');
+        }
+
+        // Função para fechar modal de cadastro
+        function closeInitialSignupModal() {
+            const modal = document.getElementById('initialSignupModal');
+            modal.classList.remove('active');
+        }
+
+        // Processar formulário de cadastro inicial
+        async function processInitialSignup(user) {
+            const userId = user.uid;
+            
+            // Coletar dados do formulário
+            const nomeCompleto = document.getElementById('signupNomeCompleto').value.trim();
+            const telefone = document.getElementById('signupTelefone').value.trim();
+            const dataNascimento = document.getElementById('signupDataNascimento').value;
+            const endereco = document.getElementById('signupEndereco').value.trim();
+            const biografia = document.getElementById('signupBiografia').value.trim();
+            
+            if (!nomeCompleto || !telefone) {
+                showMessage('Por favor, preencha pelo menos nome e telefone.', 'error');
+                return;
             }
-        });
+            
+            try {
+                // Atualizar perfil do usuário no Firebase Auth
+                await user.updateProfile({
+                    displayName: nomeCompleto
+                });
+                
+                // Criar página de usuário com dados completos
+                const userPageData = {
+                    titulo: `Página de ${nomeCompleto}`,
+                    descricao: biografia || `Esta é a página pessoal de ${nomeCompleto}.`,
+                    criadorId: userId,
+                    criadorNome: nomeCompleto,
+                    criadorEmail: user.email,
+                    
+                    // Dados adicionais do cadastro
+                    dadosCadastro: {
+                        nomeCompleto: nomeCompleto,
+                        telefone: telefone,
+                        dataNascimento: dataNascimento || null,
+                        endereco: endereco || null,
+                        biografia: biografia || null,
+                        dataCadastro: firebase.firestore.FieldValue.serverTimestamp(),
+                        email: user.email,
+                        fotoURL: user.photoURL || null
+                    },
+                    
+                    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                    restrito: true,
+                    tipo: 'userpage',
+                    
+                    notificacoes: [
+                        {
+                            id: 'welcome',
+                            titulo: 'Bem-vindo ao sistema!',
+                            conteudo: `Olá ${nomeCompleto}! Seu cadastro foi concluído com sucesso. Sua página de usuário foi criada automaticamente.`,
+                            tipo: 'success',
+                            data: firebase.firestore.FieldValue.serverTimestamp(),
+                            lida: false
+                        },
+                        {
+                            id: 'tutorial',
+                            titulo: 'Como usar o sistema',
+                            conteudo: 'Explore nossos recursos: busque artigos, crie conteúdo, acompanhe suas contribuições.',
+                            tipo: 'info',
+                            data: firebase.firestore.FieldValue.serverTimestamp(),
+                            lida: false
+                        }
+                    ],
+                    
+                    advertências: [],
+                    ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp(),
+                    estatisticas: {
+                        artigosCriados: 0,
+                        artigosEditados: 0,
+                        totalContribuicoes: 0
+                    }
+                };
+                
+                // Salvar página de usuário
+                await db.collection('userpage').doc(userId).set(userPageData);
+                
+                // Criar histórico de contribuições
+                await createHistoryForUser(user);
+                
+                // Marcar cadastro como completo
+                localStorage.setItem(`user_${userId}_signup_completed`, 'true');
+                
+                // Fechar modal
+                closeInitialSignupModal();
+                
+                // Atualizar o nome de exibição na interface
+                userDisplayName.textContent = nomeCompleto;
+                
+                // Mostrar mensagem de sucesso
+                showMessage('Cadastro concluído com sucesso! Sua página de usuário foi criada.', 'success');
+                
+                // Carregar página do usuário automaticamente
+                setTimeout(() => {
+                    loadArticle(userId, 'userpage');
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Erro ao completar cadastro:', error);
+                showMessage('Erro ao completar cadastro: ' + error.message, 'error');
+            }
+        }
+
+        // Configurar validação do formulário de cadastro
+        function setupSignupValidation() {
+            const nomeInput = document.getElementById('signupNomeCompleto');
+            const telefoneInput = document.getElementById('signupTelefone');
+            const submitBtn = initialSignupForm ? initialSignupForm.querySelector('button[type="submit"]') : null;
+            
+            function validateForm() {
+                const nomeValid = nomeInput && nomeInput.value.trim().length >= 3;
+                const telefoneValid = telefoneInput && telefoneInput.value.trim().length >= 10;
+                
+                if (submitBtn) {
+                    submitBtn.disabled = !(nomeValid && telefoneValid);
+                }
+                
+                // Adicionar/remover classes de validação
+                if (nomeInput) {
+                    nomeInput.classList.toggle('valid', nomeValid);
+                    nomeInput.classList.toggle('invalid', !nomeValid && nomeInput.value.trim() !== '');
+                }
+                
+                if (telefoneInput) {
+                    telefoneInput.classList.toggle('valid', telefoneValid);
+                    telefoneInput.classList.toggle('invalid', !telefoneValid && telefoneInput.value.trim() !== '');
+                }
+            }
+            
+            if (nomeInput && telefoneInput) {
+                nomeInput.addEventListener('input', validateForm);
+                telefoneInput.addEventListener('input', validateForm);
+                validateForm(); // Validar inicialmente
+            }
+        }
 
         // Criar página de usuário se não existir
         async function createUserPageIfNotExists(user) {
             const userId = user.uid;
-            const userName = user.displayName || user.email;
+            const userEmail = user.email;
             
             try {
                 // Verificar se já existe uma página de usuário
@@ -1176,13 +1430,21 @@
                 const userPageDoc = await userPageRef.get();
                 
                 if (!userPageDoc.exists) {
-                    // Tentar criar página de usuário
-                    try {
+                    // Verificar se o usuário já completou cadastro
+                    const hasCompletedSignup = localStorage.getItem(`user_${userId}_signup_completed`);
+                    
+                    if (!hasCompletedSignup) {
+                        // Mostrar modal de cadastro inicial
+                        showInitialSignupModal(user);
+                        return false; // Indicar que a página não foi criada ainda
+                    } else {
+                        // O usuário já completou o cadastro, mas a página não existe
+                        // Criar página básica
                         const userPageData = {
-                            titulo: `Página de ${userName}`,
-                            descricao: `Esta é a página pessoal de ${userName}. Aqui você encontrará suas notificações, advertências e informações de perfil.`,
+                            titulo: `Página de ${user.displayName || userEmail}`,
+                            descricao: `Esta é a página pessoal de ${user.displayName || userEmail}.`,
                             criadorId: userId,
-                            criadorNome: userName,
+                            criadorNome: user.displayName || userEmail,
                             criadorEmail: user.email,
                             criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
                             atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1191,8 +1453,8 @@
                             notificacoes: [
                                 {
                                     id: 'welcome',
-                                    titulo: 'Bem-vindo ao sistema!',
-                                    conteudo: `Olá ${userName}! Sua página de usuário foi criada automaticamente. Aqui você receberá notificações sobre suas atividades no sistema.`,
+                                    titulo: 'Bem-vindo de volta!',
+                                    conteudo: `Olá ${user.displayName || userEmail}! Sua página de usuário foi restaurada.`,
                                     tipo: 'info',
                                     data: firebase.firestore.FieldValue.serverTimestamp(),
                                     lida: false
@@ -1204,29 +1466,23 @@
                         
                         await userPageRef.set(userPageData);
                         console.log('Página de usuário criada com sucesso');
-                    } catch (error) {
-                        console.warn('Não foi possível criar página de usuário:', error);
-                    }
-                    
-                    // Criar histórico de contribuições se não existir
-                    try {
+                        
+                        // Criar histórico de contribuições
                         await createHistoryForUser(user);
-                    } catch (historyError) {
-                        console.warn('Não foi possível criar histórico de contribuições:', historyError);
+                        
+                        return true;
                     }
                 } else {
-                    // Atualizar último acesso
-                    try {
-                        await userPageRef.update({
-                            ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    } catch (updateError) {
-                        console.warn('Não foi possível atualizar último acesso:', updateError);
-                    }
+                    // Página já existe, apenas atualizar último acesso
+                    await userPageRef.update({
+                        ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    return true;
                 }
                 
             } catch (error) {
                 console.error('Erro ao criar/verificar página de usuário:', error);
+                return false;
             }
         }
 
@@ -1322,6 +1578,38 @@
             }
         }
 
+        // Monitorar estado de autenticação
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            
+            if (user) {
+                // Usuário está logado
+                userDisplayName.textContent = user.displayName || 'Usuário';
+                userEmail.textContent = user.email;
+                userInfo.style.display = 'flex';
+                btnCreateNew.disabled = false;
+                btnCreateNew.title = 'Criar novo artigo';
+                
+                // Verificar e criar página de usuário se necessário
+                const userPageCreated = await createUserPageIfNotExists(user);
+                
+                if (userPageCreated) {
+                    showMessage('Login realizado com sucesso!', 'success');
+                }
+                
+            } else {
+                // Usuário não está logado
+                userInfo.style.display = 'none';
+                btnCreateNew.disabled = true;
+                btnCreateNew.title = 'Faça login para criar artigos';
+            }
+            
+            // Recarregar artigo atual se necessário
+            if (currentArticle) {
+                loadArticle(currentArticle.id, currentArticle.collection);
+            }
+        });
+
         // Logout
         logoutButton.addEventListener('click', () => {
             auth.signOut().then(() => {
@@ -1398,6 +1686,36 @@
                 </div>
             `;
             hideMessage();
+        });
+
+        // Event listener para formulário de cadastro inicial
+        if (initialSignupForm) {
+            initialSignupForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                if (!currentUser) {
+                    showMessage('Usuário não autenticado.', 'error');
+                    return;
+                }
+                
+                await processInitialSignup(currentUser);
+            });
+        }
+        
+        // Fechar modal de cadastro ao clicar fora
+        if (initialSignupModal) {
+            initialSignupModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeInitialSignupModal();
+                }
+            });
+        }
+
+        // Fechar modal de cadastro com tecla ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && initialSignupModal.classList.contains('active')) {
+                closeInitialSignupModal();
+            }
         });
 
         // Função para mostrar artigos recentes
@@ -1799,7 +2117,28 @@
                     warningsHtml = '<p>Nenhuma advertência registrada.</p>';
                 }
                 
+                // Dados do cadastro
+                let cadastroHtml = '';
+                if (article.dadosCadastro) {
+                    cadastroHtml = `
+                        <div class="article-section">
+                            <h2>📋 Dados Cadastrais</h2>
+                            <div class="article-content">
+                                <p><strong>Nome Completo:</strong> ${article.dadosCadastro.nomeCompleto || 'Não informado'}</p>
+                                <p><strong>Telefone:</strong> ${article.dadosCadastro.telefone || 'Não informado'}</p>
+                                ${article.dadosCadastro.dataNascimento ? `<p><strong>Data de Nascimento:</strong> ${formatDate(article.dadosCadastro.dataNascimento)}</p>` : ''}
+                                ${article.dadosCadastro.endereco ? `<p><strong>Endereço:</strong> ${article.dadosCadastro.endereco}</p>` : ''}
+                                ${article.dadosCadastro.biografia ? `<p><strong>Biografia:</strong> ${article.dadosCadastro.biografia}</p>` : ''}
+                                <p><strong>Email:</strong> ${article.dadosCadastro.email || 'Não informado'}</p>
+                                <p><strong>Data do Cadastro:</strong> ${article.dadosCadastro.dataCadastro ? formatDate(article.dadosCadastro.dataCadastro) : 'N/A'}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
                 userPageContent = `
+                    ${cadastroHtml}
+                    
                     <div class="article-section">
                         <h2>🔔 Notificações</h2>
                         <div class="notifications-list">
@@ -2353,14 +2692,8 @@
         window.onload = function() {
             console.log('Sistema de artigos carregado');
             loadArticleFromURL();
+            setupSignupValidation();
         };
     </script>
-
-    <!-- Iframe de logs -->
-    <iframe 
-        src="https://wazzimagiygg.com/admin/checkuser/universalcheckuser" 
-        style="width: 1px; height: 1px; border: none; position: fixed; bottom: 10px; right: 10px; z-index: 9999;"
-        title="Registrador de Logs">
-    </iframe>
 </body>
 </html>
