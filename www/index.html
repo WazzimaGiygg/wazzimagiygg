@@ -1310,14 +1310,13 @@
         let currentCollectionFilter = 'todos';
         let guestMode = false;
 
-        // Lista de coleções disponíveis (removendo 'admin' se não tiver permissões)
+        // Lista de coleções disponíveis
         const availableCollections = [
             { id: 'materiadeensaio', name: 'Material de Ensaio' },
             { id: 'wikiworldweb', name: 'Wiki World Web' },
             { id: 'materias', name: 'Matérias' },
             { id: 'wikicodigo', name: 'Wiki Código' },
             { id: 'materia', name: 'Matéria' },
-            // { id: 'admin', name: 'Admin' }, // Removido devido a problemas de permissões
             { id: 'userpage', name: 'Página de Usuário' },
             { id: 'historicodecontribuicoes', name: 'Histórico de Contribuições' }
         ];
@@ -1334,20 +1333,83 @@
             'historicodecontribuicoes': 'Histórico de Contribuições'
         };
 
-        function canModifyUserpage(userId) {
-    return (request.auth != null && 
-            request.auth.uid == userId && 
-            isNotBanned()) 
-           || isAdmin()
-           || isAdminUID();
-}
+        // ============================================
+        // FUNÇÕES DE VERIFICAÇÃO DE PERMISSÕES
+        // ============================================
 
-        // Função para criar Timestamp atual (CORREÇÃO DO ERRO)
+        // Função para verificar se o usuário é admin
+        async function verificarAdmin(user) {
+            if (!user) return false;
+            
+            try {
+                // Método 1: Verificar no documento do usuário (coleção 'users')
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().isAdmin === true) {
+                    return true;
+                }
+                
+                // Método 2: Verificar UID específico (opcional)
+                const adminUIDs = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1']; // Adicione outros UIDs se necessário
+                if (adminUIDs.includes(user.uid)) {
+                    return true;
+                }
+                
+                return false;
+            } catch (error) {
+                console.error('Erro ao verificar admin:', error);
+                return false;
+            }
+        }
+
+        // Função para verificar se usuário está banido
+        async function verificarBanido(user) {
+            if (!user) return false;
+            
+            try {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().isBanned === true) {
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Erro ao verificar banimento:', error);
+                return false;
+            }
+        }
+
+        // Função para verificar se pode modificar userpage
+        async function podeModificarUserpage(userId) {
+            if (!currentUser) return false;
+            
+            // Se for o próprio usuário, verificar se não está banido
+            if (currentUser.uid === userId) {
+                const isBanned = await verificarBanido(currentUser);
+                if (isBanned) {
+                    showMessage('Usuário banido. Não é possível modificar a página.', 'error');
+                    return false;
+                }
+                return true;
+            }
+            
+            // Se não for o próprio usuário, verificar se é admin
+            const isAdmin = await verificarAdmin(currentUser);
+            if (isAdmin) {
+                return true;
+            }
+            
+            return false;
+        }
+
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
+
+        // Função para criar Timestamp atual
         function getCurrentTimestamp() {
             return firebase.firestore.Timestamp.now();
         }
 
-        // Função para criar objeto de notificação (CORREÇÃO DO ERRO)
+        // Função para criar objeto de notificação
         function createNotification(id, titulo, conteudo, tipo = 'info') {
             return {
                 id: id,
@@ -1402,12 +1464,26 @@
             }
             
             try {
-                // Atualizar perfil do usuário no Firebase Auth
+                // 1. Atualizar perfil do usuário no Firebase Auth
                 await user.updateProfile({
                     displayName: nomeCompleto
                 });
                 
-                // Criar notificações com timestamps corretos (CORREÇÃO DO ERRO)
+                // 2. Criar documento do usuário na coleção 'users' (IMPORTANTE!)
+                const userData = {
+                    name: nomeCompleto,
+                    email: user.email,
+                    profilePictureUrl: user.photoURL || null,
+                    isAdmin: false,
+                    isBanned: false,
+                    isTeatcher: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                await db.collection('users').doc(userId).set(userData, { merge: true });
+                
+                // 3. Criar notificações com timestamps corretos
                 const notificacoes = [
                     createNotification(
                         'welcome',
@@ -1423,7 +1499,7 @@
                     )
                 ];
                 
-                // Criar página de usuário com dados completos
+                // 4. Criar página de usuário com dados completos
                 const userPageData = {
                     titulo: `Página de ${nomeCompleto}`,
                     descricao: biografia || `Esta é a página pessoal de ${nomeCompleto}.`,
@@ -1459,25 +1535,25 @@
                     }
                 };
                 
-                // Salvar página de usuário
+                // 5. Salvar página de usuário
                 await db.collection('userpage').doc(userId).set(userPageData);
                 
-                // Criar histórico de contribuições
+                // 6. Criar histórico de contribuições
                 await createHistoryForUser(user);
                 
-                // Marcar cadastro como completo
+                // 7. Marcar cadastro como completo
                 localStorage.setItem(`user_${userId}_signup_completed`, 'true');
                 
-                // Fechar modal
+                // 8. Fechar modal
                 closeInitialSignupModal();
                 
-                // Atualizar o nome de exibição na interface
+                // 9. Atualizar o nome de exibição na interface
                 userDisplayName.textContent = nomeCompleto;
                 
-                // Mostrar mensagem de sucesso
+                // 10. Mostrar mensagem de sucesso
                 showMessage('Cadastro concluído com sucesso! Sua página de usuário foi criada.', 'success');
                 
-                // Carregar página do usuário automaticamente
+                // 11. Carregar página do usuário automaticamente
                 setTimeout(() => {
                     loadArticle(userId, 'userpage');
                 }, 1500);
@@ -1521,7 +1597,7 @@
             }
         }
 
-        // Criar página de usuário se não existir (CORRIGIDO)
+        // Criar página de usuário se não existir (CORRIGIDA)
         async function createUserPageIfNotExists(user) {
             const userId = user.uid;
             const userEmail = user.email;
@@ -1530,6 +1606,24 @@
                 // Verificar se já existe uma página de usuário
                 const userPageRef = db.collection('userpage').doc(userId);
                 const userPageDoc = await userPageRef.get();
+                
+                // Verificar se já existe um documento na coleção 'users' para este usuário
+                const userDocRef = db.collection('users').doc(userId);
+                const userDoc = await userDocRef.get();
+                
+                if (!userDoc.exists) {
+                    // Criar documento básico na coleção 'users' para que as regras funcionem
+                    await userDocRef.set({
+                        name: user.displayName || userEmail,
+                        email: userEmail,
+                        profilePictureUrl: user.photoURL || null,
+                        isAdmin: false,
+                        isBanned: false,
+                        isTeatcher: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                }
                 
                 if (!userPageDoc.exists) {
                     // Verificar se o usuário já completou cadastro
@@ -1561,7 +1655,13 @@
                                 )
                             ],
                             advertências: [],
-                            ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
+                            ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp(),
+                            dadosCadastro: {
+                                nomeCompleto: user.displayName || '',
+                                email: user.email,
+                                fotoURL: user.photoURL || null,
+                                dataCadastro: firebase.firestore.FieldValue.serverTimestamp()
+                            }
                         };
                         
                         await userPageRef.set(userPageData);
@@ -1614,22 +1714,6 @@
                     
                     await historyRef.set(historyData);
                     console.log('Histórico de contribuições criado com sucesso');
-                    
-                    // Adicionar notificação na página do usuário sobre o histórico (CORREÇÃO DO ERRO)
-                    try {
-                        await db.collection('userpage').doc(userId).update({
-                            notificacoes: firebase.firestore.FieldValue.arrayUnion(
-                                createNotification(
-                                    'history_created',
-                                    'Histórico de contribuições criado',
-                                    'Seu histórico de contribuições foi criado automaticamente. Todas suas contribuições serão registradas aqui.',
-                                    'info'
-                                )
-                            )
-                        });
-                    } catch (updateError) {
-                        console.warn('Não foi possível adicionar notificação:', updateError);
-                    }
                 }
                 
                 return historyRef;
@@ -1639,7 +1723,7 @@
             }
         }
 
-        // Adicionar contribuição ao histórico (CORRIGIDO)
+        // Adicionar contribuição ao histórico
         async function addContribution(userId, articleId, articleCollection, articleTitle, action) {
             try {
                 const historyRef = db.collection('historicodecontribuicoes').doc(userId);
@@ -1649,7 +1733,7 @@
                     artigoColecao: articleCollection,
                     artigoTitulo: articleTitle,
                     acao: action, // 'criacao' ou 'edicao'
-                    data: getCurrentTimestamp() // CORREÇÃO DO ERRO
+                    data: getCurrentTimestamp()
                 };
                 
                 // Adicionar contribuição ao array
@@ -1682,9 +1766,6 @@
             try {
                 const result = await auth.signInWithPopup(googleProvider);
                 showMessage('Login realizado com sucesso!', 'success');
-                
-                // Se for primeiro acesso, o modal de cadastro será mostrado automaticamente
-                // pelo createUserPageIfNotExists chamado no auth.onAuthStateChanged
                 
                 return result.user;
             } catch (error) {
@@ -1930,7 +2011,7 @@
             }
         });
 
-        // Função para mostrar artigos recentes (CORRIGIDA - ignorando coleção admin)
+        // Função para mostrar artigos recentes
         function showRecentArticles() {
             articleContent.style.display = 'none';
             recentArticlesPanel.style.display = 'block';
@@ -1953,7 +2034,7 @@
             };
             collectionSelector.appendChild(allButton);
             
-            // Adicionar botões para cada coleção (exceto admin)
+            // Adicionar botões para cada coleção
             availableCollections.forEach(collection => {
                 const button = document.createElement('button');
                 button.className = `collection-btn ${currentCollectionFilter === collection.id ? 'active' : ''}`;
@@ -1981,7 +2062,7 @@
             });
         }
 
-        // Carregar artigos recentes (CORRIGIDA - tratamento de erros melhorado)
+        // Carregar artigos recentes
         async function loadRecentArticles() {
             recentArticlesGrid.innerHTML = '';
             recentLoading.style.display = 'block';
@@ -2001,20 +2082,17 @@
                         
                         // Tentar diferentes formas de ordenação
                         try {
-                            // Primeiro tenta ordenar por atualizadoEm
                             querySnapshot = await db.collection(collectionId)
                                 .orderBy('atualizadoEm', 'desc')
                                 .limit(5)
                                 .get();
                         } catch (orderError) {
-                            // Se falhar, tenta ordenar por criadoEm
                             try {
                                 querySnapshot = await db.collection(collectionId)
                                     .orderBy('criadoEm', 'desc')
                                     .limit(5)
                                     .get();
                             } catch (secondOrderError) {
-                                // Se falhar novamente, busca sem ordenação
                                 querySnapshot = await db.collection(collectionId)
                                     .limit(5)
                                     .get();
@@ -2026,7 +2104,7 @@
                             
                             // Verificar se artigo é restrito
                             if (articleData.restrito && !currentUser && !guestMode) {
-                                return; // Pular artigos restritos se usuário não estiver logado
+                                return;
                             }
                             
                             recentArticles.push({
@@ -2038,11 +2116,10 @@
                         });
                     } catch (error) {
                         console.error(`Erro ao buscar artigos da coleção ${collectionId}:`, error);
-                        // Continuar com outras coleções
                     }
                 }
                 
-                // Ordenar todos os artigos por data (mais recente primeiro)
+                // Ordenar todos os artigos por data
                 recentArticles.sort((a, b) => {
                     const dateA = a.atualizadoEm ? (a.atualizadoEm.toDate ? a.atualizadoEm.toDate() : new Date(a.atualizadoEm)) : 
                                 a.criadoEm ? (a.criadoEm.toDate ? a.criadoEm.toDate() : new Date(a.criadoEm)) : new Date(0);
@@ -2259,8 +2336,19 @@
             const accessText = article.restrito ? 'Restrito' : 'Público';
             const accessClass = article.restrito ? 'access-display' : '';
             
-            const canEdit = currentUser && (currentUser.uid === article.criadorId || 
-                                           currentUser.email === 'admin@exemplo.com');
+            // Verificar se pode editar (próprio usuário ou admin)
+            let canEdit = false;
+            if (currentUser) {
+                if (article.collection === 'userpage' || article.collection === 'historicodecontribuicoes') {
+                    // Para estas coleções, verificar permissões especiais
+                    canEdit = currentUser.uid === article.id || 
+                              article.criadorId === currentUser.uid;
+                } else {
+                    // Para outras coleções, lógica padrão
+                    canEdit = currentUser.uid === article.criadorId || 
+                              currentUser.email === 'admin@exemplo.com';
+                }
+            }
             
             let shareButton = '';
             if (article.id && article.collection) {
@@ -2380,7 +2468,7 @@
             if (article.collection === 'historicodecontribuicoes') {
                 let contributionsHtml = '';
                 if (article.contribuicoes && article.contribuicoes.length > 0) {
-                    // Ordenar contribuições por data (mais recente primeiro)
+                    // Ordenar contribuições por data
                     const sortedContributions = [...article.contribuicoes].sort((a, b) => {
                         const dateA = a.data ? (a.data.toDate ? a.data.toDate() : new Date(a.data)) : new Date(0);
                         const dateB = b.data ? (b.data.toDate ? b.data.toDate() : new Date(b.data)) : new Date(0);
@@ -2484,10 +2572,8 @@
                 return;
             }
             
-            // Primeiro verifica se o histórico existe, se não, cria
             try {
                 await createHistoryForUser(currentUser);
-                // Depois de criar/verificar, carrega o artigo
                 loadArticle(currentUser.uid, 'historicodecontribuicoes');
             } catch (error) {
                 console.error('Erro ao acessar histórico:', error);
@@ -2652,6 +2738,15 @@
         async function deleteArticle(uid, collection) {
             if (!confirm('Tem certeza que deseja excluir este artigo? Esta ação não pode ser desfeita.')) {
                 return;
+            }
+            
+            // Verificar permissões para userpage e historicodecontribuicoes
+            if (collection === 'userpage' || collection === 'historicodecontribuicoes') {
+                const podeExcluir = await podeModificarUserpage(uid);
+                if (!podeExcluir) {
+                    showMessage('Você não tem permissão para excluir este documento.', 'error');
+                    return;
+                }
             }
             
             try {
@@ -2852,16 +2947,31 @@
             }
         });
 
-        // Funções globais
-        window.googleLogin = googleLogin;
-        window.enableGuestMode = enableGuestMode;
-        window.editArticle = function(uid, collection) {
+        // ============================================
+        // FUNÇÕES GLOBAIS
+        // ============================================
+
+        // Função para editar artigo (com verificação de permissão)
+        window.editArticle = async function(uid, collection) {
             if (!currentUser) {
                 showLoginRequired();
                 return;
             }
+            
+            // Verificar permissões específicas para userpage e historicodecontribuicoes
+            if (collection === 'userpage' || collection === 'historicodecontribuicoes') {
+                const podeEditar = await podeModificarUserpage(uid);
+                if (!podeEditar) {
+                    showMessage('Você não tem permissão para editar este documento.', 'error');
+                    return;
+                }
+            }
+            
             showArticleForm(uid, collection);
         };
+
+        window.googleLogin = googleLogin;
+        window.enableGuestMode = enableGuestMode;
         window.deleteArticle = deleteArticle;
         window.openShareModal = openShareModal;
         window.closeShareModal = closeShareModal;
