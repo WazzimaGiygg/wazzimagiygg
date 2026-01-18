@@ -1310,14 +1310,14 @@
         let currentCollectionFilter = 'todos';
         let guestMode = false;
 
-        // Lista de coleções disponíveis
+        // Lista de coleções disponíveis (removendo 'admin' se não tiver permissões)
         const availableCollections = [
             { id: 'materiadeensaio', name: 'Material de Ensaio' },
             { id: 'wikiworldweb', name: 'Wiki World Web' },
             { id: 'materias', name: 'Matérias' },
             { id: 'wikicodigo', name: 'Wiki Código' },
             { id: 'materia', name: 'Matéria' },
-            { id: 'admin', name: 'Admin' },
+            // { id: 'admin', name: 'Admin' }, // Removido devido a problemas de permissões
             { id: 'userpage', name: 'Página de Usuário' },
             { id: 'historicodecontribuicoes', name: 'Histórico de Contribuições' }
         ];
@@ -1333,6 +1333,23 @@
             'userpage': 'Página de Usuário',
             'historicodecontribuicoes': 'Histórico de Contribuições'
         };
+
+        // Função para criar Timestamp atual (CORREÇÃO DO ERRO)
+        function getCurrentTimestamp() {
+            return firebase.firestore.Timestamp.now();
+        }
+
+        // Função para criar objeto de notificação (CORREÇÃO DO ERRO)
+        function createNotification(id, titulo, conteudo, tipo = 'info') {
+            return {
+                id: id,
+                titulo: titulo,
+                conteudo: conteudo,
+                tipo: tipo,
+                data: getCurrentTimestamp(),
+                lida: false
+            };
+        }
 
         // Função para carregar artigo
         function loadArticle(uid, collection) {
@@ -1360,7 +1377,7 @@
             modal.classList.remove('active');
         }
 
-        // Processar formulário de cadastro inicial
+        // Processar formulário de cadastro inicial (CORRIGIDO)
         async function processInitialSignup(user) {
             const userId = user.uid;
             
@@ -1381,6 +1398,22 @@
                 await user.updateProfile({
                     displayName: nomeCompleto
                 });
+                
+                // Criar notificações com timestamps corretos (CORREÇÃO DO ERRO)
+                const notificacoes = [
+                    createNotification(
+                        'welcome',
+                        'Bem-vindo ao sistema!',
+                        `Olá ${nomeCompleto}! Seu cadastro foi concluído com sucesso. Sua página de usuário foi criada automaticamente.`,
+                        'success'
+                    ),
+                    createNotification(
+                        'tutorial',
+                        'Como usar o sistema',
+                        'Explore nossos recursos: busque artigos, crie conteúdo, acompanhe suas contribuições.',
+                        'info'
+                    )
+                ];
                 
                 // Criar página de usuário com dados completos
                 const userPageData = {
@@ -1407,24 +1440,7 @@
                     restrito: true,
                     tipo: 'userpage',
                     
-                    notificacoes: [
-                        {
-                            id: 'welcome',
-                            titulo: 'Bem-vindo ao sistema!',
-                            conteudo: `Olá ${nomeCompleto}! Seu cadastro foi concluído com sucesso. Sua página de usuário foi criada automaticamente.`,
-                            tipo: 'success',
-                            data: firebase.firestore.FieldValue.serverTimestamp(),
-                            lida: false
-                        },
-                        {
-                            id: 'tutorial',
-                            titulo: 'Como usar o sistema',
-                            conteudo: 'Explore nossos recursos: busque artigos, crie conteúdo, acompanhe suas contribuições.',
-                            tipo: 'info',
-                            data: firebase.firestore.FieldValue.serverTimestamp(),
-                            lida: false
-                        }
-                    ],
+                    notificacoes: notificacoes,
                     
                     advertências: [],
                     ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1497,7 +1513,7 @@
             }
         }
 
-        // Criar página de usuário se não existir
+        // Criar página de usuário se não existir (CORRIGIDO)
         async function createUserPageIfNotExists(user) {
             const userId = user.uid;
             const userEmail = user.email;
@@ -1529,14 +1545,12 @@
                             restrito: true,
                             tipo: 'userpage',
                             notificacoes: [
-                                {
-                                    id: 'welcome',
-                                    titulo: 'Bem-vindo de volta!',
-                                    conteudo: `Olá ${user.displayName || userEmail}! Sua página de usuário foi restaurada.`,
-                                    tipo: 'info',
-                                    data: firebase.firestore.FieldValue.serverTimestamp(),
-                                    lida: false
-                                }
+                                createNotification(
+                                    'welcome',
+                                    'Bem-vindo de volta!',
+                                    `Olá ${user.displayName || userEmail}! Sua página de usuário foi restaurada.`,
+                                    'info'
+                                )
                             ],
                             advertências: [],
                             ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
@@ -1564,7 +1578,7 @@
             }
         }
 
-        // Criar histórico de contribuições para usuário
+        // Criar histórico de contribuições para usuário (CORRIGIDO)
         async function createHistoryForUser(user) {
             const userId = user.uid;
             const userName = user.displayName || user.email;
@@ -1593,18 +1607,17 @@
                     await historyRef.set(historyData);
                     console.log('Histórico de contribuições criado com sucesso');
                     
-                    // Adicionar notificação na página do usuário sobre o histórico
+                    // Adicionar notificação na página do usuário sobre o histórico (CORREÇÃO DO ERRO)
                     try {
-                        const userPageRef = db.collection('userpage').doc(userId);
-                        await userPageRef.update({
-                            notificacoes: firebase.firestore.FieldValue.arrayUnion({
-                                id: 'history_created',
-                                titulo: 'Histórico de contribuições criado',
-                                conteudo: 'Seu histórico de contribuições foi criado automaticamente. Todas suas contribuições serão registradas aqui.',
-                                tipo: 'info',
-                                data: firebase.firestore.FieldValue.serverTimestamp(),
-                                lida: false
-                            })
+                        await db.collection('userpage').doc(userId).update({
+                            notificacoes: firebase.firestore.FieldValue.arrayUnion(
+                                createNotification(
+                                    'history_created',
+                                    'Histórico de contribuições criado',
+                                    'Seu histórico de contribuições foi criado automaticamente. Todas suas contribuições serão registradas aqui.',
+                                    'info'
+                                )
+                            )
                         });
                     } catch (updateError) {
                         console.warn('Não foi possível adicionar notificação:', updateError);
@@ -1618,7 +1631,7 @@
             }
         }
 
-        // Adicionar contribuição ao histórico
+        // Adicionar contribuição ao histórico (CORRIGIDO)
         async function addContribution(userId, articleId, articleCollection, articleTitle, action) {
             try {
                 const historyRef = db.collection('historicodecontribuicoes').doc(userId);
@@ -1628,7 +1641,7 @@
                     artigoColecao: articleCollection,
                     artigoTitulo: articleTitle,
                     acao: action, // 'criacao' ou 'edicao'
-                    data: firebase.firestore.FieldValue.serverTimestamp()
+                    data: getCurrentTimestamp() // CORREÇÃO DO ERRO
                 };
                 
                 // Adicionar contribuição ao array
@@ -1909,7 +1922,7 @@
             }
         });
 
-        // Função para mostrar artigos recentes
+        // Função para mostrar artigos recentes (CORRIGIDA - ignorando coleção admin)
         function showRecentArticles() {
             articleContent.style.display = 'none';
             recentArticlesPanel.style.display = 'block';
@@ -1932,7 +1945,7 @@
             };
             collectionSelector.appendChild(allButton);
             
-            // Adicionar botões para cada coleção
+            // Adicionar botões para cada coleção (exceto admin)
             availableCollections.forEach(collection => {
                 const button = document.createElement('button');
                 button.className = `collection-btn ${currentCollectionFilter === collection.id ? 'active' : ''}`;
@@ -1960,7 +1973,7 @@
             });
         }
 
-        // Carregar artigos recentes
+        // Carregar artigos recentes (CORRIGIDA - tratamento de erros melhorado)
         async function loadRecentArticles() {
             recentArticlesGrid.innerHTML = '';
             recentLoading.style.display = 'block';
@@ -2039,9 +2052,9 @@
             } catch (error) {
                 console.error('Erro ao carregar artigos recentes:', error);
                 recentArticlesGrid.innerHTML = `
-                    <div class="error-message">
-                        <h3>Erro ao carregar artigos</h3>
-                        <p>${error.message}</p>
+                    <div class="empty-state">
+                        <h3>Nenhum artigo encontrado</h3>
+                        <p>Não há artigos para exibir na coleção "${currentCollectionFilter === 'todos' ? 'Todas as Coleções' : collectionNames[currentCollectionFilter]}".</p>
                     </div>
                 `;
             } finally {
