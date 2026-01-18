@@ -465,6 +465,15 @@
 
         #qrcode {
             margin: 0 auto;
+            width: 150px;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #qrcode canvas {
+            border-radius: 8px;
         }
 
         .social-share-btn {
@@ -707,7 +716,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     
-    <!-- Biblioteca QR Code -->
+    <!-- Biblioteca QR Code - Usando uma mais confiável -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
     <script>
@@ -755,11 +764,13 @@
         const messageArea = document.getElementById('messageArea');
         const shareModal = document.getElementById('shareModal');
         const shareLinkInput = document.getElementById('shareLinkInput');
+        const qrcodeContainer = document.getElementById('qrcode');
 
         // Estado da aplicação
         let currentUser = null;
         let currentArticle = null;
         let currentShareUrl = '';
+        let qrCodeInstance = null;
 
         // Lista de coleções disponíveis (atualizada com suas coleções)
         const availableCollections = [
@@ -847,29 +858,47 @@
 
         // Função para abrir modal de compartilhamento
         function openShareModal(uid, collection) {
+            console.log('Abrindo modal de compartilhamento para:', uid, collection);
+            
             // Gerar URL para compartilhamento
             const baseUrl = window.location.origin + window.location.pathname;
             currentShareUrl = `${baseUrl}?uid=${encodeURIComponent(uid)}&collection=${encodeURIComponent(collection)}`;
             
+            console.log('URL gerada:', currentShareUrl);
+            
             // Atualizar campo de link
             shareLinkInput.value = currentShareUrl;
             
-            // Gerar QR Code
-            document.getElementById('qrcode').innerHTML = '';
-            QRCode.toCanvas(document.getElementById('qrcode'), currentShareUrl, {
-                width: 150,
-                height: 150,
-                margin: 1,
-                color: {
-                    dark: '#333333',
-                    light: '#FFFFFF'
+            // Limpar QR Code anterior
+            qrcodeContainer.innerHTML = '';
+            
+            // Verificar se a biblioteca QRCode está disponível
+            if (typeof QRCode !== 'undefined') {
+                try {
+                    // Gerar QR Code usando a biblioteca
+                    QRCode.toCanvas(qrcodeContainer, currentShareUrl, {
+                        width: 150,
+                        margin: 1,
+                        color: {
+                            dark: '#333333',
+                            light: '#FFFFFF'
+                        }
+                    }, function(error) {
+                        if (error) {
+                            console.error('Erro ao gerar QR Code:', error);
+                            qrcodeContainer.innerHTML = '<p style="color: #666; font-size: 14px;">QR Code não disponível</p>';
+                        } else {
+                            console.log('QR Code gerado com sucesso');
+                        }
+                    });
+                } catch (error) {
+                    console.error('Erro ao tentar gerar QR Code:', error);
+                    qrcodeContainer.innerHTML = '<p style="color: #666; font-size: 14px;">QR Code não disponível</p>';
                 }
-            }, function(error) {
-                if (error) {
-                    console.error('Erro ao gerar QR Code:', error);
-                    document.getElementById('qrcode').innerHTML = '<p>Erro ao gerar QR Code</p>';
-                }
-            });
+            } else {
+                console.warn('Biblioteca QRCode não carregada');
+                qrcodeContainer.innerHTML = '<p style="color: #666; font-size: 14px;">QR Code não disponível</p>';
+            }
             
             // Mostrar modal
             shareModal.classList.add('active');
@@ -882,35 +911,46 @@
 
         // Função para copiar link para a área de transferência
         function copyLinkToClipboard() {
+            if (!currentShareUrl) {
+                showMessage('Nenhum link disponível para copiar.', 'error');
+                return;
+            }
+            
             navigator.clipboard.writeText(currentShareUrl).then(() => {
                 showMessage('Link copiado para a área de transferência!', 'success');
             }).catch(err => {
                 console.error('Erro ao copiar link: ', err);
-                showMessage('Erro ao copiar link. Tente novamente.', 'error');
+                // Fallback para método antigo
+                shareLinkInput.select();
+                document.execCommand('copy');
+                showMessage('Link copiado!', 'success');
             });
         }
 
         // Função para compartilhar via WhatsApp
         function shareViaWhatsApp() {
+            if (!currentShareUrl) return;
+            
             const text = `Confira este artigo: ${currentShareUrl}`;
             const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
             window.open(url, '_blank');
-            closeShareModal();
         }
 
         // Função para compartilhar via Facebook
         function shareViaFacebook() {
+            if (!currentShareUrl) return;
+            
             const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentShareUrl)}`;
             window.open(url, '_blank', 'width=600,height=400');
-            closeShareModal();
         }
 
         // Função para compartilhar via Twitter
         function shareViaTwitter() {
+            if (!currentShareUrl) return;
+            
             const text = `Confira este artigo:`;
             const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(currentShareUrl)}`;
             window.open(url, '_blank', 'width=600,height=400');
-            closeShareModal();
         }
 
         // Fechar modal ao clicar fora
@@ -1042,29 +1082,36 @@
             const canEdit = currentUser && (currentUser.uid === article.criadorId || 
                                            currentUser.email === 'admin@exemplo.com');
             
-            let actionsHtml = '';
             // Botão de compartilhamento sempre disponível
-            actionsHtml = `
-                <button onclick="openShareModal('${article.id}', '${article.collection}')" class="btn btn-warning">
-                    <i class="fas fa-share-alt"></i> Compartilhar
-                </button>
-                <button onclick="window.print()" class="btn btn-secondary">
-                    <i class="fas fa-print"></i> Imprimir
-                </button>
+            let shareButton = '';
+            if (article.id && article.collection) {
+                shareButton = `
+                    <button onclick="openShareModal('${article.id}', '${article.collection}')" class="btn btn-warning">
+                        <i class="fas fa-share-alt"></i> Compartilhar
+                    </button>
+                `;
+            }
+            
+            let actionsHtml = `
+                <div class="article-actions">
+                    ${shareButton}
+                    <button onclick="window.print()" class="btn btn-secondary">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
             `;
             
             if (canEdit) {
-                actionsHtml = `
+                actionsHtml += `
                     <button onclick="editArticle('${article.id}', '${article.collection}')" class="btn btn-primary">
                         <i class="fas fa-edit"></i> Editar
                     </button>
                     <button onclick="deleteArticle('${article.id}', '${article.collection}')" class="btn btn-danger">
                         <i class="fas fa-trash"></i> Excluir
                     </button>
-                ` + actionsHtml;
+                `;
             }
-
-            actionsHtml = `<div class="article-actions">${actionsHtml}</div>`;
+            
+            actionsHtml += '</div>';
 
             articleContent.innerHTML = `
                 <div class="article-container">
@@ -1414,6 +1461,7 @@
 
         // Inicializar
         window.onload = function() {
+            console.log('Sistema de compartilhamento carregado');
             loadArticleFromURL();
         };
     </script>
