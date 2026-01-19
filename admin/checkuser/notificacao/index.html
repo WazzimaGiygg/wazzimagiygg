@@ -43,13 +43,92 @@
             padding: 20px;
         }
 
+        /* Login Container */
+        .login-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container.active {
+            display: flex;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .login-card h2 {
+            color: var(--cor-primaria);
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+
+        .login-card p {
+            color: var(--cor-texto-claro);
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .btn-google {
+            background: #DB4437;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-google:hover {
+            background: #C33C2F;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(219, 68, 55, 0.4);
+        }
+
+        .btn-logout {
+            background: var(--cor-perigo);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-logout:hover {
+            background: #c82333;
+        }
+
+        /* Main Content */
         .header {
             background: white;
             border-radius: 15px;
             padding: 30px;
             margin-bottom: 30px;
             box-shadow: var(--sombra);
-            text-align: center;
             border-left: 5px solid var(--cor-primaria);
         }
 
@@ -480,23 +559,75 @@
             40% { content: ".."; }
             60%, 100% { content: "..."; }
         }
+
+        /* User Header */
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: var(--sombra);
+        }
+
+        .user-info-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar-small {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--cor-primaria);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Cabeçalho -->
+    <!-- Container de Login -->
+    <div id="loginContainer" class="login-container active">
+        <div class="login-card">
+            <h2><i class="fas fa-shield-alt"></i> Gerenciador de Advertências</h2>
+            <p>Faça login com sua conta Google para acessar o sistema de gerenciamento de advertências.</p>
+            <button id="btnGoogleLogin" class="btn-google">
+                <i class="fab fa-google"></i> Entrar com Google
+            </button>
+            <div style="margin-top: 20px; color: #666; font-size: 0.9em;">
+                <p><strong>Atenção:</strong> Apenas administradores podem acessar este sistema.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteúdo Principal (só aparece após login) -->
+    <div id="mainContent" class="container" style="display: none;">
+        <!-- Cabeçalho do Usuário -->
+        <div id="userHeader" class="user-header" style="display: none;">
+            <div class="user-info-left">
+                <div class="user-avatar-small" id="userAvatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <div id="currentUserName" style="font-weight: 600;">Usuário</div>
+                    <div id="currentUserEmail" style="font-size: 0.9em; color: #666;">usuario@email.com</div>
+                </div>
+            </div>
+            <button id="btnLogout" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Sair
+            </button>
+        </div>
+
+        <!-- Cabeçalho Principal -->
         <div class="header">
             <h1><i class="fas fa-exclamation-triangle"></i> Gerenciador de Advertências</h1>
             <p>Gerencie advertências para usuários do sistema</p>
-        </div>
-
-        <!-- Informações do Usuário -->
-        <div id="userInfo" class="user-info" style="display: none;">
-            <div class="user-avatar">
-                <i class="fas fa-user"></i>
-            </div>
-            <div class="user-name" id="currentUserName">Carregando...</div>
-            <div class="user-email" id="currentUserEmail">usuario@exemplo.com</div>
         </div>
 
         <!-- Área de Mensagens -->
@@ -666,6 +797,7 @@
 
         const db = firebase.firestore();
         const auth = firebase.auth();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
 
         // Variáveis globais
         let currentUserData = null;
@@ -673,9 +805,14 @@
         let selectedUserId = null;
 
         // Elementos DOM
-        const userInfo = document.getElementById('userInfo');
+        const loginContainer = document.getElementById('loginContainer');
+        const mainContent = document.getElementById('mainContent');
+        const userHeader = document.getElementById('userHeader');
+        const userAvatar = document.getElementById('userAvatar');
         const currentUserName = document.getElementById('currentUserName');
         const currentUserEmail = document.getElementById('currentUserEmail');
+        const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+        const btnLogout = document.getElementById('btnLogout');
         const searchUserEmail = document.getElementById('searchUserEmail');
         const searchUserId = document.getElementById('searchUserId');
         const btnSearchUser = document.getElementById('btnSearchUser');
@@ -714,6 +851,133 @@
             }, 5000);
         }
 
+        // Login com Google
+        async function loginWithGoogle() {
+            try {
+                showMessage('Iniciando login com Google...', 'info');
+                
+                const result = await auth.signInWithPopup(googleProvider);
+                console.log('Login bem-sucedido:', result.user);
+                
+                // Verificar se é administrador
+                const isAdmin = await checkAdminStatus(result.user);
+                
+                if (!isAdmin) {
+                    showMessage('Esta conta não tem permissões de administrador.', 'error');
+                    await auth.signOut();
+                    return;
+                }
+                
+                showMessage('Login realizado com sucesso!', 'success');
+                updateUIForUser(result.user);
+                
+            } catch (error) {
+                console.error('Erro no login:', error);
+                
+                let errorMsg = 'Erro ao fazer login: ';
+                if (error.code === 'auth/popup-blocked') {
+                    errorMsg += 'O popup foi bloqueado pelo navegador.';
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    errorMsg += 'Login cancelado.';
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    errorMsg += 'Domínio não autorizado.';
+                } else {
+                    errorMsg += error.message;
+                }
+                
+                showMessage(errorMsg, 'error');
+            }
+        }
+
+        // Verificar se usuário é administrador
+        async function checkAdminStatus(user) {
+            try {
+                // Método 1: Verificar na coleção users
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    if (userData.isAdmin === true) {
+                        return true;
+                    }
+                }
+                
+                // Método 2: Verificar UID específico (lista de admins)
+                const adminUIDs = [
+                    'sZxfMuOBPbXdR8nttVPXIN8QOOl1', // Adicione UIDs de administradores aqui
+                    user.uid // Para testes, permitir o usuário atual
+                ];
+                
+                if (adminUIDs.includes(user.uid)) {
+                    return true;
+                }
+                
+                showMessage('Usuário não possui permissões de administrador.', 'warning');
+                return false;
+                
+            } catch (error) {
+                console.error('Erro ao verificar admin:', error);
+                
+                // Se não conseguir verificar, perguntar ao usuário
+                const confirmAdmin = confirm('Não foi possível verificar suas permissões. Você é administrador?');
+                
+                if (confirmAdmin) {
+                    // Criar registro de admin temporário para testes
+                    try {
+                        await db.collection('users').doc(user.uid).set({
+                            name: user.displayName,
+                            email: user.email,
+                            isAdmin: true,
+                            isBanned: false,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                        return true;
+                    } catch (dbError) {
+                        console.error('Erro ao criar registro de admin:', dbError);
+                        return false;
+                    }
+                }
+                
+                return false;
+            }
+        }
+
+        // Atualizar UI após login
+        function updateUIForUser(user) {
+            loginContainer.classList.remove('active');
+            mainContent.style.display = 'block';
+            userHeader.style.display = 'flex';
+            
+            // Atualizar informações do usuário
+            currentUserName.textContent = user.displayName || 'Administrador';
+            currentUserEmail.textContent = user.email || 'Usuário Google';
+            
+            // Atualizar avatar
+            if (user.photoURL) {
+                userAvatar.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;border-radius:50%;">`;
+            } else {
+                const initials = (user.displayName || 'A').charAt(0).toUpperCase();
+                userAvatar.innerHTML = initials;
+                userAvatar.style.background = 'linear-gradient(135deg, #4361ee, #3a0ca3)';
+                userAvatar.style.color = 'white';
+                userAvatar.style.fontWeight = 'bold';
+            }
+        }
+
+        // Logout
+        async function logout() {
+            try {
+                await auth.signOut();
+                showMessage('Logout realizado com sucesso.', 'info');
+                loginContainer.classList.add('active');
+                mainContent.style.display = 'none';
+                userHeader.style.display = 'none';
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+                showMessage('Erro ao fazer logout: ' + error.message, 'error');
+            }
+        }
+
         // Buscar usuário por email
         async function searchUserByEmail(email) {
             if (!email) {
@@ -732,7 +996,7 @@
                     .get();
 
                 if (querySnapshot.empty) {
-                    showMessage('Usuário não encontrado com este email.', 'error');
+                    showMessage('Usuário não encontrado com este email.', 'warning');
                     return null;
                 }
 
@@ -741,12 +1005,19 @@
                 
                 return {
                     uid: userDoc.id,
-                    ...userData
+                    name: userData.name || userData.displayName || 'Usuário',
+                    email: userData.email || email
                 };
 
             } catch (error) {
                 console.error('Erro ao buscar usuário:', error);
-                showMessage('Erro ao buscar usuário: ' + error.message, 'error');
+                
+                if (error.code === 'permission-denied') {
+                    showMessage('Permissão negada para buscar usuários. Verifique se está autenticado como administrador.', 'error');
+                } else {
+                    showMessage('Erro ao buscar usuário: ' + error.message, 'error');
+                }
+                
                 return null;
             }
         }
@@ -761,24 +1032,53 @@
             try {
                 showMessage('Buscando usuário...', 'info');
                 
-                // Buscar na coleção 'users'
-                const userDoc = await db.collection('users').doc(uid).get();
-
-                if (!userDoc.exists) {
-                    showMessage('Usuário não encontrado com este UID.', 'error');
-                    return null;
-                }
-
-                const userData = userDoc.data();
+                // Primeiro tentar buscar na userpage
+                let userDoc = await db.collection('userpage').doc(uid).get();
                 
-                return {
-                    uid: userDoc.id,
-                    ...userData
-                };
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    
+                    return {
+                        uid: uid,
+                        name: userData.dadosCadastro?.nomeCompleto || 
+                              userData.criadorNome || 
+                              'Usuário sem nome',
+                        email: userData.dadosCadastro?.email || 
+                               userData.criadorEmail || 
+                               'Email não informado'
+                    };
+                }
+                
+                // Se não encontrou na userpage, tentar na coleção users
+                try {
+                    userDoc = await db.collection('users').doc(uid).get();
+                    
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        
+                        return {
+                            uid: uid,
+                            name: userData.name || userData.displayName || 'Usuário sem nome',
+                            email: userData.email || 'Email não informado'
+                        };
+                    }
+                } catch (usersError) {
+                    console.log('Não foi possível acessar coleção users:', usersError.message);
+                }
+                
+                // Se chegou aqui, não encontrou em nenhuma coleção
+                showMessage('Usuário não encontrado com este UID. Verifique se o UID está correto.', 'warning');
+                return null;
 
             } catch (error) {
                 console.error('Erro ao buscar usuário:', error);
-                showMessage('Erro ao buscar usuário: ' + error.message, 'error');
+                
+                if (error.code === 'permission-denied') {
+                    showMessage('Permissão negada. Verifique se está autenticado.', 'error');
+                } else {
+                    showMessage('Erro ao buscar usuário: ' + error.message, 'error');
+                }
+                
                 return null;
             }
         }
@@ -788,7 +1088,6 @@
             try {
                 advertenciasList.innerHTML = '<div class="loading">Carregando advertências...</div>';
                 
-                // Buscar página do usuário
                 const userPageDoc = await db.collection('userpage').doc(userId).get();
                 
                 if (!userPageDoc.exists) {
@@ -873,9 +1172,7 @@
             const filtroBtns = document.querySelectorAll('.filtro-btn');
             filtroBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
-                    // Remover classe active de todos
                     filtroBtns.forEach(b => b.classList.remove('active'));
-                    // Adicionar ao clicado
                     btn.classList.add('active');
                     
                     const filtro = btn.getAttribute('data-filtro');
@@ -932,9 +1229,9 @@
                     ...advertenciaData,
                     data: firebase.firestore.FieldValue.serverTimestamp(),
                     criador: {
-                        id: auth.currentUser ? auth.currentUser.uid : 'sistema',
-                        nome: auth.currentUser ? auth.currentUser.displayName : 'Administrador',
-                        email: auth.currentUser ? auth.currentUser.email : 'admin@sistema.com'
+                        id: auth.currentUser.uid,
+                        nome: auth.currentUser.displayName || 'Administrador',
+                        email: auth.currentUser.email
                     }
                 });
                 
@@ -1051,47 +1348,12 @@
             document.getElementById('advertenciaStatus').value = 'ativa';
         }
 
-        // Event Listeners
-        btnSearchUser.addEventListener('click', async () => {
-            const email = searchUserEmail.value.trim();
-            if (!email) return;
-            
-            const user = await searchUserByEmail(email);
-            if (user) {
-                selectUser(user);
-            }
-        });
-
-        btnSearchById.addEventListener('click', async () => {
-            const uid = searchUserId.value.trim();
-            if (!uid) return;
-            
-            const user = await searchUserById(uid);
-            if (user) {
-                selectUser(user);
-            }
-        });
-
-        // Permitir buscar com Enter
-        searchUserEmail.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') btnSearchUser.click();
-        });
-
-        searchUserId.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') btnSearchById.click();
-        });
-
         // Selecionar usuário
         function selectUser(user) {
             currentUserData = user;
             selectedUserId = user.uid;
             
             // Atualizar interface
-            userInfo.style.display = 'block';
-            currentUserName.textContent = user.name || 'Usuário sem nome';
-            currentUserEmail.textContent = user.email || 'Email não informado';
-            
-            // Atualizar formulário
             userIdInput.value = user.uid;
             
             // Carregar advertências
@@ -1100,87 +1362,139 @@
             showMessage(`Usuário ${user.name || user.email} selecionado com sucesso!`, 'success');
         }
 
-        // Enviar formulário
-        advertenciaForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Buscar por email
+            btnSearchUser.addEventListener('click', async () => {
+                const email = searchUserEmail.value.trim();
+                if (!email) return;
+                
+                const user = await searchUserByEmail(email);
+                if (user) {
+                    selectUser(user);
+                }
+            });
             
-            if (!selectedUserId) {
-                showMessage('Por favor, selecione um usuário primeiro.', 'warning');
-                return;
-            }
+            // Buscar por UID
+            btnSearchById.addEventListener('click', async () => {
+                const uid = searchUserId.value.trim();
+                if (!uid) return;
+                
+                const user = await searchUserById(uid);
+                if (user) {
+                    selectUser(user);
+                }
+            });
             
-            const titulo = document.getElementById('advertenciaTitulo').value.trim();
-            const conteudo = document.getElementById('advertenciaConteudo').value.trim();
-            const gravidade = document.getElementById('advertenciaGravidade').value;
-            const status = document.getElementById('advertenciaStatus').value;
+            // Permitir busca com Enter
+            searchUserEmail.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') btnSearchUser.click();
+            });
             
-            if (!titulo || !conteudo) {
-                showMessage('Por favor, preencha título e conteúdo.', 'warning');
-                return;
-            }
+            searchUserId.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') btnSearchById.click();
+            });
             
-            const advertenciaData = {
-                titulo,
-                conteudo,
-                gravidade,
-                status
-            };
+            // Formulário de advertência
+            advertenciaForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                if (!selectedUserId) {
+                    showMessage('Por favor, selecione um usuário primeiro.', 'warning');
+                    return;
+                }
+                
+                const titulo = document.getElementById('advertenciaTitulo').value.trim();
+                const conteudo = document.getElementById('advertenciaConteudo').value.trim();
+                const gravidade = document.getElementById('advertenciaGravidade').value;
+                const status = document.getElementById('advertenciaStatus').value;
+                
+                if (!titulo || !conteudo) {
+                    showMessage('Por favor, preencha título e conteúdo.', 'warning');
+                    return;
+                }
+                
+                const advertenciaData = {
+                    titulo,
+                    conteudo,
+                    gravidade,
+                    status
+                };
+                
+                const success = await addAdvertencia(selectedUserId, advertenciaData);
+                if (success) {
+                    clearForm();
+                }
+            });
             
-            const success = await addAdvertencia(selectedUserId, advertenciaData);
-            if (success) {
-                clearForm();
-            }
-        });
-
-        // Botão limpar formulário
-        document.getElementById('btnLimparForm').addEventListener('click', clearForm);
-
-        // Confirmar ação no modal
-        confirmAction.addEventListener('click', () => {
-            if (currentCallback) {
-                currentCallback();
-            }
-            closeModal();
-        });
-
-        // Fechar modal ao clicar fora
-        confirmModal.addEventListener('click', (e) => {
-            if (e.target === confirmModal) {
+            // Botão limpar formulário
+            document.getElementById('btnLimparForm').addEventListener('click', clearForm);
+            
+            // Configurar filtros
+            setupFilters();
+            
+            // Confirmar ação no modal
+            confirmAction.addEventListener('click', () => {
+                if (currentCallback) {
+                    currentCallback();
+                }
                 closeModal();
-            }
-        });
-
-        // Fechar modal com ESC
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && confirmModal.classList.contains('active')) {
-                closeModal();
-            }
-        });
-
-        // Login automático para teste (opcional)
-        async function autoLoginForTesting() {
-            // Esta função é apenas para testes
-            // Em produção, use o login normal
-            try {
-                // Tenta fazer login anônimo para testes
-                await auth.signInAnonymously();
-                console.log('Logado como anônimo para testes');
-            } catch (error) {
-                console.log('Modo de teste sem autenticação');
-            }
+            });
+            
+            // Fechar modal ao clicar fora
+            confirmModal.addEventListener('click', (e) => {
+                if (e.target === confirmModal) {
+                    closeModal();
+                }
+            });
+            
+            // Fechar modal com ESC
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && confirmModal.classList.contains('active')) {
+                    closeModal();
+                }
+            });
         }
 
-        // Inicializar
-        window.addEventListener('DOMContentLoaded', () => {
-            autoLoginForTesting();
-            setupFilters();
-            showMessage('Sistema de gerenciamento de advertências carregado. Selecione um usuário para começar.', 'info');
+        // Monitorar estado de autenticação
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('Usuário logado:', user.email);
+                
+                // Verificar se é administrador
+                const isAdmin = await checkAdminStatus(user);
+                
+                if (isAdmin) {
+                    updateUIForUser(user);
+                    setupEventListeners();
+                } else {
+                    // Se não for admin, fazer logout
+                    await auth.signOut();
+                    showMessage('Você não tem permissões de administrador.', 'error');
+                }
+            } else {
+                console.log('Nenhum usuário logado');
+                loginContainer.classList.add('active');
+                mainContent.style.display = 'none';
+                userHeader.style.display = 'none';
+            }
         });
+
+        // Event listeners para login/logout
+        btnGoogleLogin.addEventListener('click', loginWithGoogle);
+        btnLogout.addEventListener('click', logout);
 
         // Funções globais
         window.toggleAdvertenciaStatus = toggleAdvertenciaStatus;
         window.deleteAdvertencia = deleteAdvertencia;
         window.closeModal = closeModal;
+
+        // Mostrar mensagem inicial
+        setTimeout(() => {
+            if (!auth.currentUser) {
+                showMessage('Faça login com sua conta Google para começar.', 'info');
+            }
+        }, 1000);
     </script>
 </body>
 </html>
