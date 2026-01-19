@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gerenciamento de Advertências</title>
+    <title>Sistema de Advertências - Administração</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* RESET E CONFIGURAÇÕES GERAIS */
@@ -1217,15 +1217,31 @@
         function formatDate(timestamp) {
             if (!timestamp) return 'Data não registrada';
             try {
-                const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-                return date.toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+                // Se for um objeto do Firestore Timestamp
+                if (timestamp.toDate) {
+                    const date = timestamp.toDate();
+                    return date.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
+                // Se for string ISO
+                if (typeof timestamp === 'string') {
+                    const date = new Date(timestamp);
+                    return date.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
+                return 'Data inválida';
             } catch (e) {
+                console.error('Erro ao formatar data:', e);
                 return 'Data inválida';
             }
         }
@@ -1235,7 +1251,7 @@
             try {
                 // Lista de UIDs de administradores
                 const adminUIDs = [
-                    'sZxfMuOBPbXdR8nttVPXIN8QOOl1', // Adicione seu UID aqui
+                    'sZxfMuOBPbXdR8nttVPXIN8QOOl1', // UID do seu sistema
                     user.uid // Para desenvolvimento, permitir o próprio usuário
                 ];
                 
@@ -1447,7 +1463,9 @@
             showMessage(`Usuário "${user.name || user.uid}" selecionado com sucesso!`, 'success');
         }
 
-        // Carregar advertências do usuário
+        // ================= FUNÇÕES CRUD DE ADVERTÊNCIAS =================
+
+        // Carregar advertências do usuário (CORRIGIDA)
         async function loadUserAdvertencias(userId) {
             try {
                 advertenciasList.innerHTML = `
@@ -1479,6 +1497,13 @@
 
                 const userPageData = userPageDoc.data();
                 currentUserAdvertencias = userPageData.advertências || [];
+                
+                // Ordenar por data (mais recente primeiro)
+                currentUserAdvertencias.sort((a, b) => {
+                    const dateA = a.data ? new Date(a.data).getTime() : 0;
+                    const dateB = b.data ? new Date(b.data).getTime() : 0;
+                    return dateB - dateA;
+                });
                 
                 displayAdvertencias(currentUserAdvertencias);
                 updateStatistics();
@@ -1513,13 +1538,6 @@
                 `;
                 return;
             }
-
-            // Ordenar por data (mais recente primeiro)
-            advertencias.sort((a, b) => {
-                const dateA = a.data ? (a.data.toDate ? a.data.toDate() : new Date(a.data)) : new Date(0);
-                const dateB = b.data ? (b.data.toDate ? b.data.toDate() : new Date(b.data)) : new Date(0);
-                return dateB - dateA;
-            });
 
             let html = '';
             
@@ -1588,9 +1606,6 @@
                             <button onclick="deleteAdvertencia(${index})" class="btn btn-sm btn-danger">
                                 <i class="fas fa-trash"></i> Excluir
                             </button>
-                            <button onclick="verDetalhesAdvertencia(${index})" class="btn btn-sm btn-secondary">
-                                <i class="fas fa-eye"></i> Detalhes
-                            </button>
                         </div>
                     </div>
                 `;
@@ -1651,9 +1666,7 @@
             advertenciasResolvidas.textContent = resolvidas;
         }
 
-        // ================= FUNÇÕES CRUD DE ADVERTÊNCIAS =================
-
-        // Adicionar nova advertência
+        // Adicionar nova advertência (CORRIGIDA - sem serverTimestamp dentro do array)
         async function addAdvertencia(userId, advertenciaData) {
             try {
                 showMessage('Adicionando advertência...', 'info');
@@ -1670,13 +1683,16 @@
                     advertências = userData.advertências || [];
                 }
                 
+                // Criar timestamp manual (CORREÇÃO: não usar serverTimestamp() dentro do array)
+                const timestamp = new Date().toISOString();
+                
                 // Criar objeto da advertência
                 const novaAdvertencia = {
                     titulo: advertenciaData.titulo,
                     conteudo: advertenciaData.conteudo,
                     gravidade: advertenciaData.gravidade,
                     status: advertenciaData.status,
-                    data: firebase.firestore.FieldValue.serverTimestamp(),
+                    data: timestamp, // Timestamp ISO (CORREÇÃO)
                     criador: {
                         id: currentUser.uid,
                         nome: currentUser.displayName || 'Administrador',
@@ -1684,13 +1700,15 @@
                     }
                 };
                 
+                console.log('Nova advertência:', novaAdvertencia);
+                
                 // Adicionar ao array
                 advertências.push(novaAdvertencia);
                 
                 // Preparar dados para atualização
                 const updateData = {
                     advertências: advertências,
-                    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() // OK fora do array
                 };
                 
                 // Se não existir a página, criar estrutura básica
@@ -1699,33 +1717,51 @@
                     updateData.descricao = 'Página criada automaticamente pelo sistema de advertências';
                     updateData.criadorId = 'sistema';
                     updateData.criadorNome = 'Sistema de Advertências';
-                    updateData.criadoEm = firebase.firestore.FieldValue.serverTimestamp();
+                    updateData.criadoEm = timestamp; // Usar o mesmo timestamp
                     updateData.restrito = true;
                     updateData.tipo = 'userpage';
                     updateData.dadosCadastro = {
                         nomeCompleto: 'Usuário não cadastrado',
                         email: 'Não disponível',
-                        dataCadastro: firebase.firestore.FieldValue.serverTimestamp()
+                        dataCadastro: timestamp
                     };
                 }
+                
+                console.log('Dados para salvar:', updateData);
                 
                 // Salvar no Firestore
                 await userPageRef.set(updateData, { merge: true });
                 
-                // Recarregar lista
-                await loadUserAdvertencias(userId);
+                // Atualizar localmente
+                currentUserAdvertencias = advertências;
+                
+                // Atualizar exibição
+                displayAdvertencias(currentUserAdvertencias);
+                updateStatistics();
                 
                 showMessage('✅ Advertência adicionada com sucesso!', 'success');
                 return true;
 
             } catch (error) {
                 console.error('❌ Erro ao adicionar advertência:', error);
-                showMessage('❌ Erro ao adicionar advertência: ' + error.message, 'error');
+                console.error('Detalhes do erro:', {
+                    code: error.code,
+                    message: error.message,
+                    stack: error.stack
+                });
+                
+                if (error.code === 'invalid-argument') {
+                    showMessage('❌ Erro: Dados inválidos para salvar. Verifique os campos.', 'error');
+                } else if (error.message.includes('serverTimestamp()')) {
+                    showMessage('❌ Erro: Não é possível usar serverTimestamp() dentro de arrays.', 'error');
+                } else {
+                    showMessage('❌ Erro ao adicionar advertência: ' + error.message, 'error');
+                }
                 return false;
             }
         }
 
-        // Alternar status da advertência
+        // Alternar status da advertência (CORRIGIDA)
         async function toggleAdvertenciaStatus(index) {
             if (index < 0 || index >= currentUserAdvertencias.length) return;
             
@@ -1733,13 +1769,17 @@
                 const advertencia = currentUserAdvertencias[index];
                 const novoStatus = advertencia.status === 'ativa' ? 'resolvida' : 'ativa';
                 
+                console.log(`Alterando status da advertência ${index} para ${novoStatus}`);
+                
                 // Atualizar localmente
                 currentUserAdvertencias[index].status = novoStatus;
                 
                 // Atualizar no Firestore
                 const userPageRef = db.collection('userpage').doc(selectedUserId);
+                
+                // Usar uma abordagem mais segura
                 await userPageRef.update({
-                    advertências: currentUserAdvertencias,
+                    [`advertências.${index}.status`]: novoStatus,
                     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 
@@ -1788,58 +1828,6 @@
                         showMessage('❌ Erro ao excluir advertência.', 'error');
                     }
                 }
-            );
-        }
-
-        // Ver detalhes da advertência
-        function verDetalhesAdvertencia(index) {
-            if (index < 0 || index >= currentUserAdvertencias.length) return;
-            
-            const advertencia = currentUserAdvertencias[index];
-            const data = advertencia.data ? formatDate(advertencia.data) : 'Não registrada';
-            const criador = advertencia.criador || { nome: 'Sistema', email: 'sistema' };
-            
-            let gravidadeText = '';
-            switch(advertencia.gravidade) {
-                case 'leve': gravidadeText = 'Leve (Aviso)'; break;
-                case 'moderada': gravidadeText = 'Moderada (Atenção)'; break;
-                case 'grave': gravidadeText = 'Grave (Urgente)'; break;
-                default: gravidadeText = 'Não especificada';
-            }
-            
-            openModal(
-                `<div>
-                    <h4 style="color: var(--danger-color); margin-bottom: 15px;">${advertencia.titulo || 'Advertência sem título'}</h4>
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-                        <p><strong>Conteúdo:</strong></p>
-                        <p>${advertencia.conteudo || 'Sem conteúdo.'}</p>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                        <div>
-                            <p><strong>📅 Data:</strong></p>
-                            <p>${data}</p>
-                        </div>
-                        <div>
-                            <p><strong>⚖️ Gravidade:</strong></p>
-                            <p>${gravidadeText}</p>
-                        </div>
-                        <div>
-                            <p><strong>📊 Status:</strong></p>
-                            <p>${advertencia.status === 'ativa' ? '⏳ Ativa' : '✅ Resolvida'}</p>
-                        </div>
-                        <div>
-                            <p><strong>👤 Criador:</strong></p>
-                            <p>${criador.nome}</p>
-                        </div>
-                    </div>
-                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #dee2e6;">
-                        <p style="font-size: 0.9em; color: var(--text-light);">
-                            <i class="fas fa-info-circle"></i> Advertência ${index + 1} de ${currentUserAdvertencias.length}
-                        </p>
-                    </div>
-                </div>`,
-                null,
-                'lg'
             );
         }
 
@@ -1943,6 +1931,8 @@
                     status
                 };
                 
+                console.log('Submetendo advertência:', advertenciaData);
+                
                 const success = await addAdvertencia(selectedUserId, advertenciaData);
                 if (success) {
                     limparFormulario();
@@ -2019,7 +2009,6 @@
         window.toggleAdvertenciaStatus = toggleAdvertenciaStatus;
         window.deleteAdvertencia = deleteAdvertencia;
         window.closeModal = closeModal;
-        window.verDetalhesAdvertencia = verDetalhesAdvertencia;
         window.filtrarAdvertencias = filtrarAdvertencias;
 
         // ================= INICIALIZAÇÃO =================
