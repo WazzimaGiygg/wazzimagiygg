@@ -54,11 +54,15 @@
         button:hover {
             background-color: #0056b3;
         }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
         .button-secondary {
             background-color: #6c757d;
             margin-top: 5px;
         }
-        .button-secondary:hover {
+        .button-secondary:hover:not(:disabled) {
             background-color: #545b62;
         }
         .auth-section {
@@ -81,7 +85,6 @@
             border-radius: 4px;
             text-align: center;
             font-size: 14px;
-            display: none;
         }
         .success {
             background-color: #d4edda;
@@ -98,12 +101,24 @@
             color: #856404;
             border: 1px solid #ffeaa7;
         }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status-bar {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 10px;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Mensagens -->
-        <div id="message" class="message"></div>
+        <!-- Status do Sistema -->
+        <div id="statusBar" class="status-bar">Carregando sistema...</div>
 
         <!-- Seção de Autenticação -->
         <div class="auth-section" id="authSection">
@@ -111,8 +126,8 @@
             <div id="userInfo" class="user-info" style="display: none;"></div>
             <input type="email" id="email" placeholder="E-mail" required>
             <input type="password" id="password" placeholder="Senha (mínimo 6 caracteres)" required minlength="6">
-            <button onclick="signUp()">Cadastrar</button>
-            <button onclick="signIn()" class="button-secondary">Entrar</button>
+            <button onclick="signUp()" id="signUpBtn">Cadastrar</button>
+            <button onclick="signIn()" class="button-secondary" id="signInBtn">Entrar</button>
             <button onclick="signOut()" class="button-secondary" style="background-color: #dc3545; display: none;" id="signOutBtn">Sair</button>
         </div>
 
@@ -121,25 +136,25 @@
         <h2 style="font-size: 18px;">Criptografar</h2>
         <textarea id="plainText" placeholder="Digite o texto..."></textarea>
         <input type="password" id="encryptPassword" placeholder="Senha para criptografar">
-        <button onclick="encryptText()">Criptografar</button>
-        <button onclick="saveToFirebase()" class="button-secondary" id="saveBtn">Salvar no Firebase</button>
+        <button onclick="encryptText()" id="encryptBtn">Criptografar</button>
+        <button onclick="saveToFirebase()" class="button-secondary" id="saveBtn" disabled>Salvar no Firebase</button>
         <textarea id="encryptedText" readonly placeholder="Texto criptografado"></textarea>
 
         <h2 style="font-size: 18px;">Recuperar do Firebase</h2>
         <select id="savedEncryptions" onchange="loadSelectedEncryption()">
             <option value="">Selecione uma criptografia salva</option>
         </select>
-        <button onclick="loadEncryptions()" class="button-secondary">Atualizar Lista</button>
+        <button onclick="loadEncryptions()" class="button-secondary" id="loadBtn">Atualizar Lista</button>
 
         <h2 style="font-size: 18px;">Descriptografar</h2>
         <textarea id="cipherText" placeholder="Texto criptografado..."></textarea>
         <input type="password" id="decryptPassword" placeholder="Senha para descriptografar">
-        <button onclick="decryptText()">Descriptografar</button>
+        <button onclick="decryptText()" id="decryptBtn">Descriptografar</button>
         <textarea id="decryptedText" readonly placeholder="Texto descriptografado"></textarea>
     </div>
 
     <script>
-        // Configuração do Firebase (SUBSTITUA COM SUAS CONFIGURAÇÕES)
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -150,54 +165,59 @@
             measurementId: "G-PLKNZNFCQ8"
         };
 
+
         // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // Elementos da UI
-        const messageEl = document.getElementById('message');
-        const saveBtn = document.getElementById('saveBtn');
+        // Variáveis globais
+        let currentUser = null;
+        const statusBar = document.getElementById('statusBar');
 
-        // Mostrar mensagem
-        function showMessage(text, type = 'info') {
-            messageEl.textContent = text;
-            messageEl.className = `message ${type}`;
-            messageEl.style.display = 'block';
-            
-            // Auto-esconder após 5 segundos
-            setTimeout(() => {
-                messageEl.style.display = 'none';
-            }, 5000);
+        // Atualizar status
+        function updateStatus(message, type = 'info') {
+            statusBar.textContent = message;
+            statusBar.className = `status-bar ${type}`;
+            console.log(`[${type.toUpperCase()}] ${message}`);
         }
 
         // Verificar estado de autenticação
         auth.onAuthStateChanged((user) => {
+            currentUser = user;
             const userInfo = document.getElementById('userInfo');
             const signOutBtn = document.getElementById('signOutBtn');
-            const emailInput = document.getElementById('email');
-            const passwordInput = document.getElementById('password');
-            const authButtons = document.querySelectorAll('.auth-section button');
+            const signUpBtn = document.getElementById('signUpBtn');
+            const signInBtn = document.getElementById('signInBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const loadBtn = document.getElementById('loadBtn');
             
             if (user) {
+                // Usuário logado
                 userInfo.innerHTML = `Logado como: <strong>${user.email}</strong>`;
                 userInfo.style.display = 'block';
                 signOutBtn.style.display = 'block';
-                emailInput.style.display = 'none';
-                passwordInput.style.display = 'none';
-                authButtons[0].style.display = 'none'; // Cadastrar
-                authButtons[1].style.display = 'none'; // Entrar
+                signUpBtn.style.display = 'none';
+                signInBtn.style.display = 'none';
+                document.getElementById('email').style.display = 'none';
+                document.getElementById('password').style.display = 'none';
                 saveBtn.disabled = false;
-                showMessage(`Bem-vindo, ${user.email}!`, 'success');
+                loadBtn.disabled = false;
+                
+                updateStatus(`Usuário autenticado: ${user.email}`, 'success');
                 loadEncryptions();
             } else {
+                // Usuário não logado
                 userInfo.style.display = 'none';
                 signOutBtn.style.display = 'none';
-                emailInput.style.display = 'block';
-                passwordInput.style.display = 'block';
-                authButtons[0].style.display = 'block';
-                authButtons[1].style.display = 'block';
+                signUpBtn.style.display = 'block';
+                signInBtn.style.display = 'block';
+                document.getElementById('email').style.display = 'block';
+                document.getElementById('password').style.display = 'block';
                 saveBtn.disabled = true;
+                loadBtn.disabled = true;
+                
+                updateStatus('Faça login para usar todas as funcionalidades', 'info');
                 document.getElementById('savedEncryptions').innerHTML = '<option value="">Faça login para ver suas criptografias</option>';
             }
         });
@@ -207,36 +227,29 @@
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             
-            // Validação básica
+            // Validação
             if (!email || !password) {
-                showMessage('Preencha email e senha.', 'error');
+                updateStatus('Preencha email e senha.', 'error');
+                return;
+            }
+            
+            if (!validateEmail(email)) {
+                updateStatus('Formato de email inválido.', 'error');
                 return;
             }
             
             if (password.length < 6) {
-                showMessage('A senha deve ter pelo menos 6 caracteres.', 'error');
+                updateStatus('A senha deve ter pelo menos 6 caracteres.', 'error');
                 return;
             }
 
+            updateStatus('Criando conta...', 'info');
+            
             try {
-                await auth.createUserWithEmailAndPassword(email, password);
-                showMessage('Conta criada com sucesso!', 'success');
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                updateStatus('Conta criada com sucesso!', 'success');
             } catch (error) {
-                let errorMessage = 'Erro ao criar conta: ';
-                switch(error.code) {
-                    case 'auth/email-already-in-use':
-                        errorMessage += 'Email já está em uso.';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessage += 'Email inválido.';
-                        break;
-                    case 'auth/weak-password':
-                        errorMessage += 'Senha muito fraca.';
-                        break;
-                    default:
-                        errorMessage += error.message;
-                }
-                showMessage(errorMessage, 'error');
+                handleAuthError(error, 'criar conta');
             }
         }
 
@@ -245,38 +258,26 @@
             const password = document.getElementById('password').value;
             
             if (!email || !password) {
-                showMessage('Preencha email e senha.', 'error');
+                updateStatus('Preencha email e senha.', 'error');
                 return;
             }
 
+            updateStatus('Fazendo login...', 'info');
+            
             try {
                 await auth.signInWithEmailAndPassword(email, password);
-                showMessage('Login realizado com sucesso!', 'success');
+                updateStatus('Login realizado com sucesso!', 'success');
             } catch (error) {
-                let errorMessage = 'Erro ao fazer login: ';
-                switch(error.code) {
-                    case 'auth/user-not-found':
-                        errorMessage += 'Usuário não encontrado.';
-                        break;
-                    case 'auth/wrong-password':
-                        errorMessage += 'Senha incorreta.';
-                        break;
-                    case 'auth/invalid-email':
-                        errorMessage += 'Email inválido.';
-                        break;
-                    default:
-                        errorMessage += error.message;
-                }
-                showMessage(errorMessage, 'error');
+                handleAuthError(error, 'fazer login');
             }
         }
 
         async function signOut() {
             try {
                 await auth.signOut();
-                showMessage('Logout realizado com sucesso!', 'success');
+                updateStatus('Logout realizado com sucesso!', 'success');
             } catch (error) {
-                showMessage('Erro ao fazer logout: ' + error.message, 'error');
+                updateStatus('Erro ao fazer logout: ' + error.message, 'error');
             }
         }
 
@@ -287,89 +288,99 @@
             const encryptedTextArea = document.getElementById('encryptedText');
 
             if (!plainText || !password) {
-                showMessage('Digite o texto e a senha para criptografar.', 'warning');
+                updateStatus('Digite o texto e a senha para criptografar.', 'warning');
                 return;
             }
 
             try {
                 const encrypted = CryptoJS.AES.encrypt(plainText, password).toString();
                 encryptedTextArea.value = encrypted;
-                showMessage('Texto criptografado com sucesso!', 'success');
+                updateStatus('Texto criptografado com sucesso!', 'success');
             } catch (error) {
-                showMessage('Erro ao criptografar: ' + error.message, 'error');
+                updateStatus('Erro ao criptografar: ' + error.message, 'error');
             }
         }
 
         async function saveToFirebase() {
-            const user = auth.currentUser;
-            if (!user) {
-                showMessage('Faça login para salvar no Firebase.', 'warning');
+            if (!currentUser) {
+                updateStatus('Faça login para salvar no Firebase.', 'warning');
                 return;
             }
 
-            const encryptedText = document.getElementById('encryptedText').value;
+            const encryptedText = document.getElementById('encryptedText').value.trim();
             const originalText = document.getElementById('plainText').value.trim();
             const timestamp = new Date().toLocaleString('pt-BR');
 
             if (!encryptedText) {
-                showMessage('Primeiro criptografe um texto.', 'warning');
+                updateStatus('Primeiro criptografe um texto.', 'warning');
                 return;
             }
 
             if (!originalText) {
-                showMessage('Digite um texto para criptografar.', 'warning');
+                updateStatus('Digite um texto para criptografar.', 'warning');
                 return;
             }
 
+            updateStatus('Salvando no Firebase...', 'info');
+            
             try {
                 await db.collection('criptografias').add({
-                    uid: user.uid,
-                    userEmail: user.email,
+                    uid: currentUser.uid,
+                    userEmail: currentUser.email,
                     encryptedText: encryptedText,
                     originalTextPreview: originalText.substring(0, 50) + (originalText.length > 50 ? '...' : ''),
                     timestamp: timestamp,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                showMessage('Criptografia salva com sucesso no Firebase!', 'success');
+                
+                updateStatus('Criptografia salva com sucesso no Firebase!', 'success');
                 loadEncryptions();
             } catch (error) {
-                showMessage('Erro ao salvar: ' + error.message, 'error');
+                updateStatus('Erro ao salvar: ' + error.message, 'error');
             }
         }
 
         async function loadEncryptions() {
-            const user = auth.currentUser;
-            if (!user) return;
+            if (!currentUser) {
+                updateStatus('Faça login para ver suas criptografias.', 'warning');
+                return;
+            }
 
             const select = document.getElementById('savedEncryptions');
             select.innerHTML = '<option value="">Carregando...</option>';
 
             try {
                 const querySnapshot = await db.collection('criptografias')
-                    .where('uid', '==', user.uid)
+                    .where('uid', '==', currentUser.uid)
                     .orderBy('createdAt', 'desc')
+                    .limit(20)
                     .get();
 
                 if (querySnapshot.empty) {
                     select.innerHTML = '<option value="">Nenhuma criptografia salva</option>';
+                    updateStatus('Nenhuma criptografia encontrada.', 'info');
                     return;
                 }
 
                 select.innerHTML = '<option value="">Selecione uma criptografia salva</option>';
                 
+                let count = 0;
                 querySnapshot.forEach((doc) => {
+                    count++;
                     const data = doc.data();
                     const option = document.createElement('option');
                     option.value = data.encryptedText;
                     const date = data.timestamp || 'Data desconhecida';
                     option.textContent = `${date} - ${data.originalTextPreview}`;
+                    option.setAttribute('title', `Salvo em: ${date}`);
                     option.setAttribute('data-id', doc.id);
                     select.appendChild(option);
                 });
                 
-                showMessage(`${querySnapshot.size} criptografia(s) carregada(s).`, 'success');
+                updateStatus(`${count} criptografia(s) carregada(s).`, 'success');
             } catch (error) {
-                showMessage('Erro ao carregar criptografias: ' + error.message, 'error');
+                updateStatus('Erro ao carregar criptografias: ' + error.message, 'error');
+                select.innerHTML = '<option value="">Erro ao carregar</option>';
             }
         }
 
@@ -379,7 +390,7 @@
             
             if (selectedValue) {
                 document.getElementById('cipherText').value = selectedValue;
-                showMessage('Criptografia carregada no campo de descriptografar.', 'success');
+                updateStatus('Criptografia carregada no campo de descriptografar.', 'success');
             }
         }
 
@@ -389,7 +400,7 @@
             const decryptedTextArea = document.getElementById('decryptedText');
 
             if (!cipherText || !password) {
-                showMessage('Digite o texto criptografado e a senha.', 'warning');
+                updateStatus('Digite o texto criptografado e a senha.', 'warning');
                 return;
             }
 
@@ -402,16 +413,68 @@
                 }
 
                 decryptedTextArea.value = decryptedText;
-                showMessage('Texto descriptografado com sucesso!', 'success');
+                updateStatus('Texto descriptografado com sucesso!', 'success');
             } catch (e) {
                 decryptedTextArea.value = '';
-                showMessage('Erro ao descriptografar. Verifique a senha e o texto criptografado.', 'error');
+                updateStatus('Erro ao descriptografar. Verifique a senha e o texto criptografado.', 'error');
             }
+        }
+
+        // Funções auxiliares
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+
+        function handleAuthError(error, action) {
+            let errorMessage = '';
+            
+            switch(error.code) {
+                case 'auth/email-already-in-use':
+                    errorMessage = 'Este email já está em uso.';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Formato de email inválido.';
+                    break;
+                case 'auth/weak-password':
+                    errorMessage = 'A senha é muito fraca (mínimo 6 caracteres).';
+                    break;
+                case 'auth/user-not-found':
+                    errorMessage = 'Usuário não encontrado.';
+                    break;
+                case 'auth/wrong-password':
+                    errorMessage = 'Senha incorreta.';
+                    break;
+                case 'auth/network-request-failed':
+                    errorMessage = 'Erro de conexão. Verifique sua internet.';
+                    break;
+                default:
+                    errorMessage = `Erro ao ${action}: ${error.message}`;
+            }
+            
+            updateStatus(errorMessage, 'error');
         }
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
-            showMessage('Sistema de criptografia pronto. Faça login para começar.', 'info');
+            updateStatus('Sistema de criptografia inicializado. Aguardando autenticação...', 'info');
+            
+            // Habilitar submit com Enter
+            document.getElementById('password').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    if (currentUser) {
+                        encryptText();
+                    } else {
+                        signIn();
+                    }
+                }
+            });
+            
+            document.getElementById('decryptPassword').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    decryptText();
+                }
+            });
         });
     </script>
 </body>
