@@ -1076,6 +1076,7 @@
                         <option value="materias">Matérias</option>
                         <option value="wikicodigo">Wiki Código</option>
                         <option value="materia">Matéria</option>
+                        <option value="academico">Acadêmico</option>
                         <option value="admin">Admin</option>
                         <option value="userpage">Página de Usuário</option>
                         <option value="historicodecontribuicoes">Histórico de Contribuições</option>
@@ -1311,29 +1312,29 @@
         let guestMode = false;
 
         // Lista de coleções disponíveis
-const availableCollections = [
-    { id: 'materiadeensaio', name: 'Material de Ensaio' },
-    { id: 'wikiworldweb', name: 'Wiki World Web' },
-    { id: 'materias', name: 'Matérias' },
-    { id: 'wikicodigo', name: 'Wiki Código' },
-    { id: 'materia', name: 'Matéria' },
-    { id: 'academico', name: 'Acadêmico' }, // ADICIONE ESTA LINHA
-    { id: 'userpage', name: 'Página de Usuário' },
-    { id: 'historicodecontribuicoes', name: 'Histórico de Contribuições' }
-];
+        const availableCollections = [
+            { id: 'materiadeensaio', name: 'Material de Ensaio' },
+            { id: 'wikiworldweb', name: 'Wiki World Web' },
+            { id: 'materias', name: 'Matérias' },
+            { id: 'wikicodigo', name: 'Wiki Código' },
+            { id: 'materia', name: 'Matéria' },
+            { id: 'academico', name: 'Acadêmico' },
+            { id: 'userpage', name: 'Página de Usuário' },
+            { id: 'historicodecontribuicoes', name: 'Histórico de Contribuições' }
+        ];
 
         // Mapeamento de nomes de coleções para exibição
         const collectionNames = {
-    'materiadeensaio': 'Material de Ensaio',
-    'wikiworldweb': 'Wiki World Web',
-    'materias': 'Matérias',
-    'wikicodigo': 'Wiki Código',
-    'materia': 'Matéria',
-    'academico': 'Acadêmico', // ADICIONE ESTA LINHA
-    'admin': 'Admin',
-    'userpage': 'Página de Usuário',
-    'historicodecontribuicoes': 'Histórico de Contribuições'
-};
+            'materiadeensaio': 'Material de Ensaio',
+            'wikiworldweb': 'Wiki World Web',
+            'materias': 'Matérias',
+            'wikicodigo': 'Wiki Código',
+            'materia': 'Matéria',
+            'academico': 'Acadêmico',
+            'admin': 'Admin',
+            'userpage': 'Página de Usuário',
+            'historicodecontribuicoes': 'Histórico de Contribuições'
+        };
 
         // ============================================
         // FUNÇÕES DE VERIFICAÇÃO DE PERMISSÕES
@@ -1426,7 +1427,7 @@ const availableCollections = [
         // Função para carregar artigo
         function loadArticle(uid, collection) {
             searchUID.value = uid;
-            searchCollection.value = collection;
+            searchCollection.value = collection.toLowerCase();
             searchArticle();
         }
 
@@ -2206,7 +2207,39 @@ const availableCollections = [
             searchArticle();
         }
 
-        // Função principal de busca de artigo
+        // Função para carregar artigo do Firestore (CORRIGIDA)
+        async function loadArticleFromFirestore(uid, collection) {
+            try {
+                // Normalizar nome da coleção para minúsculas
+                const normalizedCollection = collection.toLowerCase();
+                
+                const docRef = db.collection(normalizedCollection).doc(uid);
+                const doc = await docRef.get();
+                
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    // Verificar se artigo é restrito
+                    if (data.restrito && !currentUser && !guestMode) {
+                        showLoginRequired();
+                        return null;
+                    }
+                    
+                    return {
+                        id: uid,
+                        collection: normalizedCollection, // Usar coleção normalizada
+                        ...data
+                    };
+                }
+                
+                return null;
+                
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Função principal de busca de artigo (ATUALIZADA)
         async function searchArticle() {
             const uid = searchUID.value.trim();
             const collection = searchCollection.value;
@@ -2219,7 +2252,10 @@ const availableCollections = [
             try {
                 showLoading();
                 
-                if (collection === 'todos') {
+                // Normalizar coleção para minúsculas
+                const normalizedCollection = collection.toLowerCase();
+                
+                if (normalizedCollection === 'todos') {
                     // Buscar em todas as coleções
                     let foundArticle = null;
                     
@@ -2243,19 +2279,19 @@ const availableCollections = [
                     }
                 } else {
                     // Buscar em coleção específica
-                    const article = await loadArticleFromFirestore(uid, collection);
+                    const article = await loadArticleFromFirestore(uid, normalizedCollection);
                     
                     if (article) {
                         displayArticle(article);
                         showMessage('Artigo encontrado com sucesso!', 'success');
                     } else {
                         // Verificar se é um histórico de contribuições que não existe
-                        if (collection === 'historicodecontribuicoes' && currentUser && uid === currentUser.uid) {
+                        if (normalizedCollection === 'historicodecontribuicoes' && currentUser && uid === currentUser.uid) {
                             try {
                                 // Criar o histórico automaticamente
                                 await createHistoryForUser(currentUser);
                                 // Tentar carregar novamente
-                                const newArticle = await loadArticleFromFirestore(uid, collection);
+                                const newArticle = await loadArticleFromFirestore(uid, normalizedCollection);
                                 if (newArticle) {
                                     displayArticle(newArticle);
                                     showMessage('Histórico de contribuições criado automaticamente!', 'success');
@@ -2275,35 +2311,6 @@ const availableCollections = [
             } catch (error) {
                 console.error('Erro na busca:', error);
                 handleFirestoreError(error);
-            }
-        }
-
-        // Carregar artigo do Firestore
-        async function loadArticleFromFirestore(uid, collection) {
-            try {
-                const docRef = db.collection(collection).doc(uid);
-                const doc = await docRef.get();
-                
-                if (doc.exists) {
-                    const data = doc.data();
-                    
-                    // Verificar se artigo é restrito
-                    if (data.restrito && !currentUser && !guestMode) {
-                        showLoginRequired();
-                        return null;
-                    }
-                    
-                    return {
-                        id: uid,
-                        collection: collection,
-                        ...data
-                    };
-                }
-                
-                return null;
-                
-            } catch (error) {
-                throw error;
             }
         }
 
@@ -2675,7 +2682,7 @@ const availableCollections = [
             });
         }
 
-        // Função para salvar artigo
+        // Função para salvar artigo (ATUALIZADA)
         async function saveArticle(uid, collection, isEdit = false) {
             const titulo = document.getElementById('formTitulo').value.trim();
             const descricao = document.getElementById('formDescricao').value.trim();
@@ -2706,6 +2713,9 @@ const availableCollections = [
                     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
+                // Normalizar nome da coleção
+                const normalizedCollection = collection.toLowerCase();
+                
                 if (!isEdit) {
                     articleData.criadorId = currentUser.uid;
                     articleData.criadorNome = currentUser.displayName || currentUser.email;
@@ -2713,21 +2723,21 @@ const availableCollections = [
                     articleData.criadoEm = firebase.firestore.FieldValue.serverTimestamp();
                     
                     // Registrar contribuição no histórico
-                    addContribution(currentUser.uid, uid, collection, titulo, 'criacao');
+                    addContribution(currentUser.uid, uid, normalizedCollection, titulo, 'criacao');
                 } else {
                     // Registrar edição no histórico
-                    addContribution(currentUser.uid, uid, collection, titulo, 'edicao');
+                    addContribution(currentUser.uid, uid, normalizedCollection, titulo, 'edicao');
                 }
                 
-                await db.collection(collection).doc(uid).set(articleData, { merge: true });
+                await db.collection(normalizedCollection).doc(uid).set(articleData, { merge: true });
                 
                 showMessage(isEdit ? 'Artigo atualizado com sucesso!' : 'Artigo criado com sucesso!', 'success');
                 
-                const updatedArticle = await loadArticleFromFirestore(uid, collection);
+                const updatedArticle = await loadArticleFromFirestore(uid, normalizedCollection);
                 if (updatedArticle) {
                     displayArticle(updatedArticle);
                     searchUID.value = uid;
-                    searchCollection.value = collection;
+                    searchCollection.value = normalizedCollection;
                 }
                 
             } catch (error) {
@@ -2736,14 +2746,17 @@ const availableCollections = [
             }
         }
 
-        // Função para deletar artigo
+        // Função para deletar artigo (ATUALIZADA)
         async function deleteArticle(uid, collection) {
             if (!confirm('Tem certeza que deseja excluir este artigo? Esta ação não pode ser desfeita.')) {
                 return;
             }
             
+            // Normalizar nome da coleção
+            const normalizedCollection = collection.toLowerCase();
+            
             // Verificar permissões para userpage e historicodecontribuicoes
-            if (collection === 'userpage' || collection === 'historicodecontribuicoes') {
+            if (normalizedCollection === 'userpage' || normalizedCollection === 'historicodecontribuicoes') {
                 const podeExcluir = await podeModificarUserpage(uid);
                 if (!podeExcluir) {
                     showMessage('Você não tem permissão para excluir este documento.', 'error');
@@ -2752,7 +2765,7 @@ const availableCollections = [
             }
             
             try {
-                await db.collection(collection).doc(uid).delete();
+                await db.collection(normalizedCollection).doc(uid).delete();
                 showMessage('Artigo excluído com sucesso!', 'success');
                 showEmptyState('Artigo excluído.');
                 searchUID.value = '';
@@ -2864,7 +2877,9 @@ const availableCollections = [
         // Funções do modal de compartilhamento
         function openShareModal(uid, collection) {
             const baseUrl = window.location.origin + window.location.pathname;
-            currentShareUrl = `${baseUrl}?uid=${encodeURIComponent(uid)}&collection=${encodeURIComponent(collection)}`;
+            // Normalizar coleção para minúsculas na URL
+            const normalizedCollection = collection.toLowerCase();
+            currentShareUrl = `${baseUrl}?uid=${encodeURIComponent(uid)}&collection=${encodeURIComponent(normalizedCollection)}`;
             
             shareLinkInput.value = currentShareUrl;
             
@@ -2960,8 +2975,11 @@ const availableCollections = [
                 return;
             }
             
+            // Normalizar coleção
+            const normalizedCollection = collection.toLowerCase();
+            
             // Verificar permissões específicas para userpage e historicodecontribuicoes
-            if (collection === 'userpage' || collection === 'historicodecontribuicoes') {
+            if (normalizedCollection === 'userpage' || normalizedCollection === 'historicodecontribuicoes') {
                 const podeEditar = await podeModificarUserpage(uid);
                 if (!podeEditar) {
                     showMessage('Você não tem permissão para editar este documento.', 'error');
@@ -2969,7 +2987,7 @@ const availableCollections = [
                 }
             }
             
-            showArticleForm(uid, collection);
+            showArticleForm(uid, normalizedCollection);
         };
 
         window.googleLogin = googleLogin;
@@ -2986,7 +3004,7 @@ const availableCollections = [
         window.loadArticle = loadArticle;
         window.loadContributions = loadContributions;
 
-        // Carregar artigo da URL ao iniciar
+        // Carregar artigo da URL ao iniciar (ATUALIZADA)
         function loadArticleFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
             const uid = urlParams.get('uid');
@@ -2994,7 +3012,8 @@ const availableCollections = [
             
             if (uid) {
                 searchUID.value = uid;
-                searchCollection.value = collection;
+                // Normalizar para minúsculas antes de definir no select
+                searchCollection.value = collection.toLowerCase();
                 
                 setTimeout(() => {
                     searchArticle();
