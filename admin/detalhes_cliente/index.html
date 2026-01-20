@@ -12,7 +12,7 @@
             background-color: #f5f5f5;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Alinha no topo */
+            align-items: flex-start;
             min-height: calc(100vh - 200px);
             padding: 20px;
             box-sizing: border-box;
@@ -25,7 +25,7 @@
         }
         .mdl-textfield {
             width: 100%;
-            margin-bottom: 16px; /* Espaçamento entre os campos */
+            margin-bottom: 16px;
         }
         .form-actions {
             display: flex;
@@ -54,12 +54,15 @@
         .mdl-selectfield {
             width: 100%;
             margin-bottom: 16px;
+            position: relative;
         }
         .mdl-selectfield label {
             width: 100%;
             padding-bottom: 8px;
             color: rgba(0,0,0,.54);
-            font-size: 16px;
+            font-size: 12px; /* Tamanho reduzido para label flutuante */
+            transform: translateY(0); /* Posição inicial */
+            transition: all 0.2s ease-out;
         }
         .mdl-selectfield select {
             width: 100%;
@@ -68,25 +71,21 @@
             border-bottom: 1px solid rgba(0,0,0,.12);
             background-color: transparent;
             font-size: 16px;
-            -webkit-appearance: none; /* Remove default arrow on select */
+            -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
             cursor: pointer;
         }
         .mdl-selectfield select:focus {
             outline: none;
-            border-bottom: 2px solid #3f51b5; /* Highlight on focus */
-        }
-        .mdl-selectfield {
-            position: relative; /* Needed for custom arrow */
+            border-bottom: 2px solid #3f51b5;
         }
         .mdl-selectfield:after {
-            content: '▼'; /* Custom arrow */
+            content: '▼';
             position: absolute;
             right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none; /* Make sure it doesn't interfere with select click */
+            bottom: 8px;
+            pointer-events: none;
             color: rgba(0,0,0,.54);
         }
         .search-section {
@@ -97,6 +96,13 @@
         .search-section .mdl-textfield {
             flex-grow: 1;
             margin-right: 10px;
+        }
+        /* Classe para quando o select tem valor */
+        .mdl-selectfield.is-focused label,
+        .mdl-selectfield.is-dirty label {
+            font-size: 12px;
+            color: #3f51b5;
+            transform: translateY(-20px);
         }
     </style>
 </head>
@@ -140,7 +146,7 @@
                     <input class="mdl-textfield__input" type="date" id="birthDate" required>
                     <label class="mdl-textfield__label" for="birthDate">Data de Nascimento</label>
                 </div>
-                <div class="mdl-selectfield mdl-js-selectfield mdl-selectfield--floating-label">
+                <div class="mdl-selectfield" id="genderContainer">
                     <label for="gender">Gênero</label>
                     <select id="gender" class="mdl-textfield__input">
                         <option value=""></option>
@@ -192,12 +198,15 @@
             <div id="message"></div>
         </div>
     </div>
+    
+    <!-- Scripts no final do body para garantir que o DOM esteja carregado -->
     <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    
     <script>
-        // Sua configuração do Firebase (substitua com suas próprias chaves)
+        // Sua configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -220,30 +229,53 @@
         const searchUidInput = document.getElementById('searchUid');
         const searchBtn = document.getElementById('searchBtn');
         const searchMessageDiv = document.getElementById('searchMessage');
-
-        const fullNameInput = document.getElementById('fullName');
-        const cpfInput = document.getElementById('cpf');
-        const rgInput = document.getElementById('rg');
-        const socialNameInput = document.getElementById('socialName');
-        const birthDateInput = document.getElementById('birthDate');
         const genderSelect = document.getElementById('gender');
-        const addressInput = document.getElementById('address');
-        const zipCodeInput = document.getElementById('zipCode');
-        const cityInput = document.getElementById('city');
-        const stateInput = document.getElementById('state');
-        const countryInput = document.getElementById('country');
-        const phoneNumberInput = document.getElementById('phoneNumber');
-        const emailAddressInput = document.getElementById('emailAddress');
+        const genderContainer = document.getElementById('genderContainer');
         const cancelEditBtn = document.getElementById('cancelEditBtn');
 
-        let currentClientId = null; // Variável para armazenar o UID do cliente a ser editado
+        let currentClientId = null;
+
+        // Inicializa os componentes MDL
+        window.addEventListener('load', function() {
+            // Atualiza todos os componentes MDL
+            if (window.componentHandler) {
+                window.componentHandler.upgradeAllRegistered();
+            }
+            
+            // Adiciona funcionalidade ao select personalizado
+            if (genderSelect && genderContainer) {
+                genderSelect.addEventListener('change', function() {
+                    if (this.value) {
+                        genderContainer.classList.add('is-dirty');
+                    } else {
+                        genderContainer.classList.remove('is-dirty');
+                    }
+                });
+                
+                genderSelect.addEventListener('focus', function() {
+                    genderContainer.classList.add('is-focused');
+                });
+                
+                genderSelect.addEventListener('blur', function() {
+                    genderContainer.classList.remove('is-focused');
+                    if (this.value) {
+                        genderContainer.classList.add('is-dirty');
+                    }
+                });
+            }
+        });
 
         // Função para exibir mensagens de sucesso/erro
         function showMessage(msg, type) {
             messageDiv.textContent = msg;
-            messageDiv.className = ''; // Limpa classes existentes
+            messageDiv.className = '';
             messageDiv.classList.add(type);
             messageDiv.style.display = 'block';
+            
+            // Oculta a mensagem após 5 segundos
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
         }
 
         // Função para exibir mensagens de busca
@@ -251,6 +283,11 @@
             searchMessageDiv.textContent = msg;
             searchMessageDiv.style.color = (type === 'error') ? 'red' : 'green';
             searchMessageDiv.style.display = 'block';
+            
+            // Oculta a mensagem após 3 segundos
+            setTimeout(() => {
+                searchMessageDiv.style.display = 'none';
+            }, 3000);
         }
 
         // Função para ocultar mensagens
@@ -261,79 +298,80 @@
 
         // Função para preencher o formulário com dados do cliente
         function populateForm(data, phoneNumber = '', emailAddress = '') {
-            fullNameInput.value = data.fullName || '';
-            cpfInput.value = data.cpf || '';
-            rgInput.value = data.rg || '';
-            socialNameInput.value = data.socialName || '';
-            birthDateInput.value = data.birthDate || '';
-            genderSelect.value = data.gender || '';
-            addressInput.value = data.address || '';
-            zipCodeInput.value = data.zipCode || '';
-            cityInput.value = data.city || '';
-            stateInput.value = data.state || '';
-            countryInput.value = data.country || 'Brasil';
-            phoneNumberInput.value = phoneNumber;
-            emailAddressInput.value = emailAddress;
+            document.getElementById('fullName').value = data.fullName || '';
+            document.getElementById('cpf').value = data.cpf || '';
+            document.getElementById('rg').value = data.rg || '';
+            document.getElementById('socialName').value = data.socialName || '';
+            document.getElementById('birthDate').value = data.birthDate || '';
+            document.getElementById('address').value = data.address || '';
+            document.getElementById('zipCode').value = data.zipCode || '';
+            document.getElementById('city').value = data.city || '';
+            document.getElementById('state').value = data.state || '';
+            document.getElementById('country').value = data.country || 'Brasil';
+            document.getElementById('phoneNumber').value = phoneNumber;
+            document.getElementById('emailAddress').value = emailAddress;
+            
+            // Define o valor do select de gênero
+            if (genderSelect && data.gender) {
+                genderSelect.value = data.gender;
+                genderContainer.classList.add('is-dirty');
+            }
 
-            // Força o MDL a atualizar os labels e estados dos campos preenchidos
-            [fullNameInput, cpfInput, rgInput, socialNameInput, birthDateInput, 
-             addressInput, zipCodeInput, cityInput, stateInput, countryInput, 
-             phoneNumberInput, emailAddressInput].forEach(input => {
-                if (input.parentElement && input.parentElement.MaterialTextfield) {
-                    input.parentElement.MaterialTextfield.checkDirty();
+            // Atualiza os labels flutuantes do MDL
+            updateMDLLabels();
+        }
+
+        // Função para atualizar labels do MDL
+        function updateMDLLabels() {
+            const textfields = document.querySelectorAll('.mdl-textfield');
+            textfields.forEach(tf => {
+                const input = tf.querySelector('.mdl-textfield__input');
+                if (input && input.value) {
+                    tf.classList.add('is-dirty');
                 }
             });
-            // Para o select, o MDL não tem checkDirty(), mas o valor é setado
-            if (genderSelect.parentElement && genderSelect.parentElement.MaterialTextfield) {
-                genderSelect.parentElement.MaterialTextfield.checkDirty();
-            }
         }
 
         // Função para limpar o formulário
         function clearForm() {
-            fullNameInput.value = '';
-            cpfInput.value = '';
-            rgInput.value = '';
-            socialNameInput.value = '';
-            birthDateInput.value = '';
-            genderSelect.value = '';
-            addressInput.value = '';
-            zipCodeInput.value = '';
-            cityInput.value = '';
-            stateInput.value = '';
-            countryInput.value = 'Brasil';
-            phoneNumberInput.value = '';
-            emailAddressInput.value = '';
+            document.getElementById('fullName').value = '';
+            document.getElementById('cpf').value = '';
+            document.getElementById('rg').value = '';
+            document.getElementById('socialName').value = '';
+            document.getElementById('birthDate').value = '';
+            document.getElementById('address').value = '';
+            document.getElementById('zipCode').value = '';
+            document.getElementById('city').value = '';
+            document.getElementById('state').value = '';
+            document.getElementById('country').value = 'Brasil';
+            document.getElementById('phoneNumber').value = '';
+            document.getElementById('emailAddress').value = '';
+            
+            // Limpa o select de gênero
+            if (genderSelect) {
+                genderSelect.value = '';
+                genderContainer.classList.remove('is-dirty');
+                genderContainer.classList.remove('is-focused');
+            }
 
-            // Força o MDL a atualizar os labels para o estado "limpo"
-            [fullNameInput, cpfInput, rgInput, socialNameInput, birthDateInput, 
-             addressInput, zipCodeInput, cityInput, stateInput, countryInput, 
-             phoneNumberInput, emailAddressInput].forEach(input => {
-                if (input.parentElement && input.parentElement.MaterialTextfield) {
-                    input.parentElement.MaterialTextfield.checkValidity(); // Limpa erros de validação
-                    input.parentElement.MaterialTextfield.checkDirty(); // Garante que o label volta ao normal
-                }
+            // Remove as classes de sujeira dos campos
+            const textfields = document.querySelectorAll('.mdl-textfield');
+            textfields.forEach(tf => {
+                tf.classList.remove('is-dirty');
+                tf.classList.remove('is-focused');
             });
-            if (genderSelect.parentElement && genderSelect.parentElement.MaterialTextfield) {
-                genderSelect.parentElement.MaterialTextfield.checkDirty();
-            }
-            // Resetar o estado interno dos componentes MDL para que os labels flutuem corretamente
-            if (componentHandler) {
-                componentHandler.upgradeDom();
-            }
         }
 
-
-        // Função para carregar os dados do cliente e preencher o formulário
+        // Função para carregar os dados do cliente
         async function loadClientData(clientId) {
-            hideMessages(); // Limpa mensagens anteriores
+            hideMessages();
             if (!clientId) {
                 showSearchMessage('UID para pesquisa não pode ser vazio.', 'error');
                 clearForm();
                 return;
             }
 
-            currentClientId = clientId; // Armazena o UID
+            currentClientId = clientId;
 
             try {
                 const clientDoc = await firestore.collection('clients').doc(clientId).get();
@@ -353,12 +391,6 @@
                     const emailSnapshot = await firestore.collection('clientEmails').where('clientId', '==', clientId).limit(1).get();
                     if (!emailSnapshot.empty) {
                         emailAddress = emailSnapshot.docs[0].data().emailAddress || '';
-                    } else {
-                        // Se não houver email em clientEmails, usa o email do Firebase Auth como fallback
-                        // Isso é mais relevante para o usuário logado que edita o próprio perfil
-                        // Para um admin pesquisando, o email do auth.currentUser pode não ser o do cliente pesquisado.
-                        // Manter apenas se o admin também edita seu próprio perfil.
-                        // Para admin, focar nos dados do Firestore.
                     }
                     
                     populateForm(data, phoneNumber, emailAddress);
@@ -380,6 +412,14 @@
             loadClientData(uidToSearch);
         });
 
+        // Permitir pesquisa com Enter
+        searchUidInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchBtn.click();
+            }
+        });
+
         // Lidar com o envio do formulário de edição
         editClientForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -390,33 +430,41 @@
             }
 
             const updatedClientData = {
-                fullName: fullNameInput.value,
-                cpf: cpfInput.value,
-                rg: rgInput.value,
-                socialName: socialNameInput.value,
-                birthDate: birthDateInput.value,
+                fullName: document.getElementById('fullName').value,
+                cpf: document.getElementById('cpf').value,
+                rg: document.getElementById('rg').value,
+                socialName: document.getElementById('socialName').value,
+                birthDate: document.getElementById('birthDate').value,
                 gender: genderSelect.value,
-                address: addressInput.value,
-                zipCode: zipCodeInput.value,
-                city: cityInput.value,
-                state: stateInput.value,
-                country: countryInput.value,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Atualiza o timestamp
+                address: document.getElementById('address').value,
+                zipCode: document.getElementById('zipCode').value,
+                city: document.getElementById('city').value,
+                state: document.getElementById('state').value,
+                country: document.getElementById('country').value,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            const phoneNumber = phoneNumberInput.value;
-            const emailAddress = emailAddressInput.value;
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const emailAddress = document.getElementById('emailAddress').value;
 
             try {
+                // Validações básicas
+                if (!updatedClientData.fullName || !updatedClientData.cpf) {
+                    showMessage('Nome completo e CPF são obrigatórios.', 'error');
+                    return;
+                }
+
                 // Atualiza o documento principal do cliente
                 await firestore.collection('clients').doc(currentClientId).update(updatedClientData);
 
                 // Atualiza ou cria o telefone principal
                 const phoneSnapshot = await firestore.collection('clientPhones').where('clientId', '==', currentClientId).limit(1).get();
                 if (!phoneSnapshot.empty) {
-                    await phoneSnapshot.docs[0].ref.update({ phoneNumber: phoneNumber });
+                    await phoneSnapshot.docs[0].ref.update({ 
+                        phoneNumber: phoneNumber,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
                 } else {
-                    // Se não houver telefone primário, cria um novo
                     await firestore.collection('clientPhones').add({
                         clientId: currentClientId,
                         phoneNumber: phoneNumber,
@@ -428,9 +476,11 @@
                 // Atualiza ou cria o email principal
                 const emailSnapshot = await firestore.collection('clientEmails').where('clientId', '==', currentClientId).limit(1).get();
                 if (!emailSnapshot.empty) {
-                    await emailSnapshot.docs[0].ref.update({ emailAddress: emailAddress });
+                    await emailSnapshot.docs[0].ref.update({ 
+                        emailAddress: emailAddress,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
                 } else {
-                    // Se não houver email primário, cria um novo
                     await firestore.collection('clientEmails').add({
                         clientId: currentClientId,
                         emailAddress: emailAddress,
@@ -440,20 +490,7 @@
                 }
 
                 showMessage('Informações do cliente atualizadas com sucesso!', 'success');
-
-                // Opcional: Redirecionar de volta para a página de informações após a atualização
-                // Manter o redirecionamento apenas se não estiver no modo admin de busca por UID
-                // Para o modo admin, o formulário permanece aberto para novas buscas/edições.
-                // Se desejar redirecionar para a página do cliente editado, descomente o bloco abaixo.
-                /*
-                setTimeout(() => {
-                    if (window.parent && window.parent.loadPage) {
-                        window.parent.loadPage('informacoes_cliente.html?uid=' + currentClientId, true);
-                    } else {
-                        window.location.href = 'informacoes_cliente.html?uid=' + currentClientId;
-                    }
-                }, 1500); // Dá um tempo para o usuário ver a mensagem de sucesso
-                */
+                
             } catch (error) {
                 console.error("Erro ao atualizar cliente:", error);
                 showMessage(`Erro ao atualizar cliente: ${error.message}`, 'error');
@@ -462,66 +499,31 @@
 
         // Lidar com o botão de cancelar
         cancelEditBtn.addEventListener('click', () => {
-            // No modo de pesquisa de administrador, cancelar simplesmente limpa o formulário e o UID atual
             currentClientId = null;
             clearForm();
             hideMessages();
-            searchUidInput.value = ''; // Limpa o campo de pesquisa
-            // Se houver um redirecionamento original (e.g., vindo de outra página para editar),
-            // ele pode ser adicionado aqui com lógica condicional.
-            // Por enquanto, apenas limpa.
+            searchUidInput.value = '';
         });
 
-        // Lógica de carregamento inicial (ainda útil se a página for acessada diretamente com UID na URL, ou por um usuário editando o próprio perfil)
-        // Função para obter o parâmetro UID da URL
-        function getParameterByName(name, url = window.location.href) {
-            name = name.replace(/[\[\]]/g, '\\$&');
-            var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-                results = regex.exec(url);
-            if (!results) return null;
-            if (!results[2]) return '';
-            return decodeURIComponent(results[2].replace(/\+/g, ' '));
+        // Função para obter parâmetros da URL
+        function getParameterByName(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
         }
 
+        // Inicialização quando o DOM estiver pronto
         document.addEventListener('DOMContentLoaded', () => {
             const uidFromUrl = getParameterByName('uid');
             if (uidFromUrl) {
                 loadClientData(uidFromUrl);
-                searchUidInput.value = uidFromUrl; // Preenche o campo de busca com o UID da URL
-                if (searchUidInput.parentElement && searchUidInput.parentElement.MaterialTextfield) {
-                    searchUidInput.parentElement.MaterialTextfield.checkDirty();
-                }
-            } else if (auth.currentUser) {
-                // Se não há UID na URL, tenta carregar o perfil do usuário logado
-                loadClientData(auth.currentUser.uid);
-                searchUidInput.value = auth.currentUser.uid;
-                if (searchUidInput.parentElement && searchUidInput.parentElement.MaterialTextfield) {
-                    searchUidInput.parentElement.MaterialTextfield.checkDirty();
-                }
+                searchUidInput.value = uidFromUrl;
             }
         });
 
-        // Opcional: Redirecionar se o usuário deslogar ou o UID mudar (mantido para segurança do usuário comum)
+        // Monitorar estado de autenticação
         auth.onAuthStateChanged(user => {
-            // Se o usuário logado não corresponde ao UID atual no formulário (e não estamos em um modo de pesquisa explícita de admin)
-            // ou se não há usuário e havia um cliente carregado, talvez redirecionar.
-            // Para um admin, esta lógica precisa ser mais flexível.
-            // Por simplicidade, vou manter a lógica de redirecionamento para o caso de
-            // um usuário comum que tentou acessar a página de edição de outra pessoa.
-            const uidFromUrl = getParameterByName('uid');
-            if (!user && currentClientId) { // Se deslogou e havia um cliente carregado
-                if (window.parent && window.parent.location) {
-                    window.parent.location.href = 'index.html'; // Para o fluxo de login
-                } else {
-                    window.location.href = 'index.html';
-                }
-            } else if (user && uidFromUrl && user.uid !== uidFromUrl) {
-                // Se o usuário logado é diferente do UID na URL, mas um UID foi explicitamente passado (pode ser admin)
-                // Não redirecionar automaticamente, permitir a pesquisa.
-            } else if (user && !uidFromUrl && user.uid !== currentClientId) {
-                // Se o usuário mudou (sem UID na URL) e o cliente carregado não é mais o atual, recarrega o próprio perfil
-                // Isso pode acontecer se um usuário fizer login e depois logout/login com outra conta.
-                // loadClientData(user.uid); // Comentei para evitar loop ou comportamento inesperado no modo admin.
+            if (!user) {
+                console.warn('Usuário não autenticado');
             }
         });
     </script>
