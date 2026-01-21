@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administração do Sistema - Controle de Acesso</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2c3e50 0%, #1a252f 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px 10px 0 0;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-top: 15px;
+            transition: background-color 0.3s;
+        }
+        
+        .back-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .back-button i {
+            margin-right: 8px;
+        }
+        
+        .admin-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .admin-panel {
+            flex: 1;
+            min-width: 300px;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-title {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            font-size: 1.3rem;
+        }
+        
+        .user-info-card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #2c3e50;
+        }
+        
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #2c3e50, #1a252f);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0 auto 15px;
+        }
+        
+        .user-details {
+            text-align: center;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 1.2rem;
+        }
+        
+        .user-email {
+            color: #666;
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+        
+        .user-role {
+            display: inline-block;
+            background-color: #2c3e50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2c3e50;
+            box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.2);
+        }
+        
+        .required {
+            color: #e74c3c;
+        }
+        
+        button {
+            background: linear-gradient(to right, #2c3e50, #1a252f);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: linear-gradient(to right, #1a252f, #0d1319);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        button:disabled {
+            background: linear-gradient(to right, #95a5a6, #7f8c8d);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .button-group button {
+            flex: 1;
+        }
+        
+        #saveButton {
+            background: linear-gradient(to right, #27ae60, #219653);
+        }
+        
+        #saveButton:hover:not(:disabled) {
+            background: linear-gradient(to right, #219653, #1e8449);
+        }
+        
+        #clearButton {
+            background: linear-gradient(to right, #95a5a6, #7f8c8d);
+        }
+        
+        #clearButton:hover {
+            background: linear-gradient(to right, #7f8c8d, #6c7b7d);
+        }
+        
+        .status-message {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .loading {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .users-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .user-item {
+            background-color: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2c3e50;
+            transition: all 0.3s;
+        }
+        
+        .user-item:hover {
+            background-color: #e8f4ff;
+        }
+        
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .user-item-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        
+        .user-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-inactive {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .user-details-small {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .user-actions button {
+            padding: 8px 15px;
+            font-size: 0.9rem;
+            margin-top: 0;
+            width: auto;
+        }
+        
+        .edit-btn {
+            background: linear-gradient(to right, #3498db, #2980b9);
+        }
+        
+        .toggle-btn {
+            background: linear-gradient(to right, #f39c12, #e67e22);
+        }
+        
+        .delete-btn {
+            background: linear-gradient(to right, #e74c3c, #c0392b);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #95a5a6;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .search-box {
+            margin-bottom: 20px;
+        }
+        
+        #searchUser {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            width: 100%;
+        }
+        
+        .admin-only {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #f39c12;
+            margin-bottom: 20px;
+        }
+        
+        .admin-only h3 {
+            color: #d35400;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .admin-only h3 i {
+            color: #e74c3c;
+        }
+        
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .permission-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        
+        .permission-icon {
+            font-size: 2rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .permission-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .permission-desc {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .admin-content {
+                flex-direction: column;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .user-actions {
+                flex-direction: column;
+            }
+            
+            .user-actions button {
+                width: 100%;
+            }
+        }
+        
+        /* Loader */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2c3e50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .access-denied {
+            text-align: center;
+            padding: 80px 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .access-denied i {
+            font-size: 5rem;
+            color: #e74c3c;
+            margin-bottom: 20px;
+        }
+        
+        .access-denied h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .access-denied p {
+            color: #666;
+            max-width: 600px;
+            margin: 0 auto 25px;
+            line-height: 1.6;
+        }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .role-admin {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .role-medico {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .role-enfermeiro {
+            background-color: #9b59b6;
+            color: white;
+        }
+        
+        .role-psicologo {
+            background-color: #1abc9c;
+            color: white;
+        }
+        
+        .role-recepcionista {
+            background-color: #f39c12;
+            color: white;
+        }
+        
+        .role-visitante {
+            background-color: #95a5a6;
+            color: white;
+        }
+    </style>
+    <!-- Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Administração do Sistema</h1>
+            <p class="subtitle">Controle de acesso e permissões dos usuários</p>
+            <a href="#" class="back-button" id="backButton">
+                <i class="fas fa-arrow-left"></i> Voltar ao Sistema
+            </a>
+        </header>
+        
+        <div class="status-message" id="statusMessage"></div>
+        
+        <!-- Área restrita - apenas você (criador do projeto) pode acessar -->
+        <div id="adminContent" style="display: none;">
+            <div class="admin-content">
+                <div class="admin-panel">
+                    <div class="admin-only">
+                        <h3><i class="fas fa-shield-alt"></i> Área Restrita - Administrador Master</h3>
+                        <p>Apenas o criador do projeto (você) pode gerenciar as permissões dos usuários neste sistema.</p>
+                    </div>
+                    
+                    <div class="user-info-card" id="currentUserInfo">
+                        <div class="user-avatar" id="currentUserAvatar">AD</div>
+                        <div class="user-details">
+                            <div class="user-name" id="currentUserName">Carregando...</div>
+                            <div class="user-email" id="currentUserEmail">admin@exemplo.com</div>
+                            <div class="user-role" id="currentUserRole">Administrador Master</div>
+                        </div>
+                    </div>
+                    
+                    <h2 class="section-title">Gerenciar Permissões de Usuário</h2>
+                    
+                    <div class="form-group">
+                        <label for="userEmail">E-mail do Usuário (Google) <span class="required">*</span></label>
+                        <input type="email" id="userEmail" placeholder="Digite o e-mail do usuário do Google" autocomplete="off">
+                        <button id="searchUserBtn" style="margin-top: 10px; padding: 10px; font-size: 0.9rem;">
+                            <i class="fas fa-search"></i> Buscar Usuário pelo E-mail
+                        </button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userName">Nome do Usuário</label>
+                        <input type="text" id="userName" placeholder="Nome completo do usuário" disabled>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userRole">Função no Sistema <span class="required">*</span></label>
+                        <select id="userRole">
+                            <option value="">Selecione uma função</option>
+                            <option value="admin">Administrador</option>
+                            <option value="medico">Médico</option>
+                            <option value="enfermeiro">Enfermeiro</option>
+                            <option value="psicologo">Psicólogo</option>
+                            <option value="recepcionista">Recepcionista</option>
+                            <option value="visitante">Visitante (Apenas Leitura)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userStatus">Status da Conta <span class="required">*</span></label>
+                        <select id="userStatus">
+                            <option value="ativo">Ativo</option>
+                            <option value="inativo">Inativo</option>
+                            <option value="suspenso">Suspenso</option>
+                            <option value="pendente">Pendente de Ativação</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userPermissions">Permissões Específicas (opcional)</label>
+                        <select id="userPermissions" multiple style="height: 120px;">
+                            <option value="cadastrar_pacientes">Cadastrar Pacientes</option>
+                            <option value="editar_pacientes">Editar Pacientes</option>
+                            <option value="excluir_pacientes">Excluir Pacientes</option>
+                            <option value="agendar_consultas">Agendar Consultas</option>
+                            <option value="realizar_consultas">Realizar Consultas</option>
+                            <option value="cancelar_consultas">Cancelar Consultas</option>
+                            <option value="solicitar_exames">Solicitar Exames</option>
+                            <option value="ver_resultados">Ver Resultados de Exames</option>
+                            <option value="prescrever_medicamentos">Prescrever Medicamentos</option>
+                            <option value="acessar_prontuarios">Acessar Prontuários</option>
+                            <option value="editar_prontuarios">Editar Prontuários</option>
+                            <option value="gerar_relatorios">Gerar Relatórios</option>
+                            <option value="acessar_admin">Acessar Área Administrativa</option>
+                            <option value="gerenciar_usuarios">Gerenciar Usuários</option>
+                        </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">Segure Ctrl (ou Cmd no Mac) para selecionar múltiplas opções</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userNotes">Observações (opcional)</label>
+                        <textarea id="userNotes" placeholder="Observações sobre este usuário" rows="3" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="saveButton" disabled>
+                            <i class="fas fa-save"></i> Salvar Permissões
+                        </button>
+                        <button id="clearButton">
+                            <i class="fas fa-times"></i> Limpar Formulário
+                        </button>
+                    </div>
+                    
+                    <div class="permissions-grid">
+                        <div class="permission-item">
+                            <div class="permission-icon"><i class="fas fa-user-md"></i></div>
+                            <div class="permission-name">Médicos</div>
+                            <div class="permission-desc">Acesso completo a consultas, prontuários e exames</div>
+                        </div>
+                        <div class="permission-item">
+                            <div class="permission-icon"><i class="fas fa-user-nurse"></i></div>
+                            <div class="permission-name">Enfermeiros</div>
+                            <div class="permission-desc">Acesso a prontuários e sinais vitais</div>
+                        </div>
+                        <div class="permission-item">
+                            <div class="permission-icon"><i class="fas fa-brain"></i></div>
+                            <div class="permission-name">Psicólogos</div>
+                            <div class="permission-desc">Acesso a consultas e prontuários psicológicos</div>
+                        </div>
+                        <div class="permission-item">
+                            <div class="permission-icon"><i class="fas fa-clipboard-list"></i></div>
+                            <div class="permission-name">Recepcionistas</div>
+                            <div class="permission-desc">Agendamento e cadastro de pacientes</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-panel">
+                    <h2 class="section-title">Usuários do Sistema</h2>
+                    
+                    <div class="search-box">
+                        <input type="text" id="searchUser" placeholder="Buscar usuários por nome ou e-mail...">
+                    </div>
+                    
+                    <div class="users-list" id="usersList">
+                        <div class="loader" id="usersLoader"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mensagem de acesso negado -->
+        <div id="accessDenied" class="access-denied" style="display: none;">
+            <i class="fas fa-ban"></i>
+            <h2>Acesso Negado</h2>
+            <p>Esta área é restrita apenas ao administrador master do sistema (criador do projeto).</p>
+            <p>Se você é o administrador, verifique se está logado com a conta correta do Google.</p>
+            <button id="loginAdminBtn" style="max-width: 300px; margin: 0 auto;">
+                <i class="fas fa-sign-in-alt"></i> Fazer Login como Administrador
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgm3YoP4HkIrTFOYGYgOR2VD58ctU2D_U",
+            authDomain: "gespaimaspia.firebaseapp.com",
+            databaseURL: "https://gespaimaspia.firebaseio.com",
+            projectId: "gespaimaspia",
+            storageBucket: "gespaimaspia.firebasestorage.app",
+            messagingSenderId: "245238673674",
+            appId: "1:245238673674:web:2c1108fc499a3f1b0d0af3"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // Referência à coleção "administracao"
+        const administracaoRef = db.collection("administracao");
+        
+        // UID do criador do projeto (SEU UID DO GOOGLE)
+        // IMPORTANTE: Substitua pelo seu UID real
+        const ADMIN_MASTER_UID = "SEU_UID_AQUI"; // Você precisa colocar seu UID do Google aqui
+        
+        // Estado da aplicação
+        let currentUser = null;
+        let isAdminMaster = false;
+        let editingUserId = null;
+        let allUsers = [];
+        
+        // Elementos DOM
+        const statusMessage = document.getElementById('statusMessage');
+        const backButton = document.getElementById('backButton');
+        const adminContent = document.getElementById('adminContent');
+        const accessDenied = document.getElementById('accessDenied');
+        const loginAdminBtn = document.getElementById('loginAdminBtn');
+        
+        // Informações do usuário atual
+        const currentUserAvatar = document.getElementById('currentUserAvatar');
+        const currentUserName = document.getElementById('currentUserName');
+        const currentUserEmail = document.getElementById('currentUserEmail');
+        const currentUserRole = document.getElementById('currentUserRole');
+        
+        // Formulário
+        const userEmailInput = document.getElementById('userEmail');
+        const userNameInput = document.getElementById('userName');
+        const userRoleSelect = document.getElementById('userRole');
+        const userStatusSelect = document.getElementById('userStatus');
+        const userPermissionsSelect = document.getElementById('userPermissions');
+        const userNotesInput = document.getElementById('userNotes');
+        const searchUserBtn = document.getElementById('searchUserBtn');
+        const saveButton = document.getElementById('saveButton');
+        const clearButton = document.getElementById('clearButton');
+        
+        // Lista de usuários
+        const searchUserInput = document.getElementById('searchUser');
+        const usersList = document.getElementById('usersList');
+        const usersLoader = document.getElementById('usersLoader');
+        
+        // Mostrar mensagem de status
+        function showMessage(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            statusMessage.style.display = 'block';
+            
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Verificar se o usuário atual é o administrador master
+        async function checkAdminMaster() {
+            try {
+                // Esperar autenticação
+                return new Promise((resolve) => {
+                    auth.onAuthStateChanged(async (user) => {
+                        if (user) {
+                            currentUser = user;
+                            
+                            // Verificar se é o UID do administrador master
+                            isAdminMaster = (user.uid === ADMIN_MASTER_UID);
+                            
+                            if (isAdminMaster) {
+                                // Atualizar informações do usuário atual
+                                updateCurrentUserInfo();
+                                
+                                // Mostrar conteúdo administrativo
+                                adminContent.style.display = 'block';
+                                accessDenied.style.display = 'none';
+                                
+                                // Carregar usuários do sistema
+                                loadUsers();
+                                
+                                showMessage(`Bem-vindo, administrador master!`, 'success');
+                            } else {
+                                // Mostrar acesso negado
+                                adminContent.style.display = 'none';
+                                accessDenied.style.display = 'block';
+                                
+                                console.log(`Usuário não é administrador master. UID: ${user.uid}`);
+                                console.log(`UID do administrador master: ${ADMIN_MASTER_UID}`);
+                            }
+                            
+                            resolve(isAdminMaster);
+                        } else {
+                            // Nenhum usuário autenticado
+                            adminContent.style.display = 'none';
+                            accessDenied.style.display = 'block';
+                            resolve(false);
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Erro ao verificar administrador:', error);
+                showMessage('Erro ao verificar permissões.', 'error');
+                return false;
+            }
+        }
+        
+        // Atualizar informações do usuário atual
+        function updateCurrentUserInfo() {
+            if (!currentUser) return;
+            
+            // Avatar com iniciais
+            const displayName = currentUser.displayName || 'Administrador';
+            const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
+            currentUserAvatar.textContent = initials.substring(0, 2);
+            
+            // Informações básicas
+            currentUserName.textContent = displayName;
+            currentUserEmail.textContent = currentUser.email;
+            currentUserRole.textContent = 'Administrador Master';
+        }
+        
+        // Buscar usuário pelo e-mail
+        async function searchUserByEmail() {
+            const email = userEmailInput.value.trim();
+            
+            if (!email) {
+                showMessage('Por favor, digite um e-mail para buscar.', 'warning');
+                return;
+            }
+            
+            try {
+                showMessage('Buscando usuário...', 'loading');
+                
+                // Primeiro, verificar se o usuário já está registrado na administração
+                const snapshot = await administracaoRef.where('email', '==', email).get();
+                
+                if (!snapshot.empty) {
+                    // Usuário já existe na administração
+                    const doc = snapshot.docs[0];
+                    const userData = doc.data();
+                    
+                    // Preencher formulário com dados existentes
+                    editingUserId = doc.id;
+                    userNameInput.value = userData.nome || '';
+                    userRoleSelect.value = userData.role || '';
+                    userStatusSelect.value = userData.status || 'ativo';
+                    userNotesInput.value = userData.observacoes || '';
+                    
+                    // Preencher permissões
+                    Array.from(userPermissionsSelect.options).forEach(option => {
+                        option.selected = userData.permissoes && userData.permissoes.includes(option.value);
+                    });
+                    
+                    // Habilitar campos
+                    userNameInput.disabled = false;
+                    userRoleSelect.disabled = false;
+                    userStatusSelect.disabled = false;
+                    userPermissionsSelect.disabled = false;
+                    userNotesInput.disabled = false;
+                    saveButton.disabled = false;
+                    
+                    showMessage(`Usuário encontrado: ${userData.nome || email}`, 'success');
+                    
+                } else {
+                    // Usuário não está registrado na administração
+                    // Tentar buscar informações básicas do Firebase Auth
+                    showMessage('Usuário não encontrado no sistema de administração. Você pode registrá-lo agora.', 'warning');
+                    
+                    // Preencher nome se estiver no formato de e-mail
+                    const nome = email.split('@')[0].replace(/\./g, ' ').replace(/\d+/g, '');
+                    userNameInput.value = nome.charAt(0).toUpperCase() + nome.slice(1);
+                    
+                    // Resetar outros campos
+                    userRoleSelect.value = '';
+                    userStatusSelect.value = 'ativo';
+                    userNotesInput.value = '';
+                    
+                    // Desmarcar todas as permissões
+                    Array.from(userPermissionsSelect.options).forEach(option => {
+                        option.selected = false;
+                    });
+                    
+                    // Habilitar campos para novo registro
+                    userNameInput.disabled = false;
+                    userRoleSelect.disabled = false;
+                    userStatusSelect.disabled = false;
+                    userPermissionsSelect.disabled = false;
+                    userNotesInput.disabled = false;
+                    saveButton.disabled = false;
+                    
+                    editingUserId = null;
+                }
+                
+            } catch (error) {
+                console.error('Erro ao buscar usuário:', error);
+                showMessage('Erro ao buscar usuário. Verifique o e-mail e tente novamente.', 'error');
+            }
+        }
+        
+        // Carregar todos os usuários do sistema
+        async function loadUsers() {
+            try {
+                usersLoader.style.display = 'block';
+                usersList.innerHTML = '';
+                
+                const snapshot = await administracaoRef.orderBy('nome').get();
+                allUsers = [];
+                
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    user.id = doc.id;
+                    allUsers.push(user);
+                });
+                
+                renderUsers(allUsers);
+                usersLoader.style.display = 'none';
+                
+                console.log(`${allUsers.length} usuários carregados.`);
+                
+            } catch (error) {
+                console.error('Erro ao carregar usuários:', error);
+                usersLoader.style.display = 'none';
+                usersList.innerHTML = `
+                    <div class="error" style="padding: 20px; text-align: center;">
+                        Erro ao carregar usuários. Tente novamente.
+                    </div>
+                `;
+            }
+        }
+        
+        // Renderizar lista de usuários
+        function renderUsers(users) {
+            if (users.length === 0) {
+                usersList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <h3>Nenhum usuário encontrado</h3>
+                        <p>Comece adicionando usuários usando o formulário ao lado.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            usersList.innerHTML = '';
+            
+            users.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                
+                // Badge de função
+                const roleBadgeText = {
+                    'admin': 'Administrador',
+                    'medico': 'Médico',
+                    'enfermeiro': 'Enfermeiro',
+                    'psicologo': 'Psicólogo',
+                    'recepcionista': 'Recepcionista',
+                    'visitante': 'Visitante'
+                }[user.role] || user.role || 'Não definido';
+                
+                const roleBadgeClass = `role-${user.role || 'visitante'}`;
+                
+                // Status
+                const statusText = user.status === 'ativo' ? 'Ativo' : 
+                                 user.status === 'inativo' ? 'Inativo' : 
+                                 user.status === 'suspenso' ? 'Suspenso' : 'Pendente';
+                
+                const statusClass = user.status === 'ativo' ? 'status-active' : 'status-inactive';
+                
+                userItem.innerHTML = `
+                    <div class="user-header">
+                        <div class="user-item-name">
+                            ${user.nome || 'Sem nome'}
+                            <span class="role-badge ${roleBadgeClass}">${roleBadgeText}</span>
+                        </div>
+                        <div class="user-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="user-details-small">
+                        <i class="fas fa-envelope"></i> ${user.email}
+                    </div>
+                    <div class="user-details-small">
+                        <i class="fas fa-calendar-alt"></i> Registrado em: ${formatDate(user.dataRegistro)}
+                    </div>
+                    ${user.observacoes ? `<div class="user-details-small"><i class="fas fa-sticky-note"></i> ${user.observacoes.substring(0, 50)}${user.observacoes.length > 50 ? '...' : ''}</div>` : ''}
+                    <div class="user-actions">
+                        <button class="edit-btn" onclick="editUser('${user.id}')">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="toggle-btn" onclick="toggleUserStatus('${user.id}', '${user.status}', '${user.nome || user.email}')">
+                            <i class="fas fa-power-off"></i> ${user.status === 'ativo' ? 'Desativar' : 'Ativar'}
+                        </button>
+                        ${user.id !== ADMIN_MASTER_UID ? `
+                        <button class="delete-btn" onclick="deleteUser('${user.id}', '${user.nome || user.email}')">
+                            <i class="fas fa-trash"></i> Excluir
+                        </button>
+                        ` : ''}
+                    </div>
+                `;
+                
+                usersList.appendChild(userItem);
+            });
+        }
+        
+        // Filtrar usuários na busca
+        function filterUsers() {
+            const searchTerm = searchUserInput.value.toLowerCase();
+            
+            if (!searchTerm) {
+                renderUsers(allUsers);
+                return;
+            }
+            
+            const filtered = allUsers.filter(user => {
+                return (
+                    (user.nome && user.nome.toLowerCase().includes(searchTerm)) ||
+                    (user.email && user.email.toLowerCase().includes(searchTerm)) ||
+                    (user.role && user.role.toLowerCase().includes(searchTerm))
+                );
+            });
+            
+            renderUsers(filtered);
+        }
+        
+        // Formatar data
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            
+            const d = date.toDate ? date.toDate() : new Date(date);
+            return d.toLocaleDateString('pt-BR');
+        }
+        
+        // Validar formulário
+        function validateForm() {
+            if (!userEmailInput.value.trim()) {
+                showMessage('Por favor, informe o e-mail do usuário.', 'error');
+                userEmailInput.focus();
+                return false;
+            }
+            
+            if (!userRoleSelect.value) {
+                showMessage('Por favor, selecione uma função para o usuário.', 'error');
+                userRoleSelect.focus();
+                return false;
+            }
+            
+            if (!userStatusSelect.value) {
+                showMessage('Por favor, selecione um status para o usuário.', 'error');
+                userStatusSelect.focus();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Salvar/atualizar permissões do usuário
+        async function saveUserPermissions() {
+            if (!validateForm()) return;
+            
+            if (!isAdminMaster) {
+                showMessage('Apenas o administrador master pode salvar permissões.', 'error');
+                return;
+            }
+            
+            try {
+                showMessage('Salvando permissões...', 'loading');
+                
+                // Obter permissões selecionadas
+                const selectedPermissions = Array.from(userPermissionsSelect.selectedOptions).map(opt => opt.value);
+                
+                const userData = {
+                    email: userEmailInput.value.trim(),
+                    nome: userNameInput.value.trim(),
+                    role: userRoleSelect.value,
+                    status: userStatusSelect.value,
+                    permissoes: selectedPermissions,
+                    observacoes: userNotesInput.value.trim(),
+                    atualizadoPor: currentUser.email,
+                    dataAtualizacao: new Date()
+                };
+                
+                if (editingUserId) {
+                    // Atualizar usuário existente
+                    await administracaoRef.doc(editingUserId).update(userData);
+                    showMessage('Permissões atualizadas com sucesso!', 'success');
+                } else {
+                    // Novo usuário
+                    userData.criadoPor = currentUser.email;
+                    userData.dataRegistro = new Date();
+                    userData.uid = userEmailInput.value.trim(); // Em um sistema real, seria o UID do Google
+                    
+                    await administracaoRef.add(userData);
+                    showMessage('Usuário registrado com sucesso!', 'success');
+                }
+                
+                // Limpar formulário
+                clearForm();
+                
+                // Recarregar lista de usuários
+                loadUsers();
+                
+            } catch (error) {
+                console.error('Erro ao salvar permissões:', error);
+                showMessage('Erro ao salvar permissões. Tente novamente.', 'error');
+            }
+        }
+        
+        // Editar usuário
+        async function editUser(userId) {
+            try {
+                const doc = await administracaoRef.doc(userId).get();
+                
+                if (!doc.exists) {
+                    showMessage('Usuário não encontrado.', 'error');
+                    return;
+                }
+                
+                const userData = doc.data();
+                editingUserId = userId;
+                
+                // Preencher formulário
+                userEmailInput.value = userData.email || '';
+                userNameInput.value = userData.nome || '';
+                userRoleSelect.value = userData.role || '';
+                userStatusSelect.value = userData.status || 'ativo';
+                userNotesInput.value = userData.observacoes || '';
+                
+                // Preencher permissões
+                Array.from(userPermissionsSelect.options).forEach(option => {
+                    option.selected = userData.permissoes && userData.permissoes.includes(option.value);
+                });
+                
+                // Habilitar campos
+                userNameInput.disabled = false;
+                userRoleSelect.disabled = false;
+                userStatusSelect.disabled = false;
+                userPermissionsSelect.disabled = false;
+                userNotesInput.disabled = false;
+                saveButton.disabled = false;
+                
+                showMessage(`Editando usuário: ${userData.nome || userData.email}`, 'success');
+                
+            } catch (error) {
+                console.error('Erro ao carregar usuário para edição:', error);
+                showMessage('Erro ao carregar dados do usuário.', 'error');
+            }
+        }
+        
+        // Alternar status do usuário (ativo/inativo)
+        async function toggleUserStatus(userId, currentStatus, userName) {
+            if (!isAdminMaster) {
+                showMessage('Apenas o administrador master pode alterar status.', 'error');
+                return;
+            }
+            
+            if (userId === ADMIN_MASTER_UID) {
+                showMessage('Não é possível alterar o status do administrador master.', 'warning');
+                return;
+            }
+            
+            const newStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo';
+            const confirmMessage = `Tem certeza que deseja ${newStatus === 'ativo' ? 'ativar' : 'desativar'} o usuário "${userName}"?`;
+            
+            if (!confirm(confirmMessage)) return;
+            
+            try {
+                showMessage('Alterando status...', 'loading');
+                
+                await administracaoRef.doc(userId).update({
+                    status: newStatus,
+                    atualizadoPor: currentUser.email,
+                    dataAtualizacao: new Date()
+                });
+                
+                showMessage(`Status do usuário alterado para "${newStatus}".`, 'success');
+                
+                // Recarregar lista de usuários
+                loadUsers();
+                
+            } catch (error) {
+                console.error('Erro ao alterar status:', error);
+                showMessage('Erro ao alterar status do usuário.', 'error');
+            }
+        }
+        
+        // Excluir usuário
+        async function deleteUser(userId, userName) {
+            if (!isAdminMaster) {
+                showMessage('Apenas o administrador master pode excluir usuários.', 'error');
+                return;
+            }
+            
+            if (userId === ADMIN_MASTER_UID) {
+                showMessage('Não é possível excluir o administrador master.', 'warning');
+                return;
+            }
+            
+            if (!confirm(`Tem certeza que deseja excluir o usuário "${userName}"? Esta ação não pode ser desfeita.`)) {
+                return;
+            }
+            
+            try {
+                showMessage('Excluindo usuário...', 'loading');
+                
+                await administracaoRef.doc(userId).delete();
+                
+                showMessage('Usuário excluído com sucesso!', 'success');
+                
+                // Recarregar lista de usuários
+                loadUsers();
+                
+                // Limpar formulário se estiver editando este usuário
+                if (editingUserId === userId) {
+                    clearForm();
+                }
+                
+            } catch (error) {
+                console.error('Erro ao excluir usuário:', error);
+                showMessage('Erro ao excluir usuário. Tente novamente.', 'error');
+            }
+        }
+        
+        // Limpar formulário
+        function clearForm() {
+            userEmailInput.value = '';
+            userNameInput.value = '';
+            userRoleSelect.value = '';
+            userStatusSelect.value = 'ativo';
+            userNotesInput.value = '';
+            
+            // Desmarcar todas as permissões
+            Array.from(userPermissionsSelect.options).forEach(option => {
+                option.selected = false;
+            });
+            
+            // Desabilitar campos
+            userNameInput.disabled = true;
+            userRoleSelect.disabled = true;
+            userStatusSelect.disabled = true;
+            userPermissionsSelect.disabled = true;
+            userNotesInput.disabled = true;
+            saveButton.disabled = true;
+            
+            editingUserId = null;
+            
+            showMessage('Formulário limpo com sucesso!', 'success');
+        }
+        
+        // Fazer login como administrador
+        function loginAsAdmin() {
+            auth.signOut().then(() => {
+                // Redirecionar para login do Google
+                const provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider)
+                    .then((result) => {
+                        // Verificar se é o administrador master
+                        checkAdminMaster();
+                    })
+                    .catch((error) => {
+                        console.error('Erro ao fazer login:', error);
+                        showMessage('Erro ao fazer login com Google.', 'error');
+                    });
+            });
+        }
+        
+        // Inicializar event listeners
+        function initEventListeners() {
+            // Buscar usuário
+            searchUserBtn.addEventListener('click', searchUserByEmail);
+            
+            // Buscar ao pressionar Enter no campo de e-mail
+            userEmailInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchUserByEmail();
+                }
+            });
+            
+            // Salvar permissões
+            saveButton.addEventListener('click', saveUserPermissions);
+            
+            // Limpar formulário
+            clearButton.addEventListener('click', clearForm);
+            
+            // Busca na lista de usuários
+            searchUserInput.addEventListener('input', filterUsers);
+            
+            // Voltar ao sistema
+            backButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.history.back();
+            });
+            
+            // Login como administrador
+            loginAdminBtn.addEventListener('click', loginAsAdmin);
+            
+            // Auto-detect quando o e-mail é alterado
+            userEmailInput.addEventListener('change', () => {
+                if (userEmailInput.value.trim() && !editingUserId) {
+                    // Tentar buscar automaticamente
+                    searchUserByEmail();
+                }
+            });
+        }
+        
+        // Inicializar aplicação
+        async function init() {
+            // Configurar seu UID do Google (IMPORTANTE!)
+            // Você precisa substituir 'SEU_UID_AQUI' pelo seu UID real do Google
+            
+            // Para obter seu UID do Google:
+            // 1. Faça login no Firebase Console
+            // 2. Vá para Authentication → Users
+            // 3. Encontre seu usuário e copie o UID
+            // 4. Cole abaixo:
+            
+            // Exemplo: const ADMIN_MASTER_UID = "abc123def456ghi789";
+            
+            if (ADMIN_MASTER_UID === "SEU_UID_AQUI") {
+                showMessage('AVISO: Configure seu UID do Google no código!', 'warning');
+                console.error('Configure o ADMIN_MASTER_UID com seu UID do Google!');
+            }
+            
+            initEventListeners();
+            
+            // Verificar se é administrador master
+            const isMaster = await checkAdminMaster();
+            
+            if (!isMaster) {
+                console.warn('Usuário não é administrador master. Acesso negado.');
+                
+                // Tentar autenticação automática se não estiver autenticado
+                if (!currentUser) {
+                    // Verificar se há usuário salvo
+                    auth.onAuthStateChanged((user) => {
+                        if (!user) {
+                            // Nenhum usuário autenticado, mostrar botão de login
+                            loginAdminBtn.style.display = 'block';
+                        }
+                    });
+                }
+            }
+            
+            console.log('Sistema de Administração inicializado.');
+            console.log('Coleção: administracao');
+            console.log('Apenas o UID:', ADMIN_MASTER_UID, 'pode modificar dados.');
+        }
+        
+        // Iniciar quando o DOM estiver carregado
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Exportar funções para uso global
+        window.editUser = editUser;
+        window.toggleUserStatus = toggleUserStatus;
+        window.deleteUser = deleteUser;
+    </script>
+</body>
+</html>
