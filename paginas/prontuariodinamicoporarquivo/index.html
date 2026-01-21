@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Prontuários Unificado - Firebase</title>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        
+        /* Container de autenticação */
+        #auth-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 50px auto;
+        }
+        
+        #auth-container h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        #auth-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .auth-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .auth-buttons button:hover {
+            background-color: #0056b3;
+        }
+        
+        .auth-buttons button:nth-child(2) {
+            background-color: #28a745;
+        }
+        
+        .auth-buttons button:nth-child(2):hover {
+            background-color: #1e7e34;
+        }
+        
+        /* Container principal */
+        #main-container {
+            display: none;
+        }
+        
+        /* Informações do usuário */
+        .user-info {
+            text-align: right;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .user-info span {
+            font-weight: bold;
+            color: #007BFF;
+        }
+        
+        .user-info button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            font-size: 14px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .user-info button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Lista de documentos */
+        #documents-list {
+            margin-bottom: 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        #documents-list h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .document-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .document-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .document-info {
+            flex-grow: 1;
+        }
+        
+        .document-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .document-meta {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .document-actions button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .load-document-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .load-document-btn:hover {
+            background-color: #1e7e34;
+        }
+        
+        .delete-document-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .delete-document-btn:hover {
+            background-color: #c82333;
+        }
+        
+        /* Abas */
+        #tabs {
+            display: flex;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 5px;
+            background-color: #fff;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .tab-active {
+            background-color: #007BFF;
+            color: white;
+        }
+        
+        .tab:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .tab button {
+            padding: 3px 8px;
+            font-size: 12px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .tab button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Container do editor */
+        #editor-container {
+            margin-top: 10px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        #tab-info, #new-item-container {
+            margin-bottom: 15px;
+        }
+        
+        #tab-info input, #tab-info textarea, #new-item-container input, #new-item-container select {
+            width: calc(100% - 20px);
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        /* Botões principais */
+        #buttons {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        #buttons button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        #buttons button:hover {
+            background-color: #0056b3;
+        }
+        
+        /* Botões específicos */
+        .save-buttons {
+            background-color: #28a745 !important;
+        }
+        
+        .save-buttons:hover {
+            background-color: #1e7e34 !important;
+        }
+        
+        .new-document-btn {
+            background-color: #17a2b8 !important;
+        }
+        
+        .new-document-btn:hover {
+            background-color: #138496 !important;
+        }
+        
+        /* Itens */
+        .item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            position: relative;
+        }
+        
+        .item h1, .item h2, .item h3, .item h4, .item h5, .item h6, .item p {
+            margin: 0 0 10px 0;
+        }
+        
+        .item-content {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 3px;
+            border: 1px solid #eee;
+        }
+        
+        .item button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .item button:hover {
+            background-color: #c82333;
+        }
+        
+        /* Mensagens */
+        .message {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        /* Campo de nome do documento */
+        .document-name-field {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .document-name-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        /* Grupos de botões */
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .button-group h3 {
+            width: 100%;
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                background-color: white;
+                color: black;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+            .tab, #buttons, #auth-container, .user-info, #documents-list, .document-name-field {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <!-- Container de Autenticação -->
+    <div id="auth-container">
+        <h2>Login/Registro Prontuário</h2>
+        
+        <div class="message error" id="auth-error"></div>
+        <div class="message success" id="auth-success"></div>
+        
+        <input type="email" id="email" placeholder="E-mail">
+        <input type="password" id="password" placeholder="Senha">
+        
+        <div class="auth-buttons">
+            <button onclick="login()">Login</button>
+            <button onclick="register()">Registrar</button>
+        </div>
+    </div>
+
+    <!-- Container Principal (aparece após login) -->
+    <div id="main-container">
+        <!-- Informações do usuário -->
+        <div class="user-info">
+            Usuário: <span id="user-email"></span>
+            <button onclick="logout()">Sair</button>
+        </div>
+
+        <!-- Lista de documentos -->
+        <div id="documents-list">
+            <h2>Meus Documentos</h2>
+            <div id="documents-container"></div>
+        </div>
+
+        <!-- Campo de nome do documento -->
+        <div class="document-name-field">
+            <input type="text" id="document-name" placeholder="Nome do documento (obrigatório para salvar)">
+        </div>
+
+        <!-- Abas -->
+        <div id="tabs">
+            <button onclick="addTab()">Adicionar Aba</button>
+        </div>
+
+        <!-- Editor -->
+        <div id="editor-container">
+            <div id="tab-info">
+                <input type="text" id="tab-title" placeholder="Título da aba" oninput="updateTabTitle()">
+                <textarea id="tab-description" placeholder="Descrição da aba" oninput="updateTabDescription()"></textarea>
+            </div>
+            
+            <div id="new-item-container">
+                <input type="text" id="new-item-title" placeholder="Título do item">
+                <select id="item-title-format">
+                    <option value="h1">Título 1</option>
+                    <option value="h2">Título 2</option>
+                    <option value="h3">Título 3</option>
+                    <option value="h4">Título 4</option>
+                    <option value="h5">Título 5</option>
+                    <option value="h6">Título 6</option>
+                    <option value="p">Parágrafo</option>
+                </select>
+                <div id="new-item-content" style="height: 200px; margin-bottom: 10px;"></div>
+                <button onclick="addNewItem()">Adicionar Item</button>
+            </div>
+            
+            <div id="list"></div>
+        </div>
+
+        <!-- Mensagens de status -->
+        <div class="message error" id="firebase-error"></div>
+        <div class="message success" id="firebase-success"></div>
+
+        <!-- Botões de controle -->
+        <div id="buttons">
+            <!-- Grupo Documentos -->
+            <div class="button-group">
+                <h3>Gerenciamento</h3>
+                <button onclick="saveDocument()" class="save-buttons">Salvar Documento</button>
+                <button onclick="newDocument()" class="new-document-btn">Novo Documento</button>
+                <button onclick="printActiveTab()">Imprimir Aba Ativa</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // Inicializa o Quill
+        var quill = new Quill('#new-item-content', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+        
+        // Variáveis globais
+        let tabs = {};
+        let activeTab = 1;
+        let nextTabNumber = 1;
+        let currentUser = null;
+        let currentDocumentId = null;
+        let documents = [];
+        
+        // Observador de autenticação
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-container').style.display = 'block';
+                document.getElementById('user-email').textContent = user.email;
+                showMessage('auth-success', 'Login realizado com sucesso!');
+                
+                // Carregar documentos do usuário
+                loadUserDocuments();
+            } else {
+                currentUser = null;
+                documents = [];
+                currentDocumentId = null;
+                document.getElementById('auth-container').style.display = 'block';
+                document.getElementById('main-container').style.display = 'none';
+            }
+        });
+        
+        // Funções de autenticação
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no login: ' + error.message);
+                });
+        }
+        
+        function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(() => {
+                    showMessage('auth-success', 'Conta criada com sucesso!');
+                })
+                .catch((error) => {
+                    showMessage('auth-error', 'Erro no registro: ' + error.message);
+                });
+        }
+        
+        function logout() {
+            auth.signOut();
+            tabs = {};
+            activeTab = 1;
+            nextTabNumber = 1;
+            currentDocumentId = null;
+            documents = [];
+            renderTabs();
+            renderList();
+            updateTabInputs();
+            renderDocumentsList();
+        }
+        
+        // Funções de mensagens
+        function showMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Funções para listar documentos
+        async function loadUserDocuments() {
+            if (!currentUser) return;
+            
+            try {
+                const snapshot = await db.collection('prontuariouniversal')
+                    .where('userId', '==', currentUser.uid)
+                    .orderBy('lastModified', 'desc')
+                    .get();
+                
+                documents = [];
+                snapshot.forEach(doc => {
+                    documents.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                renderDocumentsList();
+            } catch (error) {
+                console.error('Erro ao carregar documentos:', error);
+            }
+        }
+        
+        function renderDocumentsList() {
+            const container = document.getElementById('documents-container');
+            container.innerHTML = '';
+            
+            if (documents.length === 0) {
+                container.innerHTML = '<p>Nenhum documento encontrado. Crie um novo documento para começar.</p>';
+                return;
+            }
+            
+            documents.forEach(doc => {
+                const docElement = document.createElement('div');
+                docElement.className = 'document-item';
+                
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'document-info';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'document-title';
+                titleDiv.textContent = doc.documentName || 'Documento sem nome';
+                
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'document-meta';
+                const date = doc.lastModified?.toDate ? doc.lastModified.toDate() : new Date();
+                metaDiv.textContent = `Última modificação: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                
+                infoDiv.appendChild(titleDiv);
+                infoDiv.appendChild(metaDiv);
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'document-actions';
+                
+                const loadBtn = document.createElement('button');
+                loadBtn.className = 'load-document-btn';
+                loadBtn.textContent = 'Abrir';
+                loadBtn.onclick = () => loadDocument(doc.id);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-document-btn';
+                deleteBtn.textContent = 'Excluir';
+                deleteBtn.onclick = () => deleteDocument(doc.id);
+                
+                actionsDiv.appendChild(loadBtn);
+                actionsDiv.appendChild(deleteBtn);
+                
+                docElement.appendChild(infoDiv);
+                docElement.appendChild(actionsDiv);
+                container.appendChild(docElement);
+            });
+        }
+        
+        // Funções do editor
+        function renderTabs() {
+            const tabContainer = document.getElementById('tabs');
+            tabContainer.innerHTML = '<button onclick="addTab()">Adicionar Aba</button>';
+            
+            Object.keys(tabs).forEach(tabNumber => {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (tabNumber == activeTab ? ' tab-active' : '');
+                tab.setAttribute('data-tab', tabNumber);
+                tab.textContent = `Aba ${tabNumber}: ${tabs[tabNumber].title || ''}`;
+                tab.addEventListener('click', () => {
+                    document.querySelector('.tab-active')?.classList.remove('tab-active');
+                    tab.classList.add('tab-active');
+                    activeTab = tabNumber;
+                    renderList();
+                    updateTabInputs();
+                });
+
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remover';
+                removeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    removeTab(tabNumber);
+                };
+
+                tab.appendChild(removeButton);
+                tabContainer.appendChild(tab);
+            });
+        }
+        
+        function removeTab(tabNumber) {
+            delete tabs[tabNumber];
+            if (Object.keys(tabs).length > 0) {
+                activeTab = Math.max(...Object.keys(tabs).map(Number));
+            } else {
+                activeTab = 1;
+            }
+            renderTabs();
+            renderList();
+            updateTabInputs();
+        }
+        
+        function updateTabInputs() {
+            if (tabs[activeTab]) {
+                document.getElementById('tab-title').value = tabs[activeTab].title || '';
+                document.getElementById('tab-description').value = tabs[activeTab].description || '';
+            } else {
+                document.getElementById('tab-title').value = '';
+                document.getElementById('tab-description').value = '';
+            }
+        }
+        
+        function updateTabTitle() {
+            if (tabs[activeTab]) {
+                tabs[activeTab].title = document.getElementById('tab-title').value;
+                renderTabs();
+            }
+        }
+        
+        function updateTabDescription() {
+            if (tabs[activeTab]) {
+                tabs[activeTab].description = document.getElementById('tab-description').value;
+            }
+        }
+        
+        function renderList() {
+            const listContainer = document.getElementById('list');
+            listContainer.innerHTML = '';
+
+            if (tabs[activeTab]) {
+                tabs[activeTab].items.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'item';
+
+                    const titleElement = document.createElement(item.titleFormat || 'h3');
+                    titleElement.textContent = item.title;
+                    itemDiv.appendChild(titleElement);
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'item-content';
+                    contentDiv.innerHTML = item.content;
+                    itemDiv.appendChild(contentDiv);
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remover';
+                    removeButton.onclick = () => {
+                        tabs[activeTab].items.splice(index, 1);
+                        renderList();
+                    };
+
+                    itemDiv.appendChild(removeButton);
+                    listContainer.appendChild(itemDiv);
+                });
+            }
+        }
+        
+        function addTab() {
+            tabs[nextTabNumber] = { title: '', description: '', items: [] };
+            activeTab = nextTabNumber;
+            nextTabNumber++;
+            renderTabs();
+            renderList();
+            updateTabInputs();
+        }
+        
+        function addNewItem() {
+            const newItemTitle = document.getElementById('new-item-title').value.trim();
+            const titleFormat = document.getElementById('item-title-format').value;
+            const newItemContent = quill.root.innerHTML;
+            
+            if (tabs[activeTab] && (newItemTitle || newItemContent)) {
+                tabs[activeTab].items.push({ 
+                    title: newItemTitle, 
+                    titleFormat: titleFormat, 
+                    content: newItemContent 
+                });
+                document.getElementById('new-item-title').value = '';
+                quill.setContents([]);
+                renderList();
+            }
+        }
+        
+        // Funções do Firebase
+        async function saveDocument() {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para salvar.');
+                return;
+            }
+            
+            const documentName = document.getElementById('document-name').value.trim();
+            if (!documentName) {
+                showMessage('firebase-error', 'Digite um nome para o documento.');
+                return;
+            }
+            
+            try {
+                const dataToSave = {
+                    data: tabs,
+                    documentName: documentName,
+                    lastModified: firebase.firestore.FieldValue.serverTimestamp(),
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email
+                };
+                
+                if (currentDocumentId) {
+                    // Atualizar documento existente
+                    await db.collection('prontuariouniversal')
+                        .doc(currentDocumentId)
+                        .update(dataToSave);
+                    showMessage('firebase-success', 'Documento atualizado com sucesso!');
+                } else {
+                    // Criar novo documento
+                    const docRef = await db.collection('prontuariouniversal')
+                        .add(dataToSave);
+                    currentDocumentId = docRef.id;
+                    showMessage('firebase-success', 'Documento salvo com sucesso!');
+                }
+                
+                // Recarregar a lista de documentos
+                loadUserDocuments();
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao salvar: ' + error.message);
+            }
+        }
+        
+        async function loadDocument(documentId) {
+            if (!currentUser) {
+                showMessage('firebase-error', 'Você precisa estar logado para carregar.');
+                return;
+            }
+            
+            try {
+                const doc = await db.collection('prontuariouniversal')
+                    .doc(documentId)
+                    .get();
+                
+                if (!doc.exists) {
+                    showMessage('firebase-error', 'Documento não encontrado.');
+                    return;
+                }
+                
+                const data = doc.data();
+                
+                // Verificar se o documento pertence ao usuário atual
+                if (data.userId !== currentUser.uid) {
+                    showMessage('firebase-error', 'Você não tem permissão para acessar este documento.');
+                    return;
+                }
+                
+                // Carregar os dados
+                tabs = data.data || {};
+                currentDocumentId = documentId;
+                document.getElementById('document-name').value = data.documentName || '';
+                
+                // Atualizar a interface
+                nextTabNumber = Math.max(...Object.keys(tabs).map(Number), 0) + 1;
+                activeTab = Object.keys(tabs)[0] || 1;
+                
+                renderTabs();
+                renderList();
+                updateTabInputs();
+                
+                showMessage('firebase-success', 'Documento carregado com sucesso!');
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao carregar: ' + error.message);
+            }
+        }
+        
+        async function deleteDocument(documentId) {
+            if (!confirm('Tem certeza que deseja excluir este documento? Esta ação não pode ser desfeita.')) {
+                return;
+            }
+            
+            try {
+                await db.collection('prontuariouniversal')
+                    .doc(documentId)
+                    .delete();
+                
+                // Se o documento excluído é o atual, limpar a interface
+                if (currentDocumentId === documentId) {
+                    newDocument();
+                }
+                
+                showMessage('firebase-success', 'Documento excluído com sucesso!');
+                loadUserDocuments();
+            } catch (error) {
+                showMessage('firebase-error', 'Erro ao excluir: ' + error.message);
+            }
+        }
+        
+        function newDocument() {
+            tabs = {};
+            activeTab = 1;
+            nextTabNumber = 1;
+            currentDocumentId = null;
+            document.getElementById('document-name').value = '';
+            addTab();
+            showMessage('firebase-success', 'Novo documento criado!');
+        }
+        
+        // Funções de impressão
+        function printActiveTab() {
+            const tab = tabs[activeTab];
+            if (!tab) return;
+            
+            const printContent = `
+                <h2>${tab.title || ''}</h2>
+                <p>${tab.description || ''}</p>
+                ${tab.items.map(item => {
+                    const titleElement = item.titleFormat ? 
+                        `<${item.titleFormat}>${item.title}</${item.titleFormat}>` : 
+                        `<h3>${item.title}</h3>`;
+                    return `${titleElement}${item.content}`;
+                }).join('')}
+            `;
+            
+            printContentWindow(printContent, 'Imprimir Aba Ativa');
+        }
+        
+        function printContentWindow(content, title) {
+            const printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>${title}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            h2 { margin-top: 20px; }
+                            .page-break { page-break-before: always; }
+                            @media print {
+                                body { margin: 0; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${content}
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+        
+        // Inicializa com uma aba
+        window.onload = function() {
+            addTab();
+        };
+    </script>
+</body>
+</html>
