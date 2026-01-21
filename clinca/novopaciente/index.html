@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GesPAI - Gestão de Consultórios</title>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            signOut,
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore,
+            collection,
+            addDoc,
+            getDocs,
+            query,
+            where,
+            Timestamp
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgm3YoP4HkIrTFOYGYgOR2VD58ctU2D_U",
+            authDomain: "gespaimaspia.firebaseapp.com",
+            databaseURL: "https://gespaimaspia.firebaseio.com",
+            projectId: "gespaimaspia",
+            storageBucket: "gespaimaspia.firebasestorage.app",
+            messagingSenderId: "245238673674",
+            appId: "1:245238673674:web:2c1108fc499a3f1b0d0af3"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // Make Firebase available globally
+        window.firebase = {
+            auth,
+            db,
+            GoogleAuthProvider,
+            signInWithPopup,
+            signOut,
+            onAuthStateChanged,
+            collection,
+            addDoc,
+            getDocs,
+            query,
+            where,
+            Timestamp
+        };
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f8fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2c3e50, #4a6491);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+            color: #3498db;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-secondary {
+            background-color: #7f8c8d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #6c7b7d;
+        }
+        
+        .btn-google {
+            background-color: #dd4b39;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 24px;
+        }
+        
+        .btn-google:hover {
+            background-color: #c23321;
+        }
+        
+        main {
+            padding: 30px 0;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Login Screen */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 70vh;
+            text-align: center;
+        }
+        
+        .login-card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+        }
+        
+        .login-card h2 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .login-card p {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        /* Dashboard */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 30px;
+        }
+        
+        .sidebar {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+            height: fit-content;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 10px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: #f1f8ff;
+            color: #3498db;
+        }
+        
+        .nav-link.active {
+            background-color: #e1f0ff;
+            color: #3498db;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.2rem;
+        }
+        
+        .content-area {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            min-height: 500px;
+        }
+        
+        .page-title {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* Form Styles */
+        .form-container {
+            max-width: 800px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        /* Patients List */
+        .patients-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+            max-width: 400px;
+        }
+        
+        .search-box input {
+            flex: 1;
+        }
+        
+        .patients-list {
+            margin-top: 20px;
+        }
+        
+        .patient-card {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3498db;
+            transition: transform 0.2s;
+        }
+        
+        .patient-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .patient-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .patient-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .patient-id {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+        }
+        
+        .patient-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            margin-bottom: 4px;
+        }
+        
+        .detail-value {
+            font-weight: 500;
+        }
+        
+        /* Alert Messages */
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: inherit;
+        }
+        
+        /* Responsive */
+        @media (max-width: 992px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                order: 2;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .patients-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .search-box {
+                width: 100%;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <div class="logo-icon">🏥</div>
+                <h1>GesPAI - Gestão de Consultórios</h1>
+            </div>
+            <div class="user-info">
+                <div id="userAvatar" class="user-avatar hidden"></div>
+                <span id="userName" class="hidden"></span>
+                <button id="logoutBtn" class="btn btn-secondary hidden">Sair</button>
+            </div>
+        </div>
+    </header>
+    
+    <main class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="login-container">
+            <div class="login-card">
+                <h2>Bem-vindo ao GesPAI</h2>
+                <p>Faça login com sua conta Google para acessar o sistema de gestão do consultório</p>
+                <button id="googleLoginBtn" class="btn btn-google">
+                    <span>🔍</span> Login com Google
+                </button>
+            </div>
+        </div>
+        
+        <!-- Dashboard (hidden by default) -->
+        <div id="dashboard" class="dashboard hidden">
+            <!-- Sidebar Navigation -->
+            <div class="sidebar">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="#" id="navDashboard" class="nav-link active">
+                            <span class="nav-icon">📊</span> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navAddPatient" class="nav-link">
+                            <span class="nav-icon">➕</span> Adicionar Paciente
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navPatients" class="nav-link">
+                            <span class="nav-icon">👥</span> Lista de Pacientes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navMedicalRecords" class="nav-link">
+                            <span class="nav-icon">📋</span> Prontuários
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard Content -->
+                <div id="dashboardContent">
+                    <h2 class="page-title">Dashboard</h2>
+                    <p>Bem-vindo ao sistema de gestão de consultórios GesPAI.</p>
+                    <p>Selecione uma opção no menu lateral para começar.</p>
+                </div>
+                
+                <!-- Add Patient Form -->
+                <div id="addPatientContent" class="hidden">
+                    <h2 class="page-title">Adicionar Novo Paciente</h2>
+                    <div id="patientAlert" class="alert hidden"></div>
+                    <div class="form-container">
+                        <form id="patientForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="nome">Nome Completo *</label>
+                                    <input type="text" id="nome" name="nome" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cpf">CPF</label>
+                                    <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="dataNascimento">Data de Nascimento</label>
+                                    <input type="date" id="dataNascimento" name="dataNascimento">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sexo">Sexo</label>
+                                    <select id="sexo" name="sexo">
+                                        <option value="">Selecione</option>
+                                        <option value="masculino">Masculino</option>
+                                        <option value="feminino">Feminino</option>
+                                        <option value="outro">Outro</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="email">E-mail</label>
+                                    <input type="email" id="email" name="email">
+                                </div>
+                                <div class="form-group">
+                                    <label for="telefone">Telefone Principal *</label>
+                                    <input type="tel" id="telefone" name="telefone" required placeholder="(11) 99999-9999">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="endereco">Endereço Completo</label>
+                                <textarea id="endereco" name="endereco"></textarea>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="convenio">Convênio</label>
+                                    <input type="text" id="convenio" name="convenio">
+                                </div>
+                                <div class="form-group">
+                                    <label for="numeroConvenio">Número do Convênio</label>
+                                    <input type="text" id="numeroConvenio" name="numeroConvenio">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="observacoes">Observações</label>
+                                <textarea id="observacoes" name="observacoes"></textarea>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                        Cadastrar Paciente
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <button type="reset" class="btn btn-secondary" style="width: 100%;">
+                                        Limpar Formulário
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Patients List -->
+                <div id="patientsContent" class="hidden">
+                    <div class="patients-header">
+                        <h2 class="page-title">Lista de Pacientes</h2>
+                        <div class="search-box">
+                            <input type="text" id="searchPatient" placeholder="Buscar paciente por nome, CPF ou telefone">
+                            <button id="searchBtn" class="btn btn-primary">Buscar</button>
+                        </div>
+                    </div>
+                    <div id="patientsList" class="patients-list">
+                        <!-- Pacientes serão carregados aqui dinamicamente -->
+                    </div>
+                </div>
+                
+                <!-- Medical Records -->
+                <div id="medicalRecordsContent" class="hidden">
+                    <h2 class="page-title">Prontuários Médicos</h2>
+                    <p>Funcionalidade em desenvolvimento. Em breve você poderá acessar e gerenciar prontuários médicos dos pacientes.</p>
+                    <div class="alert alert-success">
+                        <div>
+                            <strong>Informação:</strong> Os prontuários serão vinculados automaticamente ao UID do paciente no Firebase.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // Firebase references
+        const {
+            auth,
+            db,
+            GoogleAuthProvider,
+            signInWithPopup,
+            signOut,
+            onAuthStateChanged,
+            collection,
+            addDoc,
+            getDocs,
+            query,
+            where,
+            Timestamp
+        } = window.firebase;
+        
+        // DOM Elements
+        const loginScreen = document.getElementById('loginScreen');
+        const dashboard = document.getElementById('dashboard');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userAvatar = document.getElementById('userAvatar');
+        const userName = document.getElementById('userName');
+        
+        // Navigation elements
+        const navDashboard = document.getElementById('navDashboard');
+        const navAddPatient = document.getElementById('navAddPatient');
+        const navPatients = document.getElementById('navPatients');
+        const navMedicalRecords = document.getElementById('navMedicalRecords');
+        
+        // Content sections
+        const dashboardContent = document.getElementById('dashboardContent');
+        const addPatientContent = document.getElementById('addPatientContent');
+        const patientsContent = document.getElementById('patientsContent');
+        const medicalRecordsContent = document.getElementById('medicalRecordsContent');
+        
+        // Form and list elements
+        const patientForm = document.getElementById('patientForm');
+        const patientsList = document.getElementById('patientsList');
+        const searchPatient = document.getElementById('searchPatient');
+        const searchBtn = document.getElementById('searchBtn');
+        const patientAlert = document.getElementById('patientAlert');
+        
+        // Current user data
+        let currentUser = null;
+        let allPatients = [];
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check auth state
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // User is signed in
+                    currentUser = user;
+                    showDashboard();
+                    updateUserInfo(user);
+                    loadPatients();
+                } else {
+                    // User is signed out
+                    showLogin();
+                }
+            });
+            
+            // Event listeners
+            googleLoginBtn.addEventListener('click', signInWithGoogle);
+            logoutBtn.addEventListener('click', handleLogout);
+            
+            // Navigation event listeners
+            navDashboard.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('dashboard');
+                updateActiveNav(navDashboard);
+            });
+            
+            navAddPatient.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('addPatient');
+                updateActiveNav(navAddPatient);
+            });
+            
+            navPatients.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('patients');
+                updateActiveNav(navPatients);
+                loadPatients();
+            });
+            
+            navMedicalRecords.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('medicalRecords');
+                updateActiveNav(navMedicalRecords);
+            });
+            
+            // Patient form submission
+            patientForm.addEventListener('submit', handleAddPatient);
+            
+            // Search functionality
+            searchBtn.addEventListener('click', handleSearch);
+            searchPatient.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    handleSearch();
+                }
+            });
+        });
+        
+        // Firebase authentication functions
+        async function signInWithGoogle() {
+            const provider = new GoogleAuthProvider();
+            
+            try {
+                await signInWithPopup(auth, provider);
+                // User will be handled by onAuthStateChanged
+            } catch (error) {
+                console.error('Erro ao fazer login com Google:', error);
+                showAlert(patientAlert, `Erro ao fazer login: ${error.message}`, 'error');
+            }
+        }
+        
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+            }
+        }
+        
+        // UI functions
+        function showLogin() {
+            loginScreen.classList.remove('hidden');
+            dashboard.classList.add('hidden');
+        }
+        
+        function showDashboard() {
+            loginScreen.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+            showSection('dashboard');
+            updateActiveNav(navDashboard);
+        }
+        
+        function updateUserInfo(user) {
+            userAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+            userName.textContent = user.displayName || user.email;
+            
+            userAvatar.classList.remove('hidden');
+            userName.classList.remove('hidden');
+            logoutBtn.classList.remove('hidden');
+        }
+        
+        function showSection(section) {
+            // Hide all sections
+            dashboardContent.classList.add('hidden');
+            addPatientContent.classList.add('hidden');
+            patientsContent.classList.add('hidden');
+            medicalRecordsContent.classList.add('hidden');
+            
+            // Show selected section
+            switch(section) {
+                case 'dashboard':
+                    dashboardContent.classList.remove('hidden');
+                    break;
+                case 'addPatient':
+                    addPatientContent.classList.remove('hidden');
+                    break;
+                case 'patients':
+                    patientsContent.classList.remove('hidden');
+                    break;
+                case 'medicalRecords':
+                    medicalRecordsContent.classList.remove('hidden');
+                    break;
+            }
+        }
+        
+        function updateActiveNav(activeNav) {
+            // Remove active class from all nav items
+            const navItems = document.querySelectorAll('.nav-link');
+            navItems.forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Add active class to clicked nav item
+            activeNav.classList.add('active');
+        }
+        
+        // Patient management functions
+        async function handleAddPatient(e) {
+            e.preventDefault();
+            
+            // Check if user is logged in
+            if (!currentUser) {
+                showAlert(patientAlert, 'Você precisa estar logado para adicionar pacientes.', 'error');
+                return;
+            }
+            
+            // Get form data
+            const formData = new FormData(patientForm);
+            const patientData = {
+                nome: formData.get('nome'),
+                cpf: formData.get('cpf'),
+                dataNascimento: formData.get('dataNascimento'),
+                sexo: formData.get('sexo'),
+                email: formData.get('email'),
+                telefone: formData.get('telefone'),
+                endereco: formData.get('endereco'),
+                convenio: formData.get('convenio'),
+                numeroConvenio: formData.get('numeroConvenio'),
+                observacoes: formData.get('observacoes'),
+                criadoPor: currentUser.uid,
+                criadoEm: Timestamp.now()
+            };
+            
+            // Validate required fields
+            if (!patientData.nome || !patientData.telefone) {
+                showAlert(patientAlert, 'Nome e telefone são campos obrigatórios.', 'error');
+                return;
+            }
+            
+            try {
+                // Add patient to Firestore
+                const docRef = await addDoc(collection(db, "Paciente"), patientData);
+                
+                // Add phone to Telefone collection
+                await addDoc(collection(db, "Telefone"), {
+                    pacienteId: docRef.id,
+                    telefone: patientData.telefone,
+                    tipo: 'principal',
+                    criadoEm: Timestamp.now()
+                });
+                
+                // Create empty medical record for the patient
+                await addDoc(collection(db, "Prontuario"), {
+                    pacienteId: docRef.id,
+                    historico: '',
+                    exames: [],
+                    tratamentos: [],
+                    observacoes: '',
+                    criadoEm: Timestamp.now(),
+                    atualizadoEm: Timestamp.now()
+                });
+                
+                // Show success message
+                showAlert(patientAlert, `Paciente "${patientData.nome}" cadastrado com sucesso! ID: ${docRef.id}`, 'success');
+                
+                // Reset form
+                patientForm.reset();
+                
+                // Reload patients list
+                loadPatients();
+                
+            } catch (error) {
+                console.error('Erro ao cadastrar paciente:', error);
+                showAlert(patientAlert, `Erro ao cadastrar paciente: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadPatients() {
+            if (!currentUser) return;
+            
+            try {
+                // Query patients created by current user
+                const q = query(
+                    collection(db, "Paciente"),
+                    where("criadoPor", "==", currentUser.uid)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                allPatients = [];
+                
+                patientsList.innerHTML = '';
+                
+                if (querySnapshot.empty) {
+                    patientsList.innerHTML = '<div class="alert">Nenhum paciente cadastrado ainda.</div>';
+                    return;
+                }
+                
+                querySnapshot.forEach((doc) => {
+                    const patient = {
+                        id: doc.id,
+                        ...doc.data()
+                    };
+                    allPatients.push(patient);
+                    
+                    // Format date
+                    let formattedDate = 'Não informada';
+                    if (patient.dataNascimento) {
+                        const date = new Date(patient.dataNascimento);
+                        formattedDate = date.toLocaleDateString('pt-BR');
+                    }
+                    
+                    // Create patient card
+                    const patientCard = document.createElement('div');
+                    patientCard.className = 'patient-card';
+                    patientCard.innerHTML = `
+                        <div class="patient-header">
+                            <div>
+                                <div class="patient-name">${patient.nome}</div>
+                                <div class="patient-id">ID: ${patient.id}</div>
+                            </div>
+                        </div>
+                        <div class="patient-details">
+                            <div class="detail-item">
+                                <span class="detail-label">CPF:</span>
+                                <span class="detail-value">${patient.cpf || 'Não informado'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Nascimento:</span>
+                                <span class="detail-value">${formattedDate}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Telefone:</span>
+                                <span class="detail-value">${patient.telefone}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Convênio:</span>
+                                <span class="detail-value">${patient.convenio || 'Não informado'}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    patientsList.appendChild(patientCard);
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar pacientes:', error);
+                patientsList.innerHTML = `<div class="alert alert-error">Erro ao carregar pacientes: ${error.message}</div>`;
+            }
+        }
+        
+        function handleSearch() {
+            const searchTerm = searchPatient.value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                // If search is empty, show all patients
+                renderPatientsList(allPatients);
+                return;
+            }
+            
+            // Filter patients
+            const filteredPatients = allPatients.filter(patient => {
+                return (
+                    (patient.nome && patient.nome.toLowerCase().includes(searchTerm)) ||
+                    (patient.cpf && patient.cpf.includes(searchTerm)) ||
+                    (patient.telefone && patient.telefone.includes(searchTerm)) ||
+                    (patient.email && patient.email.toLowerCase().includes(searchTerm))
+                );
+            });
+            
+            renderPatientsList(filteredPatients);
+        }
+        
+        function renderPatientsList(patients) {
+            patientsList.innerHTML = '';
+            
+            if (patients.length === 0) {
+                patientsList.innerHTML = '<div class="alert">Nenhum paciente encontrado.</div>';
+                return;
+            }
+            
+            patients.forEach(patient => {
+                // Format date
+                let formattedDate = 'Não informada';
+                if (patient.dataNascimento) {
+                    const date = new Date(patient.dataNascimento);
+                    formattedDate = date.toLocaleDateString('pt-BR');
+                }
+                
+                // Create patient card
+                const patientCard = document.createElement('div');
+                patientCard.className = 'patient-card';
+                patientCard.innerHTML = `
+                    <div class="patient-header">
+                        <div>
+                            <div class="patient-name">${patient.nome}</div>
+                            <div class="patient-id">ID: ${patient.id}</div>
+                        </div>
+                    </div>
+                    <div class="patient-details">
+                        <div class="detail-item">
+                            <span class="detail-label">CPF:</span>
+                            <span class="detail-value">${patient.cpf || 'Não informado'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Nascimento:</span>
+                            <span class="detail-value">${formattedDate}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Telefone:</span>
+                            <span class="detail-value">${patient.telefone}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Convênio:</span>
+                            <span class="detail-value">${patient.convenio || 'Não informado'}</span>
+                        </div>
+                    </div>
+                `;
+                
+                patientsList.appendChild(patientCard);
+            });
+        }
+        
+        function showAlert(container, message, type) {
+            container.innerHTML = '';
+            container.className = `alert alert-${type}`;
+            container.innerHTML = `
+                <div>${message}</div>
+                <button class="alert-close" onclick="this.parentElement.classList.add('hidden')">&times;</button>
+            `;
+            container.classList.remove('hidden');
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.classList.add('hidden');
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
