@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informações da Fundação - Área Administrativa</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://cdn.ckeditor.com/ckeditor5/36.0.1/ckeditor.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2c3e50 0%, #1a252f 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px 10px 0 0;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-top: 15px;
+            transition: background-color 0.3s;
+        }
+        
+        .back-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .back-button i {
+            margin-right: 8px;
+        }
+        
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .sidebar {
+            flex: 0 0 300px;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+        }
+        
+        .main-content {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .section-title {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            font-size: 1.3rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #2c3e50;
+            box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.2);
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .required {
+            color: #e74c3c;
+        }
+        
+        button {
+            background: linear-gradient(to right, #2c3e50, #1a252f);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: linear-gradient(to right, #1a252f, #0d1319);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .button-group button {
+            flex: 1;
+        }
+        
+        #saveButton {
+            background: linear-gradient(to right, #27ae60, #219653);
+        }
+        
+        #saveButton:hover {
+            background: linear-gradient(to right, #219653, #1e8449);
+        }
+        
+        #clearButton {
+            background: linear-gradient(to right, #95a5a6, #7f8c8d);
+        }
+        
+        #clearButton:hover {
+            background: linear-gradient(to right, #7f8c8d, #6c7b7d);
+        }
+        
+        #editButton {
+            background: linear-gradient(to right, #3498db, #2980b9);
+        }
+        
+        #editButton:hover {
+            background: linear-gradient(to right, #2980b9, #1f618d);
+        }
+        
+        .status-message {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .info-sections {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .info-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .info-nav-btn {
+            padding: 10px 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+            transition: all 0.3s;
+        }
+        
+        .info-nav-btn:hover {
+            background-color: #e9ecef;
+        }
+        
+        .info-nav-btn.active {
+            background-color: #2c3e50;
+            color: white;
+            border-color: #2c3e50;
+        }
+        
+        .info-content {
+            min-height: 400px;
+        }
+        
+        .info-section {
+            display: none;
+        }
+        
+        .info-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .info-card {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2c3e50;
+        }
+        
+        .info-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .info-content p {
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+        
+        .info-content ul, .info-content ol {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .info-content li {
+            margin-bottom: 8px;
+        }
+        
+        .info-content strong {
+            color: #2c3e50;
+        }
+        
+        .info-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .info-table th, .info-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .info-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .info-table tr:hover {
+            background-color: #f5f7fa;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #95a5a6;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .editor-container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .editor-toolbar {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .editor-btn {
+            padding: 8px 12px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .editor-btn:hover {
+            background-color: #e9ecef;
+        }
+        
+        .editor-content {
+            min-height: 300px;
+            padding: 20px;
+            outline: none;
+        }
+        
+        .image-upload-container {
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .image-upload-container:hover {
+            border-color: #2c3e50;
+            background-color: #f8f9fa;
+        }
+        
+        .image-upload-container i {
+            font-size: 2.5rem;
+            color: #95a5a6;
+            margin-bottom: 15px;
+        }
+        
+        .uploaded-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .image-item {
+            position: relative;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+        
+        .image-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+        }
+        
+        .image-remove {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgba(231, 76, 60, 0.9);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .history-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .history-date {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .history-user {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        
+        .history-action {
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .permission-card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .permission-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .permission-users {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        @media (max-width: 1024px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                flex: 1;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.2rem;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #95a5a6;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        /* Loader */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2c3e50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <!-- Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Informações da Fundação - Área Administrativa</h1>
+            <p class="subtitle">Gerencie as informações institucionais da fundação</p>
+            <a href="#" class="back-button" id="backButton">
+                <i class="fas fa-arrow-left"></i> Voltar ao Sistema
+            </a>
+        </header>
+        
+        <div class="status-message" id="statusMessage"></div>
+        
+        <div class="content">
+            <div class="sidebar">
+                <h2 class="section-title">Gerenciar Informações</h2>
+                
+                <div class="form-group">
+                    <label for="sectionSelect">Seção <span class="required">*</span></label>
+                    <select id="sectionSelect">
+                        <option value="sobre">Sobre a Fundação</option>
+                        <option value="missao">Missão, Visão e Valores</option>
+                        <option value="historia">História</option>
+                        <option value="estrutura">Estrutura Organizacional</option>
+                        <option value="equipe">Equipe de Liderança</option>
+                        <option value="contato">Contato e Localização</option>
+                        <option value="estatuto">Estatuto e Regulamentos</option>
+                        <option value="relatorios">Relatórios e Transparência</option>
+                        <option value="parceiros">Parceiros e Convênios</option>
+                        <option value="noticias">Notícias e Atualizações</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="titleInput">Título <span class="required">*</span></label>
+                    <input type="text" id="titleInput" placeholder="Digite o título da seção">
+                </div>
+                
+                <div class="form-group">
+                    <label for="contentEditor">Conteúdo <span class="required">*</span></label>
+                    <div class="editor-container">
+                        <div class="editor-toolbar" id="editorToolbar">
+                            <button type="button" class="editor-btn" data-command="bold"><i class="fas fa-bold"></i></button>
+                            <button type="button" class="editor-btn" data-command="italic"><i class="fas fa-italic"></i></button>
+                            <button type="button" class="editor-btn" data-command="underline"><i class="fas fa-underline"></i></button>
+                            <div style="width: 1px; background-color: #ddd; margin: 0 5px;"></div>
+                            <button type="button" class="editor-btn" data-command="insertUnorderedList"><i class="fas fa-list-ul"></i></button>
+                            <button type="button" class="editor-btn" data-command="insertOrderedList"><i class="fas fa-list-ol"></i></button>
+                            <div style="width: 1px; background-color: #ddd; margin: 0 5px;"></div>
+                            <button type="button" class="editor-btn" data-command="createLink"><i class="fas fa-link"></i></button>
+                            <button type="button" class="editor-btn" data-command="unlink"><i class="fas fa-unlink"></i></button>
+                        </div>
+                        <div class="editor-content" id="contentEditor" contenteditable="true"></div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="statusSelect">Status</label>
+                    <select id="statusSelect">
+                        <option value="publicado">Publicado</option>
+                        <option value="rascunho">Rascunho</option>
+                        <option value="arquivado">Arquivado</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="orderInput">Ordem de Exibição</label>
+                    <input type="number" id="orderInput" min="1" max="100" value="1">
+                </div>
+                
+                <div class="image-upload-container" id="imageUploadContainer">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <div>Clique para adicionar imagens ou arraste e solte</div>
+                    <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;">
+                </div>
+                
+                <div class="uploaded-images" id="uploadedImages">
+                    <!-- Imagens serão exibidas aqui -->
+                </div>
+                
+                <div class="button-group">
+                    <button id="saveButton">Salvar Informação</button>
+                    <button id="clearButton">Limpar Formulário</button>
+                    <button id="editButton" style="display: none;">Editar Informação</button>
+                </div>
+                
+                <div class="instructions" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; font-size: 0.9rem;">
+                    <p><strong>Instruções:</strong></p>
+                    <p>1. Selecione a seção que deseja editar</p>
+                    <p>2. Preencha título e conteúdo</p>
+                    <p>3. Adicione imagens se necessário</p>
+                    <p>4. Clique em salvar para atualizar</p>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="info-sections">
+                    <div class="info-nav">
+                        <button class="info-nav-btn active" data-section="sobre">Sobre a Fundação</button>
+                        <button class="info-nav-btn" data-section="missao">Missão, Visão e Valores</button>
+                        <button class="info-nav-btn" data-section="historia">História</button>
+                        <button class="info-nav-btn" data-section="estrutura">Estrutura Organizacional</button>
+                        <button class="info-nav-btn" data-section="equipe">Equipe de Liderança</button>
+                        <button class="info-nav-btn" data-section="contato">Contato e Localização</button>
+                        <button class="info-nav-btn" data-section="estatuto">Estatuto e Regulamentos</button>
+                        <button class="info-nav-btn" data-section="relatorios">Relatórios e Transparência</button>
+                        <button class="info-nav-btn" data-section="parceiros">Parceiros e Convênios</button>
+                        <button class="info-nav-btn" data-section="noticias">Notícias e Atualizações</button>
+                    </div>
+                    
+                    <div class="info-content" id="infoContent">
+                        <!-- Conteúdo será carregado dinamicamente -->
+                        <div class="loader" id="contentLoader"></div>
+                    </div>
+                </div>
+                
+                <div class="info-sections">
+                    <h2 class="section-title">Histórico de Alterações</h2>
+                    <div class="history-list" id="historyList">
+                        <!-- Histórico será carregado aqui -->
+                        <div class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <h3>Nenhum histórico encontrado</h3>
+                            <p>As alterações nas informações aparecerão aqui.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-sections">
+                    <h2 class="section-title">Permissões de Acesso</h2>
+                    <div class="permissions-grid" id="permissionsGrid">
+                        <!-- Permissões serão carregadas aqui -->
+                        <div class="permission-card">
+                            <div class="permission-title">Administradores</div>
+                            <div>Permissão total para editar todas as seções</div>
+                            <div class="permission-users">Usuários: 3</div>
+                        </div>
+                        <div class="permission-card">
+                            <div class="permission-title">Editores</div>
+                            <div>Podem editar conteúdo, mas não excluir</div>
+                            <div class="permission-users">Usuários: 5</div>
+                        </div>
+                        <div class="permission-card">
+                            <div class="permission-title">Visualizadores</div>
+                            <div>Apenas visualização, sem permissão de edição</div>
+                            <div class="permission-users">Usuários: 12</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de confirmação -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Confirmar Ação</div>
+                <button class="modal-close" id="closeConfirmModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Tem certeza que deseja realizar esta ação?</p>
+                <div class="button-group">
+                    <button id="confirmYes">Sim, Confirmar</button>
+                    <button id="confirmNo" style="background: linear-gradient(to right, #95a5a6, #7f8c8d);">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgm3YoP4HkIrTFOYGYgOR2VD58ctU2D_U",
+            authDomain: "gespaimaspia.firebaseapp.com",
+            databaseURL: "https://gespaimaspia.firebaseio.com",
+            projectId: "gespaimaspia",
+            storageBucket: "gespaimaspia.firebasestorage.app",
+            messagingSenderId: "245238673674",
+            appId: "1:245238673674:web:2c1108fc499a3f1b0d0af3"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const storage = firebase.storage ? firebase.storage() : null;
+        
+        // Referência à coleção "fundacao"
+        const fundacaoRef = db.collection("fundacao");
+        
+        // Estado da aplicação
+        let currentUser = null;
+        let currentInfoId = null;
+        let isEditing = false;
+        let uploadedImages = [];
+        
+        // Mapeamento de seções
+        const sections = {
+            'sobre': 'Sobre a Fundação',
+            'missao': 'Missão, Visão e Valores',
+            'historia': 'História',
+            'estrutura': 'Estrutura Organizacional',
+            'equipe': 'Equipe de Liderança',
+            'contato': 'Contato e Localização',
+            'estatuto': 'Estatuto e Regulamentos',
+            'relatorios': 'Relatórios e Transparência',
+            'parceiros': 'Parceiros e Convênios',
+            'noticias': 'Notícias e Atualizações'
+        };
+        
+        // Elementos DOM
+        const statusMessage = document.getElementById('statusMessage');
+        const backButton = document.getElementById('backButton');
+        
+        // Formulário
+        const sectionSelect = document.getElementById('sectionSelect');
+        const titleInput = document.getElementById('titleInput');
+        const contentEditor = document.getElementById('contentEditor');
+        const statusSelect = document.getElementById('statusSelect');
+        const orderInput = document.getElementById('orderInput');
+        const imageUploadContainer = document.getElementById('imageUploadContainer');
+        const imageUploadInput = document.getElementById('imageUpload');
+        const uploadedImagesContainer = document.getElementById('uploadedImages');
+        
+        // Botões
+        const saveButton = document.getElementById('saveButton');
+        const clearButton = document.getElementById('clearButton');
+        const editButton = document.getElementById('editButton');
+        
+        // Navegação
+        const infoNavBtns = document.querySelectorAll('.info-nav-btn');
+        const infoContent = document.getElementById('infoContent');
+        
+        // Modais
+        const confirmModal = document.getElementById('confirmModal');
+        const closeConfirmModal = document.getElementById('closeConfirmModal');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const confirmYes = document.getElementById('confirmYes');
+        const confirmNo = document.getElementById('confirmNo');
+        
+        // Mostrar mensagem de status
+        function showMessage(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            statusMessage.style.display = 'block';
+            
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Carregar usuário atual
+        function loadCurrentUser() {
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = {
+                        uid: user.uid,
+                        email: user.email,
+                        displayName: user.displayName || 'Administrador'
+                    };
+                    console.log('Usuário autenticado:', currentUser);
+                    
+                    // Carregar informações da fundação
+                    loadFundacaoInfo();
+                    loadHistory();
+                    checkPermissions();
+                } else {
+                    // Simular usuário para desenvolvimento
+                    currentUser = {
+                        uid: 'admin-user-123',
+                        email: 'admin@fundacao.org',
+                        displayName: 'Administrador Geral',
+                        role: 'admin'
+                    };
+                    console.log('Usuário simulado para desenvolvimento');
+                    
+                    // Carregar informações da fundação
+                    loadFundacaoInfo();
+                    loadHistory();
+                    checkPermissions();
+                }
+            });
+        }
+        
+        // Verificar permissões do usuário
+        function checkPermissions() {
+            // Em um sistema real, verificar permissões no Firebase
+            const isAdmin = currentUser.role === 'admin' || currentUser.email.includes('admin');
+            
+            if (!isAdmin) {
+                showMessage('Apenas administradores podem editar informações da fundação.', 'error');
+                
+                // Desabilitar edição
+                saveButton.disabled = true;
+                editButton.disabled = true;
+                clearButton.disabled = true;
+                sectionSelect.disabled = true;
+                titleInput.disabled = true;
+                contentEditor.contentEditable = false;
+                statusSelect.disabled = true;
+                orderInput.disabled = true;
+                imageUploadContainer.style.pointerEvents = 'none';
+                imageUploadContainer.style.opacity = '0.6';
+                
+                // Mudar texto dos botões
+                saveButton.textContent = 'Apenas Visualização';
+                editButton.textContent = 'Apenas Visualização';
+            }
+        }
+        
+        // Carregar informações da fundação
+        async function loadFundacaoInfo() {
+            try {
+                showMessage('Carregando informações da fundação...', 'loading');
+                
+                const snapshot = await fundacaoRef.orderBy('order', 'asc').get();
+                
+                if (snapshot.empty) {
+                    // Criar informações iniciais se não existirem
+                    await createInitialData();
+                    loadFundacaoInfo(); // Recarregar após criação
+                    return;
+                }
+                
+                // Limpar conteúdo
+                infoContent.innerHTML = '';
+                
+                // Agrupar por seção
+                const sectionsData = {};
+                
+                snapshot.forEach(doc => {
+                    const info = doc.data();
+                    info.id = doc.id;
+                    
+                    const section = info.section;
+                    if (!sectionsData[section]) {
+                        sectionsData[section] = [];
+                    }
+                    
+                    sectionsData[section].push(info);
+                });
+                
+                // Renderizar primeira seção ativa
+                const firstSection = Object.keys(sections)[0];
+                renderSectionContent(firstSection, sectionsData[firstSection] || []);
+                
+                // Adicionar navegação dinâmica
+                infoNavBtns.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const section = this.dataset.section;
+                        
+                        // Ativar botão
+                        infoNavBtns.forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        
+                        // Renderizar conteúdo
+                        renderSectionContent(section, sectionsData[section] || []);
+                    });
+                });
+                
+                showMessage('Informações da fundação carregadas com sucesso!', 'success');
+                
+            } catch (error) {
+                console.error('Erro ao carregar informações:', error);
+                showMessage('Erro ao carregar informações da fundação.', 'error');
+            }
+        }
+        
+        // Criar dados iniciais
+        async function createInitialData() {
+            try {
+                const initialData = [
+                    {
+                        section: 'sobre',
+                        title: 'Sobre a Fundação',
+                        content: '<p>A <strong>Fundação Saúde+</strong> é uma instituição sem fins lucrativos dedicada à promoção da saúde e bem-estar da comunidade. Fundada em 2010, atuamos com foco em prevenção, tratamento e reabilitação de pacientes, oferecendo serviços de saúde de qualidade com acessibilidade e humanização.</p><p>Nossa atuação abrange diversas áreas da saúde, incluindo medicina geral, especialidades médicas, psicologia, fisioterapia e nutrição. Contamos com uma equipe multiprofissional altamente qualificada e equipamentos modernos para garantir o melhor atendimento aos nossos pacientes.</p>',
+                        status: 'publicado',
+                        order: 1,
+                        images: [],
+                        createdBy: currentUser.displayName,
+                        createdAt: new Date()
+                    },
+                    {
+                        section: 'missao',
+                        title: 'Missão, Visão e Valores',
+                        content: '<h3>Missão</h3><p>Promover saúde e qualidade de vida através de atendimento médico humanizado, acessível e de excelência, contribuindo para o bem-estar individual e coletivo.</p><h3>Visão</h3><p>Ser referência em saúde comunitária até 2030, reconhecida pela excelência no atendimento, inovação tecnológica e impacto social positivo.</p><h3>Valores</h3><ul><li><strong>Humanização:</strong> Colocar o paciente no centro de todas as ações</li><li><strong>Ética:</strong> Atuar com transparência e integridade</li><li><strong>Excelência:</strong> Buscar a melhor qualidade em todos os serviços</li><li><strong>Inovação:</strong> Incorporar novas tecnologias e conhecimentos</li><li><strong>Sustentabilidade:</strong> Garantir a continuidade dos serviços</li><li><strong>Compromisso Social:</strong> Atender com equidade e justiça</li></ul>',
+                        status: 'publicado',
+                        order: 2,
+                        images: [],
+                        createdBy: currentUser.displayName,
+                        createdAt: new Date()
+                    },
+                    {
+                        section: 'contato',
+                        title: 'Contato e Localização',
+                        content: '<h3>Endereço</h3><p>Rua da Saúde, 1234 - Centro<br>São Paulo - SP<br>CEP: 01234-567</p><h3>Telefones</h3><ul><li>Atendimento Geral: (11) 3333-4444</li><li>Agendamentos: (11) 3333-5555</li><li>Emergências: (11) 99999-8888</li></ul><h3>E-mail</h3><p>contato@fundacaosaudemaissp.org.br</p><h3>Horário de Funcionamento</h3><ul><li>Segunda a Sexta: 7h às 19h</li><li>Sábado: 8h às 13h</li><li>Domingo: Fechado (exceto emergências)</li></ul><h3>Redes Sociais</h3><p>Siga-nos para atualizações e informações:</p><ul><li>Facebook: @FundacaoSaudeMais</li><li>Instagram: @fundacao_saude_mais</li><li>LinkedIn: Fundação Saúde+</li></ul>',
+                        status: 'publicado',
+                        order: 6,
+                        images: [],
+                        createdBy: currentUser.displayName,
+                        createdAt: new Date()
+                    }
+                ];
+                
+                const batch = db.batch();
+                
+                initialData.forEach(data => {
+                    const docRef = fundacaoRef.doc();
+                    batch.set(docRef, data);
+                });
+                
+                await batch.commit();
+                console.log('Dados iniciais criados com sucesso!');
+                
+            } catch (error) {
+                console.error('Erro ao criar dados iniciais:', error);
+            }
+        }
+        
+        // Renderizar conteúdo da seção
+        function renderSectionContent(section, items) {
+            infoContent.innerHTML = '';
+            
+            if (items.length === 0) {
+                infoContent.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-info-circle"></i>
+                        <h3>Nenhuma informação disponível</h3>
+                        <p>Esta seção ainda não possui conteúdo. Use o formulário ao lado para adicionar informações.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Ordenar por ordem
+            items.sort((a, b) => a.order - b.order);
+            
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'info-card';
+                card.dataset.id = item.id;
+                
+                let imagesHTML = '';
+                if (item.images && item.images.length > 0) {
+                    imagesHTML = '<div style="margin-top: 20px;"><h4>Galeria de Imagens</h4><div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">';
+                    
+                    item.images.forEach((img, index) => {
+                        imagesHTML += `<img src="${img.url}" alt="${img.alt || 'Imagem'}" style="max-width: 200px; max-height: 150px; border-radius: 5px;">`;
+                    });
+                    
+                    imagesHTML += '</div></div>';
+                }
+                
+                card.innerHTML = `
+                    <h3>${item.title}</h3>
+                    <div class="info-content">
+                        ${item.content}
+                        ${imagesHTML}
+                    </div>
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: #7f8c8d;">
+                        <div>
+                            <i class="far fa-calendar"></i> Atualizado em: ${formatDate(item.updatedAt || item.createdAt)}
+                        </div>
+                        <div>
+                            <i class="fas fa-user-edit"></i> Por: ${item.updatedBy || item.createdBy}
+                        </div>
+                    </div>
+                    ${currentUser.role === 'admin' || currentUser.email.includes('admin') ? `
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button class="editor-btn" onclick="editInfo('${item.id}')" style="background-color: #3498db; color: white; border: none;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="editor-btn" onclick="deleteInfo('${item.id}', '${item.title}')" style="background-color: #e74c3c; color: white; border: none;">
+                            <i class="fas fa-trash"></i> Excluir
+                        </button>
+                    </div>
+                    ` : ''}
+                `;
+                
+                infoContent.appendChild(card);
+            });
+        }
+        
+        // Formatar data
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            
+            const d = date.toDate ? date.toDate() : new Date(date);
+            return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Carregar histórico de alterações
+        async function loadHistory() {
+            try {
+                const snapshot = await fundacaoRef.orderBy('updatedAt', 'desc').limit(10).get();
+                const historyList = document.getElementById('historyList');
+                
+                if (snapshot.empty) {
+                    historyList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <h3>Nenhum histórico encontrado</h3>
+                            <p>As alterações nas informações aparecerão aqui.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                historyList.innerHTML = '';
+                
+                snapshot.forEach(doc => {
+                    const info = doc.data();
+                    
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    
+                    historyItem.innerHTML = `
+                        <div class="history-date">${formatDate(info.updatedAt || info.createdAt)}</div>
+                        <div class="history-user">Por: ${info.updatedBy || info.createdBy}</div>
+                        <div class="history-action">${sections[info.section]} - "${info.title}"</div>
+                    `;
+                    
+                    historyList.appendChild(historyItem);
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar histórico:', error);
+            }
+        }
+        
+        // Configurar editor de texto
+        function setupEditor() {
+            const toolbar = document.getElementById('editorToolbar');
+            
+            toolbar.addEventListener('click', function(e) {
+                if (e.target.tagName === 'BUTTON' || e.target.parentElement.tagName === 'BUTTON') {
+                    const button = e.target.tagName === 'BUTTON' ? e.target : e.target.parentElement;
+                    const command = button.dataset.command;
+                    
+                    if (command === 'createLink') {
+                        const url = prompt('Digite a URL:');
+                        if (url) {
+                            document.execCommand('createLink', false, url);
+                        }
+                    } else if (command === 'unlink') {
+                        document.execCommand('unlink');
+                    } else {
+                        document.execCommand(command, false, null);
+                    }
+                    
+                    contentEditor.focus();
+                }
+            });
+        }
+        
+        // Configurar upload de imagens
+        function setupImageUpload() {
+            imageUploadContainer.addEventListener('click', () => {
+                imageUploadInput.click();
+            });
+            
+            imageUploadInput.addEventListener('change', handleImageUpload);
+            
+            // Arrastar e soltar
+            imageUploadContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                imageUploadContainer.style.borderColor = '#2c3e50';
+                imageUploadContainer.style.backgroundColor = '#f8f9fa';
+            });
+            
+            imageUploadContainer.addEventListener('dragleave', () => {
+                imageUploadContainer.style.borderColor = '#ddd';
+                imageUploadContainer.style.backgroundColor = '';
+            });
+            
+            imageUploadContainer.addEventListener('drop', (e) => {
+                e.preventDefault();
+                imageUploadContainer.style.borderColor = '#ddd';
+                imageUploadContainer.style.backgroundColor = '';
+                
+                const files = e.dataTransfer.files;
+                handleImageFiles(files);
+            });
+        }
+        
+        // Manipular upload de imagens
+        function handleImageUpload(e) {
+            const files = e.target.files;
+            handleImageFiles(files);
+        }
+        
+        // Processar arquivos de imagem
+        async function handleImageFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                if (!file.type.startsWith('image/')) {
+                    showMessage('Apenas arquivos de imagem são permitidos.', 'error');
+                    continue;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) { // 5MB
+                    showMessage('A imagem deve ter menos de 5MB.', 'error');
+                    continue;
+                }
+                
+                // Criar preview
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const imageData = {
+                        id: Date.now() + i,
+                        file: file,
+                        preview: e.target.result,
+                        name: file.name,
+                        alt: file.name.split('.')[0]
+                    };
+                    
+                    uploadedImages.push(imageData);
+                    renderUploadedImages();
+                };
+                
+                reader.readAsDataURL(file);
+            }
+            
+            imageUploadInput.value = '';
+        }
+        
+        // Renderizar imagens carregadas
+        function renderUploadedImages() {
+            uploadedImagesContainer.innerHTML = '';
+            
+            uploadedImages.forEach((img, index) => {
+                const imageItem = document.createElement('div');
+                imageItem.className = 'image-item';
+                
+                imageItem.innerHTML = `
+                    <img src="${img.preview}" alt="${img.alt}">
+                    <div class="image-remove" onclick="removeImage(${index})">
+                        <i class="fas fa-times"></i>
+                    </div>
+                `;
+                
+                uploadedImagesContainer.appendChild(imageItem);
+            });
+        }
+        
+        // Remover imagem
+        function removeImage(index) {
+            uploadedImages.splice(index, 1);
+            renderUploadedImages();
+        }
+        
+        // Validar formulário
+        function validateForm() {
+            if (!titleInput.value.trim()) {
+                showMessage('Por favor, preencha o título.', 'error');
+                titleInput.focus();
+                return false;
+            }
+            
+            if (!contentEditor.textContent.trim()) {
+                showMessage('Por favor, adicione conteúdo.', 'error');
+                contentEditor.focus();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Salvar informação
+        async function saveInfo() {
+            if (!validateForm()) return;
+            
+            try {
+                showMessage('Salvando informação...', 'loading');
+                
+                // Upload de imagens se houver
+                let uploadedImageUrls = [];
+                
+                if (uploadedImages.length > 0 && storage) {
+                    for (const img of uploadedImages) {
+                        try {
+                            const storageRef = storage.ref();
+                            const imageRef = storageRef.child(`fundacao/${Date.now()}_${img.name}`);
+                            await imageRef.put(img.file);
+                            const url = await imageRef.getDownloadURL();
+                            
+                            uploadedImageUrls.push({
+                                url: url,
+                                alt: img.alt,
+                                name: img.name
+                            });
+                        } catch (error) {
+                            console.error('Erro ao fazer upload da imagem:', error);
+                        }
+                    }
+                }
+                
+                const infoData = {
+                    section: sectionSelect.value,
+                    title: titleInput.value.trim(),
+                    content: contentEditor.innerHTML,
+                    status: statusSelect.value,
+                    order: parseInt(orderInput.value) || 1,
+                    images: uploadedImageUrls,
+                    updatedBy: currentUser.displayName,
+                    updatedAt: new Date()
+                };
+                
+                if (!isEditing) {
+                    // Nova informação
+                    infoData.createdBy = currentUser.displayName;
+                    infoData.createdAt = new Date();
+                    
+                    await fundacaoRef.add(infoData);
+                    showMessage('Informação salva com sucesso!', 'success');
+                } else {
+                    // Atualizar informação existente
+                    await fundacaoRef.doc(currentInfoId).update(infoData);
+                    showMessage('Informação atualizada com sucesso!', 'success');
+                    resetForm();
+                }
+                
+                // Limpar imagens
+                uploadedImages = [];
+                renderUploadedImages();
+                
+                // Recarregar dados
+                loadFundacaoInfo();
+                loadHistory();
+                
+            } catch (error) {
+                console.error('Erro ao salvar informação:', error);
+                showMessage('Erro ao salvar informação. Tente novamente.', 'error');
+            }
+        }
+        
+        // Editar informação
+        async function editInfo(id) {
+            try {
+                const doc = await fundacaoRef.doc(id).get();
+                
+                if (!doc.exists) {
+                    showMessage('Informação não encontrada.', 'error');
+                    return;
+                }
+                
+                const info = doc.data();
+                currentInfoId = id;
+                isEditing = true;
+                
+                // Preencher formulário
+                sectionSelect.value = info.section;
+                titleInput.value = info.title;
+                contentEditor.innerHTML = info.content;
+                statusSelect.value = info.status || 'publicado';
+                orderInput.value = info.order || 1;
+                
+                // Carregar imagens existentes
+                uploadedImages = [];
+                if (info.images && info.images.length > 0) {
+                    info.images.forEach(img => {
+                        uploadedImages.push({
+                            id: Date.now(),
+                            preview: img.url,
+                            name: img.name,
+                            alt: img.alt
+                        });
+                    });
+                }
+                renderUploadedImages();
+                
+                // Alterar botão
+                saveButton.style.display = 'none';
+                editButton.style.display = 'block';
+                
+                showMessage('Editando informação. Faça as alterações e clique em "Editar Informação".', 'success');
+                
+            } catch (error) {
+                console.error('Erro ao carregar informação para edição:', error);
+                showMessage('Erro ao carregar informação.', 'error');
+            }
+        }
+        
+        // Excluir informação
+        async function deleteInfo(id, title) {
+            confirmMessage.textContent = `Tem certeza que deseja excluir "${title}"? Esta ação não pode ser desfeita.`;
+            
+            confirmModal.style.display = 'flex';
+            
+            confirmYes.onclick = async () => {
+                try {
+                    await fundacaoRef.doc(id).delete();
+                    showMessage('Informação excluída com sucesso!', 'success');
+                    
+                    // Recarregar dados
+                    loadFundacaoInfo();
+                    loadHistory();
+                    
+                    confirmModal.style.display = 'none';
+                } catch (error) {
+                    console.error('Erro ao excluir informação:', error);
+                    showMessage('Erro ao excluir informação.', 'error');
+                    confirmModal.style.display = 'none';
+                }
+            };
+            
+            confirmNo.onclick = () => {
+                confirmModal.style.display = 'none';
+            };
+        }
+        
+        // Limpar formulário
+        function clearForm() {
+            sectionSelect.value = 'sobre';
+            titleInput.value = '';
+            contentEditor.innerHTML = '';
+            statusSelect.value = 'publicado';
+            orderInput.value = '1';
+            
+            uploadedImages = [];
+            renderUploadedImages();
+            
+            currentInfoId = null;
+            isEditing = false;
+            
+            saveButton.style.display = 'block';
+            editButton.style.display = 'none';
+            
+            showMessage('Formulário limpo com sucesso!', 'success');
+        }
+        
+        // Resetar formulário após edição
+        function resetForm() {
+            clearForm();
+            isEditing = false;
+            currentInfoId = null;
+            
+            saveButton.style.display = 'block';
+            editButton.style.display = 'none';
+        }
+        
+        // Inicializar event listeners
+        function initEventListeners() {
+            // Salvar informação
+            saveButton.addEventListener('click', saveInfo);
+            
+            // Editar informação
+            editButton.addEventListener('click', saveInfo);
+            
+            // Limpar formulário
+            clearButton.addEventListener('click', clearForm);
+            
+            // Voltar ao sistema
+            backButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                showMessage('Voltando ao sistema principal...', 'loading');
+                setTimeout(() => {
+                    window.history.back();
+                }, 1000);
+            });
+            
+            // Fechar modal
+            closeConfirmModal.addEventListener('click', () => {
+                confirmModal.style.display = 'none';
+            });
+            
+            // Fechar modal ao clicar fora
+            window.addEventListener('click', (e) => {
+                if (e.target === confirmModal) {
+                    confirmModal.style.display = 'none';
+                }
+            });
+        }
+        
+        // Inicializar aplicação
+        function init() {
+            loadCurrentUser();
+            setupEditor();
+            setupImageUpload();
+            initEventListeners();
+            
+            console.log('Sistema de Informações da Fundação inicializado com sucesso!');
+            console.log('Firebase conectado ao projeto: gespaimaspia');
+            console.log('Coleção: fundacao');
+        }
+        
+        // Iniciar quando o DOM estiver carregado
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Exportar funções para uso global
+        window.editInfo = editInfo;
+        window.deleteInfo = deleteInfo;
+        window.removeImage = removeImage;
+    </script>
+</body>
+</html>
