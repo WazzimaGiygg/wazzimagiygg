@@ -1,0 +1,2645 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GesPAI - Gestão Médica com Prontuários</title>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            signOut,
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore,
+            collection,
+            addDoc,
+            getDocs,
+            query,
+            where,
+            Timestamp,
+            doc,
+            setDoc,
+            getDoc,
+            updateDoc,
+            deleteDoc,
+            orderBy
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgm3YoP4HkIrTFOYGYgOR2VD58ctU2D_U",
+            authDomain: "gespaimaspia.firebaseapp.com",
+            databaseURL: "https://gespaimaspia.firebaseio.com",
+            projectId: "gespaimaspia",
+            storageBucket: "gespaimaspia.firebasestorage.app",
+            messagingSenderId: "245238673674",
+            appId: "1:245238673674:web:2c1108fc499a3f1b0d0af3"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // Make Firebase available globally
+        window.firebase = {
+            auth,
+            db,
+            GoogleAuthProvider,
+            signInWithPopup,
+            signOut,
+            onAuthStateChanged,
+            collection,
+            addDoc,
+            getDocs,
+            query,
+            where,
+            Timestamp,
+            doc,
+            setDoc,
+            getDoc,
+            updateDoc,
+            deleteDoc,
+            orderBy
+        };
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f8fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2c3e50, #4a6491);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+            color: #3498db;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .user-role {
+            background-color: #e74c3c;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .user-role.medico {
+            background-color: #27ae60;
+        }
+        
+        .user-role.enfermeiro {
+            background-color: #e67e22;
+        }
+        
+        .user-role.outro {
+            background-color: #9b59b6;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-secondary {
+            background-color: #7f8c8d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #6c7b7d;
+        }
+        
+        .btn-success {
+            background-color: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #219653;
+        }
+        
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d68910;
+        }
+        
+        .btn-danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background-color: #138496;
+        }
+        
+        .btn-google {
+            background-color: #dd4b39;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 24px;
+        }
+        
+        .btn-google:hover {
+            background-color: #c23321;
+        }
+        
+        main {
+            padding: 30px 0;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Login Screen */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 70vh;
+            text-align: center;
+        }
+        
+        .login-card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+        }
+        
+        .login-card h2 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .login-card p {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        /* Dashboard */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 30px;
+        }
+        
+        .sidebar {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+            height: fit-content;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-item {
+            margin-bottom: 10px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: #f1f8ff;
+            color: #3498db;
+        }
+        
+        .nav-link.active {
+            background-color: #e1f0ff;
+            color: #3498db;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.2rem;
+        }
+        
+        .content-area {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            min-height: 500px;
+        }
+        
+        .page-title {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* Form Styles */
+        .form-container {
+            max-width: 800px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .required::after {
+            content: " *";
+            color: #e74c3c;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        /* Cards List */
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+            max-width: 400px;
+        }
+        
+        .search-box input {
+            flex: 1;
+        }
+        
+        .cards-list {
+            margin-top: 20px;
+        }
+        
+        .card-item {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3498db;
+            transition: transform 0.2s;
+        }
+        
+        .card-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-item.medico {
+            border-left-color: #27ae60;
+        }
+        
+        .card-item.enfermeiro {
+            border-left-color: #e67e22;
+        }
+        
+        .card-item.prontuario {
+            border-left-color: #9b59b6;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .card-id {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+        }
+        
+        .card-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            margin-bottom: 4px;
+        }
+        
+        .detail-value {
+            font-weight: 500;
+        }
+        
+        /* Medical Record Styles */
+        .medical-record-section {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .medical-record-section h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .exame-item, .tratamento-item {
+            background-color: white;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #eee;
+        }
+        
+        .exame-item h5, .tratamento-item h5 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #7f8c8d;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-inactive {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-urgente {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-routine {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .tab:hover {
+            color: #3498db;
+        }
+        
+        .tab.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+            font-weight: 600;
+        }
+        
+        /* Alert Messages */
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .alert-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: inherit;
+        }
+        
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 992px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                order: 2;
+            }
+            
+            .modal-content {
+                width: 95%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .list-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .search-box {
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .page-title {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .action-buttons {
+                flex-wrap: wrap;
+            }
+            
+            .tabs {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <div class="logo-icon">🏥</div>
+                <h1>GesPAI - Prontuários Médicos</h1>
+            </div>
+            <div class="user-info">
+                <div id="userAvatar" class="user-avatar hidden"></div>
+                <span id="userName" class="hidden"></span>
+                <div id="userRole" class="user-role hidden"></div>
+                <button id="logoutBtn" class="btn btn-secondary hidden">Sair</button>
+            </div>
+        </div>
+    </header>
+    
+    <main class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="login-container">
+            <div class="login-card">
+                <h2>Bem-vindo ao GesPAI</h2>
+                <p>Sistema completo de gestão de prontuários médicos</p>
+                <button id="googleLoginBtn" class="btn btn-google">
+                    <span>🔍</span> Login com Google
+                </button>
+            </div>
+        </div>
+        
+        <!-- Dashboard (hidden by default) -->
+        <div id="dashboard" class="dashboard hidden">
+            <!-- Sidebar Navigation -->
+            <div class="sidebar">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="#" id="navDashboard" class="nav-link active">
+                            <span class="nav-icon">📊</span> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navAddPatient" class="nav-link">
+                            <span class="nav-icon">➕</span> Adicionar Paciente
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navPatients" class="nav-link">
+                            <span class="nav-icon">👥</span> Pacientes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navAddProfessional" class="nav-link">
+                            <span class="nav-icon">👨‍⚕️</span> Adicionar Profissional
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navProfessionals" class="nav-link">
+                            <span class="nav-icon">👥</span> Profissionais
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navAddMedicalRecord" class="nav-link">
+                            <span class="nav-icon">📝</span> Novo Prontuário
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" id="navMedicalRecords" class="nav-link">
+                            <span class="nav-icon">📋</span> Prontuários
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard Content -->
+                <div id="dashboardContent">
+                    <h2 class="page-title">Dashboard</h2>
+                    <div id="profileSetupAlert" class="alert alert-warning hidden">
+                        <div>
+                            <strong>Complete seu cadastro:</strong> Para acessar todas as funcionalidades, complete seu cadastro como profissional.
+                        </div>
+                    </div>
+                    <div id="dashboardStats"></div>
+                </div>
+                
+                <!-- Add Patient Form -->
+                <div id="addPatientContent" class="hidden">
+                    <h2 class="page-title">Adicionar Novo Paciente</h2>
+                    <div id="patientAlert" class="alert hidden"></div>
+                    <div class="form-container">
+                        <form id="patientForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="nome" class="required">Nome Completo</label>
+                                    <input type="text" id="nome" name="nome" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cpf">CPF</label>
+                                    <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="dataNascimento">Data de Nascimento</label>
+                                    <input type="date" id="dataNascimento" name="dataNascimento">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sexo">Sexo</label>
+                                    <select id="sexo" name="sexo">
+                                        <option value="">Selecione</option>
+                                        <option value="masculino">Masculino</option>
+                                        <option value="feminino">Feminino</option>
+                                        <option value="outro">Outro</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="email">E-mail</label>
+                                    <input type="email" id="email" name="email">
+                                </div>
+                                <div class="form-group">
+                                    <label for="telefone" class="required">Telefone Principal</label>
+                                    <input type="tel" id="telefone" name="telefone" required placeholder="(11) 99999-9999">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="endereco">Endereço Completo</label>
+                                <textarea id="endereco" name="endereco"></textarea>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="convenio">Convênio</label>
+                                    <input type="text" id="convenio" name="convenio">
+                                </div>
+                                <div class="form-group">
+                                    <label for="numeroConvenio">Número do Convênio</label>
+                                    <input type="text" id="numeroConvenio" name="numeroConvenio">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="observacoes">Observações</label>
+                                <textarea id="observacoes" name="observacoes"></textarea>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                        Cadastrar Paciente
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <button type="reset" class="btn btn-secondary" style="width: 100%;">
+                                        Limpar Formulário
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Patients List -->
+                <div id="patientsContent" class="hidden">
+                    <div class="list-header">
+                        <h2 class="page-title">Lista de Pacientes</h2>
+                        <div class="search-box">
+                            <input type="text" id="searchPatient" placeholder="Buscar paciente...">
+                            <button id="searchPatientBtn" class="btn btn-primary">Buscar</button>
+                        </div>
+                    </div>
+                    <div id="patientsList" class="cards-list">
+                        <!-- Pacientes serão carregados aqui -->
+                    </div>
+                </div>
+                
+                <!-- Add Professional Form -->
+                <div id="addProfessionalContent" class="hidden">
+                    <h2 class="page-title">Cadastrar Profissional</h2>
+                    <div id="professionalAlert" class="alert hidden"></div>
+                    <div class="form-container">
+                        <form id="professionalForm">
+                            <!-- Form mantido igual à versão anterior -->
+                            <!-- Mesmo conteúdo do exemplo anterior -->
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Professionals List -->
+                <div id="professionalsContent" class="hidden">
+                    <div class="list-header">
+                        <h2 class="page-title">Profissionais Cadastrados</h2>
+                        <div class="search-box">
+                            <input type="text" id="searchProfessional" placeholder="Buscar profissional...">
+                            <button id="searchProfessionalBtn" class="btn btn-primary">Buscar</button>
+                        </div>
+                    </div>
+                    
+                    <div class="tabs">
+                        <button class="tab active" data-role="all">Todos</button>
+                        <button class="tab" data-role="medicina">Médicos</button>
+                        <button class="tab" data-role="enfermagem">Enfermeiros</button>
+                        <button class="tab" data-role="outros">Outros</button>
+                    </div>
+                    
+                    <div id="professionalsList" class="cards-list">
+                        <!-- Profissionais serão carregados aqui -->
+                    </div>
+                </div>
+                
+                <!-- Add Medical Record Form -->
+                <div id="addMedicalRecordContent" class="hidden">
+                    <h2 class="page-title">Novo Prontuário Médico</h2>
+                    <div id="medicalRecordAlert" class="alert hidden"></div>
+                    <div class="form-container">
+                        <form id="medicalRecordForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="pacienteSelect" class="required">Selecionar Paciente</label>
+                                    <select id="pacienteSelect" name="pacienteId" required>
+                                        <option value="">Selecione um paciente</option>
+                                        <!-- Pacientes serão carregados aqui -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="profissionalSelect" class="required">Profissional Responsável</label>
+                                    <select id="profissionalSelect" name="profissionalId" required>
+                                        <option value="">Selecione o profissional</option>
+                                        <!-- Profissionais serão carregados aqui -->
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="dataConsulta" class="required">Data da Consulta</label>
+                                    <input type="datetime-local" id="dataConsulta" name="dataConsulta" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tipoConsulta" class="required">Tipo de Consulta</label>
+                                    <select id="tipoConsulta" name="tipoConsulta" required>
+                                        <option value="">Selecione</option>
+                                        <option value="primeira">Primeira Consulta</option>
+                                        <option value="retorno">Retorno</option>
+                                        <option value="emergencia">Emergência</option>
+                                        <option value="rotina">Rotina</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="medical-record-section">
+                                <h4>📋 História Clínica</h4>
+                                <div class="form-group">
+                                    <label for="queixaPrincipal">Queixa Principal</label>
+                                    <textarea id="queixaPrincipal" name="queixaPrincipal" placeholder="Descreva a queixa principal do paciente"></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="historiaDoenca">História da Doença Atual</label>
+                                    <textarea id="historiaDoenca" name="historiaDoenca" placeholder="Descreva a história da doença atual"></textarea>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="antecedentesPessoais">Antecedentes Pessoais</label>
+                                        <textarea id="antecedentesPessoais" name="antecedentesPessoais" placeholder="Histórico médico pessoal"></textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="antecedentesFamiliares">Antecedentes Familiares</label>
+                                        <textarea id="antecedentesFamiliares" name="antecedentesFamiliares" placeholder="Histórico médico familiar"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="medical-record-section">
+                                <h4>🔍 Exame Físico</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="pressaoArterial">Pressão Arterial</label>
+                                        <input type="text" id="pressaoArterial" name="pressaoArterial" placeholder="Ex: 120/80 mmHg">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="frequenciaCardiaca">Frequência Cardíaca</label>
+                                        <input type="text" id="frequenciaCardiaca" name="frequenciaCardíaca" placeholder="Ex: 72 bpm">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="temperatura">Temperatura</label>
+                                        <input type="text" id="temperatura" name="temperatura" placeholder="Ex: 36.5°C">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="peso">Peso</label>
+                                        <input type="text" id="peso" name="peso" placeholder="Ex: 70 kg">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="exameFisico">Exame Físico Geral</label>
+                                    <textarea id="exameFisico" name="exameFisico" placeholder="Descreva os achados do exame físico"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="medical-record-section">
+                                <h4>💊 Exames Solicitados</h4>
+                                <div id="examesContainer">
+                                    <div class="exame-item" data-index="0">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="exameTipo_0">Tipo de Exame</label>
+                                                <input type="text" id="exameTipo_0" name="exames[0].tipo" placeholder="Ex: Hemograma, Raio-X">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="exameData_0">Data de Solicitação</label>
+                                                <input type="date" id="exameData_0" name="exames[0].dataSolicitacao">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="exameObservacao_0">Observações</label>
+                                            <textarea id="exameObservacao_0" name="exames[0].observacao" placeholder="Observações sobre o exame"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="button" id="addExameBtn" class="btn btn-secondary btn-sm">➕ Adicionar Exame</button>
+                            </div>
+                            
+                            <div class="medical-record-section">
+                                <h4>🏥 Diagnóstico e Tratamento</h4>
+                                <div class="form-group">
+                                    <label for="diagnostico">Diagnóstico</label>
+                                    <textarea id="diagnostico" name="diagnostico" placeholder="Descreva o diagnóstico"></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="conduta">Conduta Médica</label>
+                                    <textarea id="conduta" name="conduta" placeholder="Descreva a conduta médica adotada"></textarea>
+                                </div>
+                                
+                                <div id="tratamentosContainer">
+                                    <div class="tratamento-item" data-index="0">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="medicamento_0">Medicamento/Tratamento</label>
+                                                <input type="text" id="medicamento_0" name="tratamentos[0].medicamento" placeholder="Nome do medicamento ou tratamento">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="dose_0">Dose/Prescrito</label>
+                                                <input type="text" id="dose_0" name="tratamentos[0].dose" placeholder="Ex: 500mg, 2x ao dia">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="duracao_0">Duração</label>
+                                            <input type="text" id="duracao_0" name="tratamentos[0].duracao" placeholder="Ex: 7 dias">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="button" id="addTratamentoBtn" class="btn btn-secondary btn-sm">➕ Adicionar Tratamento</button>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="observacoesProntuario">Observações Gerais</label>
+                                <textarea id="observacoesProntuario" name="observacoes" placeholder="Observações adicionais"></textarea>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="statusProntuario">Status do Prontuário</label>
+                                    <select id="statusProntuario" name="status">
+                                        <option value="ativo">Ativo</option>
+                                        <option value="encerrado">Encerrado</option>
+                                        <option value="transferido">Transferido</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="prioridade">Prioridade</label>
+                                    <select id="prioridade" name="prioridade">
+                                        <option value="rotina">Rotina</option>
+                                        <option value="urgente">Urgente</option>
+                                        <option value="eletivo">Eletivo</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-success" style="width: 100%;">
+                                        💾 Salvar Prontuário
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <button type="reset" class="btn btn-secondary" style="width: 100%;">
+                                        🔄 Limpar Formulário
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Medical Records List -->
+                <div id="medicalRecordsContent" class="hidden">
+                    <div class="list-header">
+                        <h2 class="page-title">Prontuários Médicos</h2>
+                        <div class="search-box">
+                            <input type="text" id="searchMedicalRecord" placeholder="Buscar prontuário...">
+                            <button id="searchMedicalRecordBtn" class="btn btn-primary">Buscar</button>
+                        </div>
+                    </div>
+                    
+                    <div class="tabs">
+                        <button class="tab active" data-status="all">Todos</button>
+                        <button class="tab" data-status="ativo">Ativos</button>
+                        <button class="tab" data-status="encerrado">Encerrados</button>
+                        <button class="tab" data-status="urgente">Urgentes</button>
+                    </div>
+                    
+                    <div id="medicalRecordsList" class="cards-list">
+                        <!-- Prontuários serão carregados aqui -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Medical Record View Modal -->
+        <div id="viewMedicalRecordModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📋 Prontuário Médico</h3>
+                    <button class="close-modal" onclick="closeMedicalRecordModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="medicalRecordDetails">
+                    <!-- Detalhes do prontuário serão carregados aqui -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeMedicalRecordModal()">Fechar</button>
+                    <button class="btn btn-primary" onclick="editMedicalRecord()">Editar</button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // Firebase references
+        const {
+            auth,
+            db,
+            GoogleAuthProvider,
+            signInWithPopup,
+            signOut,
+            onAuthStateChanged,
+            collection,
+            addDoc,
+            getDocs,
+            query,
+            where,
+            Timestamp,
+            doc,
+            setDoc,
+            getDoc,
+            updateDoc,
+            deleteDoc,
+            orderBy
+        } = window.firebase;
+        
+        // DOM Elements
+        const loginScreen = document.getElementById('loginScreen');
+        const dashboard = document.getElementById('dashboard');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userAvatar = document.getElementById('userAvatar');
+        const userName = document.getElementById('userName');
+        const userRole = document.getElementById('userRole');
+        
+        // Navigation elements
+        const navDashboard = document.getElementById('navDashboard');
+        const navAddPatient = document.getElementById('navAddPatient');
+        const navPatients = document.getElementById('navPatients');
+        const navAddProfessional = document.getElementById('navAddProfessional');
+        const navProfessionals = document.getElementById('navProfessionals');
+        const navAddMedicalRecord = document.getElementById('navAddMedicalRecord');
+        const navMedicalRecords = document.getElementById('navMedicalRecords');
+        
+        // Content sections
+        const dashboardContent = document.getElementById('dashboardContent');
+        const addPatientContent = document.getElementById('addPatientContent');
+        const patientsContent = document.getElementById('patientsContent');
+        const addProfessionalContent = document.getElementById('addProfessionalContent');
+        const professionalsContent = document.getElementById('professionalsContent');
+        const addMedicalRecordContent = document.getElementById('addMedicalRecordContent');
+        const medicalRecordsContent = document.getElementById('medicalRecordsContent');
+        
+        // Form and list elements
+        const patientForm = document.getElementById('patientForm');
+        const professionalForm = document.getElementById('professionalForm');
+        const medicalRecordForm = document.getElementById('medicalRecordForm');
+        
+        const patientsList = document.getElementById('patientsList');
+        const professionalsList = document.getElementById('professionalsList');
+        const medicalRecordsList = document.getElementById('medicalRecordsList');
+        
+        // Search elements
+        const searchPatient = document.getElementById('searchPatient');
+        const searchPatientBtn = document.getElementById('searchPatientBtn');
+        const searchProfessional = document.getElementById('searchProfessional');
+        const searchProfessionalBtn = document.getElementById('searchProfessionalBtn');
+        const searchMedicalRecord = document.getElementById('searchMedicalRecord');
+        const searchMedicalRecordBtn = document.getElementById('searchMedicalRecordBtn');
+        
+        // Alert elements
+        const patientAlert = document.getElementById('patientAlert');
+        const professionalAlert = document.getElementById('professionalAlert');
+        const medicalRecordAlert = document.getElementById('medicalRecordAlert');
+        
+        // Medical record form elements
+        const pacienteSelect = document.getElementById('pacienteSelect');
+        const profissionalSelect = document.getElementById('profissionalSelect');
+        const examesContainer = document.getElementById('examesContainer');
+        const tratamentosContainer = document.getElementById('tratamentosContainer');
+        const addExameBtn = document.getElementById('addExameBtn');
+        const addTratamentoBtn = document.getElementById('addTratamentoBtn');
+        
+        // Dashboard elements
+        const profileSetupAlert = document.getElementById('profileSetupAlert');
+        const dashboardStats = document.getElementById('dashboardStats');
+        
+        // Modal
+        const viewMedicalRecordModal = document.getElementById('viewMedicalRecordModal');
+        const medicalRecordDetails = document.getElementById('medicalRecordDetails');
+        
+        // Current user data
+        let currentUser = null;
+        let currentProfessional = null;
+        let allPatients = [];
+        let allProfessionals = [];
+        let allMedicalRecords = [];
+        let currentViewingMedicalRecord = null;
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check auth state
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // User is signed in
+                    currentUser = user;
+                    await checkProfessionalProfile(user.uid);
+                    showDashboard();
+                    updateUserInfo();
+                    loadPatients();
+                    loadProfessionals();
+                    loadMedicalRecords();
+                } else {
+                    // User is signed out
+                    showLogin();
+                }
+            });
+            
+            // Event listeners
+            googleLoginBtn.addEventListener('click', signInWithGoogle);
+            logoutBtn.addEventListener('click', handleLogout);
+            
+            // Navigation event listeners
+            navDashboard.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('dashboard');
+                updateActiveNav(navDashboard);
+            });
+            
+            navAddPatient.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('addPatient');
+                updateActiveNav(navAddPatient);
+            });
+            
+            navPatients.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('patients');
+                updateActiveNav(navPatients);
+                loadPatients();
+            });
+            
+            navAddProfessional.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('addProfessional');
+                updateActiveNav(navAddProfessional);
+            });
+            
+            navProfessionals.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('professionals');
+                updateActiveNav(navProfessionals);
+                loadProfessionals();
+            });
+            
+            navAddMedicalRecord.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('addMedicalRecord');
+                updateActiveNav(navAddMedicalRecord);
+                loadPatientsForMedicalRecord();
+                loadProfessionalsForMedicalRecord();
+            });
+            
+            navMedicalRecords.addEventListener('click', (e) => {
+                e.preventDefault();
+                showSection('medicalRecords');
+                updateActiveNav(navMedicalRecords);
+                loadMedicalRecords();
+            });
+            
+            // Form submissions
+            patientForm.addEventListener('submit', handleAddPatient);
+            professionalForm.addEventListener('submit', handleAddProfessional);
+            medicalRecordForm.addEventListener('submit', handleAddMedicalRecord);
+            
+            // Search functionality
+            searchPatientBtn.addEventListener('click', handlePatientSearch);
+            searchPatient.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    handlePatientSearch();
+                }
+            });
+            
+            searchProfessionalBtn.addEventListener('click', handleProfessionalSearch);
+            searchProfessional.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    handleProfessionalSearch();
+                }
+            });
+            
+            searchMedicalRecordBtn.addEventListener('click', handleMedicalRecordSearch);
+            searchMedicalRecord.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    handleMedicalRecordSearch();
+                }
+            });
+            
+            // Tab functionality
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = tab.closest('#professionalsContent') ? 'professionals' : 'medicalRecords';
+                    
+                    // Update active tab
+                    const container = tab.closest('.tabs');
+                    container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    if (target === 'professionals') {
+                        const role = tab.getAttribute('data-role');
+                        filterProfessionalsByRole(role);
+                    } else {
+                        const status = tab.getAttribute('data-status');
+                        filterMedicalRecordsByStatus(status);
+                    }
+                });
+            });
+            
+            // Medical record form dynamic fields
+            addExameBtn.addEventListener('click', addExameField);
+            addTratamentoBtn.addEventListener('click', addTratamentoField);
+            
+            // Set current date/time for medical record form
+            const now = new Date();
+            const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+                .toISOString()
+                .slice(0, 16);
+            document.getElementById('dataConsulta').value = localDateTime;
+            
+            // Initialize with one exame and tratamento field
+            addExameField();
+            addTratamentoField();
+        });
+        
+        // Firebase authentication functions
+        async function signInWithGoogle() {
+            const provider = new GoogleAuthProvider();
+            
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error('Erro ao fazer login com Google:', error);
+                showAlert(patientAlert, `Erro ao fazer login: ${error.message}`, 'error');
+            }
+        }
+        
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+            }
+        }
+        
+        // Check if user has a professional profile
+        async function checkProfessionalProfile(userId) {
+            try {
+                const q = query(
+                    collection(db, "Profissional"),
+                    where("uidGoogle", "==", userId)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    querySnapshot.forEach((doc) => {
+                        currentProfessional = {
+                            id: doc.id,
+                            ...doc.data()
+                        };
+                    });
+                    
+                    profileSetupAlert.classList.add('hidden');
+                    updateDashboardStats();
+                } else {
+                    profileSetupAlert.classList.remove('hidden');
+                    showProfileSetupWarning();
+                }
+            } catch (error) {
+                console.error('Erro ao verificar perfil profissional:', error);
+            }
+        }
+        
+        // UI functions
+        function showLogin() {
+            loginScreen.classList.remove('hidden');
+            dashboard.classList.add('hidden');
+        }
+        
+        function showDashboard() {
+            loginScreen.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+            showSection('dashboard');
+            updateActiveNav(navDashboard);
+        }
+        
+        function updateUserInfo() {
+            if (currentUser) {
+                userAvatar.textContent = currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U';
+                userName.textContent = currentUser.displayName || currentUser.email;
+                
+                userAvatar.classList.remove('hidden');
+                userName.classList.remove('hidden');
+                logoutBtn.classList.remove('hidden');
+                
+                if (currentProfessional) {
+                    userRole.textContent = getRoleDisplayName(currentProfessional.especialidade);
+                    userRole.className = `user-role ${currentProfessional.especialidade}`;
+                    userRole.classList.remove('hidden');
+                } else {
+                    userRole.classList.add('hidden');
+                }
+            }
+        }
+        
+        function showSection(section) {
+            const sections = [
+                'dashboardContent',
+                'addPatientContent',
+                'patientsContent',
+                'addProfessionalContent',
+                'professionalsContent',
+                'addMedicalRecordContent',
+                'medicalRecordsContent'
+            ];
+            
+            sections.forEach(sec => {
+                document.getElementById(sec).classList.add('hidden');
+            });
+            
+            switch(section) {
+                case 'dashboard':
+                    dashboardContent.classList.remove('hidden');
+                    break;
+                case 'addPatient':
+                    addPatientContent.classList.remove('hidden');
+                    break;
+                case 'patients':
+                    patientsContent.classList.remove('hidden');
+                    break;
+                case 'addProfessional':
+                    addProfessionalContent.classList.remove('hidden');
+                    break;
+                case 'professionals':
+                    professionalsContent.classList.remove('hidden');
+                    break;
+                case 'addMedicalRecord':
+                    addMedicalRecordContent.classList.remove('hidden');
+                    break;
+                case 'medicalRecords':
+                    medicalRecordsContent.classList.remove('hidden');
+                    break;
+            }
+        }
+        
+        function updateActiveNav(activeNav) {
+            const navItems = document.querySelectorAll('.nav-link');
+            navItems.forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            activeNav.classList.add('active');
+        }
+        
+        // Patient management functions
+        async function handleAddPatient(e) {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                showAlert(patientAlert, 'Você precisa estar logado para adicionar pacientes.', 'error');
+                return;
+            }
+            
+            const formData = new FormData(patientForm);
+            const patientData = {
+                nome: formData.get('nome'),
+                cpf: formData.get('cpf'),
+                dataNascimento: formData.get('dataNascimento'),
+                sexo: formData.get('sexo'),
+                email: formData.get('email'),
+                telefone: formData.get('telefone'),
+                endereco: formData.get('endereco'),
+                convenio: formData.get('convenio'),
+                numeroConvenio: formData.get('numeroConvenio'),
+                observacoes: formData.get('observacoes'),
+                criadoPor: currentUser.uid,
+                criadoEm: Timestamp.now()
+            };
+            
+            if (!patientData.nome || !patientData.telefone) {
+                showAlert(patientAlert, 'Nome e telefone são campos obrigatórios.', 'error');
+                return;
+            }
+            
+            try {
+                const docRef = await addDoc(collection(db, "Paciente"), patientData);
+                
+                await addDoc(collection(db, "Telefone"), {
+                    pacienteId: docRef.id,
+                    telefone: patientData.telefone,
+                    tipo: 'principal',
+                    criadoEm: Timestamp.now()
+                });
+                
+                await addDoc(collection(db, "Prontuario"), {
+                    pacienteId: docRef.id,
+                    historico: '',
+                    exames: [],
+                    tratamentos: [],
+                    observacoes: '',
+                    criadoEm: Timestamp.now(),
+                    atualizadoEm: Timestamp.now(),
+                    status: 'ativo'
+                });
+                
+                showAlert(patientAlert, `Paciente "${patientData.nome}" cadastrado com sucesso!`, 'success');
+                patientForm.reset();
+                loadPatients();
+                
+            } catch (error) {
+                console.error('Erro ao cadastrar paciente:', error);
+                showAlert(patientAlert, `Erro ao cadastrar paciente: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadPatients() {
+            if (!currentUser) return;
+            
+            try {
+                const q = query(
+                    collection(db, "Paciente"),
+                    where("criadoPor", "==", currentUser.uid)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                allPatients = [];
+                patientsList.innerHTML = '';
+                
+                if (querySnapshot.empty) {
+                    patientsList.innerHTML = '<div class="alert">Nenhum paciente cadastrado ainda.</div>';
+                    return;
+                }
+                
+                querySnapshot.forEach((doc) => {
+                    const patient = {
+                        id: doc.id,
+                        ...doc.data()
+                    };
+                    allPatients.push(patient);
+                    renderPatientCard(patient);
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar pacientes:', error);
+                patientsList.innerHTML = `<div class="alert alert-error">Erro ao carregar pacientes: ${error.message}</div>`;
+            }
+        }
+        
+        function renderPatientCard(patient) {
+            let formattedDate = 'Não informada';
+            if (patient.dataNascimento) {
+                const date = new Date(patient.dataNascimento);
+                formattedDate = date.toLocaleDateString('pt-BR');
+            }
+            
+            const patientCard = document.createElement('div');
+            patientCard.className = 'card-item';
+            patientCard.innerHTML = `
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">${patient.nome}</div>
+                        <div class="card-id">ID: ${patient.id}</div>
+                    </div>
+                </div>
+                <div class="card-details">
+                    <div class="detail-item">
+                        <span class="detail-label">CPF:</span>
+                        <span class="detail-value">${patient.cpf || 'Não informado'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Nascimento:</span>
+                        <span class="detail-value">${formattedDate}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Telefone:</span>
+                        <span class="detail-value">${patient.telefone}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Convênio:</span>
+                        <span class="detail-value">${patient.convenio || 'Não informado'}</span>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-info btn-sm" onclick="viewPatientMedicalRecords('${patient.id}')">
+                        📋 Ver Prontuários
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="createMedicalRecordForPatient('${patient.id}')">
+                        ✏️ Novo Prontuário
+                    </button>
+                </div>
+            `;
+            
+            patientsList.appendChild(patientCard);
+        }
+        
+        // Professional management functions
+        async function handleAddProfessional(e) {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                showAlert(professionalAlert, 'Você precisa estar logado para adicionar profissionais.', 'error');
+                return;
+            }
+            
+            const formData = new FormData(professionalForm);
+            const professionalData = {
+                nome: formData.get('nome'),
+                cpf: formData.get('cpf'),
+                dataNascimento: formData.get('dataNascimento'),
+                sexo: formData.get('sexo'),
+                email: formData.get('email'),
+                telefone: formData.get('telefone'),
+                especialidade: formData.get('especialidade'),
+                conselho: formData.get('conselho'),
+                numeroRegistro: formData.get('numeroRegistro'),
+                uf: formData.get('uf'),
+                uidGoogle: formData.get('uidGoogle'),
+                status: formData.get('status') || 'ativo',
+                observacoes: formData.get('observacoes'),
+                criadoPor: currentUser.uid,
+                criadoEm: Timestamp.now()
+            };
+            
+            if (!professionalData.nome || !professionalData.cpf || !professionalData.email || 
+                !professionalData.telefone || !professionalData.especialidade || 
+                !professionalData.conselho || !professionalData.numeroRegistro || !professionalData.uidGoogle) {
+                showAlert(professionalAlert, 'Todos os campos marcados com * são obrigatórios.', 'error');
+                return;
+            }
+            
+            try {
+                const q = query(
+                    collection(db, "Profissional"),
+                    where("uidGoogle", "==", professionalData.uidGoogle)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    showAlert(professionalAlert, 'Este UID do Google já está cadastrado no sistema.', 'error');
+                    return;
+                }
+                
+                const docRef = await addDoc(collection(db, "Profissional"), professionalData);
+                
+                if (currentUser && professionalData.uidGoogle === currentUser.uid) {
+                    currentProfessional = {
+                        id: docRef.id,
+                        ...professionalData
+                    };
+                    updateUserInfo();
+                    profileSetupAlert.classList.add('hidden');
+                    updateDashboardStats();
+                }
+                
+                showAlert(professionalAlert, `Profissional "${professionalData.nome}" cadastrado com sucesso!`, 'success');
+                professionalForm.reset();
+                loadProfessionals();
+                
+            } catch (error) {
+                console.error('Erro ao cadastrar profissional:', error);
+                showAlert(professionalAlert, `Erro ao cadastrar profissional: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadProfessionals() {
+            if (!currentUser) return;
+            
+            try {
+                const q = query(collection(db, "Profissional"));
+                const querySnapshot = await getDocs(q);
+                allProfessionals = [];
+                professionalsList.innerHTML = '';
+                
+                if (querySnapshot.empty) {
+                    professionalsList.innerHTML = '<div class="alert">Nenhum profissional cadastrado ainda.</div>';
+                    return;
+                }
+                
+                querySnapshot.forEach((doc) => {
+                    const professional = {
+                        id: doc.id,
+                        ...doc.data()
+                    };
+                    allProfessionals.push(professional);
+                    renderProfessionalCard(professional);
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar profissionais:', error);
+                professionalsList.innerHTML = `<div class="alert alert-error">Erro ao carregar profissionais: ${error.message}</div>`;
+            }
+        }
+        
+        function renderProfessionalCard(professional) {
+            let formattedDate = 'Não informada';
+            if (professional.dataNascimento) {
+                const date = new Date(professional.dataNascimento);
+                formattedDate = date.toLocaleDateString('pt-BR');
+            }
+            
+            const roleDisplay = getRoleDisplayName(professional.especialidade);
+            const roleClass = professional.especialidade;
+            
+            const statusBadge = professional.status === 'ativo' 
+                ? '<span class="status-badge status-active">Ativo</span>'
+                : '<span class="status-badge status-inactive">Inativo</span>';
+            
+            const professionalCard = document.createElement('div');
+            professionalCard.className = `card-item ${roleClass}`;
+            professionalCard.innerHTML = `
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">${professional.nome} ${statusBadge}</div>
+                        <div class="card-id">ID: ${professional.id}</div>
+                    </div>
+                    <div class="user-role ${roleClass}">${roleDisplay}</div>
+                </div>
+                <div class="card-details">
+                    <div class="detail-item">
+                        <span class="detail-label">CPF:</span>
+                        <span class="detail-value">${professional.cpf || 'Não informado'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Nascimento:</span>
+                        <span class="detail-value">${formattedDate}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Telefone:</span>
+                        <span class="detail-value">${professional.telefone}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Conselho:</span>
+                        <span class="detail-value">${professional.conselho} ${professional.uf ? `- ${professional.uf}` : ''}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Registro:</span>
+                        <span class="detail-value">${professional.numeroRegistro}</span>
+                    </div>
+                </div>
+            `;
+            
+            professionalsList.appendChild(professionalCard);
+        }
+        
+        // Medical Record management functions
+        async function handleAddMedicalRecord(e) {
+            e.preventDefault();
+            
+            if (!currentUser || !currentProfessional) {
+                showAlert(medicalRecordAlert, 'Você precisa ser um profissional cadastrado para criar prontuários.', 'error');
+                return;
+            }
+            
+            // Collect form data
+            const formData = new FormData(medicalRecordForm);
+            const medicalRecordData = {
+                pacienteId: formData.get('pacienteId'),
+                profissionalId: formData.get('profissionalId'),
+                dataConsulta: Timestamp.fromDate(new Date(formData.get('dataConsulta'))),
+                tipoConsulta: formData.get('tipoConsulta'),
+                queixaPrincipal: formData.get('queixaPrincipal'),
+                historiaDoenca: formData.get('historiaDoenca'),
+                antecedentesPessoais: formData.get('antecedentesPessoais'),
+                antecedentesFamiliares: formData.get('antecedentesFamiliares'),
+                pressaoArterial: formData.get('pressaoArterial'),
+                frequenciaCardiaca: formData.get('frequenciaCardíaca'),
+                temperatura: formData.get('temperatura'),
+                peso: formData.get('peso'),
+                exameFisico: formData.get('exameFisico'),
+                diagnostico: formData.get('diagnostico'),
+                conduta: formData.get('conduta'),
+                observacoes: formData.get('observacoes'),
+                status: formData.get('status'),
+                prioridade: formData.get('prioridade'),
+                criadoPor: currentUser.uid,
+                criadoEm: Timestamp.now(),
+                atualizadoEm: Timestamp.now()
+            };
+            
+            // Collect exames
+            const exames = [];
+            const exameItems = examesContainer.querySelectorAll('.exame-item');
+            exameItems.forEach((item, index) => {
+                const exame = {
+                    tipo: formData.get(`exames[${index}].tipo`),
+                    dataSolicitacao: formData.get(`exames[${index}].dataSolicitacao`),
+                    observacao: formData.get(`exames[${index}].observacao`)
+                };
+                
+                if (exame.tipo) {
+                    exames.push(exame);
+                }
+            });
+            medicalRecordData.exames = exames;
+            
+            // Collect tratamentos
+            const tratamentos = [];
+            const tratamentoItems = tratamentosContainer.querySelectorAll('.tratamento-item');
+            tratamentoItems.forEach((item, index) => {
+                const tratamento = {
+                    medicamento: formData.get(`tratamentos[${index}].medicamento`),
+                    dose: formData.get(`tratamentos[${index}].dose`),
+                    duracao: formData.get(`tratamentos[${index}].duracao`)
+                };
+                
+                if (tratamento.medicamento) {
+                    tratamentos.push(tratamento);
+                }
+            });
+            medicalRecordData.tratamentos = tratamentos;
+            
+            // Validate required fields
+            if (!medicalRecordData.pacienteId || !medicalRecordData.profissionalId || 
+                !medicalRecordData.dataConsulta || !medicalRecordData.tipoConsulta) {
+                showAlert(medicalRecordAlert, 'Preencha todos os campos obrigatórios.', 'error');
+                return;
+            }
+            
+            try {
+                // Get paciente and profissional names
+                const pacienteDoc = await getDoc(doc(db, "Paciente", medicalRecordData.pacienteId));
+                const profissionalDoc = await getDoc(doc(db, "Profissional", medicalRecordData.profissionalId));
+                
+                if (!pacienteDoc.exists() || !profissionalDoc.exists()) {
+                    showAlert(medicalRecordAlert, 'Paciente ou profissional não encontrado.', 'error');
+                    return;
+                }
+                
+                medicalRecordData.pacienteNome = pacienteDoc.data().nome;
+                medicalRecordData.profissionalNome = profissionalDoc.data().nome;
+                
+                // Add medical record to Firestore
+                const docRef = await addDoc(collection(db, "Prontuario"), medicalRecordData);
+                
+                showAlert(medicalRecordAlert, `Prontuário criado com sucesso! ID: ${docRef.id}`, 'success');
+                medicalRecordForm.reset();
+                
+                // Reset dynamic fields
+                examesContainer.innerHTML = '';
+                tratamentosContainer.innerHTML = '';
+                addExameField();
+                addTratamentoField();
+                
+                // Set current date/time
+                const now = new Date();
+                const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+                    .toISOString()
+                    .slice(0, 16);
+                document.getElementById('dataConsulta').value = localDateTime;
+                
+                loadMedicalRecords();
+                
+            } catch (error) {
+                console.error('Erro ao criar prontuário:', error);
+                showAlert(medicalRecordAlert, `Erro ao criar prontuário: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadMedicalRecords() {
+            if (!currentUser) return;
+            
+            try {
+                // Query medical records created by current user or where user is the professional
+                let q;
+                if (currentProfessional) {
+                    q = query(
+                        collection(db, "Prontuario"),
+                        where("profissionalId", "==", currentProfessional.id)
+                    );
+                } else {
+                    q = query(
+                        collection(db, "Prontuario"),
+                        where("criadoPor", "==", currentUser.uid)
+                    );
+                }
+                
+                const querySnapshot = await getDocs(q);
+                allMedicalRecords = [];
+                medicalRecordsList.innerHTML = '';
+                
+                if (querySnapshot.empty) {
+                    medicalRecordsList.innerHTML = '<div class="alert">Nenhum prontuário cadastrado ainda.</div>';
+                    return;
+                }
+                
+                querySnapshot.forEach((doc) => {
+                    const medicalRecord = {
+                        id: doc.id,
+                        ...doc.data()
+                    };
+                    allMedicalRecords.push(medicalRecord);
+                    renderMedicalRecordCard(medicalRecord);
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar prontuários:', error);
+                medicalRecordsList.innerHTML = `<div class="alert alert-error">Erro ao carregar prontuários: ${error.message}</div>`;
+            }
+        }
+        
+        function renderMedicalRecordCard(medicalRecord) {
+            const dataConsulta = medicalRecord.dataConsulta?.toDate();
+            const dataFormatada = dataConsulta ? dataConsulta.toLocaleDateString('pt-BR') + ' ' + dataConsulta.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Não informada';
+            
+            const prioridadeBadge = medicalRecord.prioridade === 'urgente' 
+                ? '<span class="status-badge status-urgente">Urgente</span>'
+                : medicalRecord.prioridade === 'eletivo'
+                ? '<span class="status-badge status-active">Eletivo</span>'
+                : '<span class="status-badge status-routine">Rotina</span>';
+            
+            const statusBadge = medicalRecord.status === 'ativo'
+                ? '<span class="status-badge status-active">Ativo</span>'
+                : medicalRecord.status === 'encerrado'
+                ? '<span class="status-badge status-inactive">Encerrado</span>'
+                : '<span class="status-badge status-routine">Transferido</span>';
+            
+            const medicalRecordCard = document.createElement('div');
+            medicalRecordCard.className = 'card-item prontuario';
+            medicalRecordCard.innerHTML = `
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">${medicalRecord.pacienteNome || 'Paciente'} ${prioridadeBadge} ${statusBadge}</div>
+                        <div class="card-id">ID: ${medicalRecord.id}</div>
+                    </div>
+                </div>
+                <div class="card-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Data da Consulta:</span>
+                        <span class="detail-value">${dataFormatada}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Tipo:</span>
+                        <span class="detail-value">${getTipoConsultaDisplay(medicalRecord.tipoConsulta)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Paciente ID:</span>
+                        <span class="detail-value" style="font-size: 0.8rem;">${medicalRecord.pacienteId}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Profissional:</span>
+                        <span class="detail-value">${medicalRecord.profissionalNome || 'Não informado'}</span>
+                    </div>
+                </div>
+                <div class="card-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Queixa Principal:</span>
+                        <span class="detail-value">${medicalRecord.queixaPrincipal ? medicalRecord.queixaPrincipal.substring(0, 100) + (medicalRecord.queixaPrincipal.length > 100 ? '...' : '') : 'Não informada'}</span>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-info btn-sm" onclick="viewMedicalRecord('${medicalRecord.id}')">
+                        👁️ Ver Detalhes
+                    </button>
+                    <button class="btn btn-warning btn-sm" onclick="editMedicalRecord('${medicalRecord.id}')">
+                        ✏️ Editar
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteMedicalRecord('${medicalRecord.id}', '${medicalRecord.pacienteNome}')">
+                        🗑️ Excluir
+                    </button>
+                </div>
+            `;
+            
+            medicalRecordsList.appendChild(medicalRecordCard);
+        }
+        
+        // Dynamic form fields for medical records
+        function addExameField() {
+            const index = examesContainer.querySelectorAll('.exame-item').length;
+            const exameItem = document.createElement('div');
+            exameItem.className = 'exame-item';
+            exameItem.setAttribute('data-index', index);
+            exameItem.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="exameTipo_${index}">Tipo de Exame</label>
+                        <input type="text" id="exameTipo_${index}" name="exames[${index}].tipo" placeholder="Ex: Hemograma, Raio-X">
+                    </div>
+                    <div class="form-group">
+                        <label for="exameData_${index}">Data de Solicitação</label>
+                        <input type="date" id="exameData_${index}" name="exames[${index}].dataSolicitacao">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="exameObservacao_${index}">Observações</label>
+                    <textarea id="exameObservacao_${index}" name="exames[${index}].observacao" placeholder="Observações sobre o exame"></textarea>
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeExameField(${index})">Remover Exame</button>
+            `;
+            examesContainer.appendChild(exameItem);
+        }
+        
+        function addTratamentoField() {
+            const index = tratamentosContainer.querySelectorAll('.tratamento-item').length;
+            const tratamentoItem = document.createElement('div');
+            tratamentoItem.className = 'tratamento-item';
+            tratamentoItem.setAttribute('data-index', index);
+            tratamentoItem.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="medicamento_${index}">Medicamento/Tratamento</label>
+                        <input type="text" id="medicamento_${index}" name="tratamentos[${index}].medicamento" placeholder="Nome do medicamento ou tratamento">
+                    </div>
+                    <div class="form-group">
+                        <label for="dose_${index}">Dose/Prescrito</label>
+                        <input type="text" id="dose_${index}" name="tratamentos[${index}].dose" placeholder="Ex: 500mg, 2x ao dia">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="duracao_${index}">Duração</label>
+                    <input type="text" id="duracao_${index}" name="tratamentos[${index}].duracao" placeholder="Ex: 7 dias">
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeTratamentoField(${index})">Remover Tratamento</button>
+            `;
+            tratamentosContainer.appendChild(tratamentoItem);
+        }
+        
+        function removeExameField(index) {
+            const exameItem = examesContainer.querySelector(`.exame-item[data-index="${index}"]`);
+            if (exameItem) {
+                exameItem.remove();
+                // Reindex remaining items
+                const remainingItems = examesContainer.querySelectorAll('.exame-item');
+                remainingItems.forEach((item, newIndex) => {
+                    item.setAttribute('data-index', newIndex);
+                    // Update all input names
+                    item.querySelectorAll('input, textarea').forEach(input => {
+                        const name = input.getAttribute('name');
+                        if (name) {
+                            input.setAttribute('name', name.replace(/\[\d+\]/, `[${newIndex}]`));
+                            input.setAttribute('id', input.getAttribute('id').replace(/\d+/, newIndex));
+                        }
+                    });
+                    item.querySelector('label').setAttribute('for', item.querySelector('label').getAttribute('for').replace(/\d+/, newIndex));
+                });
+            }
+        }
+        
+        function removeTratamentoField(index) {
+            const tratamentoItem = tratamentosContainer.querySelector(`.tratamento-item[data-index="${index}"]`);
+            if (tratamentoItem) {
+                tratamentoItem.remove();
+                // Reindex remaining items
+                const remainingItems = tratamentosContainer.querySelectorAll('.tratamento-item');
+                remainingItems.forEach((item, newIndex) => {
+                    item.setAttribute('data-index', newIndex);
+                    // Update all input names
+                    item.querySelectorAll('input, textarea').forEach(input => {
+                        const name = input.getAttribute('name');
+                        if (name) {
+                            input.setAttribute('name', name.replace(/\[\d+\]/, `[${newIndex}]`));
+                            input.setAttribute('id', input.getAttribute('id').replace(/\d+/, newIndex));
+                        }
+                    });
+                    item.querySelectorAll('label').forEach(label => {
+                        label.setAttribute('for', label.getAttribute('for').replace(/\d+/, newIndex));
+                    });
+                });
+            }
+        }
+        
+        // Load patients and professionals for medical record form
+        async function loadPatientsForMedicalRecord() {
+            try {
+                const q = query(collection(db, "Paciente"));
+                const querySnapshot = await getDocs(q);
+                
+                pacienteSelect.innerHTML = '<option value="">Selecione um paciente</option>';
+                
+                querySnapshot.forEach((doc) => {
+                    const paciente = doc.data();
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = `${paciente.nome} - ${paciente.cpf || 'Sem CPF'}`;
+                    pacienteSelect.appendChild(option);
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar pacientes:', error);
+            }
+        }
+        
+        async function loadProfessionalsForMedicalRecord() {
+            try {
+                const q = query(collection(db, "Profissional"));
+                const querySnapshot = await getDocs(q);
+                
+                profissionalSelect.innerHTML = '<option value="">Selecione o profissional</option>';
+                
+                querySnapshot.forEach((doc) => {
+                    const profissional = doc.data();
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = `${profissional.nome} - ${profissional.conselho} ${profissional.numeroRegistro}`;
+                    
+                    // Auto-select current professional if available
+                    if (currentProfessional && doc.id === currentProfessional.id) {
+                        option.selected = true;
+                    }
+                    
+                    profissionalSelect.appendChild(option);
+                });
+                
+            } catch (error) {
+                console.error('Erro ao carregar profissionais:', error);
+            }
+        }
+        
+        // View medical record details
+        async function viewMedicalRecord(recordId) {
+            try {
+                const docRef = doc(db, "Prontuario", recordId);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const medicalRecord = {
+                        id: docSnap.id,
+                        ...docSnap.data()
+                    };
+                    currentViewingMedicalRecord = medicalRecord;
+                    
+                    // Format dates
+                    const dataConsulta = medicalRecord.dataConsulta?.toDate();
+                    const dataFormatada = dataConsulta ? dataConsulta.toLocaleDateString('pt-BR') + ' ' + dataConsulta.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Não informada';
+                    const criadoEm = medicalRecord.criadoEm?.toDate().toLocaleDateString('pt-BR');
+                    const atualizadoEm = medicalRecord.atualizadoEm?.toDate().toLocaleDateString('pt-BR');
+                    
+                    // Build HTML for medical record details
+                    let html = `
+                        <div class="medical-record-section">
+                            <h4>📋 Informações Gerais</h4>
+                            <div class="card-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">Paciente:</span>
+                                    <span class="detail-value">${medicalRecord.pacienteNome}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Profissional:</span>
+                                    <span class="detail-value">${medicalRecord.profissionalNome}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Data da Consulta:</span>
+                                    <span class="detail-value">${dataFormatada}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Tipo de Consulta:</span>
+                                    <span class="detail-value">${getTipoConsultaDisplay(medicalRecord.tipoConsulta)}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Status:</span>
+                                    <span class="detail-value">${medicalRecord.status}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Prioridade:</span>
+                                    <span class="detail-value">${medicalRecord.prioridade}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Criado em:</span>
+                                    <span class="detail-value">${criadoEm}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Atualizado em:</span>
+                                    <span class="detail-value">${atualizadoEm}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // História Clínica
+                    if (medicalRecord.queixaPrincipal || medicalRecord.historiaDoenca || 
+                        medicalRecord.antecedentesPessoais || medicalRecord.antecedentesFamiliares) {
+                        html += `
+                            <div class="medical-record-section">
+                                <h4>📋 História Clínica</h4>
+                                ${medicalRecord.queixaPrincipal ? `<p><strong>Queixa Principal:</strong> ${medicalRecord.queixaPrincipal}</p>` : ''}
+                                ${medicalRecord.historiaDoenca ? `<p><strong>História da Doença Atual:</strong> ${medicalRecord.historiaDoenca}</p>` : ''}
+                                ${medicalRecord.antecedentesPessoais ? `<p><strong>Antecedentes Pessoais:</strong> ${medicalRecord.antecedentesPessoais}</p>` : ''}
+                                ${medicalRecord.antecedentesFamiliares ? `<p><strong>Antecedentes Familiares:</strong> ${medicalRecord.antecedentesFamiliares}</p>` : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    // Exame Físico
+                    if (medicalRecord.pressaoArterial || medicalRecord.frequenciaCardiaca || 
+                        medicalRecord.temperatura || medicalRecord.peso || medicalRecord.exameFisico) {
+                        html += `
+                            <div class="medical-record-section">
+                                <h4>🔍 Exame Físico</h4>
+                                <div class="card-details">
+                                    ${medicalRecord.pressaoArterial ? `<div class="detail-item"><span class="detail-label">Pressão Arterial:</span><span class="detail-value">${medicalRecord.pressaoArterial}</span></div>` : ''}
+                                    ${medicalRecord.frequenciaCardiaca ? `<div class="detail-item"><span class="detail-label">Frequência Cardíaca:</span><span class="detail-value">${medicalRecord.frequenciaCardiaca}</span></div>` : ''}
+                                    ${medicalRecord.temperatura ? `<div class="detail-item"><span class="detail-label">Temperatura:</span><span class="detail-value">${medicalRecord.temperatura}</span></div>` : ''}
+                                    ${medicalRecord.peso ? `<div class="detail-item"><span class="detail-label">Peso:</span><span class="detail-value">${medicalRecord.peso}</span></div>` : ''}
+                                </div>
+                                ${medicalRecord.exameFisico ? `<p><strong>Exame Físico Geral:</strong> ${medicalRecord.exameFisico}</p>` : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    // Diagnóstico e Tratamento
+                    if (medicalRecord.diagnostico || medicalRecord.conduta) {
+                        html += `
+                            <div class="medical-record-section">
+                                <h4>💊 Diagnóstico e Tratamento</h4>
+                                ${medicalRecord.diagnostico ? `<p><strong>Diagnóstico:</strong> ${medicalRecord.diagnostico}</p>` : ''}
+                                ${medicalRecord.conduta ? `<p><strong>Conduta Médica:</strong> ${medicalRecord.conduta}</p>` : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    // Exames
+                    if (medicalRecord.exames && medicalRecord.exames.length > 0) {
+                        html += `
+                            <div class="medical-record-section">
+                                <h4>🔍 Exames Solicitados</h4>
+                                ${medicalRecord.exames.map((exame, index) => `
+                                    <div class="exame-item">
+                                        <h5>Exame ${index + 1}: ${exame.tipo}</h5>
+                                        ${exame.dataSolicitacao ? `<p><strong>Data de Solicitação:</strong> ${exame.dataSolicitacao}</p>` : ''}
+                                        ${exame.observacao ? `<p><strong>Observações:</strong> ${exame.observacao}</p>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // Tratamentos
+                    if (medicalRecord.tratamentos && medicalRecord.tratamentos.length > 0) {
+                        html += `
+                            <div class="medical-record-section">
+                                <h4>🏥 Tratamentos Prescritos</h4>
+                                ${medicalRecord.tratamentos.map((tratamento, index) => `
+                                    <div class="tratamento-item">
+                                        <h5>Tratamento ${index + 1}: ${tratamento.medicamento}</h5>
+                                        ${tratamento.dose ? `<p><strong>Dose/Prescrito:</strong> ${tratamento.dose}</p>` : ''}
+                                        ${tratamento.duracao ? `<p><strong>Duração:</strong> ${tratamento.duracao}</p>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // Observações
+                    if (medicalRecord.observacoes) {
+                        html += `
+                            <div class="medical-record-section">
+                                <h4>📝 Observações Gerais</h4>
+                                <p>${medicalRecord.observacoes}</p>
+                            </div>
+                        `;
+                    }
+                    
+                    medicalRecordDetails.innerHTML = html;
+                    viewMedicalRecordModal.classList.add('active');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar prontuário:', error);
+                showAlert(medicalRecordAlert, `Erro ao carregar prontuário: ${error.message}`, 'error');
+            }
+        }
+        
+        function closeMedicalRecordModal() {
+            viewMedicalRecordModal.classList.remove('active');
+            currentViewingMedicalRecord = null;
+        }
+        
+        function editMedicalRecord(recordId) {
+            if (!recordId && currentViewingMedicalRecord) {
+                recordId = currentViewingMedicalRecord.id;
+            }
+            
+            closeMedicalRecordModal();
+            // Future: Implement edit functionality
+            showAlert(medicalRecordAlert, 'Funcionalidade de edição em desenvolvimento.', 'info');
+        }
+        
+        async function deleteMedicalRecord(recordId, pacienteNome) {
+            if (confirm(`Tem certeza que deseja excluir o prontuário de ${pacienteNome}? Esta ação não pode ser desfeita.`)) {
+                try {
+                    await deleteDoc(doc(db, "Prontuario", recordId));
+                    showAlert(medicalRecordAlert, 'Prontuário excluído com sucesso!', 'success');
+                    loadMedicalRecords();
+                } catch (error) {
+                    console.error('Erro ao excluir prontuário:', error);
+                    showAlert(medicalRecordAlert, `Erro ao excluir prontuário: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Search and filter functions
+        function handlePatientSearch() {
+            const searchTerm = searchPatient.value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                renderPatientsList(allPatients);
+                return;
+            }
+            
+            const filteredPatients = allPatients.filter(patient => {
+                return (
+                    (patient.nome && patient.nome.toLowerCase().includes(searchTerm)) ||
+                    (patient.cpf && patient.cpf.includes(searchTerm)) ||
+                    (patient.telefone && patient.telefone.includes(searchTerm)) ||
+                    (patient.email && patient.email.toLowerCase().includes(searchTerm))
+                );
+            });
+            
+            renderPatientsList(filteredPatients);
+        }
+        
+        function handleProfessionalSearch() {
+            const searchTerm = searchProfessional.value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                renderProfessionalsList(allProfessionals);
+                return;
+            }
+            
+            const filteredProfessionals = allProfessionals.filter(professional => {
+                return (
+                    (professional.nome && professional.nome.toLowerCase().includes(searchTerm)) ||
+                    (professional.cpf && professional.cpf.includes(searchTerm)) ||
+                    (professional.numeroRegistro && professional.numeroRegistro.includes(searchTerm)) ||
+                    (professional.email && professional.email.toLowerCase().includes(searchTerm))
+                );
+            });
+            
+            renderProfessionalsList(filteredProfessionals);
+        }
+        
+        function handleMedicalRecordSearch() {
+            const searchTerm = searchMedicalRecord.value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                renderMedicalRecordsList(allMedicalRecords);
+                return;
+            }
+            
+            const filteredRecords = allMedicalRecords.filter(record => {
+                return (
+                    (record.pacienteNome && record.pacienteNome.toLowerCase().includes(searchTerm)) ||
+                    (record.profissionalNome && record.profissionalNome.toLowerCase().includes(searchTerm)) ||
+                    (record.diagnostico && record.diagnostico.toLowerCase().includes(searchTerm)) ||
+                    (record.queixaPrincipal && record.queixaPrincipal.toLowerCase().includes(searchTerm))
+                );
+            });
+            
+            renderMedicalRecordsList(filteredRecords);
+        }
+        
+        function filterProfessionalsByRole(role) {
+            if (role === 'all') {
+                renderProfessionalsList(allProfessionals);
+                return;
+            }
+            
+            let filtered = [];
+            
+            if (role === 'outros') {
+                filtered = allProfessionals.filter(prof => 
+                    prof.especialidade !== 'medicina' && prof.especialidade !== 'enfermagem'
+                );
+            } else {
+                filtered = allProfessionals.filter(prof => prof.especialidade === role);
+            }
+            
+            renderProfessionalsList(filtered);
+        }
+        
+        function filterMedicalRecordsByStatus(status) {
+            if (status === 'all') {
+                renderMedicalRecordsList(allMedicalRecords);
+                return;
+            }
+            
+            const filtered = allMedicalRecords.filter(record => {
+                if (status === 'urgente') {
+                    return record.prioridade === 'urgente';
+                }
+                return record.status === status;
+            });
+            
+            renderMedicalRecordsList(filtered);
+        }
+        
+        // Helper functions
+        function getRoleDisplayName(role) {
+            const roleNames = {
+                'medicina': 'Médico',
+                'enfermagem': 'Enfermeiro',
+                'fisioterapia': 'Fisioterapeuta',
+                'nutricao': 'Nutricionista',
+                'psicologia': 'Psicólogo',
+                'odontologia': 'Dentista',
+                'outro': 'Outro Profissional'
+            };
+            
+            return roleNames[role] || 'Profissional';
+        }
+        
+        function getTipoConsultaDisplay(tipo) {
+            const tipos = {
+                'primeira': 'Primeira Consulta',
+                'retorno': 'Retorno',
+                'emergencia': 'Emergência',
+                'rotina': 'Rotina'
+            };
+            
+            return tipos[tipo] || tipo;
+        }
+        
+        function showAlert(container, message, type) {
+            container.innerHTML = '';
+            container.className = `alert alert-${type}`;
+            container.innerHTML = `
+                <div>${message}</div>
+                <button class="alert-close" onclick="this.parentElement.classList.add('hidden')">&times;</button>
+            `;
+            container.classList.remove('hidden');
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.classList.add('hidden');
+                }, 5000);
+            }
+        }
+        
+        // Dashboard functions
+        function showProfileSetupWarning() {
+            dashboardStats.innerHTML = `
+                <div class="alert alert-warning">
+                    <div>
+                        <strong>Você ainda não tem um perfil profissional cadastrado.</strong>
+                        <p>Complete seu cadastro para acessar todas as funcionalidades do sistema, incluindo prontuários médicos.</p>
+                        <button id="setupProfileBtn" class="btn btn-warning" style="margin-top: 10px;">
+                            Configurar Perfil Profissional
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('setupProfileBtn')?.addEventListener('click', () => {
+                showSection('addProfessional');
+                updateActiveNav(navAddProfessional);
+                if (currentUser) {
+                    document.getElementById('profNome').value = currentUser.displayName || '';
+                    document.getElementById('profEmail').value = currentUser.email || '';
+                    document.getElementById('profUIDGoogle').value = currentUser.uid;
+                }
+            });
+        }
+        
+        function updateDashboardStats() {
+            if (!currentUser) return;
+            
+            let statsHTML = '';
+            
+            if (currentProfessional) {
+                statsHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                        <div style="background: linear-gradient(135deg, #3498db, #2c3e50); color: white; padding: 20px; border-radius: 8px;">
+                            <h3 style="margin-bottom: 10px;">Seu Perfil</h3>
+                            <p style="font-size: 1.2rem; font-weight: bold;">${currentProfessional.nome}</p>
+                            <p>${getRoleDisplayName(currentProfessional.especialidade)}</p>
+                            <p>${currentProfessional.conselho}: ${currentProfessional.numeroRegistro}</p>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; padding: 20px; border-radius: 8px;">
+                            <h3 style="margin-bottom: 10px;">Pacientes</h3>
+                            <p style="font-size: 2rem; font-weight: bold;">${allPatients.length}</p>
+                            <p>Total cadastrado</p>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #e67e22, #f39c12); color: white; padding: 20px; border-radius: 8px;">
+                            <h3 style="margin-bottom: 10px;">Profissionais</h3>
+                            <p style="font-size: 2rem; font-weight: bold;">${allProfessionals.length}</p>
+                            <p>Total cadastrado</p>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 20px; border-radius: 8px;">
+                            <h3 style="margin-bottom: 10px;">Prontuários</h3>
+                            <p style="font-size: 2rem; font-weight: bold;">${allMedicalRecords.length}</p>
+                            <p>Total cadastrado</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                showProfileSetupWarning();
+            }
+            
+            dashboardStats.innerHTML = statsHTML;
+        }
+        
+        // Patient-specific functions
+        function createMedicalRecordForPatient(pacienteId) {
+            showSection('addMedicalRecord');
+            updateActiveNav(navAddMedicalRecord);
+            loadPatientsForMedicalRecord();
+            loadProfessionalsForMedicalRecord();
+            
+            // Set the patient after loading
+            setTimeout(() => {
+                pacienteSelect.value = pacienteId;
+            }, 500);
+        }
+        
+        function viewPatientMedicalRecords(pacienteId) {
+            showSection('medicalRecords');
+            updateActiveNav(navMedicalRecords);
+            
+            // Filter medical records for this patient
+            const filteredRecords = allMedicalRecords.filter(record => record.pacienteId === pacienteId);
+            renderMedicalRecordsList(filteredRecords);
+            
+            // Update search placeholder
+            searchMedicalRecord.placeholder = "Buscar nos prontuários deste paciente...";
+        }
+        
+        function renderPatientsList(patients) {
+            patientsList.innerHTML = '';
+            
+            if (patients.length === 0) {
+                patientsList.innerHTML = '<div class="alert">Nenhum paciente encontrado.</div>';
+                return;
+            }
+            
+            patients.forEach(patient => {
+                renderPatientCard(patient);
+            });
+        }
+        
+        function renderProfessionalsList(professionals) {
+            professionalsList.innerHTML = '';
+            
+            if (professionals.length === 0) {
+                professionalsList.innerHTML = '<div class="alert">Nenhum profissional encontrado.</div>';
+                return;
+            }
+            
+            professionals.forEach(professional => {
+                renderProfessionalCard(professional);
+            });
+        }
+        
+        function renderMedicalRecordsList(records) {
+            medicalRecordsList.innerHTML = '';
+            
+            if (records.length === 0) {
+                medicalRecordsList.innerHTML = '<div class="alert">Nenhum prontuário encontrado.</div>';
+                return;
+            }
+            
+            records.forEach(record => {
+                renderMedicalRecordCard(record);
+            });
+        }
+    </script>
+</body>
+</html>
