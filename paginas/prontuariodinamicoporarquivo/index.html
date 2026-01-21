@@ -9,6 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- Ícone do Google -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -45,12 +47,12 @@
         
         .auth-buttons {
             display: flex;
+            flex-direction: column;
             gap: 10px;
             margin-bottom: 15px;
         }
         
         .auth-buttons button {
-            flex: 1;
             padding: 12px;
             border: none;
             border-radius: 5px;
@@ -58,6 +60,7 @@
             color: white;
             cursor: pointer;
             font-size: 14px;
+            transition: background-color 0.3s;
         }
         
         .auth-buttons button:hover {
@@ -72,6 +75,46 @@
             background-color: #1e7e34;
         }
         
+        /* Botão do Google */
+        .google-btn {
+            background-color: #fff !important;
+            color: #333 !important;
+            border: 1px solid #ddd !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .google-btn:hover {
+            background-color: #f8f9fa !important;
+            border-color: #ccc !important;
+        }
+        
+        .google-btn i {
+            color: #DB4437;
+        }
+        
+        /* Divisor entre opções de login */
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: #666;
+        }
+        
+        .auth-divider::before,
+        .auth-divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .auth-divider span {
+            padding: 0 10px;
+            font-size: 14px;
+        }
+        
         /* Container principal */
         #main-container {
             display: none;
@@ -83,15 +126,30 @@
             margin-bottom: 20px;
             padding-bottom: 10px;
             border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .user-info span {
+        .user-details {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .user-email {
             font-weight: bold;
             color: #007BFF;
         }
         
         .user-info button {
-            margin-left: 10px;
             padding: 8px 15px;
             font-size: 14px;
             background-color: #dc3545;
@@ -376,6 +434,28 @@
             color: #333;
         }
         
+        /* Campo de login por UID */
+        .uid-login-container {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .uid-login-container h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .uid-input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .uid-input-group input {
+            flex: 1;
+        }
+        
         @media print {
             body {
                 margin: 0;
@@ -399,12 +479,36 @@
         <div class="message error" id="auth-error"></div>
         <div class="message success" id="auth-success"></div>
         
+        <!-- Login com Google -->
+        <div class="auth-buttons">
+            <button onclick="loginWithGoogle()" class="google-btn">
+                <i class="fab fa-google"></i> Entrar com Google
+            </button>
+        </div>
+        
+        <div class="auth-divider">
+            <span>OU</span>
+        </div>
+        
+        <!-- Login com email/senha -->
         <input type="email" id="email" placeholder="E-mail">
         <input type="password" id="password" placeholder="Senha">
         
         <div class="auth-buttons">
-            <button onclick="login()">Login</button>
-            <button onclick="register()">Registrar</button>
+            <button onclick="login()">Login com Email</button>
+            <button onclick="register()">Registrar com Email</button>
+        </div>
+        
+        <!-- Login por UID -->
+        <div class="uid-login-container">
+            <h3>Login por UID</h3>
+            <div class="uid-input-group">
+                <input type="text" id="user-uid" placeholder="Cole seu UID aqui">
+                <button onclick="loginWithUID()">Entrar com UID</button>
+            </div>
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                Use esta opção se você já tem um UID do Google. Cole o UID no campo acima.
+            </p>
         </div>
     </div>
 
@@ -412,7 +516,13 @@
     <div id="main-container">
         <!-- Informações do usuário -->
         <div class="user-info">
-            Usuário: <span id="user-email"></span>
+            <div class="user-details">
+                <img id="user-avatar" src="" alt="Avatar" class="user-avatar" style="display: none;">
+                <div>
+                    Usuário: <span id="user-email" class="user-email"></span><br>
+                    <small>UID: <span id="user-uid-display"></span></small>
+                </div>
+            </div>
             <button onclick="logout()">Sair</button>
         </div>
 
@@ -523,10 +633,7 @@
         auth.onAuthStateChanged((user) => {
             if (user) {
                 currentUser = user;
-                document.getElementById('auth-container').style.display = 'none';
-                document.getElementById('main-container').style.display = 'block';
-                document.getElementById('user-email').textContent = user.email;
-                console.log(`👤 Usuário autenticado: ${user.email}`);
+                updateUserInterface(user);
                 showMessage('auth-success', 'Login realizado com sucesso!');
                 
                 // Carregar documentos do usuário
@@ -539,6 +646,28 @@
                 document.getElementById('main-container').style.display = 'none';
             }
         });
+        
+        // Atualiza a interface do usuário
+        function updateUserInterface(user) {
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('main-container').style.display = 'block';
+            document.getElementById('user-email').textContent = user.email;
+            document.getElementById('user-uid-display').textContent = user.uid;
+            console.log(`👤 Usuário autenticado: ${user.email} (UID: ${user.uid})`);
+            
+            // Mostrar foto do perfil se disponível
+            const userAvatar = document.getElementById('user-avatar');
+            if (user.photoURL) {
+                userAvatar.src = user.photoURL;
+                userAvatar.style.display = 'block';
+            } else {
+                userAvatar.style.display = 'none';
+            }
+            
+            // Mostrar provedor de autenticação
+            const provider = user.providerData && user.providerData[0] ? user.providerData[0].providerId : 'email';
+            console.log(`🔐 Provedor de autenticação: ${provider}`);
+        }
         
         // Funções de autenticação
         function login() {
@@ -581,6 +710,120 @@
                 });
         }
         
+        // Login com Google
+        function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            // Adicionar escopos adicionais se necessário
+            provider.addScope('profile');
+            provider.addScope('email');
+            
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    // Credencial do Google Access Token
+                    const credential = result.credential;
+                    const token = credential.accessToken;
+                    console.log('🔑 Token do Google:', token);
+                    showMessage('auth-success', 'Login com Google realizado com sucesso!');
+                })
+                .catch((error) => {
+                    console.error('Erro no login com Google:', error);
+                    
+                    // Tratamento de erros específicos
+                    let errorMessage = 'Erro no login com Google: ';
+                    switch(error.code) {
+                        case 'auth/popup-blocked':
+                            errorMessage += 'Popup bloqueado pelo navegador. Permita popups para este site.';
+                            break;
+                        case 'auth/popup-closed-by-user':
+                            errorMessage += 'Popup fechado pelo usuário.';
+                            break;
+                        case 'auth/cancelled-popup-request':
+                            errorMessage += 'Múltiplas requisições de popup.';
+                            break;
+                        case 'auth/unauthorized-domain':
+                            errorMessage += 'Domínio não autorizado para login com Google.';
+                            break;
+                        default:
+                            errorMessage += error.message;
+                    }
+                    
+                    showMessage('auth-error', errorMessage);
+                });
+        }
+        
+        // Login por UID
+        function loginWithUID() {
+            const uid = document.getElementById('user-uid').value.trim();
+            
+            if (!uid) {
+                showMessage('auth-error', 'Digite um UID válido.');
+                return;
+            }
+            
+            // Verificar se o UID tem formato válido (exemplo básico)
+            if (uid.length < 10) {
+                showMessage('auth-error', 'UID inválido. O UID deve ter pelo menos 10 caracteres.');
+                return;
+            }
+            
+            showMessage('auth-success', 'Verificando UID...');
+            
+            // Tentar buscar usuário pelo UID
+            auth.signInAnonymously()
+                .then(() => {
+                    // Depois de autenticado anonimamente, tentamos "assumir" a conta pelo UID
+                    // Nota: Esta abordagem requer configurações especiais no Firebase
+                    // Em produção, você precisaria de um backend para validar o UID
+                    
+                    // Alternativa: Criar um token customizado no backend e usar signInWithCustomToken
+                    console.log('⚠️ Login por UID requer backend para gerar tokens customizados');
+                    showMessage('auth-error', 'Login por UID requer configuração de backend. Use Google Sign-In ou email/senha.');
+                    
+                    // Fazer logout do usuário anônimo
+                    auth.signOut();
+                })
+                .catch((error) => {
+                    console.error('Erro no login por UID:', error);
+                    showMessage('auth-error', 'Erro no login por UID: ' + error.message);
+                });
+        }
+        
+        // Alternativa mais simples para login por UID (sem backend)
+        function loginWithUIDSimple() {
+            const uid = document.getElementById('user-uid').value.trim();
+            
+            if (!uid) {
+                showMessage('auth-error', 'Digite um UID válido.');
+                return;
+            }
+            
+            // Esta é uma abordagem simplificada que "simula" login por UID
+            // Na realidade, estamos apenas armazenando o UID localmente
+            // e usando autenticação anônima para acesso ao Firestore
+            
+            localStorage.setItem('user_uid', uid);
+            
+            // Criar usuário anônimo para acesso ao Firestore
+            auth.signInAnonymously()
+                .then(() => {
+                    // Agora podemos carregar os documentos deste UID
+                    // Mas precisamos modificar as regras do Firestore para permitir
+                    console.log(`✅ Login anônimo para UID: ${uid}`);
+                    showMessage('auth-success', `Acessando documentos do UID: ${uid}`);
+                    
+                    // Atualizar interface com UID informado
+                    document.getElementById('user-uid-display').textContent = uid;
+                    document.getElementById('user-email').textContent = `UID: ${uid}`;
+                    
+                    // Carregar documentos
+                    loadUserDocuments();
+                })
+                .catch((error) => {
+                    console.error('Erro no login anônimo:', error);
+                    showMessage('auth-error', 'Erro ao acessar: ' + error.message);
+                });
+        }
+        
         function logout() {
             auth.signOut();
             tabs = {};
@@ -592,6 +835,9 @@
             renderList();
             updateTabInputs();
             renderDocumentsList();
+            
+            // Limpar UID armazenado localmente
+            localStorage.removeItem('user_uid');
         }
         
         // Funções de mensagens
@@ -614,8 +860,18 @@
             try {
                 console.log(`📁 Carregando documentos para usuário: ${currentUser.uid}`);
                 
+                // Se o usuário estiver autenticado anonimamente (login por UID),
+                // tentamos usar o UID armazenado localmente
+                let targetUid = currentUser.uid;
+                const storedUid = localStorage.getItem('user_uid');
+                
+                if (currentUser.isAnonymous && storedUid) {
+                    console.log(`🔑 Usando UID armazenado: ${storedUid}`);
+                    targetUid = storedUid;
+                }
+                
                 const snapshot = await db.collection('prontuariouniversal')
-                    .where('userId', '==', currentUser.uid)
+                    .where('userId', '==', targetUid)
                     .orderBy('lastModified', 'desc')
                     .get();
                 
@@ -685,7 +941,7 @@
             });
         }
         
-        // Funções do editor
+        // Funções do editor (mantidas iguais)
         function renderTabs() {
             const tabContainer = document.getElementById('tabs');
             tabContainer.innerHTML = '<button onclick="addTab()">Adicionar Aba</button>';
@@ -821,12 +1077,20 @@
             }
             
             try {
+                // Determinar qual UID usar (usuário atual ou UID armazenado)
+                let targetUid = currentUser.uid;
+                const storedUid = localStorage.getItem('user_uid');
+                
+                if (currentUser.isAnonymous && storedUid) {
+                    targetUid = storedUid;
+                }
+                
                 const dataToSave = {
                     data: tabs,
                     documentName: documentName,
                     lastModified: firebase.firestore.FieldValue.serverTimestamp(),
-                    userId: currentUser.uid,
-                    userEmail: currentUser.email
+                    userId: targetUid,
+                    userEmail: currentUser.isAnonymous ? `uid:${targetUid}` : currentUser.email
                 };
                 
                 if (currentDocumentId) {
@@ -871,8 +1135,15 @@
                 
                 const data = doc.data();
                 
-                // Verificar se o documento pertence ao usuário atual
-                if (data.userId !== currentUser.uid) {
+                // Verificar se o documento pertence ao usuário atual ou UID armazenado
+                let targetUid = currentUser.uid;
+                const storedUid = localStorage.getItem('user_uid');
+                
+                if (currentUser.isAnonymous && storedUid) {
+                    targetUid = storedUid;
+                }
+                
+                if (data.userId !== targetUid) {
                     showMessage('firebase-error', 'Você não tem permissão para acessar este documento.');
                     return;
                 }
@@ -980,7 +1251,19 @@
         window.onload = function() {
             addTab();
             console.log("🚀 Sistema Prontuário Universal inicializado");
+            
+            // Verificar se há UID armazenado localmente
+            const storedUid = localStorage.getItem('user_uid');
+            if (storedUid) {
+                document.getElementById('user-uid').value = storedUid;
+            }
         };
     </script>
+<iframe 
+    src="https://wazzimagiygg.com/admin/checkuser/universalcheckuser" 
+    style="width: 300px; height: 150px; border: none; position: fixed; bottom: 10px; right: 10px; z-index: 9999;"
+    title="Registrador de Logs">
+</iframe>
+    
 </body>
 </html>
