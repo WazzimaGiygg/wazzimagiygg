@@ -1,1 +1,2349 @@
 
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clinca FreeCore</title>
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <style>
+        /* RESET E ESTILOS GERAIS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: url('WikiNotPedia2.png') center/cover no-repeat fixed;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            color: white;
+        }
+
+        /* ÁREA DO DESKTOP */
+        .desktop-area {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 40px);
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            grid-template-rows: repeat(16, 1fr);
+            gap: 0;
+            padding: 10px;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        /* CÉLULAS DO DESKTOP */
+        .desktop-cell {
+            position: relative;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+
+        .desktop-cell:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .desktop-cell.drag-over {
+            background-color: rgba(0, 120, 215, 0.3) !important;
+        }
+
+        /* ÍCONES DO DESKTOP */
+        .desktop-icon {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 5px;
+            transition: transform 0.2s;
+            padding: 2px;
+        }
+
+        .desktop-icon:hover {
+            transform: scale(1.05);
+        }
+
+        .desktop-icon.dragging {
+            opacity: 0.7;
+            transform: scale(1.1);
+            z-index: 1000;
+        }
+
+        .desktop-icon img {
+            width: 32px;
+            height: 32px;
+            margin-bottom: 2px;
+            pointer-events: none;
+        }
+
+        .desktop-icon span {
+            color: white;
+            font-size: 11px;
+            text-align: center;
+            text-shadow: 1px 1px 2px black;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            pointer-events: none;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+
+        /* MENU DE CONTEXTO DO DESKTOP */
+        .context-menu {
+            position: fixed;
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(40, 40, 40, 0.98));
+            color: white;
+            border-radius: 8px;
+            padding: 8px;
+            min-width: 200px;
+            display: none;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10000;
+        }
+
+        .context-menu-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .context-menu-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .context-menu-item img {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* MODAL PARA ADICIONAR ATALHO */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal {
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(40, 40, 40, 0.98));
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #0078d7;
+            font-size: 1.3em;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #0078d7;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        .modal-button {
+            padding: 10px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .modal-button.primary {
+            background: linear-gradient(135deg, #0078d7, #005a9e);
+            color: white;
+        }
+
+        .modal-button.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .modal-button:hover {
+            transform: translateY(-1px);
+        }
+
+        /* NOTIFICAÇÃO DE SALVAMENTO */
+        .save-notification {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        .save-notification.error {
+            background: #ff6b6b !important;
+        }
+
+        /* BARRA DE TAREFAS */
+        .taskbar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.95), rgba(30, 30, 30, 0.95));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            box-sizing: border-box;
+            z-index: 1000;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .taskbar-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            gap: 5px;
+        }
+
+        .taskbar-icons {
+            display: flex;
+            align-items: center;
+            margin-left: 10px;
+            gap: 5px;
+            max-width: 60%;
+            overflow-x: auto;
+            padding: 0 5px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+        }
+
+        .taskbar-icons::-webkit-scrollbar {
+            height: 3px;
+        }
+
+        .taskbar-icons::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .taskbar-icons::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        .taskbar-icon {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 160px;
+            min-width: 40px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .taskbar-icon:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .taskbar-icon.active {
+            background: rgba(255, 255, 255, 0.2);
+            border-bottom: 2px solid #0078d7;
+            box-shadow: 0 2px 5px rgba(0, 120, 215, 0.3);
+        }
+
+        .taskbar-icon img {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            filter: brightness(1.2);
+        }
+
+        /* BOTÕES DA TASKBAR */
+        .taskbar-button {
+            background: linear-gradient(135deg, rgba(40, 40, 40, 0.9), rgba(60, 60, 60, 0.9));
+            border: none;
+            color: white;
+            padding: 6px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .taskbar-button:hover {
+            background: linear-gradient(135deg, rgba(60, 60, 60, 0.95), rgba(80, 80, 80, 0.95));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .taskbar-button:active {
+            transform: translateY(0);
+        }
+
+        /* RELÓGIO */
+        #clock {
+            padding: 0 15px;
+            text-align: right;
+            line-height: 1.3;
+            font-size: 0.85em;
+            flex-shrink: 0;
+            font-weight: 500;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        #clock span:first-child {
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        /* MENUS POPUP */
+        .menu, .admin-popup, .tools-popup, #notificationPopup, #userMenu {
+            position: fixed;
+            bottom: 45px;
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(40, 40, 40, 0.98));
+            color: white;
+            border-radius: 12px;
+            padding: 12px;
+            width: 320px;
+            display: none;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 
+                        0 2px 8px rgba(0, 0, 0, 0.2),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: 65vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) rgba(30, 30, 30, 0.5);
+            z-index: 1001;
+            animation: menuSlideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes menuSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* SCROLLBAR PERSONALIZADA */
+        .menu::-webkit-scrollbar,
+        .admin-popup::-webkit-scrollbar,
+        .tools-popup::-webkit-scrollbar,
+        #notificationPopup::-webkit-scrollbar,
+        #userMenu::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .menu::-webkit-scrollbar-track,
+        .admin-popup::-webkit-scrollbar-track,
+        .tools-popup::-webkit-scrollbar-track,
+        #notificationPopup::-webkit-scrollbar-track,
+        #userMenu::-webkit-scrollbar-track {
+            background: rgba(30, 30, 30, 0.5);
+            border-radius: 4px;
+        }
+
+        .menu::-webkit-scrollbar-thumb,
+        .admin-popup::-webkit-scrollbar-thumb,
+        .tools-popup::-webkit-scrollbar-thumb,
+        #notificationPopup::-webkit-scrollbar-thumb,
+        #userMenu::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.3));
+            border-radius: 4px;
+            border: 2px solid rgba(30, 30, 30, 0.5);
+        }
+
+        /* POSICIONAMENTO DOS MENUS */
+        #startMenu {
+            left: 10px;
+        }
+
+        #adminMenu {
+            left: 120px;
+        }
+
+        #toolsMenu {
+            left: 230px;
+        }
+
+        #userMenu {
+            left: auto;
+            right: 10px;
+            width: 280px;
+        }
+
+        #notificationPopup {
+            left: auto;
+            right: 60px;
+            bottom: 50px;
+        }
+
+        /* ITENS DO MENU */
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 3px;
+            border: 1px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.1));
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateX(2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .menu-item:active {
+            transform: translateX(0);
+        }
+
+        .menu-item img {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            flex-shrink: 0;
+            filter: brightness(1.3);
+        }
+
+        /* JANELAS */
+        .window {
+            position: absolute;
+            top: 80px;
+            left: 80px;
+            width: 850px;
+            height: 550px;
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25),
+                        0 4px 16px rgba(0, 0, 0, 0.15),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            resize: both;
+            overflow: hidden;
+            border-radius: 12px;
+            z-index: 100;
+            min-width: 320px;
+            min-height: 240px;
+            opacity: 1;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: windowAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes windowAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .window.minimized {
+            display: none;
+        }
+
+        .window-header {
+            background: linear-gradient(135deg, #0078d7, #005a9e);
+            color: white;
+            padding: 10px 15px;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            border-radius: 12px 12px 0 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .window-header span {
+            font-weight: 600;
+            font-size: 14px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .window-controls button {
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 2px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .window-controls button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .window-controls button:active {
+            transform: scale(0.95);
+        }
+
+        .window iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 0 0 12px 12px;
+        }
+
+        /* TELA DE LOGIN */
+        #login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            text-align: center;
+            padding: 20px;
+        }
+
+        #login-screen h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #0078d7, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 10px rgba(0, 120, 215, 0.3);
+        }
+
+        #login-screen p {
+            margin-bottom: 40px;
+            opacity: 0.9;
+            font-size: 1.1em;
+            max-width: 500px;
+            line-height: 1.6;
+        }
+
+        #login-screen button {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #0078d7, #005a9e);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(0, 120, 215, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #login-screen button:hover {
+            background: linear-gradient(135deg, #005a9e, #0078d7);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 120, 215, 0.5);
+        }
+
+        #login-screen button:active {
+            transform: translateY(0);
+        }
+
+        /* OVERLAY PARA FECHAR MENUS */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            z-index: 999;
+            display: none;
+            backdrop-filter: blur(3px);
+        }
+
+        /* JANELA ATIVA */
+        .window.active {
+            z-index: 101;
+            box-shadow: 0 16px 56px rgba(0, 120, 215, 0.25),
+                        0 6px 20px rgba(0, 120, 215, 0.15),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        /* BOTÃO MOSTRAR TODAS AS JANELAS */
+        .show-all-windows {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .show-all-windows:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        /* MENU DO USUÁRIO */
+        .user-info-header {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+            border-radius: 8px;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #0078d7, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .user-email {
+            font-size: 0.9em;
+            opacity: 0.8;
+            word-break: break-all;
+        }
+
+        /* NOTIFICAÇÕES */
+        .notification-item {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid transparent;
+        }
+
+        .notification-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .notification-item strong {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        /* ALERTA DE SANÇÃO */
+        .sancao-alerta {
+            background: linear-gradient(135deg, rgba(204, 0, 0, 0.2), rgba(153, 0, 0, 0.2));
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #ff6b6b;
+            border-left: 4px solid #cc0000;
+            animation: pulse 2s infinite;
+            border: 1px solid rgba(204, 0, 0, 0.3);
+        }
+
+        @keyframes pulse {
+            0% { background: linear-gradient(135deg, rgba(204, 0, 0, 0.2), rgba(153, 0, 0, 0.2)); }
+            50% { background: linear-gradient(135deg, rgba(204, 0, 0, 0.3), rgba(153, 0, 0, 0.3)); }
+            100% { background: linear-gradient(135deg, rgba(204, 0, 0, 0.2), rgba(153, 0, 0, 0.2)); }
+        }
+
+        /* ÍCONE DE NOTIFICAÇÃO */
+        #notificationIcon {
+            cursor: pointer;
+            font-size: 1.3em;
+            margin-right: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: white;
+            padding: 6px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        #notificationIcon:hover {
+            color: #0078d7;
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 4px 12px rgba(0, 120, 215, 0.2);
+        }
+
+        /* RESPONSIVIDADE */
+        @media (max-height: 700px) {
+            .menu, .admin-popup, .tools-popup, #notificationPopup, #userMenu {
+                max-height: 55vh;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .menu, .admin-popup, .tools-popup, #notificationPopup, #userMenu {
+                width: 280px;
+                max-height: 50vh;
+            }
+            
+            .taskbar-button {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            #clock {
+                font-size: 0.75em;
+                padding: 0 10px;
+            }
+            
+            .taskbar-icon {
+                max-width: 120px;
+            }
+            
+            .window {
+                top: 20px;
+                left: 20px;
+                width: calc(100% - 40px);
+                height: calc(100% - 80px);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .taskbar-left {
+                gap: 3px;
+            }
+            
+            .taskbar-button {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+            
+            .menu, .admin-popup, .tools-popup, #notificationPopup, #userMenu {
+                width: 250px;
+            }
+        }
+
+        /* ANIMAÇÕES */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+
+        /* ESTADO INATIVO */
+        .idle {
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen">
+        <h2>Wiki Not Pedia WZZM</h2>
+        <p>Faça login com sua conta Google para acessar a plataforma completa</p>
+        <button id="loginBtn">🔐 Entrar com Google</button>
+    </div>
+
+    <!-- OVERLAY PARA FECHAR MENUS -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+
+    <!-- ÁREA DE TRABALHO -->
+    <div id="desktop" style="display: none;">
+        <!-- ÁREA DO DESKTOP COM ÍCONES -->
+        <div id="desktop-area" class="desktop-area"></div>
+        
+        <!-- MENU DE CONTEXTO -->
+        <div id="contextMenu" class="context-menu">
+            <div class="context-menu-item" id="addShortcutBtn">
+                <img src="iconmagic.png" alt="➕"> Adicionar Atalho
+            </div>
+            <div class="context-menu-item" id="refreshDesktopBtn">
+                <img src="iconmagic.png" alt="🔄"> Atualizar Desktop
+            </div>
+        </div>
+
+        <!-- MODAL PARA ADICIONAR ATALHO -->
+        <div id="addShortcutModal" class="modal-overlay">
+            <div class="modal">
+                <h3>➕ Adicionar Novo Atalho</h3>
+                <input type="text" id="shortcutUid" class="modal-input" placeholder="UID (ex: Z0Zcls5UCuJBectED5)">
+                <input type="text" id="shortcutCollection" class="modal-input" placeholder="Coleção (ex: materiadeensaio)">
+                <input type="text" id="shortcutTitle" class="modal-input" placeholder="Título do Atalho">
+                <input type="text" id="shortcutIcon" class="modal-input" placeholder="URL do Ícone (opcional)">
+                
+                <div class="modal-buttons">
+                    <button class="modal-button secondary" id="cancelShortcutBtn">Cancelar</button>
+                    <button class="modal-button primary" id="saveShortcutBtn">Salvar Atalho</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA DE TAREFAS -->
+        <div class="taskbar">
+            <div class="taskbar-left">
+                <button class="taskbar-button" id="startBtn">🚀 Iniciar</button>
+                <button class="taskbar-button" id="adminBtn">📚 Wiki Not Pédia</button>
+                <button class="taskbar-button" id="toolsBtn">🛠️ Ferramentas</button>
+                
+                <!-- ÁREA DE ÍCONES DE JANELAS MINIMIZADAS -->
+                <div class="taskbar-icons" id="taskbarIcons"></div>
+                
+                <!-- BOTÃO PARA MOSTRAR TODAS AS JANELAS -->
+                <button class="show-all-windows" id="showAllBtn" title="Mostrar todas as janelas">📑</button>
+            </div>
+            
+            <div class="taskbar-right"> 
+                <span id="notificationIcon" title="Notificações">🔔</span>
+                <div id="clock"></div>
+            </div>
+        </div>
+
+        <!-- MENUS -->
+        <div class="menu" id="startMenu"></div>
+        <div class="admin-popup" id="adminMenu"></div>
+        <div class="tools-popup" id="toolsMenu"></div>
+        <div id="userMenu"></div>
+        <div id="notificationPopup"></div>
+    </div>
+
+    <script type="module">
+        // ============================================
+        // CONFIGURAÇÃO DO FIREBASE
+        // ============================================
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithPopup, 
+            GoogleAuthProvider, 
+            onAuthStateChanged, 
+            signOut 
+        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc,
+            setDoc,
+            updateDoc
+        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            console.log("✅ Firebase inicializado com sucesso");
+        } catch (error) {
+            console.error("❌ Erro ao inicializar Firebase:", error);
+        }
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+
+        // ============================================
+        // CONSTANTES E CONFIGURAÇÕES
+        // ============================================
+        const KEY_ARRAY_FIELD = "itens_menu";
+        const JSON_URL = 'cidades_sancionadas.json';
+        const GRID_SIZE = 16;
+        const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
+
+        // ============================================
+        // ELEMENTOS DO DOM
+        // ============================================
+        const loginScreen = document.getElementById("login-screen");
+        const loginBtn = document.getElementById("loginBtn");
+        const desktop = document.getElementById("desktop");
+        const desktopArea = document.getElementById("desktop-area");
+        const contextMenu = document.getElementById("contextMenu");
+        const addShortcutModal = document.getElementById("addShortcutModal");
+        
+        // Elementos do modal
+        const shortcutUid = document.getElementById("shortcutUid");
+        const shortcutCollection = document.getElementById("shortcutCollection");
+        const shortcutTitle = document.getElementById("shortcutTitle");
+        const shortcutIcon = document.getElementById("shortcutIcon");
+        const saveShortcutBtn = document.getElementById("saveShortcutBtn");
+        const cancelShortcutBtn = document.getElementById("cancelShortcutBtn");
+        const addShortcutBtn = document.getElementById("addShortcutBtn");
+        const refreshDesktopBtn = document.getElementById("refreshDesktopBtn");
+
+        // Menus e taskbar
+        const startMenu = document.getElementById("startMenu");
+        const adminMenu = document.getElementById("adminMenu");
+        const toolsMenu = document.getElementById("toolsMenu");
+        const userMenu = document.getElementById("userMenu");
+        const notificationIcon = document.getElementById("notificationIcon");
+        const notificationPopup = document.getElementById("notificationPopup");
+        const menuOverlay = document.getElementById("menuOverlay");
+        const taskbarIcons = document.getElementById("taskbarIcons");
+        const showAllBtn = document.getElementById("showAllBtn");
+        const clockElement = document.getElementById("clock");
+        
+        // Botões da taskbar
+        const startBtn = document.getElementById("startBtn");
+        const adminBtn = document.getElementById("adminBtn");
+        const toolsBtn = document.getElementById("toolsBtn");
+
+        // ============================================
+        // VARIÁVEIS GLOBAIS
+        // ============================================
+        let currentUser = null;
+        let desktopIcons = [];
+        let draggedIconId = null;
+        let saveTimeout = null;
+        let hasUnsavedChanges = false;
+
+        // ============================================
+        // GERENCIADOR DE DESKTOP
+        // ============================================
+        const desktopManager = {
+            // Carregar ícones do usuário
+            loadIcons: async function(userId) {
+                try {
+                    const userDocRef = doc(db, "user_desktop", userId);
+                    const userDocSnap = await getDoc(userDocRef);
+                    
+                    if (userDocSnap.exists()) {
+                        desktopIcons = userDocSnap.data().icons || [];
+                        console.log(`📁 Carregados ${desktopIcons.length} ícones do desktop`);
+                    } else {
+                        desktopIcons = [];
+                        // Criar documento vazio para o usuário
+                        await setDoc(userDocRef, { icons: [] });
+                        console.log("📁 Criado novo desktop para usuário");
+                    }
+                    
+                    this.renderIcons();
+                } catch (error) {
+                    console.error("❌ Erro ao carregar ícones do desktop:", error);
+                    desktopIcons = [];
+                    this.renderIcons();
+                }
+            },
+            
+            // Salvar ícones no Firebase com debounce
+            saveIcons: function() {
+                if (!currentUser) {
+                    console.log("⚠️ Usuário não autenticado, não é possível salvar");
+                    return;
+                }
+                
+                // Marcar que há mudanças não salvas
+                hasUnsavedChanges = true;
+                
+                // Cancelar timeout anterior
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                }
+                
+                // Agendar salvamento (debounce de 2 segundos)
+                saveTimeout = setTimeout(async () => {
+                    try {
+                        const userDocRef = doc(db, "user_desktop", currentUser.uid);
+                        await updateDoc(userDocRef, { icons: desktopIcons });
+                        console.log("💾 Ícones do desktop salvos automaticamente");
+                        hasUnsavedChanges = false;
+                        
+                        // Mostrar notificação visual
+                        this.showSaveNotification("Desktop salvo!");
+                    } catch (error) {
+                        console.error("❌ Erro ao salvar ícones:", error);
+                        this.showSaveNotification("Erro ao salvar!", true);
+                    }
+                }, 2000);
+            },
+            
+            // Salvar imediatamente (sem debounce)
+            saveIconsImmediately: async function() {
+                if (!currentUser) return;
+                
+                // Cancelar timeout pendente
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                }
+                
+                try {
+                    const userDocRef = doc(db, "user_desktop", currentUser.uid);
+                    await updateDoc(userDocRef, { icons: desktopIcons });
+                    console.log("💾 Ícones do desktop salvos imediatamente");
+                    hasUnsavedChanges = false;
+                    
+                    // Mostrar notificação visual
+                    this.showSaveNotification("Desktop salvo!");
+                } catch (error) {
+                    console.error("❌ Erro ao salvar ícones:", error);
+                    this.showSaveNotification("Erro ao salvar!", true);
+                }
+            },
+            
+            // Mostrar notificação de salvamento
+            showSaveNotification: function(message = "Salvando...", isError = false) {
+                // Remover notificação anterior se existir
+                const existingNotification = document.querySelector('.save-notification');
+                if (existingNotification) {
+                    existingNotification.remove();
+                }
+                
+                // Criar nova notificação
+                const notification = document.createElement('div');
+                notification.className = `save-notification ${isError ? 'error' : ''}`;
+                notification.textContent = message;
+                notification.style.cssText = `
+                    position: fixed;
+                    bottom: 60px;
+                    right: 20px;
+                    background: ${isError ? '#ff6b6b' : '#4CAF50'};
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    z-index: 10000;
+                    font-size: 14px;
+                    font-weight: 500;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideUp 0.3s ease;
+                `;
+                
+                document.body.appendChild(notification);
+                
+                // Remover após 2 segundos
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.style.animation = 'slideDown 0.3s ease';
+                        setTimeout(() => notification.remove(), 300);
+                    }
+                }, 2000);
+            },
+            
+            // Renderizar ícones na grade
+            renderIcons: function() {
+                // Limpar desktop
+                desktopArea.innerHTML = '';
+                
+                // Criar grade 16x16
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'desktop-cell';
+                        cell.dataset.x = x;
+                        cell.dataset.y = y;
+                        cell.style.gridColumn = x + 1;
+                        cell.style.gridRow = y + 1;
+                        
+                        // Encontrar ícone nesta posição
+                        const icon = desktopIcons.find(icon => 
+                            icon.position && 
+                            icon.position.x === x && 
+                            icon.position.y === y
+                        );
+                        
+                        if (icon) {
+                            const iconElement = document.createElement('div');
+                            iconElement.className = 'desktop-icon';
+                            iconElement.draggable = true;
+                            iconElement.dataset.id = icon.id;
+                            iconElement.innerHTML = `
+                                <img src="${icon.icon || 'iconmagic.png'}" alt="${icon.title}">
+                                <span>${icon.title}</span>
+                            `;
+                            
+                            // Eventos de drag and drop
+                            iconElement.addEventListener('dragstart', (e) => {
+                                draggedIconId = icon.id;
+                                iconElement.classList.add('dragging');
+                                e.dataTransfer.setData('text/plain', icon.id);
+                            });
+                            
+                            iconElement.addEventListener('dragend', () => {
+                                iconElement.classList.remove('dragging');
+                                draggedIconId = null;
+                            });
+                            
+                            // Evento de clique
+                            iconElement.addEventListener('click', (e) => {
+                                if (e.button === 0) { // Botão esquerdo
+                                    this.openShortcut(icon);
+                                }
+                            });
+                            
+                            // Evento de clique direito
+                            iconElement.addEventListener('contextmenu', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                this.showIconContextMenu(e, icon);
+                            });
+                            
+                            cell.appendChild(iconElement);
+                        }
+                        
+                        desktopArea.appendChild(cell);
+                    }
+                }
+            },
+            
+            // Adicionar novo atalho
+            addShortcut: function(uid, collection, title, iconUrl = 'iconmagic.png') {
+                // Encontrar primeira posição vazia
+                let emptyPosition = this.findEmptyPosition();
+                
+                if (!emptyPosition) {
+                    alert("❌ Não há espaço disponível no desktop (16x16 slots ocupados)");
+                    return;
+                }
+                
+                const newIcon = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    uid: uid,
+                    collection: collection,
+                    title: title,
+                    icon: iconUrl,
+                    position: emptyPosition,
+                    createdAt: new Date().toISOString()
+                };
+                
+                desktopIcons.push(newIcon);
+                this.saveIcons(); // Salvar automaticamente
+                this.renderIcons();
+                
+                console.log(`➕ Atalho adicionado: ${title} em ${emptyPosition.x},${emptyPosition.y}`);
+            },
+            
+            // Encontrar posição vazia
+            findEmptyPosition: function() {
+                const occupiedPositions = desktopIcons
+                    .filter(icon => icon.position)
+                    .map(icon => `${icon.position.x},${icon.position.y}`);
+                
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        if (!occupiedPositions.includes(`${x},${y}`)) {
+                            return { x, y };
+                        }
+                    }
+                }
+                return null;
+            },
+            
+            // Mover ícone
+            moveIcon: function(iconId, newPosition) {
+                const iconIndex = desktopIcons.findIndex(icon => icon.id === iconId);
+                if (iconIndex !== -1) {
+                    // Verificar se a nova posição está ocupada
+                    const occupied = desktopIcons.some((icon, index) => 
+                        index !== iconIndex && // Não contar o próprio ícone
+                        icon.position && 
+                        icon.position.x === newPosition.x && 
+                        icon.position.y === newPosition.y
+                    );
+                    
+                    if (!occupied) {
+                        desktopIcons[iconIndex].position = newPosition;
+                        this.saveIcons(); // Salvar automaticamente
+                        this.renderIcons();
+                        console.log(`➡️ Ícone movido para ${newPosition.x},${newPosition.y}`);
+                        return true;
+                    } else {
+                        console.log("❌ Posição já ocupada");
+                        return false;
+                    }
+                }
+                return false;
+            },
+            
+            // Remover ícone
+            removeIcon: function(iconId) {
+                desktopIcons = desktopIcons.filter(icon => icon.id !== iconId);
+                this.saveIcons(); // Salvar automaticamente
+                this.renderIcons();
+                console.log("🗑️ Ícone removido");
+            },
+            
+            // Abrir atalho
+            openShortcut: function(icon) {
+                const url = `https://wazzimagiygg.com/central/uid/?uid=${icon.uid}&collection=${icon.collection}`;
+                windowManager.createWindow(icon.title, url, icon.icon || 'iconmagic.png');
+            },
+            
+            // Menu de contexto para desktop
+            showDesktopContextMenu: function(e, x, y) {
+                e.preventDefault();
+                
+                contextMenu.style.left = e.clientX + 'px';
+                contextMenu.style.top = e.clientY + 'px';
+                contextMenu.style.display = 'block';
+                
+                // Fechar menu ao clicar fora
+                setTimeout(() => {
+                    const closeMenu = () => {
+                        contextMenu.style.display = 'none';
+                        document.removeEventListener('click', closeMenu);
+                    };
+                    document.addEventListener('click', closeMenu, { once: true });
+                }, 100);
+            },
+            
+            // Menu de contexto para ícone
+            showIconContextMenu: function(e, icon) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Criar menu específico para ícone
+                const iconContextMenu = document.createElement('div');
+                iconContextMenu.className = 'context-menu';
+                iconContextMenu.innerHTML = `
+                    <div class="context-menu-item open-icon">
+                        <img src="iconmagic.png" alt="▶️"> Abrir
+                    </div>
+                    <div class="context-menu-item remove-icon">
+                        <img src="iconmagic.png" alt="🗑️"> Remover
+                    </div>
+                `;
+                
+                iconContextMenu.style.left = e.clientX + 'px';
+                iconContextMenu.style.top = e.clientY + 'px';
+                iconContextMenu.style.display = 'block';
+                
+                // Adicionar eventos
+                iconContextMenu.querySelector('.open-icon').onclick = () => {
+                    this.openShortcut(icon);
+                    iconContextMenu.remove();
+                };
+                
+                iconContextMenu.querySelector('.remove-icon').onclick = () => {
+                    this.removeIcon(icon.id);
+                    iconContextMenu.remove();
+                };
+                
+                document.body.appendChild(iconContextMenu);
+                
+                // Remover menu ao clicar fora
+                setTimeout(() => {
+                    const removeMenu = () => {
+                        if (iconContextMenu.parentNode) {
+                            iconContextMenu.remove();
+                        }
+                        document.removeEventListener('click', removeMenu);
+                    };
+                    document.addEventListener('click', removeMenu, { once: true });
+                }, 100);
+            },
+            
+            hideContextMenu: function() {
+                contextMenu.style.display = 'none';
+            },
+            
+            // Forçar salvamento agora
+            forceSave: function() {
+                return this.saveIconsImmediately();
+            }
+        };
+
+        // ============================================
+        // EVENTOS DE DRAG AND DROP DO DESKTOP
+        // ============================================
+        // Drag over no desktop
+        desktopArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // Destacar célula sob o cursor
+            const cell = e.target.closest('.desktop-cell');
+            if (cell) {
+                // Remover highlight de todas as células
+                document.querySelectorAll('.desktop-cell').forEach(c => {
+                    c.classList.remove('drag-over');
+                });
+                // Destacar célula atual
+                cell.classList.add('drag-over');
+            }
+        });
+
+        // Drag leave do desktop
+        desktopArea.addEventListener('dragleave', (e) => {
+            // Remover highlight quando sai do desktop
+            if (!e.relatedTarget || !desktopArea.contains(e.relatedTarget)) {
+                document.querySelectorAll('.desktop-cell').forEach(c => {
+                    c.classList.remove('drag-over');
+                });
+            }
+        });
+
+        // Drop no desktop
+        desktopArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            
+            // Remover highlight
+            document.querySelectorAll('.desktop-cell').forEach(c => {
+                c.classList.remove('drag-over');
+            });
+            
+            if (!draggedIconId) return;
+            
+            // Encontrar célula sob o cursor
+            const cell = e.target.closest('.desktop-cell');
+            if (cell) {
+                const newX = parseInt(cell.dataset.x);
+                const newY = parseInt(cell.dataset.y);
+                
+                // Mover ícone
+                const moved = desktopManager.moveIcon(draggedIconId, { x: newX, y: newY });
+                
+                if (!moved) {
+                    // Se não foi possível mover (posição ocupada), mostrar feedback
+                    cell.style.animation = 'shake 0.5s';
+                    setTimeout(() => {
+                        cell.style.animation = '';
+                    }, 500);
+                }
+            }
+        });
+
+        // Clique direito no desktop
+        desktopArea.addEventListener('contextmenu', (e) => {
+            const cell = e.target.closest('.desktop-cell');
+            if (cell && !e.target.closest('.desktop-icon')) {
+                const x = parseInt(cell.dataset.x);
+                const y = parseInt(cell.dataset.y);
+                desktopManager.showDesktopContextMenu(e, x, y);
+            }
+        });
+
+        // ============================================
+        // MODAL DE ADICIONAR ATALHO
+        // ============================================
+        saveShortcutBtn.addEventListener('click', async () => {
+            const uid = shortcutUid.value.trim();
+            const collection = shortcutCollection.value.trim();
+            const title = shortcutTitle.value.trim();
+            const iconUrl = shortcutIcon.value.trim() || 'iconmagic.png';
+            
+            if (!uid || !collection || !title) {
+                alert("❌ Por favor, preencha todos os campos obrigatórios");
+                return;
+            }
+            
+            // Validar UID (exemplo básico)
+            if (uid.length < 10) {
+                alert("❌ UID muito curto");
+                return;
+            }
+            
+            desktopManager.addShortcut(uid, collection, title, iconUrl);
+            
+            // Limpar e fechar modal
+            shortcutUid.value = '';
+            shortcutCollection.value = '';
+            shortcutTitle.value = '';
+            shortcutIcon.value = '';
+            addShortcutModal.style.display = 'none';
+        });
+
+        cancelShortcutBtn.addEventListener('click', () => {
+            addShortcutModal.style.display = 'none';
+        });
+
+        // Fechar modal ao clicar fora
+        addShortcutModal.addEventListener('click', (e) => {
+            if (e.target === addShortcutModal) {
+                addShortcutModal.style.display = 'none';
+            }
+        });
+
+        // Botão para adicionar atalho no menu de contexto
+        addShortcutBtn.addEventListener('click', () => {
+            desktopManager.hideContextMenu();
+            addShortcutModal.style.display = 'flex';
+            
+            // Preencher com valores da área de transferência
+            navigator.clipboard.readText().then(text => {
+                if (text && text.length > 10) {
+                    shortcutUid.value = text;
+                }
+            }).catch(() => {});
+        });
+
+        // Botão para atualizar desktop
+        refreshDesktopBtn.addEventListener('click', () => {
+            desktopManager.hideContextMenu();
+            desktopManager.renderIcons();
+        });
+
+        // ============================================
+        // SISTEMA DE SALVAMENTO AUTOMÁTICO
+        // ============================================
+
+        // Salvar quando a página for fechada ou atualizada
+        window.addEventListener('beforeunload', (e) => {
+            if (hasUnsavedChanges && currentUser) {
+                e.preventDefault();
+                e.returnValue = 'Você tem alterações não salvas no desktop. Deseja sair mesmo assim?';
+                return e.returnValue;
+            }
+        });
+
+        // Salvar quando a página perder foco
+        window.addEventListener('blur', () => {
+            if (hasUnsavedChanges) {
+                desktopManager.forceSave();
+            }
+        });
+
+        // Salvar periodicamente a cada 30 segundos (backup)
+        setInterval(() => {
+            if (hasUnsavedChanges && currentUser) {
+                console.log("⏰ Salvamento periódico...");
+                desktopManager.saveIconsImmediately();
+            }
+        }, 30000);
+
+        // Salvar quando o usuário mudar de aba
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && hasUnsavedChanges) {
+                desktopManager.forceSave();
+            }
+        });
+
+        // ============================================
+        // GERENCIADOR DE JANELAS
+        // ============================================
+        const windowManager = {
+            windows: [],
+            activeWindow: null,
+            
+            createWindow: function(title, url, icon = 'iconmagic.png') {
+                const win = document.createElement("div");
+                win.className = "window";
+                win.innerHTML = `
+                    <div class="window-header">
+                        <span>${title}</span>
+                        <div class="window-controls">
+                            <button class="minimize" title="Minimizar">—</button>
+                            <button class="maximize" title="Maximizar">⬜</button>
+                            <button class="close" title="Fechar">✖</button>
+                        </div>
+                    </div>
+                    <iframe src="${url}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+                `;
+                
+                document.body.appendChild(win);
+
+                const header = win.querySelector(".window-header");
+                let isDragging = false;
+                let offsetX, offsetY;
+                let maximized = false;
+                let prevState = {};
+
+                // Adicionar ao gerenciador
+                const windowId = this.addWindow(win, title, icon, url);
+                
+                // Tornar ativa ao clicar
+                win.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.setActiveWindow(windowId);
+                    this.bringToFront(win);
+                });
+
+                // Sistema de arrastar
+                header.addEventListener("mousedown", (e) => {
+                    if (maximized) return;
+                    isDragging = true;
+                    offsetX = e.clientX - win.offsetLeft;
+                    offsetY = e.clientY - win.offsetTop;
+                    e.stopPropagation();
+                    this.setActiveWindow(windowId);
+                    this.bringToFront(win);
+                });
+
+                document.addEventListener("mousemove", (e) => {
+                    if (isDragging && !maximized) {
+                        win.style.left = (e.clientX - offsetX) + "px";
+                        win.style.top = (e.clientY - offsetY) + "px";
+                    }
+                });
+
+                document.addEventListener("mouseup", () => {
+                    isDragging = false;
+                });
+
+                // Botão fechar
+                win.querySelector(".close").onclick = (e) => {
+                    e.stopPropagation();
+                    this.removeWindow(windowId);
+                    win.remove();
+                };
+                
+                // Botão minimizar
+                win.querySelector(".minimize").onclick = (e) => {
+                    e.stopPropagation();
+                    this.minimizeWindow(windowId);
+                };
+                
+                // Botão maximizar
+                win.querySelector(".maximize").onclick = (e) => {
+                    e.stopPropagation();
+                    if (!maximized) {
+                        prevState = {
+                            top: win.offsetTop,
+                            left: win.offsetLeft,
+                            width: win.offsetWidth,
+                            height: win.offsetHeight
+                        };
+                        
+                        win.style.top = "0";
+                        win.style.left = "0";
+                        win.style.width = "100%";
+                        win.style.height = "calc(100% - 40px)";
+                        maximized = true;
+                    } else {
+                        win.style.top = prevState.top + "px";
+                        win.style.left = prevState.left + "px";
+                        win.style.width = prevState.width + "px";
+                        win.style.height = prevState.height + "px";
+                        maximized = false;
+                    }
+                    this.bringToFront(win);
+                };
+                
+                return windowId;
+            },
+            
+            addWindow: function(windowElement, title, icon = 'iconmagic.png', url) {
+                const windowId = 'window_' + Date.now() + Math.random().toString(36).substr(2, 9);
+                windowElement.dataset.windowId = windowId;
+                
+                const windowData = {
+                    id: windowId,
+                    element: windowElement,
+                    title: title,
+                    icon: icon,
+                    url: url,
+                    minimized: false,
+                    taskbarIcon: null
+                };
+                
+                this.windows.push(windowData);
+                this.setActiveWindow(windowId);
+                this.createTaskbarIcon(windowData);
+                
+                return windowId;
+            },
+            
+            removeWindow: function(windowId) {
+                const index = this.windows.findIndex(w => w.id === windowId);
+                if (index !== -1) {
+                    const windowData = this.windows[index];
+                    
+                    if (windowData.taskbarIcon) {
+                        windowData.taskbarIcon.remove();
+                    }
+                    
+                    this.windows.splice(index, 1);
+                    
+                    if (this.activeWindow === windowId) {
+                        this.activeWindow = this.windows.length > 0 ? this.windows[this.windows.length - 1].id : null;
+                        this.updateActiveWindow();
+                    }
+                }
+            },
+            
+            minimizeWindow: function(windowId) {
+                const windowData = this.windows.find(w => w.id === windowId);
+                if (windowData) {
+                    windowData.minimized = true;
+                    windowData.element.classList.add('minimized');
+                    this.updateTaskbarIcon(windowData);
+                    
+                    if (this.activeWindow === windowId) {
+                        const visibleWindows = this.windows.filter(w => !w.minimized && w.id !== windowId);
+                        if (visibleWindows.length > 0) {
+                            this.setActiveWindow(visibleWindows[0].id);
+                        } else {
+                            this.activeWindow = null;
+                            this.updateActiveWindow();
+                        }
+                    }
+                }
+            },
+            
+            restoreWindow: function(windowId) {
+                const windowData = this.windows.find(w => w.id === windowId);
+                if (windowData) {
+                    windowData.minimized = false;
+                    windowData.element.classList.remove('minimized');
+                    this.setActiveWindow(windowId);
+                    this.updateTaskbarIcon(windowData);
+                    this.bringToFront(windowData.element);
+                }
+            },
+            
+            setActiveWindow: function(windowId) {
+                this.activeWindow = windowId;
+                this.updateActiveWindow();
+                
+                this.windows.forEach(windowData => {
+                    this.updateTaskbarIcon(windowData);
+                });
+            },
+            
+            updateActiveWindow: function() {
+                this.windows.forEach(windowData => {
+                    const isActive = windowData.id === this.activeWindow;
+                    windowData.element.classList.toggle('active', isActive);
+                    if (windowData.taskbarIcon) {
+                        windowData.taskbarIcon.classList.toggle('active', isActive);
+                    }
+                });
+            },
+            
+            createTaskbarIcon: function(windowData) {
+                const icon = document.createElement('button');
+                icon.className = 'taskbar-icon';
+                icon.title = windowData.title;
+                icon.innerHTML = `<img src="${windowData.icon}" alt="icon"> <span>${windowData.title.substring(0, 20)}${windowData.title.length > 20 ? '...' : ''}</span>`;
+                
+                icon.onclick = (e) => {
+                    e.stopPropagation();
+                    if (windowData.minimized) {
+                        this.restoreWindow(windowData.id);
+                    } else {
+                        if (this.activeWindow === windowData.id) {
+                            this.minimizeWindow(windowData.id);
+                        } else {
+                            this.setActiveWindow(windowData.id);
+                        }
+                    }
+                };
+                
+                icon.ondblclick = (e) => {
+                    e.stopPropagation();
+                    if (windowData.minimized) {
+                        this.restoreWindow(windowData.id);
+                    } else {
+                        this.minimizeWindow(windowData.id);
+                    }
+                };
+                
+                taskbarIcons.appendChild(icon);
+                windowData.taskbarIcon = icon;
+                this.updateTaskbarIcon(windowData);
+            },
+            
+            updateTaskbarIcon: function(windowData) {
+                if (windowData.taskbarIcon) {
+                    windowData.taskbarIcon.style.opacity = windowData.minimized ? '0.7' : '1';
+                }
+            },
+            
+            bringToFront: function(windowElement) {
+                const allWindows = document.querySelectorAll('.window');
+                let maxZIndex = 100;
+                
+                allWindows.forEach(win => {
+                    const zIndex = parseInt(window.getComputedStyle(win).zIndex) || 100;
+                    if (zIndex > maxZIndex) maxZIndex = zIndex;
+                });
+                
+                windowElement.style.zIndex = maxZIndex + 1;
+            },
+            
+            showAllWindows: function() {
+                this.windows.forEach(windowData => {
+                    if (windowData.minimized) {
+                        this.restoreWindow(windowData.id);
+                    }
+                });
+            },
+            
+            minimizeAllWindows: function() {
+                this.windows.forEach(windowData => {
+                    if (!windowData.minimized) {
+                        this.minimizeWindow(windowData.id);
+                    }
+                });
+            },
+            
+            closeAllWindows: function() {
+                const windowsToClose = [...this.windows];
+                windowsToClose.forEach(windowData => {
+                    windowData.element.remove();
+                });
+                this.windows = [];
+                this.activeWindow = null;
+                taskbarIcons.innerHTML = '';
+            }
+        };
+
+        // ============================================
+        // FUNÇÕES DE UTILIDADE
+        // ============================================
+        function closeAllMenus() {
+            const menus = [startMenu, adminMenu, toolsMenu, notificationPopup, userMenu];
+            menus.forEach(menu => {
+                menu.style.display = "none";
+                menu.classList.remove('active');
+            });
+            menuOverlay.style.display = "none";
+        }
+
+        function setupMenuClickOutside(menuElement) {
+            menuElement.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            
+            menuOverlay.addEventListener('click', function() {
+                closeAllMenus();
+            });
+        }
+
+        // ============================================
+        // AUTENTICAÇÃO E LOGIN
+        // ============================================
+        loginBtn.addEventListener("click", async () => {
+            try {
+                provider.setCustomParameters({ prompt: 'select_account' });
+                const result = await signInWithPopup(auth, provider);
+                console.log("✅ Login bem-sucedido:", result.user.email);
+            } catch (error) {
+                console.error("❌ Erro no login:", error);
+                alert(`Erro no login: ${error.message}`);
+            }
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                console.log("👤 Usuário autenticado:", user.email);
+                
+                // Mostrar desktop
+                loginScreen.style.display = "none";
+                desktop.style.display = "block";
+                
+                // Inicializar desktop
+                await desktopManager.loadIcons(user.uid);
+                
+                // Inicializar componentes
+                updateClock();
+                await loadDynamicLinks(user.uid);
+                populateUserMenu(user.displayName, user.email, user.photoURL);
+                
+                // Verificar notificações
+                await checkNotifications();
+                
+                // Salvar estado inicial
+                desktopManager.saveIconsImmediately();
+                
+            } else {
+                currentUser = null;
+                loginScreen.style.display = "flex";
+                desktop.style.display = "none";
+                desktopIcons = [];
+                notificationPopup.innerHTML = '';
+                notificationIcon.style.color = 'white';
+                closeAllMenus();
+                windowManager.closeAllWindows();
+                hasUnsavedChanges = false;
+            }
+        });
+
+        async function handleLogout() {
+            try {
+                // Salvar antes de sair
+                if (hasUnsavedChanges) {
+                    await desktopManager.forceSave();
+                }
+                await signOut(auth);
+                console.log("✅ Logout realizado");
+            } catch (error) {
+                console.error("❌ Erro no logout:", error);
+            }
+        }
+
+        async function handleSwitchAccount() {
+            try {
+                // Salvar antes de trocar
+                if (hasUnsavedChanges) {
+                    await desktopManager.forceSave();
+                }
+                await signOut(auth);
+                provider.setCustomParameters({ prompt: 'select_account' });
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("❌ Erro ao trocar conta:", error);
+            }
+        }
+
+        // ============================================
+        // INTERFACE DO USUÁRIO
+        // ============================================
+        function populateUserMenu(userName, userEmail, photoURL) {
+            userMenu.innerHTML = '';
+            
+            // Header com informações do usuário
+            const userHeader = document.createElement('div');
+            userHeader.className = 'user-info-header';
+            userHeader.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                    ${photoURL 
+                        ? `<img src="${photoURL}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1);">` 
+                        : '<div style="width: 40px; height: 40px; background: linear-gradient(135deg, #0078d7, #00b4d8); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">' + (userName?.charAt(0) || 'U') + '</div>'}
+                    <div>
+                        <div class="user-name">${userName || 'Usuário'}</div>
+                        <div class="user-email">${userEmail || ''}</div>
+                    </div>
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    ${hasUnsavedChanges ? '⚠️ Alterações não salvas' : '✓ Tudo salvo'}
+                </div>
+            `;
+            userMenu.appendChild(userHeader);
+            
+            // Separador
+            const separator = document.createElement('hr');
+            separator.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;';
+            userMenu.appendChild(separator);
+            
+            // Trocar de conta
+            const switchAccountItem = document.createElement('div');
+            switchAccountItem.className = 'menu-item';
+            switchAccountItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 🔄 Trocar de Conta`;
+            switchAccountItem.onclick = handleSwitchAccount;
+            userMenu.appendChild(switchAccountItem);
+            
+            // Logout
+            const logoutItem = document.createElement('div');
+            logoutItem.className = 'menu-item';
+            logoutItem.innerHTML = `<img src="iconmagic.png" alt="icon"> 🚪 Sair`;
+            logoutItem.onclick = handleLogout;
+            userMenu.appendChild(logoutItem);
+        }
+
+        // ============================================
+        // FUNÇÕES DE MENU E LINKS DINÂMICOS
+        // ============================================
+        async function loadDynamicLinks(userId) {
+            try {
+                const SITE_ID = "clinica";
+                const KEY_DOCUMENT_ID = `${SITE_ID}_menu_list`;
+                const docRef = doc(db, "keymenulista", KEY_DOCUMENT_ID);
+                const docSnap = await getDoc(docRef);
+
+                let allLinksFromDB = [];
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data[KEY_ARRAY_FIELD] && Array.isArray(data[KEY_ARRAY_FIELD])) {
+                        allLinksFromDB = data[KEY_ARRAY_FIELD].map(item => ({
+                            name: item.titulo,
+                            url: item.link_url,
+                            iconUrl: item.url_imagem || 'iconmagic.png',
+                            menu_target: item.menu_target || 'outros'
+                        }));
+                    }
+                }
+
+                const linksParaIniciar = allLinksFromDB.filter(item => item.menu_target === 'menu_iniciar');
+                const linksParaAdmin = allLinksFromDB.filter(item => item.menu_target === 'wiki_pedia');
+                const linksParaFerramentas = allLinksFromDB.filter(item => item.menu_target === 'ferramentas');
+
+                const staticStartLinks = [
+                    { name: '📄 Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+                    { name: '🔒 Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+                    { name: '💬 Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+                    { name: '📄 Faça uma doação! ', url: 'https://wazzimagiygg.com/donate/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+                    { name: '🚪 Sair do Sistema', action: 'logout', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' }
+                ];
+
+                const staticAdminLinks = [
+                    { name: '🔀 Novo Prontuário', url: 'https://wazzimagiygg.com/clinca/novoprontuario/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+                    { name: '🔀 Novo Profissional', url: 'https://wazzimagiygg.com/clinca/novoprofissional/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+                    { name: '🔀 Novo Paciente', url: 'https://wazzimagiygg.com/clinca/novopaciente/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
+                    { name: '📚 Bibliotecas de Estudo', url: 'https://wazzimagiygg.com/bibliotecas/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' }, ///donate/
+                    { name: "💬 Chat (Contato)", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", menu_target: 'wiki_pedia' }
+                ];
+
+                populateMenu(startMenu, [...linksParaIniciar, ...staticStartLinks]);
+                populateMenu(adminMenu, [...linksParaAdmin, ...staticAdminLinks]);
+                populateToolsMenu(linksParaFerramentas);
+
+            } catch (error) {
+                console.error("❌ Erro ao carregar links:", error);
+                populateMenu(startMenu, [
+                    { name: '💬 Fale com a Administração', url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', iconUrl: 'iconmagic.png' },
+                    { name: '🚪 Sair', action: 'logout', iconUrl: 'iconmagic.png' }
+                ]);
+                populateMenu(adminMenu, [{ name: "💬 Chat de Suporte", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve" }]);
+                populateToolsMenu([]);
+            }
+        }
+
+        function populateMenu(menuElement, linksArray) {
+            menuElement.innerHTML = '';
+            
+            linksArray.forEach(item => {
+                const div = document.createElement("div");
+                div.className = "menu-item";
+                div.innerHTML = `<img src="${item.iconUrl || 'iconmagic.png'}" alt="icon"> ${item.name}`;
+                
+                div.onclick = () => {
+                    if (item.action === 'logout') {
+                        handleLogout();
+                    } else {
+                        windowManager.createWindow(item.name, item.url, item.iconUrl);
+                    }
+                    closeAllMenus();
+                };
+                
+                menuElement.appendChild(div);
+            });
+        }
+
+        function populateToolsMenu(linksArray) {
+            toolsMenu.innerHTML = '';
+            
+            const filteredLinks = linksArray.filter(link => 
+                !link.url.includes('base44.app') && !link.url.includes('base44.com')
+            );
+            
+            filteredLinks.forEach(link => {
+                const a = document.createElement("a");
+                a.textContent = link.name;
+                a.href = "#";
+                a.style.cssText = `
+                    display: block;
+                    color: white;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    text-decoration: none;
+                    margin-bottom: 4px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    border: 1px solid transparent;
+                `;
+                
+                a.onmouseover = () => {
+                    a.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.1))';
+                    a.style.borderColor = 'rgba(255,255,255,0.1)';
+                };
+                
+                a.onmouseout = () => {
+                    a.style.background = 'transparent';
+                    a.style.borderColor = 'transparent';
+                };
+                
+                a.onclick = (e) => {
+                    e.preventDefault();
+                    windowManager.createWindow(link.name, link.url, link.iconUrl);
+                    closeAllMenus();
+                };
+                
+                toolsMenu.appendChild(a);
+            });
+        }
+
+        // ============================================
+        // SISTEMA DE NOTIFICAÇÕES
+        // ============================================
+        async function checkNotifications() {
+            try {
+                const response = await fetch(JSON_URL);
+                if (!response.ok) throw new Error('Erro ao carregar notificações');
+                
+                const data = await response.json();
+                const userLocation = await getUserLocation();
+                
+                updateNotifications(data, userLocation);
+                
+            } catch (error) {
+                console.warn("⚠️ Aviso: Não foi possível carregar notificações", error);
+                addNotification('ℹ️ Sistema de notificações carregado', 'info');
+            }
+        }
+
+        async function getUserLocation() {
+            try {
+                const response = await fetch('https://ipinfo.io/json');
+                const data = await response.json();
+                return {
+                    city: data.city || 'Desconhecida',
+                    region: data.region || 'Desconhecido',
+                    country: data.country || 'Desconhecido',
+                    ip: data.ip || 'N/A'
+                };
+            } catch (error) {
+                return {
+                    city: 'Desconhecida',
+                    region: 'Desconhecido',
+                    country: 'Desconhecido',
+                    ip: 'N/A'
+                };
+            }
+        }
+
+        function updateNotifications(sancaoData, userLocation) {
+            notificationPopup.innerHTML = '';
+            
+            // Informações de localização
+            addNotification(`📍 <strong>Localização Detectada:</strong><br>${userLocation.city}, ${userLocation.region}, ${userLocation.country}`, 'info');
+            addNotification(`🌐 <strong>IP Público:</strong> ${userLocation.ip}`, 'info');
+            
+            // Verificar sanções
+            if (sancaoData?.cidades_sancionadas) {
+                const cidadeUsuario = userLocation.city.toLowerCase();
+                const paisUsuario = userLocation.country.toLowerCase();
+                
+                const sancao = sancaoData.cidades_sancionadas.find(item => 
+                    item.cidade.toLowerCase() === cidadeUsuario || 
+                    item.cidade.toLowerCase() === paisUsuario
+                );
+                
+                if (sancao) {
+                    addNotification(`
+                        🚨 <strong>ALERTA DE SANÇÃO!</strong><br>
+                        Região com possível atividade suspeita.<br>
+                        <small>Moderador: ${sancao.moderador}</small>
+                    `, 'error');
+                    notificationIcon.style.color = '#ff6b6b';
+                } else {
+                    addNotification('✅ <strong>Status:</strong> Nenhuma sanção detectada na sua região', 'success');
+                }
+            }
+            
+            addNotification(`👤 <strong>Usuário:</strong> ${currentUser?.displayName || 'Convidado'}`, 'info');
+        }
+
+        function addNotification(message, type = 'info') {
+            const div = document.createElement("div");
+            div.className = `notification-item ${type === 'error' ? 'sancao-alerta' : ''}`;
+            div.innerHTML = message;
+            notificationPopup.prepend(div);
+        }
+
+        // ============================================
+        // EVENT LISTENERS E INICIALIZAÇÃO
+        // ============================================
+        // Configurar fechamento de menus
+        [startMenu, adminMenu, toolsMenu, notificationPopup, userMenu].forEach(setupMenuClickOutside);
+
+        // Botão Iniciar
+        startBtn.onclick = (e) => {
+            e.stopPropagation();
+            const isVisible = startMenu.style.display === "block";
+            closeAllMenus();
+            if (!isVisible) {
+                startMenu.style.display = "block";
+                startMenu.style.left = "10px";
+                startMenu.style.bottom = "45px";
+                menuOverlay.style.display = "block";
+            }
+        };
+
+        // Botão Wiki
+        adminBtn.onclick = (e) => {
+            e.stopPropagation();
+            const isVisible = adminMenu.style.display === "block";
+            closeAllMenus();
+            if (!isVisible) {
+                adminMenu.style.display = "block";
+                adminMenu.style.left = "120px";
+                adminMenu.style.bottom = "45px";
+                menuOverlay.style.display = "block";
+            }
+        };
+
+        // Botão Ferramentas
+        toolsBtn.onclick = (e) => {
+            e.stopPropagation();
+            const isVisible = toolsMenu.style.display === "block";
+            closeAllMenus();
+            if (!isVisible) {
+                toolsMenu.style.display = "block";
+                toolsMenu.style.left = "230px";
+                toolsMenu.style.bottom = "45px";
+                menuOverlay.style.display = "block";
+            }
+        };
+
+        // Ícone de Notificação
+        notificationIcon.onclick = (e) => {
+            e.stopPropagation();
+            const isVisible = notificationPopup.style.display === "block";
+            closeAllMenus();
+            if (!isVisible) {
+                notificationPopup.style.display = "block";
+                notificationPopup.style.right = "60px";
+                notificationPopup.style.bottom = "50px";
+                menuOverlay.style.display = "block";
+            }
+        };
+
+        // Relógio (Abre menu do usuário)
+        clockElement.onclick = (e) => {
+            e.stopPropagation();
+            const isVisible = userMenu.style.display === "block";
+            closeAllMenus();
+            if (!isVisible) {
+                userMenu.style.display = "block";
+                userMenu.style.right = "10px";
+                userMenu.style.bottom = "45px";
+                menuOverlay.style.display = "block";
+            }
+        };
+
+        // Botão Mostrar Todas Janelas
+        showAllBtn.onclick = () => {
+            windowManager.showAllWindows();
+        };
+
+        // Duplo clique na taskbar para minimizar/restaurar
+        taskbarIcons.parentElement.ondblclick = (e) => {
+            if (e.target === taskbarIcons.parentElement || e.target === taskbarIcons) {
+                const allMinimized = windowManager.windows.every(w => w.minimized);
+                if (allMinimized) {
+                    windowManager.showAllWindows();
+                } else {
+                    windowManager.minimizeAllWindows();
+                }
+            }
+        };
+
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                hour12: false 
+            });
+            
+            const dateString = now.toLocaleDateString('pt-BR', { 
+                weekday: 'short',
+                day: '2-digit', 
+                month: '2-digit',
+                year: 'numeric'
+            });
+            
+            clockElement.innerHTML = `
+                <span>${timeString}</span><br>
+                <span style="font-size: 0.8em; opacity: 0.9;">${dateString}</span>
+            `;
+            
+            setTimeout(updateClock, 1000);
+        }
+
+        // ============================================
+        // PROTEÇÃO E BLOQUEIO DE TECLAS
+        // ============================================
+        document.addEventListener('keydown', function(e) {
+            // Bloquear F12 e DevTools
+            if (e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+                (e.ctrlKey && e.shiftKey && e.key === 'J') || 
+                (e.ctrlKey && e.key === 'U')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Atalhos do sistema
+            if (e.key === 'Escape') {
+                closeAllMenus();
+            }
+            
+            if (e.ctrlKey && e.key === 'm') {
+                if (windowManager.activeWindow) {
+                    windowManager.minimizeWindow(windowManager.activeWindow);
+                }
+            }
+            
+            // Atalho para salvar (Ctrl+S)
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                desktopManager.forceSave();
+            }
+        });
+
+        // Bloquear botão direito
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
+        });
+
+        // Permitir botão direito apenas no desktop
+        desktopArea.addEventListener('contextmenu', function(e) {
+            // Permitir o comportamento padrão (menu de contexto)
+            return true;
+        });
+
+        // ============================================
+        // INICIALIZAÇÃO DO SISTEMA
+        // ============================================
+        console.log("🚀 Sistema Wiki Not Pedia WZZM inicializado");
+
+        // Adicionar estilos para animações
+        const animationsStyle = document.createElement('style');
+        animationsStyle.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            .desktop-icon {
+                animation: fadeIn 0.3s ease;
+            }
+        `;
+        document.head.appendChild(animationsStyle);
+
+    </script>
+
+</body>
+</html>
