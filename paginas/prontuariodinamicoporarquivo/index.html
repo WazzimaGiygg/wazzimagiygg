@@ -487,9 +487,15 @@
         };
 
         // Inicializar Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        try {
+            const app = firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+            const auth = firebase.auth();
+            console.log("✅ Firebase inicializado com sucesso");
+        } catch (error) {
+            console.error("❌ Erro ao inicializar Firebase:", error);
+            showMessage('auth-error', 'Erro ao conectar com o servidor. Verifique sua conexão.');
+        }
         
         // Inicializa o Quill
         var quill = new Quill('#new-item-content', {
@@ -520,6 +526,7 @@
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('main-container').style.display = 'block';
                 document.getElementById('user-email').textContent = user.email;
+                console.log(`👤 Usuário autenticado: ${user.email}`);
                 showMessage('auth-success', 'Login realizado com sucesso!');
                 
                 // Carregar documentos do usuário
@@ -538,8 +545,14 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
+            if (!email || !password) {
+                showMessage('auth-error', 'Preencha e-mail e senha.');
+                return;
+            }
+            
             auth.signInWithEmailAndPassword(email, password)
                 .catch((error) => {
+                    console.error('Erro no login:', error);
                     showMessage('auth-error', 'Erro no login: ' + error.message);
                 });
         }
@@ -548,11 +561,22 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             
+            if (!email || !password) {
+                showMessage('auth-error', 'Preencha e-mail e senha.');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('auth-error', 'A senha deve ter pelo menos 6 caracteres.');
+                return;
+            }
+            
             auth.createUserWithEmailAndPassword(email, password)
                 .then(() => {
                     showMessage('auth-success', 'Conta criada com sucesso!');
                 })
                 .catch((error) => {
+                    console.error('Erro no registro:', error);
                     showMessage('auth-error', 'Erro no registro: ' + error.message);
                 });
         }
@@ -582,9 +606,14 @@
         
         // Funções para listar documentos
         async function loadUserDocuments() {
-            if (!currentUser) return;
+            if (!currentUser) {
+                console.log("Usuário não autenticado");
+                return;
+            }
             
             try {
+                console.log(`📁 Carregando documentos para usuário: ${currentUser.uid}`);
+                
                 const snapshot = await db.collection('prontuariouniversal')
                     .where('userId', '==', currentUser.uid)
                     .orderBy('lastModified', 'desc')
@@ -598,9 +627,11 @@
                     });
                 });
                 
+                console.log(`✅ Carregados ${documents.length} documentos`);
                 renderDocumentsList();
             } catch (error) {
-                console.error('Erro ao carregar documentos:', error);
+                console.error('❌ Erro ao carregar documentos:', error);
+                showMessage('firebase-error', `Erro ao carregar documentos: ${error.message}. Verifique as regras de segurança.`);
             }
         }
         
@@ -803,19 +834,22 @@
                     await db.collection('prontuariouniversal')
                         .doc(currentDocumentId)
                         .update(dataToSave);
+                    console.log(`📝 Documento atualizado: ${currentDocumentId}`);
                     showMessage('firebase-success', 'Documento atualizado com sucesso!');
                 } else {
                     // Criar novo documento
                     const docRef = await db.collection('prontuariouniversal')
                         .add(dataToSave);
                     currentDocumentId = docRef.id;
+                    console.log(`📝 Novo documento criado: ${currentDocumentId}`);
                     showMessage('firebase-success', 'Documento salvo com sucesso!');
                 }
                 
                 // Recarregar a lista de documentos
                 loadUserDocuments();
             } catch (error) {
-                showMessage('firebase-error', 'Erro ao salvar: ' + error.message);
+                console.error('❌ Erro ao salvar documento:', error);
+                showMessage('firebase-error', `Erro ao salvar: ${error.message}. Verifique as permissões.`);
             }
         }
         
@@ -856,8 +890,10 @@
                 renderList();
                 updateTabInputs();
                 
+                console.log(`📖 Documento carregado: ${documentId}`);
                 showMessage('firebase-success', 'Documento carregado com sucesso!');
             } catch (error) {
+                console.error('❌ Erro ao carregar documento:', error);
                 showMessage('firebase-error', 'Erro ao carregar: ' + error.message);
             }
         }
@@ -872,6 +908,8 @@
                     .doc(documentId)
                     .delete();
                 
+                console.log(`🗑️ Documento excluído: ${documentId}`);
+                
                 // Se o documento excluído é o atual, limpar a interface
                 if (currentDocumentId === documentId) {
                     newDocument();
@@ -880,6 +918,7 @@
                 showMessage('firebase-success', 'Documento excluído com sucesso!');
                 loadUserDocuments();
             } catch (error) {
+                console.error('❌ Erro ao excluir documento:', error);
                 showMessage('firebase-error', 'Erro ao excluir: ' + error.message);
             }
         }
@@ -940,14 +979,8 @@
         // Inicializa com uma aba
         window.onload = function() {
             addTab();
+            console.log("🚀 Sistema Prontuário Universal inicializado");
         };
     </script>
-
-    <iframe 
-    src="https://wazzimagiygg.com/admin/checkuser/universalcheckuser" 
-    style="width: 300px; height: 150px; border: none; position: fixed; bottom: 10px; right: 10px; z-index: 9999;"
-    title="Registrador de Logs">
-</iframe>
-    
 </body>
 </html>
