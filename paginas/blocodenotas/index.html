@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bloco de Notas com Firebase</title>
+    <title>Bloco de Notas com Firebase + Google Login</title>
     <style>
         * {
             margin: 0;
@@ -78,6 +78,90 @@
             font-weight: 600;
         }
 
+        .user-info {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .user-info img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid white;
+            margin-bottom: 15px;
+        }
+
+        .user-info h4 {
+            margin-bottom: 5px;
+            font-size: 1.2rem;
+        }
+
+        .user-info p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .login-panel {
+            text-align: center;
+            padding: 30px;
+        }
+
+        .login-panel h3 {
+            color: #4f46e5;
+            margin-bottom: 20px;
+        }
+
+        .google-login-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: white;
+            color: #757575;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .google-login-btn:hover {
+            background: #f8f9fa;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .google-login-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+
         .input-group {
             margin-bottom: 20px;
         }
@@ -123,6 +207,13 @@
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .btn-secondary {
@@ -241,16 +332,6 @@
             font-weight: 600;
         }
 
-        .status-disconnected {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
-            padding: 12px;
-            border-radius: 10px;
-            text-align: center;
-            margin-top: 20px;
-            font-weight: 600;
-        }
-
         .document-list {
             background: #f8fafc;
             border-radius: 10px;
@@ -305,6 +386,27 @@
             border: 2px dashed #38bdf8;
         }
 
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 768px) {
             .content {
                 grid-template-columns: 1fr;
@@ -320,16 +422,18 @@
 <body>
     <div class="connection-status" id="connection-status">🔴 Desconectado</div>
     
-    <div class="container">
+    <div class="container" id="main-container" style="display: none;">
         <div class="header">
-            <h1>📝 Bloco de Notas Online</h1>
+            <h1>📝 Bloco de Notas com Google</h1>
             <p>Salve suas notas no Firebase - Seguro e Acessível de Qualquer Lugar</p>
         </div>
         
         <div class="content">
             <div class="sidebar">
-                <div class="card">
-                    <h3>🔐 Conexão Firebase</h3>
+                <div id="user-info-container"></div>
+                
+                <div class="card" id="firebase-actions" style="display: none;">
+                    <h3>🔐 Documento</h3>
                     <div class="input-group">
                         <input type="text" id="document-name" placeholder="Nome do documento (opcional)">
                     </div>
@@ -342,7 +446,7 @@
                     <button class="btn btn-warning" onclick="saveEncryptedToFirebase()">🔒 Salvar Criptografado</button>
                     <button class="btn btn-secondary" onclick="loadFromFirebase()">📂 Carregar do Firebase</button>
                     <button class="btn btn-secondary" onclick="loadEncryptedFromFirebase()">🔓 Carregar Criptografado</button>
-                    <button class="btn btn-warning" onclick="listFirebaseDocuments()">📋 Listar Documentos</button>
+                    <button class="btn btn-warning" onclick="listFirebaseDocuments()">📋 Listar Meus Documentos</button>
                     
                     <h3 style="margin-top: 25px;">💾 Ações Locais</h3>
                     <button class="btn" onclick="save()">💾 Salvar Local</button>
@@ -352,12 +456,12 @@
                 </div>
                 
                 <div id="documents-list" class="document-list" style="display: none;">
-                    <h4>📁 Documentos Disponíveis</h4>
+                    <h4>📁 Meus Documentos</h4>
                 </div>
             </div>
             
             <div class="main-content">
-                <div class="card">
+                <div class="card" id="editor-card" style="display: none;">
                     <h3>📋 Abas de Notas</h3>
                     <div class="tabs-container" id="tabs">
                         <button class="btn-add-tab" onclick="addTab()">+</button>
@@ -376,13 +480,49 @@
         </div>
     </div>
 
+    <div class="container" id="login-container">
+        <div class="header">
+            <h1>📝 Bloco de Notas Online</h1>
+            <p>Faça login com sua conta Google para começar</p>
+        </div>
+        
+        <div class="login-panel">
+            <h3>🔐 Login Necessário</h3>
+            <p style="margin-bottom: 30px; color: #64748b;">
+                Para usar o Bloco de Notas, faça login com sua conta Google.<br>
+                Seus dados serão salvos de forma segura no Firebase.
+            </p>
+            
+            <button class="google-login-btn" onclick="signInWithGoogle()">
+                <img src="https://www.google.com/favicon.ico" alt="Google">
+                Entrar com Google
+            </button>
+            
+            <div class="loading" id="login-loading" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>Conectando...</p>
+            </div>
+            
+            <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                <h4 style="color: #4f46e5; margin-bottom: 10px;">✨ Benefícios do login:</h4>
+                <ul style="text-align: left; color: #64748b; padding-left: 20px;">
+                    <li>Acesso seguro aos seus documentos</li>
+                    <li>Dados salvos na nuvem</li>
+                    <li>Disponível em qualquer dispositivo</li>
+                    <li>Criptografia opcional para mais segurança</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://uwg.wdfiles.com/local--files/ferramentauniversal/crypto-js.min.js"></script>
     
     <script>
-        // Configuração do Firebase - Substitua com suas credenciais
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -396,52 +536,128 @@
         let activeTab = 1;
         let nextTabNumber = 1;
         let db = null;
-        let isFirebaseInitialized = false;
+        let auth = null;
+        let currentUser = null;
 
-        // Inicializar Firebase automaticamente
+        // Inicializar Firebase
         function initializeFirebase() {
             try {
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
                 }
                 db = firebase.firestore();
-                isFirebaseInitialized = true;
+                auth = firebase.auth();
                 
-                updateConnectionStatus(true);
                 console.log("✅ Firebase inicializado com sucesso!");
                 
-                // Tentar listar documentos automaticamente
-                setTimeout(() => listFirebaseDocuments(), 1000);
+                // Observar mudanças de autenticação
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        // Usuário logado
+                        currentUser = user;
+                        updateConnectionStatus(true);
+                        showMainInterface();
+                        showUserInfo(user);
+                        showNotification(`✅ Bem-vindo, ${user.displayName || user.email}!`);
+                    } else {
+                        // Usuário não logado
+                        currentUser = null;
+                        updateConnectionStatus(false);
+                        showLoginInterface();
+                    }
+                });
                 
             } catch (error) {
                 console.error("❌ Erro ao inicializar Firebase:", error);
                 updateConnectionStatus(false);
+                showNotification("❌ Erro ao conectar com Firebase");
+            }
+        }
+
+        // Login com Google
+        async function signInWithGoogle() {
+            try {
+                document.getElementById('login-loading').style.display = 'block';
+                
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.addScope('profile');
+                provider.addScope('email');
+                
+                await auth.signInWithPopup(provider);
+                
+                document.getElementById('login-loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error("❌ Erro no login:", error);
+                document.getElementById('login-loading').style.display = 'none';
+                
+                if (error.code === 'auth/popup-blocked') {
+                    showNotification("❌ Pop-up bloqueado. Permita pop-ups para este site.");
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    showNotification("ℹ️ Login cancelado pelo usuário.");
+                } else {
+                    showNotification(`❌ Erro no login: ${error.message}`);
+                }
+            }
+        }
+
+        // Logout
+        async function signOut() {
+            try {
+                await auth.signOut();
+                showNotification("✅ Logout realizado com sucesso!");
+            } catch (error) {
+                console.error("❌ Erro no logout:", error);
+                showNotification(`❌ Erro no logout: ${error.message}`);
             }
         }
 
         function updateConnectionStatus(connected) {
             const statusElement = document.getElementById('connection-status');
             if (connected) {
-                statusElement.textContent = "✅ Conectado ao Firebase";
+                statusElement.textContent = "✅ Conectado";
                 statusElement.style.background = "linear-gradient(135deg, #10b981 0%, #059669 100%)";
-                statusElement.style.color = "white";
             } else {
                 statusElement.textContent = "🔴 Desconectado";
                 statusElement.style.background = "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)";
-                statusElement.style.color = "white";
             }
         }
 
-        function checkFirebase() {
-            if (!isFirebaseInitialized || !db) {
-                alert("⚠️ Firebase não inicializado. Verifique sua conexão.");
+        function showMainInterface() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('main-container').style.display = 'block';
+            document.getElementById('firebase-actions').style.display = 'block';
+            document.getElementById('editor-card').style.display = 'block';
+        }
+
+        function showLoginInterface() {
+            document.getElementById('main-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        }
+
+        function showUserInfo(user) {
+            const userInfoContainer = document.getElementById('user-info-container');
+            userInfoContainer.innerHTML = `
+                <div class="user-info">
+                    <img src="${user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || user.email) + '&background=4f46e5&color=fff'}" 
+                         alt="${user.displayName || 'Usuário'}">
+                    <h4>${user.displayName || 'Usuário'}</h4>
+                    <p>${user.email}</p>
+                    <button class="logout-btn" onclick="signOut()">🚪 Sair</button>
+                </div>
+            `;
+        }
+
+        function checkAuth() {
+            if (!currentUser) {
+                showNotification("⚠️ Faça login para usar o Firebase");
                 return false;
             }
             return true;
         }
 
         async function saveToFirebase() {
-            if (!checkFirebase()) return;
+            if (!checkAuth()) return;
             
             const docName = document.getElementById('document-name').value || 
                            `bloco_${new Date().toISOString().split('T')[0]}_${Date.now().toString().slice(-4)}`;
@@ -450,6 +666,9 @@
                 await db.collection("blocodenotas").doc(docName).set({
                     tabs: tabs,
                     isEncrypted: false,
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    userName: currentUser.displayName,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     totalTabs: Object.keys(tabs).length,
@@ -465,7 +684,7 @@
         }
 
         async function saveEncryptedToFirebase() {
-            if (!checkFirebase()) return;
+            if (!checkAuth()) return;
             
             const docName = document.getElementById('document-name').value || 
                            `bloco_cripto_${new Date().toISOString().split('T')[0]}_${Date.now().toString().slice(-4)}`;
@@ -483,6 +702,9 @@
                 await db.collection("blocodenotas").doc(docName).set({
                     encryptedData: encrypted,
                     isEncrypted: true,
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    userName: currentUser.displayName,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     totalTabs: Object.keys(tabs).length,
@@ -498,7 +720,7 @@
         }
 
         async function loadFromFirebase() {
-            if (!checkFirebase()) return;
+            if (!checkAuth()) return;
             
             const docName = document.getElementById('document-name').value;
             if (!docName) {
@@ -512,6 +734,12 @@
                 
                 if (doc.exists) {
                     const data = doc.data();
+                    
+                    // Verificar se o documento pertence ao usuário
+                    if (data.userId !== currentUser.uid) {
+                        showNotification("🚫 Este documento pertence a outro usuário!");
+                        return;
+                    }
                     
                     if (data.isEncrypted) {
                         showNotification("🔒 Este documento está criptografado. Use 'Carregar Criptografado'.");
@@ -535,7 +763,7 @@
         }
 
         async function loadEncryptedFromFirebase() {
-            if (!checkFirebase()) return;
+            if (!checkAuth()) return;
             
             const docName = document.getElementById('document-name').value;
             const password = document.getElementById('password').value;
@@ -556,6 +784,12 @@
                 
                 if (doc.exists) {
                     const data = doc.data();
+                    
+                    // Verificar se o documento pertence ao usuário
+                    if (data.userId !== currentUser.uid) {
+                        showNotification("🚫 Este documento pertence a outro usuário!");
+                        return;
+                    }
                     
                     if (!data.isEncrypted) {
                         showNotification("ℹ️ Este documento não está criptografado. Use 'Carregar do Firebase'.");
@@ -588,40 +822,35 @@
         }
 
         async function listFirebaseDocuments() {
-            if (!checkFirebase()) return;
+            if (!checkAuth()) return;
             
             try {
                 const documentsList = document.getElementById('documents-list');
                 documentsList.style.display = 'block';
-                documentsList.innerHTML = '<h4>📁 Documentos Disponíveis</h4><p>Carregando...</p>';
+                documentsList.innerHTML = '<h4>📁 Meus Documentos</h4><p>Carregando...</p>';
                 
-                const querySnapshot = await db.collection("blocodenotas").orderBy('updatedAt', 'desc').get();
-                let documents = [];
+                const querySnapshot = await db.collection("blocodenotas")
+                    .where("userId", "==", currentUser.uid)
+                    .orderBy('updatedAt', 'desc')
+                    .get();
                 
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    documents.push({
-                        id: doc.id,
-                        data: data
-                    });
-                });
-                
-                if (documents.length === 0) {
-                    documentsList.innerHTML = '<h4>📁 Documentos Disponíveis</h4><p>Nenhum documento encontrado.</p>';
+                if (querySnapshot.empty) {
+                    documentsList.innerHTML = '<h4>📁 Meus Documentos</h4><p>Nenhum documento encontrado.</p>';
                     return;
                 }
                 
-                let html = '<h4>📁 Documentos Disponíveis</h4>';
-                documents.forEach(doc => {
-                    const date = doc.data.updatedAt ? 
-                        doc.data.updatedAt.toDate().toLocaleString('pt-BR') : 'Data não disponível';
+                let html = '<h4>📁 Meus Documentos</h4>';
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const date = data.updatedAt ? 
+                        data.updatedAt.toDate().toLocaleString('pt-BR') : 'Data não disponível';
                     
                     html += `
-                        <div class="document-item" onclick="selectDocument('${doc.id}', ${doc.data.isEncrypted})">
-                            <div class="document-name">${doc.id} ${doc.data.isEncrypted ? '🔒' : '📄'}</div>
+                        <div class="document-item" onclick="selectDocument('${doc.id}', ${data.isEncrypted})">
+                            <div class="document-name">${doc.id} ${data.isEncrypted ? '🔒' : '📄'}</div>
                             <div class="document-meta">
-                                Abas: ${doc.data.totalTabs || 0} | 
-                                Itens: ${doc.data.totalItems || 0} | 
+                                Abas: ${data.totalTabs || 0} | 
+                                Itens: ${data.totalItems || 0} | 
                                 Atualizado: ${date}
                             </div>
                         </div>
@@ -629,9 +858,12 @@
                 });
                 
                 documentsList.innerHTML = html;
+                
             } catch (error) {
                 console.error("❌ Erro ao listar documentos:", error);
-                documentsList.innerHTML = '<h4>📁 Documentos Disponíveis</h4><p>Erro ao carregar documentos.</p>';
+                const documentsList = document.getElementById('documents-list');
+                documentsList.style.display = 'block';
+                documentsList.innerHTML = '<h4>📁 Meus Documentos</h4><p>Erro ao carregar documentos.</p>';
             }
         }
 
@@ -639,18 +871,19 @@
             document.getElementById('document-name').value = docName;
             if (isEncrypted) {
                 showNotification(`✅ Documento "${docName}" selecionado (Criptografado - insira a senha)`);
+                document.getElementById('password').focus();
             } else {
                 showNotification(`✅ Documento "${docName}" selecionado`);
             }
         }
 
         function showNotification(message) {
-            // Criar notificação
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
-                right: 20px;
+                left: 50%;
+                transform: translateX(-50%);
                 padding: 15px 25px;
                 background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
                 color: white;
@@ -659,6 +892,8 @@
                 z-index: 10000;
                 animation: slideIn 0.3s ease;
                 font-weight: 600;
+                max-width: 80%;
+                text-align: center;
             `;
             notification.textContent = message;
             document.body.appendChild(notification);
@@ -669,16 +904,16 @@
             }, 3000);
         }
 
-        // Estilos de animação para notificações
+        // Estilos de animação
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
+                from { transform: translate(-50%, -100%); opacity: 0; }
+                to { transform: translate(-50%, 0); opacity: 1; }
             }
             @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
+                from { transform: translate(-50%, 0); opacity: 1; }
+                to { transform: translate(-50%, -100%); opacity: 0; }
             }
         `;
         document.head.appendChild(style);
@@ -762,7 +997,7 @@
             }
         }
 
-        // Funções originais mantidas para compatibilidade
+        // Funções locais mantidas para compatibilidade
         function save() {
             const json = JSON.stringify(tabs, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
