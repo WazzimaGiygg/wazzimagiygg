@@ -95,11 +95,82 @@
             margin-bottom: 20px;
             border-left: 4px solid #007bff;
         }
+        .link-container {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 2px solid #28a745;
+            display: none;
+        }
+        .link-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .link-header h3 {
+            color: #28a745;
+            margin: 0;
+        }
+        .link-box {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            font-family: monospace;
+            word-break: break-all;
+            font-size: 14px;
+        }
+        .copy-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .copy-btn:hover {
+            background-color: #5a6268;
+        }
+        .copy-btn.copied {
+            background-color: #28a745;
+        }
+        .qr-code {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .qr-code img {
+            max-width: 200px;
+            height: auto;
+        }
+        .test-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .test-link:hover {
+            background-color: #0056b3;
+        }
     </style>
     <!-- Adicione os SDKs do Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- QR Code Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -129,9 +200,70 @@
         
         <button id="saveToFirebase" onclick="saveToFirebase()">Salvar no Firebase</button>
 
+        <!-- Container para mostrar o link após salvar -->
+        <div id="linkContainer" class="link-container">
+            <div class="link-header">
+                <h3>✅ Redirecionamento Criado com Sucesso!</h3>
+                <button id="copyAllBtn" class="copy-btn" onclick="copyAllLinks()">
+                    <i class="fas fa-copy"></i> Copiar Todos os Links
+                </button>
+            </div>
+            
+            <p><strong>Seu redirecionamento está pronto! Use os links abaixo:</strong></p>
+            
+            <div class="link-box" id="shortLinkBox">
+                <strong>Link Curto (r/):</strong><br>
+                <span id="shortLink">https://wazzimagiygg.com/r/?id=</span>
+                <button class="copy-btn" onclick="copyToClipboard('shortLink')">
+                    <i class="fas fa-copy"></i> Copiar
+                </button>
+            </div>
+            
+            <div class="link-box" id="fullLinkBox">
+                <strong>Link Completo (redirect.html):</strong><br>
+                <span id="fullLink">https://wazzimagiygg.com/redirect.html?id=</span>
+                <button class="copy-btn" onclick="copyToClipboard('fullLink')">
+                    <i class="fas fa-copy"></i> Copiar
+                </button>
+            </div>
+            
+            <div class="link-box" id="directLinkBox">
+                <strong>Link Direto com Parâmetros:</strong><br>
+                <span id="directLink">https://wazzimagiygg.com/redirect.html?id=&target=</span>
+                <button class="copy-btn" onclick="copyToClipboard('directLink')">
+                    <i class="fas fa-copy"></i> Copiar
+                </button>
+            </div>
+            
+            <div class="qr-code" id="qrCodeContainer">
+                <p><strong>QR Code do Link Curto:</strong></p>
+                <div id="qrcode"></div>
+                <p>Escaneie para testar no celular</p>
+            </div>
+            
+            <a href="#" id="testLink" class="test-link" target="_blank">
+                <i class="fas fa-external-link-alt"></i> Testar Redirecionamento Agora
+            </a>
+            
+            <p style="margin-top: 15px; font-size: 0.9em; color: #666;">
+                <i class="fas fa-info-circle"></i> Guarde estes links para usar em seus projetos, emails ou redes sociais.
+            </p>
+        </div>
+
         <label for="outputCode" style="margin-top: 30px;">Código HTML Gerado (Copie e use em seu arquivo):</label>
         <textarea id="outputCode" readonly></textarea>
     </div>
+
+    <!-- Adicionar FontAwesome para ícones -->
+    <script>
+        // Carregar FontAwesome dinamicamente
+        if (!document.querySelector('link[href*="font-awesome"]')) {
+            const faLink = document.createElement('link');
+            faLink.rel = 'stylesheet';
+            faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+            document.head.appendChild(faLink);
+        }
+    </script>
 
     <script>
         // Configuração do Firebase
@@ -153,6 +285,7 @@
         // Variáveis globais
         let generatedHtml = '';
         let currentUser = null;
+        let lastSavedDocId = null;
 
         // Verificar estado de autenticação
         auth.onAuthStateChanged((user) => {
@@ -254,9 +387,13 @@
 
             outputTextarea.value = generatedHtml;
             outputTextarea.select();
-            document.execCommand('copy');
             
-            showStatus('Código gerado e copiado para a área de transferência!', 'success');
+            try {
+                document.execCommand('copy');
+                showStatus('Código gerado e copiado para a área de transferência!', 'success');
+            } catch (e) {
+                showStatus('Código gerado! (Copie manualmente)', 'success');
+            }
         }
 
         async function saveToFirebase() {
@@ -290,14 +427,143 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                showStatus(`Código salvo no Firebase com ID: ${docRef.id}`, 'success');
+                lastSavedDocId = docRef.id;
+                
+                // Mostrar o container com os links
+                showLinks(docRef.id, url, delay, message);
+                
+                showStatus(`✅ Redirecionamento salvo com sucesso! ID: ${docRef.id}`, 'success');
                 console.log('Documento salvo com ID: ', docRef.id);
                 
             } catch (error) {
                 console.error('Erro ao salvar no Firebase: ', error);
-                showStatus(`Erro ao salvar: ${error.message}`, 'error');
+                showStatus(`❌ Erro ao salvar: ${error.message}`, 'error');
             }
         }
+
+        function showLinks(docId, targetUrl, delay, message) {
+            const baseUrl = 'https://wazzimagiygg.com';
+            
+            // Atualizar links
+            document.getElementById('shortLink').textContent = `${baseUrl}/r/?id=${docId}`;
+            document.getElementById('fullLink').textContent = `${baseUrl}/redirect.html?id=${docId}`;
+            document.getElementById('directLink').textContent = `${baseUrl}/redirect.html?id=${docId}&target=${encodeURIComponent(targetUrl)}&time=${delay}&msg=${encodeURIComponent(message)}`;
+            
+            // Atualizar link de teste
+            document.getElementById('testLink').href = `${baseUrl}/redirect.html?id=${docId}`;
+            
+            // Gerar QR Code
+            generateQRCode(`${baseUrl}/r/?id=${docId}`);
+            
+            // Mostrar container
+            document.getElementById('linkContainer').style.display = 'block';
+            
+            // Scroll para os links
+            document.getElementById('linkContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function generateQRCode(url) {
+            const qrcodeContainer = document.getElementById('qrcode');
+            qrcodeContainer.innerHTML = '';
+            
+            QRCode.toCanvas(qrcodeContainer, url, {
+                width: 200,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            }, function (error) {
+                if (error) {
+                    console.error('Erro ao gerar QR Code:', error);
+                    qrcodeContainer.innerHTML = '<p style="color: red;">Erro ao gerar QR Code</p>';
+                }
+            });
+        }
+
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    const button = element.nextElementSibling;
+                    const originalText = button.innerHTML;
+                    
+                    button.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+                    button.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.classList.remove('copied');
+                    }, 2000);
+                    
+                    showStatus('Link copiado para a área de transferência!', 'success');
+                })
+                .catch(err => {
+                    console.error('Erro ao copiar:', err);
+                    // Fallback para navegadores mais antigos
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    showStatus('Link copiado!', 'success');
+                });
+        }
+
+        function copyAllLinks() {
+            const links = [
+                document.getElementById('shortLink').textContent,
+                document.getElementById('fullLink').textContent,
+                document.getElementById('directLink').textContent
+            ];
+            
+            const allLinksText = links.join('\n\n');
+            
+            navigator.clipboard.writeText(allLinksText)
+                .then(() => {
+                    const button = document.getElementById('copyAllBtn');
+                    const originalText = button.innerHTML;
+                    
+                    button.innerHTML = '<i class="fas fa-check"></i> Todos Copiados!';
+                    button.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.classList.remove('copied');
+                    }, 2000);
+                    
+                    showStatus('Todos os links copiados para a área de transferência!', 'success');
+                })
+                .catch(err => {
+                    console.error('Erro ao copiar:', err);
+                    // Fallback
+                    const textArea = document.createElement('textarea');
+                    textArea.value = allLinksText;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    showStatus('Todos os links copiados!', 'success');
+                });
+        }
+
+        // Adicionar ícones aos botões de copiar após o carregamento
+        document.addEventListener('DOMContentLoaded', function() {
+            // Atualizar botões de copiar com ícones
+            setTimeout(() => {
+                const copyButtons = document.querySelectorAll('.copy-btn');
+                copyButtons.forEach(btn => {
+                    if (!btn.innerHTML.includes('fa-copy')) {
+                        btn.innerHTML = '<i class="fas fa-copy"></i> ' + btn.textContent;
+                    }
+                });
+            }, 1000);
+        });
 
         document.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
