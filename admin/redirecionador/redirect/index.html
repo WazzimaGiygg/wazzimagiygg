@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecionando...</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .redirect-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 8px solid #e5e7eb;
+            border-top: 8px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+        
+        p {
+            color: #6b7280;
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .countdown {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #4f46e5;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-top: 20px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.3);
+        }
+        
+        .info {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+        
+        .error {
+            color: #ef4444;
+            padding: 20px;
+            background: #fee2e2;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .redirect-container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            p {
+                font-size: 1rem;
+            }
+            
+            .countdown {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+    <!-- Adicione os SDKs do Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="redirect-container">
+        <div class="loader"></div>
+        <h1 id="title">Aguarde um momento...</h1>
+        <p id="message">Você está sendo redirecionado</p>
+        <div class="countdown" id="countdown">5</div>
+        <a href="#" id="redirectBtn" class="btn">
+            <i class="fas fa-external-link-alt"></i> Ir Agora
+        </a>
+        <div class="info" id="info">
+            <p><i class="fas fa-info-circle"></i> Redirecionamento em andamento</p>
+        </div>
+        <div class="error" id="error" style="display: none;">
+            <p><i class="fas fa-exclamation-triangle"></i> <span id="errorMessage"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase (USE A MESMA CONFIGURAÇÃO)
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_AUTH_DOMAIN",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_STORAGE_BUCKET",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Obter ID da URL
+        function getUrlParameter(name) {
+            name = name.replace(/[[]/, '\\[').replace(/[\]]/, '\\]');
+            const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            const results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+
+        // Carregar redirecionamento
+        async function loadRedirection() {
+            const redirectionId = getUrlParameter('id');
+            
+            if (!redirectionId) {
+                showError('ID do redirecionamento não especificado na URL');
+                return null;
+            }
+            
+            try {
+                const doc = await db.collection('redirecionamento').doc(redirectionId).get();
+                
+                if (!doc.exists) {
+                    showError('Redirecionamento não encontrado');
+                    return null;
+                }
+                
+                return {
+                    id: doc.id,
+                    ...doc.data()
+                };
+            } catch (error) {
+                console.error('Erro ao carregar redirecionamento:', error);
+                showError('Erro ao carregar dados do redirecionamento');
+                return null;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // Iniciar redirecionamento
+        async function initRedirection() {
+            const redirection = await loadRedirection();
+            
+            if (!redirection) {
+                return;
+            }
+            
+            // Configurar elementos da página
+            document.getElementById('title').textContent = 'Aguarde um momento...';
+            document.getElementById('message').textContent = 
+                redirection.messageText.replace(/\[TEMPO\]/g, redirection.delayTime);
+            document.getElementById('redirectBtn').href = redirection.targetUrl;
+            document.getElementById('info').innerHTML = `
+                <p><i class="fas fa-link"></i> Destino: ${redirection.targetUrl}</p>
+                <p><i class="fas fa-clock"></i> Tempo: ${redirection.delayTime} segundos</p>
+            `;
+            
+            // Configurar contagem regressiva
+            let countdown = redirection.delayTime;
+            const countdownElement = document.getElementById('countdown');
+            countdownElement.textContent = countdown;
+            
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                countdownElement.textContent = countdown;
+                
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    window.location.href = redirection.targetUrl;
+                }
+            }, 1000);
+            
+            // Adicionar FontAwesome para ícones
+            if (!document.querySelector('link[href*="font-awesome"]')) {
+                const faLink = document.createElement('link');
+                faLink.rel = 'stylesheet';
+                faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+                document.head.appendChild(faLink);
+            }
+        }
+
+        // Iniciar quando a página carregar
+        document.addEventListener('DOMContentLoaded', initRedirection);
+    </script>
+</body>
+</html>
