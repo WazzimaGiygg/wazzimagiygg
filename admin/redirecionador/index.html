@@ -37,7 +37,7 @@
             margin-top: 5px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            box-sizing: border-box; /* Garante que padding e border sejam incluídos na largura total */
+            box-sizing: border-box;
         }
         button {
             background-color: #007bff;
@@ -54,6 +54,13 @@
         button:hover {
             background-color: #0056b3;
         }
+        button#saveToFirebase {
+            background-color: #28a745;
+            margin-top: 10px;
+        }
+        button#saveToFirebase:hover {
+            background-color: #218838;
+        }
         textarea#outputCode {
             height: 200px;
             background-color: #f9f9f9;
@@ -65,12 +72,33 @@
             color: #777;
             margin-top: 5px;
         }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
     </style>
+    <!-- Adicione os SDKs do Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
     <div class="container">
         <h1>Editor de Redirecionador HTML</h1>
+
+        <div id="statusMessage" class="status"></div>
 
         <label for="delayTime">Tempo de Espera (segundos):</label>
         <input type="number" id="delayTime" value="5" min="1" required>
@@ -85,12 +113,42 @@
         <p class="info">A mensagem que aparecerá na tela. Use a tag **[TEMPO]** para inserir o tempo de espera automaticamente.</p>
 
         <button onclick="generateCode()">Gerar Código HTML</button>
+        
+        <button id="saveToFirebase" onclick="saveToFirebase()">Salvar no Firebase</button>
 
         <label for="outputCode" style="margin-top: 30px;">Código HTML Gerado (Copie e use em seu arquivo):</label>
         <textarea id="outputCode" readonly></textarea>
     </div>
 
     <script>
+        // Configuração do Firebase (substitua com suas configurações)
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_AUTH_DOMAIN",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_STORAGE_BUCKET",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Variável para armazenar o código gerado
+        let generatedHtml = '';
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
         function generateCode() {
             const delay = document.getElementById('delayTime').value;
             const url = document.getElementById('targetUrl').value;
@@ -108,7 +166,7 @@
             // Substitui a tag de tempo na mensagem
             const finalMessage = message.replace(/\[TEMPO\]/g, delay);
 
-            const generatedHtml = `<!DOCTYPE html>
+            generatedHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -159,10 +217,55 @@
 </html>`;
 
             outputTextarea.value = generatedHtml;
-            outputTextarea.select(); // Seleciona o texto gerado
-            document.execCommand('copy'); // Tenta copiar para a área de transferência
-            // Não é garantido que a cópia funcione em todos os navegadores, mas seleciona para facilitar.
+            outputTextarea.select();
+            document.execCommand('copy');
+            
+            showStatus('Código gerado e copiado para a área de transferência!', 'success');
         }
+
+        async function saveToFirebase() {
+            if (!generatedHtml) {
+                showStatus('Por favor, gere o código primeiro usando o botão "Gerar Código HTML"', 'error');
+                return;
+            }
+
+            const delay = document.getElementById('delayTime').value;
+            const url = document.getElementById('targetUrl').value;
+            const message = document.getElementById('messageText').value;
+
+            try {
+                // Criar um documento na coleção "redirecionamento"
+                const docRef = await db.collection('redirecionamento').add({
+                    delayTime: parseInt(delay),
+                    targetUrl: url,
+                    messageText: message,
+                    htmlCode: generatedHtml,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showStatus(`Código salvo no Firebase com ID: ${docRef.id}`, 'success');
+                console.log('Documento salvo com ID: ', docRef.id);
+                
+                // Opcional: Limpar campos após salvar
+                // document.getElementById('delayTime').value = '5';
+                // document.getElementById('targetUrl').value = 'https://www.google.com';
+                // document.getElementById('messageText').value = 'Você será redirecionado para a nossa nova página em [TEMPO] segundos. Clique aqui se não quiser esperar.';
+                // document.getElementById('outputCode').value = '';
+                // generatedHtml = '';
+                
+            } catch (error) {
+                console.error('Erro ao salvar no Firebase: ', error);
+                showStatus(`Erro ao salvar: ${error.message}`, 'error');
+            }
+        }
+
+        // Opcional: Adicionar listener para tecla Enter
+        document.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                generateCode();
+            }
+        });
     </script>
 
 </body>
