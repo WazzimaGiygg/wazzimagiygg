@@ -101,17 +101,6 @@
             margin-top: 20px;
         }
         
-        .btn-retry {
-            background: #10b981;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            margin-top: 15px;
-        }
-        
         @media (max-width: 768px) {
             .redirect-container {
                 padding: 20px;
@@ -130,34 +119,29 @@
             }
         }
     </style>
-    <!-- Adicione FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Adicione os SDKs do Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div class="redirect-container">
-        <div class="loader" id="loader"></div>
+        <div class="loader"></div>
         <h1 id="title">Aguarde um momento...</h1>
-        <p id="message">Carregando redirecionamento...</p>
-        <div class="countdown" id="countdown" style="display: none;">5</div>
-        <a href="#" id="redirectBtn" class="btn" style="display: none;">
+        <p id="message">Você está sendo redirecionado</p>
+        <div class="countdown" id="countdown">5</div>
+        <a href="#" id="redirectBtn" class="btn">
             <i class="fas fa-external-link-alt"></i> Ir Agora
         </a>
-        <div class="info" id="info" style="display: none;">
+        <div class="info" id="info">
             <p><i class="fas fa-info-circle"></i> Redirecionamento em andamento</p>
         </div>
         <div class="error" id="error" style="display: none;">
             <p><i class="fas fa-exclamation-triangle"></i> <span id="errorMessage"></span></p>
-            <button class="btn-retry" onclick="retryLoad()">
-                <i class="fas fa-redo"></i> Tentar Novamente
-            </button>
         </div>
     </div>
 
     <script>
-        // Configuração do Firebase (SUBSTITUA COM SUAS CONFIGURAÇÕES REAIS)
+        // Configuração do Firebase (USE A MESMA CONFIGURAÇÃO)
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -167,89 +151,76 @@
             appId: "1:249427877153:web:0e4297294794a5aadeb260",
             measurementId: "G-PLKNZNFCQ8"
         };
-        // Inicializar Firebase
-        let db;
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            
-            // Configurações para melhor performance
-            db.settings({
-                cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
-            });
-            
-            // Tentar habilitar persistência offline
-            firebase.firestore().enablePersistence()
-                .catch((err) => {
-                    console.warn('Persistência não suportada:', err);
-                });
-                
-        } catch (error) {
-            console.error('Erro ao inicializar Firebase:', error);
-            showError('Erro na configuração do sistema. Entre em contato com o administrador.');
-        }
 
-        // Variáveis globais
-        let redirectionData = null;
-        let countdownInterval = null;
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
         // Obter ID da URL
         function getUrlParameter(name) {
+            name = name.replace(/[[]/, '\\[').replace(/[\]]/, '\\]');
+            const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            const results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+
+        // Carregar redirecionamento
+        async function loadRedirection() {
+            const redirectionId = getUrlParameter('id');
+            
+            if (!redirectionId) {
+                showError('ID do redirecionamento não especificado na URL');
+                return null;
+            }
+            
             try {
-                const urlParams = new URLSearchParams(window.location.search);
-                return urlParams.get(name) || '';
+                const doc = await db.collection('redirecionamento').doc(redirectionId).get();
+                
+                if (!doc.exists) {
+                    showError('Redirecionamento não encontrado');
+                    return null;
+                }
+                
+                return {
+                    id: doc.id,
+                    ...doc.data()
+                };
             } catch (error) {
-                console.error('Erro ao obter parâmetro da URL:', error);
-                return '';
+                console.error('Erro ao carregar redirecionamento:', error);
+                showError('Erro ao carregar dados do redirecionamento');
+                return null;
             }
         }
 
-        // Mostrar erro
-        function showError(message, showRetry = true) {
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('title').textContent = 'Erro';
-            document.getElementById('message').textContent = message;
-            document.getElementById('countdown').style.display = 'none';
-            document.getElementById('redirectBtn').style.display = 'none';
-            document.getElementById('info').style.display = 'none';
-            
-            document.getElementById('errorMessage').textContent = message;
+        function showError(message) {
             document.getElementById('error').style.display = 'block';
-            
-            // Mostrar/ocultar botão de tentar novamente
-            document.querySelector('.btn-retry').style.display = showRetry ? 'block' : 'none';
+            document.getElementById('errorMessage').textContent = message;
         }
 
-        // Mostrar redirecionamento
-        function showRedirection(redirection) {
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('error').style.display = 'none';
+        // Iniciar redirecionamento
+        async function initRedirection() {
+            const redirection = await loadRedirection();
+            
+            if (!redirection) {
+                return;
+            }
             
             // Configurar elementos da página
             document.getElementById('title').textContent = 'Aguarde um momento...';
             document.getElementById('message').textContent = 
                 redirection.messageText.replace(/\[TEMPO\]/g, redirection.delayTime);
             document.getElementById('redirectBtn').href = redirection.targetUrl;
-            document.getElementById('redirectBtn').style.display = 'inline-block';
             document.getElementById('info').innerHTML = `
                 <p><i class="fas fa-link"></i> Destino: ${redirection.targetUrl}</p>
                 <p><i class="fas fa-clock"></i> Tempo: ${redirection.delayTime} segundos</p>
             `;
-            document.getElementById('info').style.display = 'block';
             
             // Configurar contagem regressiva
             let countdown = redirection.delayTime;
             const countdownElement = document.getElementById('countdown');
             countdownElement.textContent = countdown;
-            countdownElement.style.display = 'block';
             
-            // Limpar intervalo anterior se existir
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-            }
-            
-            // Iniciar nova contagem regressiva
-            countdownInterval = setInterval(() => {
+            const countdownInterval = setInterval(() => {
                 countdown--;
                 countdownElement.textContent = countdown;
                 
@@ -258,132 +229,18 @@
                     window.location.href = redirection.targetUrl;
                 }
             }, 1000);
-        }
-
-        // Carregar redirecionamento
-        async function loadRedirection() {
-            const redirectionId = getUrlParameter('id');
             
-            if (!redirectionId) {
-                showError('ID do redirecionamento não especificado na URL. Use: redirect.html?id=SEU_ID', false);
-                return null;
-            }
-            
-            try {
-                if (!db) {
-                    throw new Error('Firebase não inicializado');
-                }
-                
-                console.log('Carregando redirecionamento ID:', redirectionId);
-                
-                const doc = await db.collection('redirecionamento').doc(redirectionId).get();
-                
-                if (!doc.exists) {
-                    showError(`Redirecionamento não encontrado (ID: ${redirectionId})`, true);
-                    return null;
-                }
-                
-                const data = doc.data();
-                console.log('Redirecionamento carregado:', data);
-                
-                return {
-                    id: doc.id,
-                    ...data
-                };
-                
-            } catch (error) {
-                console.error('Erro ao carregar redirecionamento:', error);
-                
-                // Tratamento específico para diferentes tipos de erro
-                if (error.code === 'permission-denied') {
-                    showError('Permissão negada. Verifique as regras de segurança do Firestore.', false);
-                } else if (error.code === 'failed-precondition') {
-                    showError('Erro de configuração do Firebase. Verifique as credenciais.', false);
-                } else if (error.message.includes('offline')) {
-                    showError('Sem conexão com a internet. Tentando carregar dados em modo offline...', true);
-                    // Tentar carregar do cache local
-                    return loadFromCache(redirectionId);
-                } else {
-                    showError(`Erro ao carregar: ${error.message}`, true);
-                }
-                
-                return null;
-            }
-        }
-
-        // Tentar carregar do cache local
-        function loadFromCache(redirectionId) {
-            // Verificar se há dados em localStorage
-            const cachedData = localStorage.getItem(`redirect_${redirectionId}`);
-            if (cachedData) {
-                try {
-                    const parsedData = JSON.parse(cachedData);
-                    console.log('Dados carregados do cache:', parsedData);
-                    return parsedData;
-                } catch (e) {
-                    console.error('Erro ao parsear cache:', e);
-                }
-            }
-            return null;
-        }
-
-        // Salvar no cache local
-        function saveToCache(redirection) {
-            try {
-                localStorage.setItem(`redirect_${redirection.id}`, JSON.stringify(redirection));
-                console.log('Dados salvos no cache:', redirection.id);
-            } catch (e) {
-                console.error('Erro ao salvar no cache:', e);
-            }
-        }
-
-        // Tentar novamente
-        async function retryLoad() {
-            document.getElementById('error').style.display = 'none';
-            document.getElementById('loader').style.display = 'block';
-            document.getElementById('title').textContent = 'Aguarde um momento...';
-            document.getElementById('message').textContent = 'Tentando carregar novamente...';
-            
-            await initRedirection();
-        }
-
-        // Iniciar redirecionamento
-        async function initRedirection() {
-            try {
-                const redirection = await loadRedirection();
-                
-                if (redirection) {
-                    redirectionData = redirection;
-                    saveToCache(redirection);
-                    showRedirection(redirection);
-                }
-                
-            } catch (error) {
-                console.error('Erro fatal em initRedirection:', error);
-                showError('Erro inesperado. Por favor, recarregue a página.', true);
-            }
-        }
-
-        // Limpar intervalo quando a página for fechada
-        window.addEventListener('beforeunload', () => {
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-            }
-        });
-
-        // Iniciar quando a página carregar
-        document.addEventListener('DOMContentLoaded', initRedirection);
-        
-        // Fallback: se não tiver FontAwesome carregado após 2 segundos
-        setTimeout(() => {
-            if (!document.querySelector('i.fas')) {
-                // Adicionar FontAwesome dinamicamente se não carregou
+            // Adicionar FontAwesome para ícones
+            if (!document.querySelector('link[href*="font-awesome"]')) {
                 const faLink = document.createElement('link');
                 faLink.rel = 'stylesheet';
                 faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
                 document.head.appendChild(faLink);
             }
-        }, 2000);
+        }
+
+        // Iniciar quando a página carregar
+        document.addEventListener('DOMContentLoaded', initRedirection);
     </script>
 </body>
 </html>
