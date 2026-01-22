@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Texto com Abas - Firebase</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #tabs { display: flex; margin-bottom: 10px; align-items: center; }
+        .tab { padding: 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; margin-right: 5px; }
+        .tab-active { background-color: #ddd; }
+        #editor-container { margin-top: 10px; }
+        #list { margin-bottom: 10px; }
+        #new-item-container { margin-bottom: 10px; }
+        .item { display: flex; align-items: center; margin-bottom: 5px; }
+        .item textarea { width: 300px; margin-right: 10px; }
+        .item button { margin-left: 5px; }
+        #buttons { margin-top: 20px; }
+        #password { margin-top: 10px; }
+        #firebase-config { margin: 20px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+        .config-input { margin: 5px 0; width: 300px; }
+        .status { margin: 5px 0; padding: 5px; border-radius: 3px; }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div id="firebase-config">
+        <h3>Configuração do Firebase</h3>
+        <div>
+            <input type="text" id="apiKey" class="config-input" placeholder="apiKey">
+            <input type="text" id="authDomain" class="config-input" placeholder="authDomain">
+            <input type="text" id="projectId" class="config-input" placeholder="projectId">
+            <input type="text" id="storageBucket" class="config-input" placeholder="storageBucket">
+            <input type="text" id="messagingSenderId" class="config-input" placeholder="messagingSenderId">
+            <input type="text" id="appId" class="config-input" placeholder="appId">
+        </div>
+        <button onclick="initializeFirebase()">Inicializar Firebase</button>
+        <div id="connection-status" class="status disconnected">Não conectado</div>
+    </div>
+
+    <div id="tabs">
+        <button onclick="addTab()">Adicionar Aba</button>
+    </div>
+    <div id="editor-container">
+        <div id="new-item-container">
+            <input type="text" id="new-item" placeholder="Digite novo item">
+            <button onclick="addNewItem()">Adicionar Item</button>
+        </div>
+        <div id="list"></div>
+    </div>
+    <div id="buttons">
+        <button onclick="saveToFirebase()">Salvar no Firebase</button>
+        <button onclick="saveEncryptedToFirebase()">Salvar Criptografado no Firebase</button>
+        <button onclick="loadFromFirebase()">Carregar do Firebase</button>
+        <button onclick="loadEncryptedFromFirebase()">Carregar Criptografado</button>
+        <button onclick="listFirebaseDocuments()">Listar Documentos</button>
+    </div>
+    <div>
+        <input type="text" id="document-name" placeholder="Nome do documento (opcional)">
+        <input type="password" id="password" placeholder="Senha (se necessário)">
+    </div>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://uwg.wdfiles.com/local--files/ferramentauniversal/crypto-js.min.js"></script>
+    
+    <script>
+        let tabs = {};
+        let activeTab = 1;
+        let nextTabNumber = 1;
+        let db = null;
+        let isFirebaseInitialized = false;
+
+        // Configuração do Firebase
+        function initializeFirebase() {
+            const firebaseConfig = {
+                apiKey: document.getElementById('apiKey').value,
+                authDomain: document.getElementById('authDomain').value,
+                projectId: document.getElementById('projectId').value,
+                storageBucket: document.getElementById('storageBucket').value,
+                messagingSenderId: document.getElementById('messagingSenderId').value,
+                appId: document.getElementById('appId').value
+            };
+
+            try {
+                // Inicializar Firebase
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                isFirebaseInitialized = true;
+                
+                // Atualizar status
+                const statusElement = document.getElementById('connection-status');
+                statusElement.textContent = "Conectado ao Firebase";
+                statusElement.className = "status connected";
+                
+                console.log("Firebase inicializado com sucesso!");
+            } catch (error) {
+                console.error("Erro ao inicializar Firebase:", error);
+                alert("Erro ao conectar ao Firebase. Verifique as configurações.");
+            }
+        }
+
+        function checkFirebase() {
+            if (!isFirebaseInitialized || !db) {
+                alert("Por favor, configure o Firebase primeiro!");
+                return false;
+            }
+            return true;
+        }
+
+        async function saveToFirebase() {
+            if (!checkFirebase()) return;
+            
+            const docName = document.getElementById('document-name').value || `bloco_${Date.now()}`;
+            
+            try {
+                await db.collection("blocodenotas").doc(docName).set({
+                    tabs: tabs,
+                    created: firebase.firestore.FieldValue.serverTimestamp(),
+                    updated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert(`Documento "${docName}" salvo com sucesso!`);
+            } catch (error) {
+                console.error("Erro ao salvar:", error);
+                alert("Erro ao salvar no Firebase: " + error.message);
+            }
+        }
+
+        async function saveEncryptedToFirebase() {
+            if (!checkFirebase()) return;
+            
+            const docName = document.getElementById('document-name').value || `bloco_cripto_${Date.now()}`;
+            const password = document.getElementById('password').value;
+            
+            if (!password) {
+                alert("Por favor, insira uma senha para criptografia!");
+                return;
+            }
+            
+            try {
+                const json = JSON.stringify(tabs);
+                const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+                
+                await db.collection("blocodenotas").doc(docName).set({
+                    encryptedData: encrypted,
+                    isEncrypted: true,
+                    created: firebase.firestore.FieldValue.serverTimestamp(),
+                    updated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert(`Documento criptografado "${docName}" salvo com sucesso!`);
+            } catch (error) {
+                console.error("Erro ao salvar criptografado:", error);
+                alert("Erro ao salvar no Firebase: " + error.message);
+            }
+        }
+
+        async function loadFromFirebase() {
+            if (!checkFirebase()) return;
+            
+            const docName = document.getElementById('document-name').value;
+            if (!docName) {
+                alert("Por favor, insira o nome do documento!");
+                return;
+            }
+            
+            try {
+                const docRef = db.collection("blocodenotas").doc(docName);
+                const doc = await docRef.get();
+                
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    if (data.isEncrypted) {
+                        alert("Este documento está criptografado. Use 'Carregar Criptografado'.");
+                        return;
+                    }
+                    
+                    tabs = data.tabs || {};
+                    nextTabNumber = Math.max(...Object.keys(tabs).map(Number)) + 1;
+                    activeTab = Object.keys(tabs)[0];
+                    renderTabs();
+                    renderList();
+                    
+                    alert(`Documento "${docName}" carregado com sucesso!`);
+                } else {
+                    alert("Documento não encontrado!");
+                }
+            } catch (error) {
+                console.error("Erro ao carregar:", error);
+                alert("Erro ao carregar do Firebase: " + error.message);
+            }
+        }
+
+        async function loadEncryptedFromFirebase() {
+            if (!checkFirebase()) return;
+            
+            const docName = document.getElementById('document-name').value;
+            const password = document.getElementById('password').value;
+            
+            if (!docName) {
+                alert("Por favor, insira o nome do documento!");
+                return;
+            }
+            
+            if (!password) {
+                alert("Por favor, insira a senha!");
+                return;
+            }
+            
+            try {
+                const docRef = db.collection("blocodenotas").doc(docName);
+                const doc = await docRef.get();
+                
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    if (!data.isEncrypted) {
+                        alert("Este documento não está criptografado. Use 'Carregar do Firebase'.");
+                        return;
+                    }
+                    
+                    const encrypted = data.encryptedData;
+                    const bytes = CryptoJS.AES.decrypt(encrypted, password);
+                    const json = bytes.toString(CryptoJS.enc.Utf8);
+                    
+                    if (!json) {
+                        alert("Senha incorreta!");
+                        return;
+                    }
+                    
+                    tabs = JSON.parse(json);
+                    nextTabNumber = Math.max(...Object.keys(tabs).map(Number)) + 1;
+                    activeTab = Object.keys(tabs)[0];
+                    renderTabs();
+                    renderList();
+                    
+                    alert(`Documento criptografado "${docName}" carregado com sucesso!`);
+                } else {
+                    alert("Documento não encontrado!");
+                }
+            } catch (error) {
+                console.error("Erro ao carregar criptografado:", error);
+                alert("Erro ao carregar do Firebase: " + error.message);
+            }
+        }
+
+        async function listFirebaseDocuments() {
+            if (!checkFirebase()) return;
+            
+            try {
+                const querySnapshot = await db.collection("blocodenotas").get();
+                let documents = [];
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    documents.push({
+                        id: doc.id,
+                        created: data.created ? data.created.toDate().toLocaleString() : 'N/A',
+                        encrypted: data.isEncrypted ? 'Sim' : 'Não'
+                    });
+                });
+                
+                if (documents.length === 0) {
+                    alert("Nenhum documento encontrado na coleção 'blocodenotas'.");
+                    return;
+                }
+                
+                let message = "Documentos na coleção 'blocodenotas':\n\n";
+                documents.forEach(doc => {
+                    message += `Nome: ${doc.id}\n`;
+                    message += `Criptografado: ${doc.encrypted}\n`;
+                    message += `Criado: ${doc.created}\n`;
+                    message += `------------------------\n`;
+                });
+                
+                alert(message);
+            } catch (error) {
+                console.error("Erro ao listar documentos:", error);
+                alert("Erro ao listar documentos: " + error.message);
+            }
+        }
+
+        function renderTabs() {
+            const tabContainer = document.getElementById('tabs');
+            tabContainer.innerHTML = '<button onclick="addTab()">Adicionar Aba</button>';
+            
+            Object.keys(tabs).forEach(tabNumber => {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (tabNumber == activeTab ? ' tab-active' : '');
+                tab.setAttribute('data-tab', tabNumber);
+                tab.textContent = `Aba ${tabNumber}`;
+                tab.addEventListener('click', () => {
+                    document.querySelector('.tab-active').classList.remove('tab-active');
+                    tab.classList.add('tab-active');
+                    activeTab = tabNumber;
+                    renderList();
+                });
+                tabContainer.appendChild(tab);
+            });
+
+            tabContainer.appendChild(document.querySelector('button'));
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('list');
+            listContainer.innerHTML = '';
+
+            if (tabs[activeTab]) {
+                tabs[activeTab].forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'item';
+
+                    const textarea = document.createElement('textarea');
+                    textarea.value = item;
+                    textarea.oninput = () => {
+                        tabs[activeTab][index] = textarea.value;
+                    };
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remover';
+                    removeButton.onclick = () => {
+                        tabs[activeTab].splice(index, 1);
+                        renderList();
+                    };
+
+                    itemDiv.appendChild(textarea);
+                    itemDiv.appendChild(removeButton);
+                    listContainer.appendChild(itemDiv);
+                });
+            }
+        }
+
+        function addTab() {
+            tabs[nextTabNumber] = [];
+            activeTab = nextTabNumber;
+            nextTabNumber++;
+            renderTabs();
+            renderList();
+        }
+
+        function addNewItem() {
+            const newItemInput = document.getElementById('new-item');
+            const newItemText = newItemInput.value.trim();
+            if (newItemText) {
+                tabs[activeTab].push(newItemText);
+                newItemInput.value = '';
+                renderList();
+            }
+        }
+
+        // Funções originais mantidas para compatibilidade
+        function save() {
+            const json = JSON.stringify(tabs);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tabs.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function saveEncrypted() {
+            const json = JSON.stringify(tabs);
+            const password = document.getElementById('password').value;
+            const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+            const blob = new Blob([encrypted], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tabs.encrypted.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function load() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    tabs = JSON.parse(event.target.result);
+                    nextTabNumber = Math.max(...Object.keys(tabs).map(Number)) + 1;
+                    activeTab = Object.keys(tabs)[0];
+                    renderTabs();
+                    renderList();
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function loadEncrypted() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    const encrypted = event.target.result;
+                    const password = document.getElementById('password').value;
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(encrypted, password);
+                        const json = bytes.toString(CryptoJS.enc.Utf8);
+                        tabs = JSON.parse(json);
+                        nextTabNumber = Math.max(...Object.keys(tabs).map(Number)) + 1;
+                        activeTab = Object.keys(tabs)[0];
+                        renderTabs();
+                        renderList();
+                    } catch (e) {
+                        alert('Senha incorreta ou arquivo corrompido.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // Initialize with one tab
+        addTab();
+    </script>
+</body>
+</html>
