@@ -147,10 +147,6 @@
             border-radius: 8px;
             border: 1px solid #ddd;
         }
-        .qr-code img {
-            max-width: 200px;
-            height: auto;
-        }
         .test-link {
             display: inline-block;
             margin-top: 10px;
@@ -164,13 +160,22 @@
         .test-link:hover {
             background-color: #0056b3;
         }
+        .qr-placeholder {
+            width: 200px;
+            height: 200px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            border-radius: 8px;
+            border: 2px dashed #6c757d;
+        }
     </style>
     <!-- Adicione os SDKs do Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <!-- QR Code Library -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -237,7 +242,13 @@
             
             <div class="qr-code" id="qrCodeContainer">
                 <p><strong>QR Code do Link Curto:</strong></p>
-                <div id="qrcode"></div>
+                <div class="qr-placeholder" id="qrPlaceholder">
+                    <p style="color: #6c757d; text-align: center;">
+                        <i class="fas fa-qrcode" style="font-size: 48px; margin-bottom: 10px;"></i><br>
+                        QR Code disponível<br>
+                        ao gerar link
+                    </p>
+                </div>
                 <p>Escaneie para testar no celular</p>
             </div>
             
@@ -413,6 +424,8 @@
             const userName = currentUser.displayName || currentUser.email || 'Usuário Anônimo';
 
             try {
+                console.log('Iniciando salvamento no Firebase...');
+                
                 const docRef = await db.collection('redirecionamento').add({
                     delayTime: parseInt(delay),
                     targetUrl: url,
@@ -427,17 +440,30 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                console.log('Documento salvo com ID:', docRef.id);
                 lastSavedDocId = docRef.id;
                 
-                // Mostrar o container com os links
+                // Mostrar o container com os links (SEM QR Code por enquanto)
                 showLinks(docRef.id, url, delay, message);
                 
                 showStatus(`✅ Redirecionamento salvo com sucesso! ID: ${docRef.id}`, 'success');
-                console.log('Documento salvo com ID: ', docRef.id);
                 
             } catch (error) {
                 console.error('Erro ao salvar no Firebase: ', error);
-                showStatus(`❌ Erro ao salvar: ${error.message}`, 'error');
+                let errorMessage = `❌ Erro ao salvar: ${error.message}`;
+                
+                // Tratamento específico para diferentes erros
+                if (error.code === 'permission-denied') {
+                    errorMessage += '\n\n🔒 Verifique as regras de segurança do Firestore:';
+                    errorMessage += '\n1. Vá para Firebase Console > Firestore Database > Regras';
+                    errorMessage += '\n2. Use regras temporárias para desenvolvimento:';
+                    errorMessage += '\n   allow read, write: if true;';
+                } else if (error.code === 'failed-precondition') {
+                    errorMessage += '\n\n⚠️ O Firestore pode não estar habilitado.';
+                    errorMessage += '\nVá para Firebase Console > Firestore Database > Criar banco de dados';
+                }
+                
+                showStatus(errorMessage, 'error');
             }
         }
 
@@ -445,40 +471,101 @@
             const baseUrl = 'https://wazzimagiygg.com';
             
             // Atualizar links
-            document.getElementById('shortLink').textContent = `${baseUrl}/r/?id=${docId}`;
-            document.getElementById('fullLink').textContent = `${baseUrl}/redirect.html?id=${docId}`;
-            document.getElementById('directLink').textContent = `${baseUrl}/redirect.html?id=${docId}&target=${encodeURIComponent(targetUrl)}&time=${delay}&msg=${encodeURIComponent(message)}`;
+            const shortLink = `${baseUrl}/r/?id=${docId}`;
+            const fullLink = `${baseUrl}/redirect.html?id=${docId}`;
+            const directLink = `${baseUrl}/redirect.html?id=${docId}&target=${encodeURIComponent(targetUrl)}&time=${delay}&msg=${encodeURIComponent(message)}`;
+            
+            document.getElementById('shortLink').textContent = shortLink;
+            document.getElementById('fullLink').textContent = fullLink;
+            document.getElementById('directLink').textContent = directLink;
             
             // Atualizar link de teste
-            document.getElementById('testLink').href = `${baseUrl}/redirect.html?id=${docId}`;
-            
-            // Gerar QR Code
-            generateQRCode(`${baseUrl}/r/?id=${docId}`);
+            document.getElementById('testLink').href = fullLink;
             
             // Mostrar container
             document.getElementById('linkContainer').style.display = 'block';
             
             // Scroll para os links
             document.getElementById('linkContainer').scrollIntoView({ behavior: 'smooth' });
+            
+            // Tentar carregar QR Code opcionalmente
+            loadQRCodeIfAvailable(shortLink);
+        }
+
+        // Função para tentar carregar QR Code se a biblioteca estiver disponível
+        function loadQRCodeIfAvailable(url) {
+            // Tentar carregar a biblioteca QRCode dinamicamente
+            if (typeof QRCode === 'undefined') {
+                // Tentar carregar a biblioteca
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+                script.onload = () => {
+                    if (typeof QRCode !== 'undefined') {
+                        generateQRCode(url);
+                    }
+                };
+                script.onerror = () => {
+                    console.log('Biblioteca QRCode não disponível, usando placeholder');
+                    updateQRCodePlaceholder(url);
+                };
+                document.head.appendChild(script);
+            } else {
+                generateQRCode(url);
+            }
         }
 
         function generateQRCode(url) {
-            const qrcodeContainer = document.getElementById('qrcode');
-            qrcodeContainer.innerHTML = '';
-            
-            QRCode.toCanvas(qrcodeContainer, url, {
-                width: 200,
-                margin: 2,
-                color: {
-                    dark: '#000000',
-                    light: '#FFFFFF'
+            try {
+                const qrcodeContainer = document.getElementById('qrCodeContainer');
+                const placeholder = document.getElementById('qrPlaceholder');
+                
+                if (placeholder) {
+                    placeholder.style.display = 'none';
                 }
-            }, function (error) {
-                if (error) {
-                    console.error('Erro ao gerar QR Code:', error);
-                    qrcodeContainer.innerHTML = '<p style="color: red;">Erro ao gerar QR Code</p>';
+                
+                // Limpar container
+                let canvasContainer = document.getElementById('qrcodeCanvas');
+                if (!canvasContainer) {
+                    canvasContainer = document.createElement('div');
+                    canvasContainer.id = 'qrcodeCanvas';
+                    qrcodeContainer.insertBefore(canvasContainer, qrcodeContainer.querySelector('p:last-child'));
                 }
-            });
+                canvasContainer.innerHTML = '';
+                
+                // Gerar QR Code
+                QRCode.toCanvas(canvasContainer, url, {
+                    width: 200,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
+                }, function (error) {
+                    if (error) {
+                        console.error('Erro ao gerar QR Code:', error);
+                        updateQRCodePlaceholder(url);
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao tentar gerar QR Code:', error);
+                updateQRCodePlaceholder(url);
+            }
+        }
+
+        function updateQRCodePlaceholder(url) {
+            const placeholder = document.getElementById('qrPlaceholder');
+            if (placeholder) {
+                placeholder.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fas fa-exclamation-triangle" style="color: #f59e0b; font-size: 48px; margin-bottom: 10px;"></i>
+                        <p style="color: #6c757d;">
+                            QR Code não disponível<br>
+                            <small>Use o link: ${url.substring(0, 30)}...</small>
+                        </p>
+                    </div>
+                `;
+                placeholder.style.display = 'flex';
+            }
         }
 
         function copyToClipboard(elementId) {
