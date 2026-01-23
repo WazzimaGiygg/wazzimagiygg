@@ -891,32 +891,6 @@
         <!-- ÁREA DO DESKTOP COM ÍCONES -->
         <div id="desktop-area" class="desktop-area"></div>
         
-        <!-- MENU DE CONTEXTO -->
-        <div id="contextMenu" class="context-menu">
-            <div class="context-menu-item" id="addShortcutBtn">
-                <img src="iconmagic.png" alt="➕"> Adicionar Atalho
-            </div>
-            <div class="context-menu-item" id="refreshDesktopBtn">
-                <img src="iconmagic.png" alt="🔄"> Atualizar Desktop
-            </div>
-        </div>
-
-        <!-- MODAL PARA ADICIONAR ATALHO -->
-        <div id="addShortcutModal" class="modal-overlay">
-            <div class="modal">
-                <h3>➕ Adicionar Novo Atalho</h3>
-                <input type="text" id="shortcutUid" class="modal-input" placeholder="UID (ex: Z0Zcls5UCuJBectED5)">
-                <input type="text" id="shortcutCollection" class="modal-input" placeholder="Coleção (ex: materiadeensaio)">
-                <input type="text" id="shortcutTitle" class="modal-input" placeholder="Título do Atalho">
-                <input type="text" id="shortcutIcon" class="modal-input" placeholder="URL do Ícone (opcional)">
-                
-                <div class="modal-buttons">
-                    <button class="modal-button secondary" id="cancelShortcutBtn">Cancelar</button>
-                    <button class="modal-button primary" id="saveShortcutBtn">Salvar Atalho</button>
-                </div>
-            </div>
-        </div>
-
         <!-- BARRA DE TAREFAS -->
         <div class="taskbar">
             <div class="taskbar-left">
@@ -995,6 +969,7 @@
         const JSON_URL = 'cidades_sancionadas.json';
         const GRID_SIZE = 16;
         const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
+        const DESKTOP_COLLECTION = "desktop";
 
         // ============================================
         // ELEMENTOS DO DOM
@@ -1003,19 +978,7 @@
         const loginBtn = document.getElementById("loginBtn");
         const desktop = document.getElementById("desktop");
         const desktopArea = document.getElementById("desktop-area");
-        const contextMenu = document.getElementById("contextMenu");
-        const addShortcutModal = document.getElementById("addShortcutModal");
         
-        // Elementos do modal
-        const shortcutUid = document.getElementById("shortcutUid");
-        const shortcutCollection = document.getElementById("shortcutCollection");
-        const shortcutTitle = document.getElementById("shortcutTitle");
-        const shortcutIcon = document.getElementById("shortcutIcon");
-        const saveShortcutBtn = document.getElementById("saveShortcutBtn");
-        const cancelShortcutBtn = document.getElementById("cancelShortcutBtn");
-        const addShortcutBtn = document.getElementById("addShortcutBtn");
-        const refreshDesktopBtn = document.getElementById("refreshDesktopBtn");
-
         // Menus e taskbar
         const startMenu = document.getElementById("startMenu");
         const adminMenu = document.getElementById("adminMenu");
@@ -1041,86 +1004,58 @@
         let draggedIconId = null;
         let saveTimeout = null;
         let hasUnsavedChanges = false;
+        let dynamicLinks = {
+            all: [],
+            iniciar: [],
+            admin: [],
+            ferramentas: []
+        };
 
         // ============================================
         // GERENCIADOR DE DESKTOP
         // ============================================
         const desktopManager = {
-            // Carregar ícones do usuário
+            // Carregar ícones do usuário da coleção desktop
             loadIcons: async function(userId) {
                 try {
-                    const userDocRef = doc(db, "user_desktop", userId);
-                    const userDocSnap = await getDoc(userDocRef);
+                    const userDesktopRef = doc(db, DESKTOP_COLLECTION, userId);
+                    const userDocSnap = await getDoc(userDesktopRef);
                     
                     if (userDocSnap.exists()) {
-                        desktopIcons = userDocSnap.data().icons || [];
-                        console.log(`📁 Carregados ${desktopIcons.length} ícones do desktop`);
+                        desktopIcons = userDocSnap.data().shortcuts || [];
+                        console.log(`📁 Carregados ${desktopIcons.length} atalhos do desktop`);
                     } else {
                         desktopIcons = [];
                         // Criar documento vazio para o usuário
-                        await setDoc(userDocRef, { icons: [] });
+                        await setDoc(userDesktopRef, { shortcuts: [] });
                         console.log("📁 Criado novo desktop para usuário");
                     }
                     
                     this.renderIcons();
                 } catch (error) {
-                    console.error("❌ Erro ao carregar ícones do desktop:", error);
+                    console.error("❌ Erro ao carregar atalhos do desktop:", error);
                     desktopIcons = [];
                     this.renderIcons();
                 }
             },
             
-            // Salvar ícones no Firebase com debounce
-            saveIcons: function() {
+            // Salvar ícones no Firebase
+            saveIcons: async function() {
                 if (!currentUser) {
                     console.log("⚠️ Usuário não autenticado, não é possível salvar");
                     return;
                 }
                 
-                // Marcar que há mudanças não salvas
-                hasUnsavedChanges = true;
-                
-                // Cancelar timeout anterior
-                if (saveTimeout) {
-                    clearTimeout(saveTimeout);
-                }
-                
-                // Agendar salvamento (debounce de 2 segundos)
-                saveTimeout = setTimeout(async () => {
-                    try {
-                        const userDocRef = doc(db, "user_desktop", currentUser.uid);
-                        await updateDoc(userDocRef, { icons: desktopIcons });
-                        console.log("💾 Ícones do desktop salvos automaticamente");
-                        hasUnsavedChanges = false;
-                        
-                        // Mostrar notificação visual
-                        this.showSaveNotification("Desktop salvo!");
-                    } catch (error) {
-                        console.error("❌ Erro ao salvar ícones:", error);
-                        this.showSaveNotification("Erro ao salvar!", true);
-                    }
-                }, 2000);
-            },
-            
-            // Salvar imediatamente (sem debounce)
-            saveIconsImmediately: async function() {
-                if (!currentUser) return;
-                
-                // Cancelar timeout pendente
-                if (saveTimeout) {
-                    clearTimeout(saveTimeout);
-                }
-                
                 try {
-                    const userDocRef = doc(db, "user_desktop", currentUser.uid);
-                    await updateDoc(userDocRef, { icons: desktopIcons });
-                    console.log("💾 Ícones do desktop salvos imediatamente");
+                    const userDesktopRef = doc(db, DESKTOP_COLLECTION, currentUser.uid);
+                    await updateDoc(userDesktopRef, { shortcuts: desktopIcons });
+                    console.log("💾 Atalhos do desktop salvos");
                     hasUnsavedChanges = false;
                     
                     // Mostrar notificação visual
                     this.showSaveNotification("Desktop salvo!");
                 } catch (error) {
-                    console.error("❌ Erro ao salvar ícones:", error);
+                    console.error("❌ Erro ao salvar atalhos:", error);
                     this.showSaveNotification("Erro ao salvar!", true);
                 }
             },
@@ -1229,31 +1164,108 @@
                 }
             },
             
-            // Adicionar novo atalho
-            addShortcut: function(uid, collection, title, iconUrl = 'iconmagic.png') {
-                // Encontrar primeira posição vazia
-                let emptyPosition = this.findEmptyPosition();
-                
+            // Adicionar novo atalho vazio
+            addEmptyShortcut: function() {
+                const emptyPosition = this.findEmptyPosition();
                 if (!emptyPosition) {
                     alert("❌ Não há espaço disponível no desktop (16x16 slots ocupados)");
                     return;
                 }
                 
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+                modal.innerHTML = `
+                    <div class="modal">
+                        <h3>➕ Adicionar Novo Atalho</h3>
+                        <input type="text" id="shortcutTitle" class="modal-input" placeholder="Título do Atalho" autofocus>
+                        <input type="text" id="shortcutUrl" class="modal-input" placeholder="URL (ex: https://...)">
+                        <input type="text" id="shortcutIcon" class="modal-input" placeholder="URL do Ícone (opcional)">
+                        
+                        <div class="modal-buttons">
+                            <button class="modal-button secondary" id="cancelBtn">Cancelar</button>
+                            <button class="modal-button primary" id="saveBtn">Salvar Atalho</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                modal.style.display = 'flex';
+                
+                // Eventos
+                modal.querySelector('#cancelBtn').onclick = () => {
+                    modal.remove();
+                };
+                
+                modal.querySelector('#saveBtn').onclick = () => {
+                    const title = modal.querySelector('#shortcutTitle').value.trim();
+                    const url = modal.querySelector('#shortcutUrl').value.trim();
+                    const icon = modal.querySelector('#shortcutIcon').value.trim() || 'iconmagic.png';
+                    
+                    if (!title || !url) {
+                        alert("❌ Por favor, preencha título e URL");
+                        return;
+                    }
+                    
+                    this.addShortcutFromUrl(title, url, icon);
+                    modal.remove();
+                };
+                
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                };
+            },
+            
+            // Adicionar atalho de URL
+            addShortcutFromUrl: function(title, url, iconUrl = 'iconmagic.png') {
+                const emptyPosition = this.findEmptyPosition();
+                if (!emptyPosition) {
+                    alert("❌ Não há espaço disponível no desktop");
+                    return;
+                }
+                
                 const newIcon = {
                     id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                    uid: uid,
-                    collection: collection,
                     title: title,
+                    url: url,
                     icon: iconUrl,
                     position: emptyPosition,
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
+                    type: 'custom'
                 };
                 
                 desktopIcons.push(newIcon);
-                this.saveIcons(); // Salvar automaticamente
+                this.saveIcons();
                 this.renderIcons();
                 
-                console.log(`➕ Atalho adicionado: ${title} em ${emptyPosition.x},${emptyPosition.y}`);
+                console.log(`➕ Atalho customizado adicionado: ${title}`);
+            },
+            
+            // Adicionar atalho de link dinâmico
+            addDynamicShortcut: function(link) {
+                const emptyPosition = this.findEmptyPosition();
+                if (!emptyPosition) {
+                    alert("❌ Não há espaço disponível no desktop");
+                    return;
+                }
+                
+                const newIcon = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    title: link.name,
+                    url: link.url,
+                    icon: link.iconUrl || 'iconmagic.png',
+                    position: emptyPosition,
+                    createdAt: new Date().toISOString(),
+                    type: 'dynamic',
+                    originalData: link
+                };
+                
+                desktopIcons.push(newIcon);
+                this.saveIcons();
+                this.renderIcons();
+                
+                console.log(`➕ Atalho dinâmico adicionado: ${link.name}`);
             },
             
             // Encontrar posição vazia
@@ -1286,7 +1298,7 @@
                     
                     if (!occupied) {
                         desktopIcons[iconIndex].position = newPosition;
-                        this.saveIcons(); // Salvar automaticamente
+                        this.saveIcons();
                         this.renderIcons();
                         console.log(`➡️ Ícone movido para ${newPosition.x},${newPosition.y}`);
                         return true;
@@ -1301,29 +1313,69 @@
             // Remover ícone
             removeIcon: function(iconId) {
                 desktopIcons = desktopIcons.filter(icon => icon.id !== iconId);
-                this.saveIcons(); // Salvar automaticamente
+                this.saveIcons();
                 this.renderIcons();
                 console.log("🗑️ Ícone removido");
             },
             
             // Abrir atalho
             openShortcut: function(icon) {
-                const url = `https://wazzimagiygg.com/central/uid/?uid=${icon.uid}&collection=${icon.collection}`;
-                windowManager.createWindow(icon.title, url, icon.icon || 'iconmagic.png');
+                if (icon.url) {
+                    windowManager.createWindow(icon.title, icon.url, icon.icon);
+                } else {
+                    // Backward compatibility
+                    const url = `https://wazzimagiygg.com/central/uid/?uid=${icon.uid}&collection=${icon.collection}`;
+                    windowManager.createWindow(icon.title, url, icon.icon);
+                }
             },
             
-            // Menu de contexto para desktop
+            // Mostrar menu de contexto do desktop
             showDesktopContextMenu: function(e, x, y) {
                 e.preventDefault();
                 
-                contextMenu.style.left = e.clientX + 'px';
-                contextMenu.style.top = e.clientY + 'px';
-                contextMenu.style.display = 'block';
+                const menu = document.createElement('div');
+                menu.className = 'context-menu';
+                menu.innerHTML = `
+                    <div class="context-menu-item" id="addCustomShortcutBtn">
+                        <img src="iconmagic.png" alt="➕"> Adicionar Atalho Customizado
+                    </div>
+                    <div class="context-menu-item" id="addDynamicShortcutBtn">
+                        <img src="iconmagic.png" alt="📚"> Adicionar dos Links Dinâmicos
+                    </div>
+                    <hr style="margin: 5px 0; border-color: rgba(255,255,255,0.1);">
+                    <div class="context-menu-item" id="refreshDesktopBtn">
+                        <img src="iconmagic.png" alt="🔄"> Atualizar Desktop
+                    </div>
+                `;
+                
+                menu.style.left = e.clientX + 'px';
+                menu.style.top = e.clientY + 'px';
+                menu.style.display = 'block';
+                
+                document.body.appendChild(menu);
+                
+                // Eventos
+                menu.querySelector('#addCustomShortcutBtn').onclick = () => {
+                    this.addEmptyShortcut();
+                    menu.remove();
+                };
+                
+                menu.querySelector('#addDynamicShortcutBtn').onclick = async () => {
+                    await this.showDynamicLinksModal();
+                    menu.remove();
+                };
+                
+                menu.querySelector('#refreshDesktopBtn').onclick = () => {
+                    this.renderIcons();
+                    menu.remove();
+                };
                 
                 // Fechar menu ao clicar fora
                 setTimeout(() => {
                     const closeMenu = () => {
-                        contextMenu.style.display = 'none';
+                        if (menu.parentNode) {
+                            menu.remove();
+                        }
                         document.removeEventListener('click', closeMenu);
                     };
                     document.addEventListener('click', closeMenu, { once: true });
@@ -1376,13 +1428,95 @@
                 }, 100);
             },
             
-            hideContextMenu: function() {
-                contextMenu.style.display = 'none';
+            // Mostrar modal com links dinâmicos para adicionar
+            showDynamicLinksModal: async function() {
+                try {
+                    // Usar links dinâmicos já carregados
+                    if (dynamicLinks.all.length === 0) {
+                        alert("⚠️ Nenhum link dinâmico disponível no momento");
+                        return;
+                    }
+                    
+                    // Criar modal
+                    const modal = document.createElement('div');
+                    modal.className = 'modal-overlay';
+                    modal.innerHTML = `
+                        <div class="modal" style="max-width: 600px; max-height: 70vh; overflow: hidden; display: flex; flex-direction: column;">
+                            <h3>📚 Adicionar Atalho dos Links Dinâmicos</h3>
+                            <div style="flex: 1; overflow-y: auto; margin-bottom: 20px;">
+                                <div id="dynamicLinksList" style="display: grid; gap: 8px;"></div>
+                            </div>
+                            <div class="modal-buttons">
+                                <button class="modal-button secondary" id="cancelModalBtn">Cancelar</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+                    modal.style.display = 'flex';
+                    
+                    // Preencher lista de links
+                    const linksList = modal.querySelector('#dynamicLinksList');
+                    dynamicLinks.all.forEach(link => {
+                        const linkElement = document.createElement('div');
+                        linkElement.className = 'context-menu-item';
+                        linkElement.style.cssText = `
+                            display: flex;
+                            align-items: center;
+                            padding: 10px;
+                            cursor: pointer;
+                            border-radius: 8px;
+                            margin: 2px 0;
+                            background: rgba(255,255,255,0.05);
+                        `;
+                        linkElement.innerHTML = `
+                            <img src="${link.iconUrl || 'iconmagic.png'}" alt="icon" style="width: 24px; height: 24px; margin-right: 10px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500;">${link.name}</div>
+                                <div style="font-size: 12px; opacity: 0.7; word-break: break-all;">${link.url.substring(0, 60)}${link.url.length > 60 ? '...' : ''}</div>
+                                <div style="font-size: 11px; opacity: 0.5;">Categoria: ${link.menu_target}</div>
+                            </div>
+                            <button class="add-link-btn" style="background: #0078d7; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                Adicionar
+                            </button>
+                        `;
+                        
+                        linkElement.querySelector('.add-link-btn').onclick = (e) => {
+                            e.stopPropagation();
+                            this.addDynamicShortcut(link);
+                            modal.remove();
+                        };
+                        
+                        linkElement.onclick = (e) => {
+                            if (!e.target.closest('.add-link-btn')) {
+                                windowManager.createWindow(link.name, link.url, link.iconUrl);
+                                modal.remove();
+                            }
+                        };
+                        
+                        linksList.appendChild(linkElement);
+                    });
+                    
+                    // Eventos do modal
+                    modal.querySelector('#cancelModalBtn').onclick = () => {
+                        modal.remove();
+                    };
+                    
+                    modal.onclick = (e) => {
+                        if (e.target === modal) {
+                            modal.remove();
+                        }
+                    };
+                    
+                } catch (error) {
+                    console.error("❌ Erro ao carregar links dinâmicos:", error);
+                    alert("❌ Erro ao carregar links dinâmicos");
+                }
             },
             
-            // Forçar salvamento agora
+            // Forçar salvamento
             forceSave: function() {
-                return this.saveIconsImmediately();
+                return this.saveIcons();
             }
         };
 
@@ -1453,101 +1587,6 @@
                 const x = parseInt(cell.dataset.x);
                 const y = parseInt(cell.dataset.y);
                 desktopManager.showDesktopContextMenu(e, x, y);
-            }
-        });
-
-        // ============================================
-        // MODAL DE ADICIONAR ATALHO
-        // ============================================
-        saveShortcutBtn.addEventListener('click', async () => {
-            const uid = shortcutUid.value.trim();
-            const collection = shortcutCollection.value.trim();
-            const title = shortcutTitle.value.trim();
-            const iconUrl = shortcutIcon.value.trim() || 'iconmagic.png';
-            
-            if (!uid || !collection || !title) {
-                alert("❌ Por favor, preencha todos os campos obrigatórios");
-                return;
-            }
-            
-            // Validar UID (exemplo básico)
-            if (uid.length < 10) {
-                alert("❌ UID muito curto");
-                return;
-            }
-            
-            desktopManager.addShortcut(uid, collection, title, iconUrl);
-            
-            // Limpar e fechar modal
-            shortcutUid.value = '';
-            shortcutCollection.value = '';
-            shortcutTitle.value = '';
-            shortcutIcon.value = '';
-            addShortcutModal.style.display = 'none';
-        });
-
-        cancelShortcutBtn.addEventListener('click', () => {
-            addShortcutModal.style.display = 'none';
-        });
-
-        // Fechar modal ao clicar fora
-        addShortcutModal.addEventListener('click', (e) => {
-            if (e.target === addShortcutModal) {
-                addShortcutModal.style.display = 'none';
-            }
-        });
-
-        // Botão para adicionar atalho no menu de contexto
-        addShortcutBtn.addEventListener('click', () => {
-            desktopManager.hideContextMenu();
-            addShortcutModal.style.display = 'flex';
-            
-            // Preencher com valores da área de transferência
-            navigator.clipboard.readText().then(text => {
-                if (text && text.length > 10) {
-                    shortcutUid.value = text;
-                }
-            }).catch(() => {});
-        });
-
-        // Botão para atualizar desktop
-        refreshDesktopBtn.addEventListener('click', () => {
-            desktopManager.hideContextMenu();
-            desktopManager.renderIcons();
-        });
-
-        // ============================================
-        // SISTEMA DE SALVAMENTO AUTOMÁTICO
-        // ============================================
-
-        // Salvar quando a página for fechada ou atualizada
-        window.addEventListener('beforeunload', (e) => {
-            if (hasUnsavedChanges && currentUser) {
-                e.preventDefault();
-                e.returnValue = 'Você tem alterações não salvas no desktop. Deseja sair mesmo assim?';
-                return e.returnValue;
-            }
-        });
-
-        // Salvar quando a página perder foco
-        window.addEventListener('blur', () => {
-            if (hasUnsavedChanges) {
-                desktopManager.forceSave();
-            }
-        });
-
-        // Salvar periodicamente a cada 30 segundos (backup)
-        setInterval(() => {
-            if (hasUnsavedChanges && currentUser) {
-                console.log("⏰ Salvamento periódico...");
-                desktopManager.saveIconsImmediately();
-            }
-        }, 30000);
-
-        // Salvar quando o usuário mudar de aba
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && hasUnsavedChanges) {
-                desktopManager.forceSave();
             }
         });
 
@@ -1878,7 +1917,7 @@
                 await checkNotifications();
                 
                 // Salvar estado inicial
-                desktopManager.saveIconsImmediately();
+                desktopManager.saveIcons();
                 
             } else {
                 currentUser = null;
@@ -1993,6 +2032,14 @@
                 const linksParaAdmin = allLinksFromDB.filter(item => item.menu_target === 'wiki_pedia');
                 const linksParaFerramentas = allLinksFromDB.filter(item => item.menu_target === 'ferramentas');
 
+                // GUARDAR OS LINKS DINÂMICOS GLOBALMENTE
+                dynamicLinks = {
+                    all: allLinksFromDB,
+                    iniciar: linksParaIniciar,
+                    admin: linksParaAdmin,
+                    ferramentas: linksParaFerramentas
+                };
+
                 const staticStartLinks = [
                     { name: '📄 Termos de Serviço', url: 'Termos%20de%20Servi%C3%A7o.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
                     { name: '🔒 Política de Privacidade', url: 'Pol%C3%ADtica%20de%20Privacidade.pdf', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
@@ -2004,14 +2051,14 @@
 
                 const staticAdminLinks = [
                     { name: "🔐 Wiki do Metropolitano", url: "https://wazzimagiygg.com/r/?id=BE9GfNNJY8hNJHcNiRow", menu_target: 'wiki_pedia' },
-                    { name: "📝 Criar um artigo", url: "https://wazzimagiygg.com/central/?uid=materiadeensaio", menu_target: 'wiki_pedia' }, //paginas/criptografia/
+                    { name: "📝 Criar um artigo", url: "https://wazzimagiygg.com/central/?uid=materiadeensaio", menu_target: 'wiki_pedia' },
                     { name: '🔐 Gerador de Criptografia', url: 'https://jsonmulti-tabviewer.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
                     { name: '📝 Criptografia de Texto', url: 'https://ciphersafex.wazzimagiygg.com', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
                     { name: '📄 Editor Quill Sync', url: 'https://quill-sync.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
                     { name: '📊 Tab Writer', url: 'https://tabwriter.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
                     { name: '🔒 Encrypto JSON', url: 'https://encryptojson.wazzimagiygg.com/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
                     { name: '🔀 File Scrambler', url: 'https://file-scrambler.vercel.app', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
-                    { name: '📚 Bibliotecas de Estudo', url: 'https://wazzimagiygg.com/bibliotecas/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' }, ///donate/
+                    { name: '📚 Bibliotecas de Estudo', url: 'https://wazzimagiygg.com/bibliotecas/', iconUrl: 'iconmagic.png', menu_target: 'menu_iniciar' },
                     { name: "💬 Chat (Contato)", url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", menu_target: 'wiki_pedia' }
                 ];
 
@@ -2330,9 +2377,44 @@
         });
 
         // ============================================
+        // SISTEMA DE SALVAMENTO AUTOMÁTICO
+        // ============================================
+
+        // Salvar quando a página for fechada ou atualizada
+        window.addEventListener('beforeunload', (e) => {
+            if (hasUnsavedChanges && currentUser) {
+                e.preventDefault();
+                e.returnValue = 'Você tem alterações não salvas no desktop. Deseja sair mesmo assim?';
+                return e.returnValue;
+            }
+        });
+
+        // Salvar quando a página perder foco
+        window.addEventListener('blur', () => {
+            if (hasUnsavedChanges) {
+                desktopManager.forceSave();
+            }
+        });
+
+        // Salvar periodicamente a cada 30 segundos (backup)
+        setInterval(() => {
+            if (hasUnsavedChanges && currentUser) {
+                console.log("⏰ Salvamento periódico...");
+                desktopManager.forceSave();
+            }
+        }, 30000);
+
+        // Salvar quando o usuário mudar de aba
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && hasUnsavedChanges) {
+                desktopManager.forceSave();
+            }
+        });
+
+        // ============================================
         // INICIALIZAÇÃO DO SISTEMA
         // ============================================
-        console.log("🚀 Sistema Wiki Not Pedia WZZM inicializado");
+        console.log("🚀 Sistema Wiki Not Pedia WZZM com Desktop Dinâmico inicializado");
 
         // Adicionar estilos para animações
         const animationsStyle = document.createElement('style');
