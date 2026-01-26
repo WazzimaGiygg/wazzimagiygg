@@ -140,6 +140,18 @@
             border-left: 3px solid #dc2626;
         }
 
+        .message.warning {
+            background-color: #fffbeb;
+            color: #d97706;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .message.info {
+            background-color: #eff6ff;
+            color: #2563eb;
+            border-left: 3px solid #3b82f6;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -230,6 +242,7 @@
         // Inicializar Firebase
         try {
             firebase.initializeApp(firebaseConfig);
+            console.log('Firebase inicializado com sucesso');
         } catch (error) {
             console.error('Erro ao inicializar Firebase:', error);
             showMessage('Erro ao conectar ao banco de dados.', 'error');
@@ -240,6 +253,19 @@
         // Elementos da interface
         const articleContent = document.getElementById('articleContent');
         const messageArea = document.getElementById('messageArea');
+
+        // Coleções válidas
+        const validCollections = [
+            'materiadeensaio', 
+            'wikiworldweb', 
+            'materias', 
+            'wikicodigo',
+            'materia', 
+            'academico', 
+            'userpage', 
+            'historicodecontribuicoes',
+            'admin'
+        ];
 
         // Funções auxiliares
         function formatDate(timestamp) {
@@ -254,30 +280,32 @@
 
         function showMessage(text, type = 'info') {
             messageArea.innerHTML = `<div class="message ${type}">${text}</div>`;
-            setTimeout(() => {
-                messageArea.innerHTML = '';
-            }, 5000);
         }
 
         function showLoading() {
             articleContent.innerHTML = '<div class="loading">Carregando artigo...</div>';
         }
 
+        // Normalizar nome da coleção (remove ":433" e outros parâmetros)
+        function normalizeCollection(collection) {
+            if (!collection) return 'materiadeensaio';
+            
+            // Remove tudo depois de ":" se existir
+            const baseCollection = collection.split(':')[0].toLowerCase();
+            
+            // Verifica se é uma coleção válida
+            return validCollections.includes(baseCollection) ? baseCollection : 'materiadeensaio';
+        }
+
         // Carregar artigo do Firestore
         async function loadArticleFromFirestore(uid, collection) {
             try {
-                const normalizedCollection = collection.toLowerCase();
+                const normalizedCollection = normalizeCollection(collection);
                 const docRef = db.collection(normalizedCollection).doc(uid);
                 const doc = await docRef.get();
                 
                 if (doc.exists) {
                     const data = doc.data();
-                    
-                    // Apenas artigos públicos no visualizador
-                    if (data.restrito) {
-                        return null;
-                    }
-                    
                     return {
                         id: uid,
                         collection: normalizedCollection,
@@ -288,7 +316,16 @@
                 return null;
                 
             } catch (error) {
-                throw error;
+                console.error('Erro ao carregar artigo:', error);
+                
+                // Tratar erros específicos do Firebase
+                if (error.code === 'permission-denied') {
+                    throw new Error('Permissão negada. Este artigo pode ser restrito ou a coleção não existe.');
+                } else if (error.code === 'not-found') {
+                    throw new Error('Coleção não encontrada.');
+                } else {
+                    throw error;
+                }
             }
         }
 
@@ -313,6 +350,11 @@
                 `;
             }
 
+            // Verificar se o artigo é restrito
+            const isRestricted = article.restrito === true;
+            const accessText = isRestricted ? 'Restrito' : 'Público';
+            const accessClass = isRestricted ? 'warning' : 'info';
+
             articleContent.innerHTML = `
                 <div class="article-container">
                     <h1 class="article-title">${article.titulo || 'Artigo sem título'}</h1>
@@ -320,9 +362,15 @@
                     <div class="article-meta">
                         <span>UID: ${article.id}</span>
                         <span>Coleção: ${article.collection}</span>
-                        <span>Acesso: Público</span>
+                        <span>Acesso: ${accessText}</span>
                         ${article.criadoEm ? `<span>Criado em: ${formatDate(article.criadoEm)}</span>` : ''}
                     </div>
+                    
+                    ${isRestricted ? `
+                        <div class="message warning">
+                            <strong>Atenção:</strong> Este artigo tem acesso restrito. Algumas informações podem não estar disponíveis.
+                        </div>
+                    ` : ''}
                     
                     <div class="article-section">
                         <h2>Descrição</h2>
@@ -355,6 +403,7 @@
                         <p>${message}</p>
                         <p class="text-sm text-gray mt-4">
                             Verifique se o UID e coleção estão corretos na URL.
+                            <br>Formato correto: <code>?uid=SEU_UID&collection=SUA_COLECAO</code>
                         </p>
                     </div>
                 `;
@@ -389,54 +438,75 @@
                 
                 // Buscar em todas as coleções se for "todos"
                 if (collection.toLowerCase() === 'todos') {
-                    // Lista de coleções para buscar
-                    const collections = [
-                        'materiadeensaio', 'wikiworldweb', 'materias', 'wikicodigo',
-                        'materia', 'academico', 'userpage', 'historicodecontribuicoes'
-                    ];
-                    
                     let foundArticle = null;
+                    let lastError = null;
                     
-                    for (const col of collections) {
+                    // Tentar cada coleção válida
+                    for (const col of validCollections) {
                         try {
+                            console.log(`Buscando na coleção: ${col}`);
                             const article = await loadArticleFromFirestore(uid, col);
                             if (article) {
                                 foundArticle = article;
+                                console.log(`Artigo encontrado na coleção: ${col}`);
                                 break;
                             }
                         } catch (error) {
+                            console.log(`Erro na coleção ${col}:`, error.message);
+                            lastError = error;
                             continue;
                         }
                     }
                     
                     if (foundArticle) {
                         displayArticle(foundArticle);
-                        showMessage(`Artigo encontrado na coleção: ${foundArticle.collection}`, 'success');
+                        showMessage(`Artigo encontrado na coleção: ${foundArticle.collection}`, 'info');
                     } else {
-                        showEmptyState(`Nenhum artigo público encontrado com UID: ${uid}`);
-                        showMessage('Artigo não encontrado.', 'error');
+                        const errorMsg = lastError ? `Erro: ${lastError.message}` : '';
+                        showEmptyState(`Nenhum artigo encontrado com UID: ${uid} em nenhuma coleção. ${errorMsg}`);
+                        showMessage('Artigo não encontrado em nenhuma coleção.', 'error');
                     }
                 } else {
                     // Buscar em coleção específica
+                    console.log(`Buscando: UID=${uid}, Coleção=${collection}`);
                     const article = await loadArticleFromFirestore(uid, collection);
                     
                     if (article) {
                         displayArticle(article);
-                        showMessage('Artigo carregado com sucesso!', 'success');
+                        showMessage('Artigo carregado com sucesso!', 'info');
                     } else {
-                        showEmptyState(`Nenhum artigo público encontrado com UID: ${uid} na coleção: ${collection}.`);
+                        showEmptyState(`Nenhum artigo encontrado com UID: ${uid} na coleção: ${collection}.`);
                         showMessage('Artigo não encontrado.', 'error');
                     }
                 }
                 
             } catch (error) {
                 console.error('Erro na busca:', error);
-                showMessage('Erro ao buscar artigo. Verifique sua conexão.', 'error');
+                
+                let errorMessage = 'Erro ao buscar artigo. ';
+                
+                if (error.message.includes('Permissão negada')) {
+                    errorMessage = 'Permissão negada. Este artigo pode não estar disponível para visualização pública.';
+                } else if (error.message.includes('Coleção não encontrada')) {
+                    errorMessage = 'Coleção não encontrada. Verifique o nome da coleção na URL.';
+                } else if (error.message) {
+                    errorMessage += error.message;
+                }
+                
+                showEmptyState(errorMessage);
+                showMessage(errorMessage, 'error');
             }
         }
 
         // Inicializar
         window.onload = function() {
+            console.log('Visualizador de artigos iniciado');
+            
+            // Mostrar a URL atual para debug
+            console.log('URL atual:', window.location.href);
+            console.log('Parâmetros:', window.location.search);
+            
+            // Carregar artigo da URL
             searchArticleFromURL();
         };
     </script>
