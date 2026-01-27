@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Páginas - WZZM</title>
+    
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <style>
+        /* Estilo para páginas antigas */
+        body.legacy-page {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .error-message {
+            background-color: #fee;
+            border: 1px solid #fcc;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Cabeçalho -->
+        <header class="bg-white shadow-sm rounded-lg p-6 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">Visualizador de Páginas WZZM</h1>
+                    <p class="text-gray-600">Páginas HTML salvas no sistema</p>
+                </div>
+                <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-home mr-2"></i> Voltar ao Início
+                </a>
+            </div>
+        </header>
+        
+        <!-- Conteúdo Principal -->
+        <main>
+            <div id="pageContent" class="bg-white rounded-lg shadow-lg p-6">
+                <div class="text-center py-12">
+                    <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+                    <p class="text-gray-600">Carregando página...</p>
+                </div>
+            </div>
+            
+            <!-- Informações da Página -->
+            <div id="pageInfo" class="bg-white rounded-lg shadow-lg p-6 mt-6 hidden">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Informações da Página</h3>
+                <div id="infoContent"></div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Scripts Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Obter UID da URL
+        function getUrlParameter(name) {
+            name = name.replace(/[\[\]]/g, '\\$&');
+            const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)');
+            const results = regex.exec(window.location.href);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, ' '));
+        }
+
+        // Carregar página pelo UID
+        async function loadPageByUid(uid) {
+            try {
+                const docRef = db.collection('HTML2W').doc(uid);
+                const docSnap = await docRef.get();
+                
+                if (docSnap.exists) {
+                    const pageData = docSnap.data();
+                    
+                    // Atualizar título da página
+                    document.title = pageData.nomePagina || 'Página WZZM';
+                    
+                    // Exibir conteúdo HTML
+                    const pageContent = document.getElementById('pageContent');
+                    pageContent.innerHTML = pageData.codigo || '<p>Página vazia</p>';
+                    
+                    // Exibir informações da página
+                    const pageInfo = document.getElementById('pageInfo');
+                    const infoContent = document.getElementById('infoContent');
+                    
+                    infoContent.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-gray-700"><strong>Nome:</strong> ${pageData.nomePagina || 'Não informado'}</p>
+                                <p class="text-gray-700"><strong>ID do Documento:</strong> <code class="bg-gray-100 px-2 py-1 rounded">${uid}</code></p>
+                                ${pageData.categoria ? `<p class="text-gray-700"><strong>Categoria:</strong> ${pageData.categoria}</p>` : ''}
+                            </div>
+                            <div>
+                                ${pageData.tags ? `<p class="text-gray-700"><strong>Tags:</strong> ${pageData.tags}</p>` : ''}
+                                ${pageData.createdAt ? `<p class="text-gray-700"><strong>Criado em:</strong> ${new Date(pageData.createdAt.toDate()).toLocaleString('pt-BR')}</p>` : ''}
+                                ${pageData.updatedAt ? `<p class="text-gray-700"><strong>Atualizado em:</strong> ${new Date(pageData.updatedAt.toDate()).toLocaleString('pt-BR')}</p>` : ''}
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <a href="/htmlcreator/" class="text-blue-600 hover:text-blue-800 mr-4">
+                                <i class="fas fa-edit mr-1"></i> Editar esta página
+                            </a>
+                            <a href="/" class="text-gray-600 hover:text-gray-800">
+                                <i class="fas fa-home mr-1"></i> Voltar ao início
+                            </a>
+                        </div>
+                    `;
+                    
+                    pageInfo.classList.remove('hidden');
+                    
+                    // Processar links relativos em páginas antigas
+                    processLegacyLinks(pageContent);
+                    
+                } else {
+                    // Página não encontrada
+                    document.getElementById('pageContent').innerHTML = `
+                        <div class="error-message">
+                            <h2 class="text-xl font-bold text-red-700 mb-2">Página não encontrada</h2>
+                            <p class="text-gray-700">O documento com UID "${uid}" não existe no sistema.</p>
+                            <div class="mt-4">
+                                <a href="/htmlcreator/" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-2">
+                                    Criar nova página
+                                </a>
+                                <a href="/" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                    Voltar ao início
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Erro ao carregar página:', error);
+                document.getElementById('pageContent').innerHTML = `
+                    <div class="error-message">
+                        <h2 class="text-xl font-bold text-red-700 mb-2">Erro ao carregar página</h2>
+                        <p class="text-gray-700">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Processar links de páginas legadas
+        function processLegacyLinks(container) {
+            // Encontrar todos os links com ../ no href
+            const links = container.querySelectorAll('a[href*="../"]');
+            links.forEach(link => {
+                const href = link.getAttribute('href');
+                // Converter links relativos para absolutos
+                if (href.startsWith('../')) {
+                    const absoluteUrl = `https://wazzimagiygg.com/html${href.substring(2)}`;
+                    link.setAttribute('href', absoluteUrl);
+                    link.setAttribute('target', '_blank');
+                }
+            });
+            
+            // Processar imagens
+            const images = container.querySelectorAll('img[src*="../"]');
+            images.forEach(img => {
+                const src = img.getAttribute('src');
+                if (src.startsWith('../')) {
+                    const absoluteUrl = `https://wazzimagiygg.com/html${src.substring(2)}`;
+                    img.setAttribute('src', absoluteUrl);
+                }
+            });
+        }
+
+        // Inicializar quando a página carregar
+        document.addEventListener('DOMContentLoaded', () => {
+            const uid = getUrlParameter('uid');
+            
+            if (uid) {
+                loadPageByUid(uid);
+            } else {
+                // Sem UID - mostrar lista de páginas ou mensagem
+                document.getElementById('pageContent').innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-info-circle text-4xl text-blue-600 mb-4"></i>
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">Visualizador de Páginas</h2>
+                        <p class="text-gray-600 mb-6">Acesse páginas usando: https://wazzimagiygg.com/html/?uid=NOME-DO-DOCUMENTO</p>
+                        <div class="space-x-4">
+                            <a href="/htmlcreator/" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+                                <i class="fas fa-plus mr-2"></i> Criar nova página
+                            </a>
+                            <a href="/" class="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700">
+                                <i class="fas fa-home mr-2"></i> Voltar ao início
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    </script>
+    
+    <!-- Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+</body>
+</html>
