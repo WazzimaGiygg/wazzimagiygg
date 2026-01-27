@@ -138,6 +138,7 @@
         #status {
             margin-top: 1.5em;
             font-weight: 500;
+            text-align: left;
         }
 
         #status[style*="color: rgb(231, 76, 60)"] {
@@ -243,6 +244,23 @@
         }
         #accept-rules:hover {
             background-color: var(--google-green-600);
+        }
+
+        /* Estilos adicionais para a exibição do link */
+        #status a {
+            color: var(--google-blue-500);
+            text-decoration: underline;
+            word-break: break-all;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        #status code {
+            background-color: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.9em;
         }
     </style>
 </head>
@@ -353,7 +371,6 @@
         const userStatus = document.getElementById('user-status');
         const mainContent = document.getElementById('main-content');
         
-        // Novas variáveis para os campos de formulário
         const descriptionInput = document.getElementById('descriptionInput');
         const sourceInput = document.getElementById('sourceInput');
         const doiInput = document.getElementById('doiInput');
@@ -418,8 +435,15 @@
             rulesPopup.style.display = 'none';
         }
 
+        // Função para gerar UID único para o PDF
+        function generatePdfUid() {
+            const timestamp = Date.now().toString(36);
+            const random = Math.random().toString(36).substring(2, 15);
+            return `${timestamp}-${random}`.toUpperCase();
+        }
+
         async function uploadPdf() {
-            closePopup(); // Fecha o pop-up antes de continuar
+            closePopup();
 
             const file = pdfInput.files[0];
             const user = auth.currentUser;
@@ -436,7 +460,7 @@
                 return;
             }
 
-            // Coleta dos novos dados do formulário
+            // Coleta dos dados do formulário
             const description = descriptionInput.value;
             const source = sourceInput.value;
             const doi = doiInput.value;
@@ -483,12 +507,18 @@
                     const base64String = reader.result;
                     
                     try {
-                        // **SALVA O NOVO DOCUMENTO COM TODOS OS DADOS ADICIONAIS**
+                        // Gerar UID único para o PDF
+                        const pdfUid = generatePdfUid();
+                        
+                        // Criar o link completo
+                        const pdfLink = `https://wazzimagiygg.com/pdf/?uid=${pdfUid}`;
+                        
+                        // Salvar o documento com todos os dados
                         await docRef.set({
                             file_name: fileName,
                             base64_code: base64String,
-                            uid: user.uid, // UID do usuário
-                            uploaded_by_name: user.displayName, // Nome do usuário
+                            uid: user.uid,
+                            uploaded_by_name: user.displayName,
                             uploaded_at: firebase.firestore.FieldValue.serverTimestamp(),
                             description: description,
                             source: source,
@@ -497,20 +527,34 @@
                             is_wikipedia: isWikipedia,
                             is_scielo: isScielo,
                             is_google_scholar: isGoogleScholar,
-                            consent_copyright: hasConsent // Consentimento
+                            consent_copyright: hasConsent,
+                            pdf_uid: pdfUid,
+                            pdf_link: pdfLink
                         });
                         
-                        statusDiv.innerText = `PDF salvo com sucesso! Documento criado com o nome: ${fileName}`;
+                        // Exibir informações do PDF e o link
+                        statusDiv.innerHTML = `
+                            <strong style="color: #4CAF50;">✓ PDF salvo com sucesso!</strong><br><br>
+                            <strong>📄 Informações do PDF:</strong><br>
+                            • <strong>Nome do documento:</strong> ${fileName}<br>
+                            • <strong>UID do PDF:</strong> <code>${pdfUid}</code><br>
+                            • <strong>📎 Link para visualização:</strong><br>
+                            <a href="${pdfLink}" target="_blank">${pdfLink}</a><br><br>
+                            <em>Copie o link acima para compartilhar ou visualizar o PDF.</em>
+                        `;
                         statusDiv.style.color = '#4CAF50';
                         
-                        // **NOVO TRECHO: Salvar a ação no histórico**
+                        // Salvar a ação no histórico
                         try {
                             const novoRegistroHistorico = {
                                 'Coleção associada': 'pdfcode',
                                 'UID usuário': user.uid,
+                                'UID PDF': pdfUid,
+                                'Nome PDF': fileName,
                                 'Data': new Date().toLocaleDateString('pt-BR'),
                                 'Hora': new Date().toLocaleTimeString('pt-BR'),
-                                'Descrição': `PDF '${fileName}' convertido para Base64 e salvo.`,
+                                'Descrição': `PDF '${fileName}' convertido para Base64 e salvo. UID: ${pdfUid}`,
+                                'Link PDF': pdfLink,
                                 'Navegador': navigator.userAgent,
                                 'IP': 'Aguardando API ou IP não disponível',
                             };
@@ -518,9 +562,7 @@
                             console.log("Registro de histórico de PDF adicionado com sucesso.");
                         } catch (historyError) {
                             console.error("Erro ao adicionar registro de histórico:", historyError);
-                            // Este erro não impede o PDF de ser salvo, apenas o log de histórico falha.
                         }
-
 
                         // Limpar os campos do formulário após o upload
                         descriptionInput.value = '';
