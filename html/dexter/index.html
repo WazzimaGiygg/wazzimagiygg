@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar HTML - WZZM</title>
+    <!-- Carrega o Tailwind CSS para um design moderno e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Importa a fonte Inter, amplamente usada em designs modernos */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Estilo customizado para o spinner de carregamento */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #3b82f6; /* Azul moderno do Tailwind */
+            border-radius: 50%;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Garantindo que o conteúdo HTML interno se ajuste bem */
+        .html-content > * {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 md:p-8 min-h-screen flex items-start justify-center">
+
+    <div class="container bg-white max-w-4xl w-full p-6 md:p-10 rounded-xl shadow-2xl mt-10 transition-all duration-300">
+
+        <h1 id="page-title" class="text-3xl font-extrabold text-gray-800 mb-8 pb-4 border-b-4 border-blue-500/50">
+            Carregando...
+        </h1>
+
+        <div id="html-display" class="html-content text-left mt-6 p-4 md:p-8 border border-gray-200 bg-gray-50 rounded-lg min-h-[200px] transition-all duration-300 overflow-auto">
+            
+            <div class="loading-container flex flex-col items-center justify-center p-8 space-y-4">
+                <div class="spinner w-12 h-12"></div>
+                <p class="text-center text-gray-500 text-lg font-medium">Verificando se você é uma pessoa real...</p>
+            </div>
+        </div>
+
+        <!-- Botão para abrir em nova janela (inicialmente escondido) -->
+        <div id="open-window-container" class="mt-6 hidden">
+            <button id="open-window-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                    <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                </svg>
+                <span>Abrir em Nova Janela</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts do Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script>
+        // Inicialização do Firebase
+        const firebaseConfig = {
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const htmlDisplay = document.getElementById('html-display');
+        const pageTitle = document.getElementById('page-title');
+        const openWindowContainer = document.getElementById('open-window-container');
+        const openWindowBtn = document.getElementById('open-window-btn');
+
+        // Armazenar dados em cache
+        let cachedHtmlData = {
+            uid: null,
+            content: null,
+            title: null,
+            js: null,
+            timestamp: null
+        };
+
+        /**
+         * Salva os dados no localStorage do navegador
+         */
+        function saveToCache(uid, htmlContent, title, jsScript) {
+            cachedHtmlData = {
+                uid: uid,
+                content: htmlContent,
+                title: title,
+                js: jsScript,
+                timestamp: new Date().getTime()
+            };
+            
+            // Salva no localStorage para persistência entre sessões
+            try {
+                localStorage.setItem('wzzm_cached_html', JSON.stringify(cachedHtmlData));
+            } catch (e) {
+                console.warn('Não foi possível salvar no localStorage:', e);
+            }
+        }
+
+        /**
+         * Abre uma nova janela com o conteúdo armazenado
+         */
+        function openInNewWindow() {
+            if (!cachedHtmlData.content) {
+                alert('Nenhum conteúdo disponível para abrir.');
+                return;
+            }
+
+            // Cria um novo HTML completo para a janela
+            const fullHtml = `
+                <!DOCTYPE html>
+                <html lang="pt-BR">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>${cachedHtmlData.title || 'Página WZZM'}</title>
+                    <style>
+                        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                        /* Remove qualquer frame-busting */
+                        iframe { display: none; }
+                    </style>
+                </head>
+                <body>
+                    ${cachedHtmlData.content}
+                    
+                    ${cachedHtmlData.js ? `<script>${cachedHtmlData.js}<\/script>` : ''}
+                    
+                    <script>
+                        // Intercepta links para abrir na mesma janela
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const links = document.querySelectorAll('a');
+                            links.forEach(link => {
+                                if (link.target !== '_blank') {
+                                    link.addEventListener('click', function(e) {
+                                        e.preventDefault();
+                                        const href = this.href;
+                                        if (href) {
+                                            window.location.href = href;
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            // Cria um blob com o HTML
+            const blob = new Blob([fullHtml], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            // Abre em nova janela com todas as funcionalidades do navegador
+            const newWindow = window.open(url, '_blank', 
+                'noopener,noreferrer,width=1200,height=700,resizable=yes,scrollbars=yes,toolbar=yes,menubar=yes,location=yes'
+            );
+            
+            if (newWindow) {
+                newWindow.focus();
+                
+                // Limpa a URL do blob após a abertura
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 1000);
+            } else {
+                alert('O navegador bloqueou a abertura da nova janela. Por favor, permita pop-ups para este site.');
+            }
+        }
+
+        /**
+         * Intercepta cliques em todos os links <a> dentro de um container
+         */
+        function interceptLinks(container) {
+            const links = container.querySelectorAll('a');
+
+            links.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    if (this.target === '_blank') {
+                        return; 
+                    }
+                    
+                    e.preventDefault();
+                    
+                    const href = this.href;
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            });
+        }
+
+        async function buscarEExibirHtml() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const documentId = urlParams.get('uid');
+
+            if (!documentId) {
+                htmlDisplay.innerHTML = '<p class="text-center text-red-500 font-bold p-4">ID do documento não fornecido na URL.</p>';
+                pageTitle.innerText = "Erro";
+                return;
+            }
+
+            try {
+                const docRef = db.collection('HTML2W').doc(documentId);
+                const doc = await docRef.get();
+
+                if (doc.exists) {
+                    const htmlData = doc.data();
+                    pageTitle.innerText = htmlData.nomePagina || 'Página sem Título';
+                    const htmlContent = htmlData.html_content || htmlData.codigo;
+                    const jsScript = htmlData.js_script;
+
+                    if (htmlContent) {
+                        htmlDisplay.innerHTML = htmlContent;
+                        interceptLinks(htmlDisplay);
+                        
+                        // Salva no cache
+                        saveToCache(
+                            documentId,
+                            htmlContent,
+                            htmlData.nomePagina || 'Página sem Título',
+                            jsScript
+                        );
+                        
+                        // Mostra o botão para abrir em nova janela
+                        openWindowContainer.classList.remove('hidden');
+                    } else {
+                        htmlDisplay.innerHTML = '<p class="text-center text-red-500 font-bold p-4">Conteúdo HTML não encontrado no documento.</p>';
+                    }
+
+                    if (jsScript) {
+                        const scriptElement = document.createElement('script');
+                        scriptElement.textContent = jsScript;
+                        document.body.appendChild(scriptElement);
+                    }
+                } else {
+                    htmlDisplay.innerHTML = '<p class="text-center text-red-500 font-bold p-4">Documento não encontrado no banco de dados.</p>';
+                    pageTitle.innerText = "Conteúdo Não Encontrado";
+                }
+            } catch (error) {
+                console.error("Ocorreu um erro ao carregar o conteúdo:", error);
+                const errorMessage = !navigator.onLine ? 
+                    '<p class="text-center text-red-500 font-bold p-4>O sistema detectou uma anomalia em seu trafego, a página não pode ser aberta!</p>' : 
+                    '<p class="text-center text-red-500 font-bold p-4">O sistema detectou uma anomalia em seu trafego, a página não pode ser aberta!</p>';
+                
+                htmlDisplay.innerHTML = errorMessage;
+                pageTitle.innerText = "Erro";
+            }
+        }
+        
+        // Event Listeners
+        window.onload = buscarEExibirHtml;
+        openWindowBtn.addEventListener('click', openInNewWindow);
+
+        // Verifica se há cache do localStorage ao carregar
+        window.addEventListener('DOMContentLoaded', function() {
+            try {
+                const cached = localStorage.getItem('wzzm_cached_html');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    // Verifica se o cache é recente (menos de 24 horas)
+                    const now = new Date().getTime();
+                    if (now - parsed.timestamp < 24 * 60 * 60 * 1000) {
+                        cachedHtmlData = parsed;
+                        openWindowContainer.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                console.warn('Erro ao ler cache:', e);
+            }
+        });
+    </script>
+</body>
+</html>
