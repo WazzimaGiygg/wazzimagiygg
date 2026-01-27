@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor HTML - WZZM</title>
+    
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Estilos personalizados */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.3s ease-out;
+            max-width: 400px;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .notification.success {
+            background-color: #10b981;
+        }
+        
+        .notification.error {
+            background-color: #ef4444;
+        }
+        
+        .notification.warning {
+            background-color: #f59e0b;
+        }
+        
+        .notification.info {
+            background-color: #3b82f6;
+        }
+        
+        .code-editor {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Sistema de Notificações -->
+    <div id="notification-container"></div>
+    
+    <!-- Cabeçalho -->
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-code text-2xl text-blue-600 mr-3"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Editor HTML WZZM</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-gray-600 hover:text-blue-600 flex items-center">
+                        <i class="fas fa-home mr-2"></i> Início
+                    </a>
+                    <button id="logoutButton" class="text-red-600 hover:text-red-800 flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Conteúdo Principal -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Criar Nova Página HTML</h2>
+            <p class="text-gray-600 mb-6">Crie e salve páginas HTML personalizadas que serão armazenadas no Firebase e acessíveis via URL.</p>
+            
+            <form id="htmlForm" class="space-y-6">
+                <!-- Document ID Field -->
+                <div>
+                    <label for="documentoId" class="block text-sm font-medium text-gray-700 mb-2">
+                        Nome do Documento (ID) *
+                    </label>
+                    <input type="text" id="documentoId" name="documentoId" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Ex: estacao-artur-alvim, pagina-inicial, sobre-nos"
+                           required>
+                    <p class="mt-2 text-sm text-gray-500">
+                        ⓘ Este será o nome do documento no Firebase. Use apenas letras minúsculas, números e hífens.
+                        URL de acesso: <span id="urlPreview" class="font-mono text-blue-600">https://wazzimagiygg.com/html/?uid=</span>
+                    </p>
+                </div>
+                
+                <!-- Page Name Field -->
+                <div>
+                    <label for="nomePagina" class="block text-sm font-medium text-gray-700 mb-2">
+                        Nome da Página (para exibição) *
+                    </label>
+                    <input type="text" id="nomePagina" name="nomePagina" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Ex: Estação Artur Alvim, Página Inicial, Sobre Nós"
+                           required>
+                </div>
+                
+                <!-- Category Field -->
+                <div>
+                    <label for="categoria" class="block text-sm font-medium text-gray-700 mb-2">
+                        Categoria
+                    </label>
+                    <select id="categoria" name="categoria"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Sem categoria</option>
+                        <option value="estacoes">Estações Ferroviárias</option>
+                        <option value="pessoas">Pessoas</option>
+                        <option value="lugares">Lugares</option>
+                        <option value="historia">História</option>
+                        <option value="tecnologia">Tecnologia</option>
+                    </select>
+                </div>
+                
+                <!-- Tags Field -->
+                <div>
+                    <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">
+                        Tags (separadas por vírgula)
+                    </label>
+                    <input type="text" id="tags" name="tags" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Ex: ferrovia, sao-paulo, historia, transporte">
+                </div>
+                
+                <!-- HTML Code Field -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="codigoHtml" class="block text-sm font-medium text-gray-700">
+                            Código HTML *
+                        </label>
+                        <div class="flex space-x-2">
+                            <button type="button" id="formatCode" class="text-sm text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-indent mr-1"></i> Format
+                            </button>
+                            <button type="button" id="clearCode" class="text-sm text-red-600 hover:text-red-800">
+                                <i class="fas fa-trash-alt mr-1"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="codigoHtml" name="codigoHtml" 
+                              class="w-full h-96 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 code-editor"
+                              placeholder="Cole ou digite o código HTML aqui..."
+                              spellcheck="false"
+                              required></textarea>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                    <button type="button" id="previewButton" 
+                            class="px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition duration-200">
+                        <i class="fas fa-eye mr-2"></i> Visualizar
+                    </button>
+                    <button type="submit" 
+                            class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200">
+                        <i class="fas fa-save mr-2"></i> Salvar Código
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Lista de Páginas Salvas -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Páginas Salvas</h2>
+            <div id="pagesList" class="space-y-4">
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-code text-4xl mb-4"></i>
+                    <p>Nenhuma página salva ainda.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Modal de Visualização -->
+    <div id="previewModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-2xl w-11/12 h-5/6 max-w-6xl">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-lg font-bold">Pré-visualização</h3>
+                <button id="closePreview" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div id="previewContent" class="h-full p-4 overflow-auto">
+                <!-- Preview será injetado aqui -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Sistema de notificações
+        function showNotification(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} mr-3"></i>
+                        <span>${message}</span>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, duration);
+        }
+
+        // Atualizar preview da URL
+        document.getElementById('documentoId').addEventListener('input', function() {
+            const docId = this.value.trim();
+            const urlPreview = document.getElementById('urlPreview');
+            urlPreview.textContent = `https://wazzimagiygg.com/html/?uid=${docId}`;
+        });
+
+        // Auto-sugestão de ID baseado no nome da página
+        document.getElementById('nomePagina').addEventListener('input', function() {
+            const nomeInput = document.getElementById('nomePagina');
+            const docIdInput = document.getElementById('documentoId');
+            
+            if (!docIdInput.dataset.manual && nomeInput.value.trim()) {
+                const nome = nomeInput.value.trim()
+                    .toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                    .replace(/[^a-z0-9\s]/g, '') // Remove caracteres especiais
+                    .replace(/\s+/g, '-'); // Substitui espaços por hífens
+                
+                docIdInput.value = nome;
+                docIdInput.dispatchEvent(new Event('input'));
+            }
+        });
+
+        // Marcar quando o usuário edita manualmente o ID
+        document.getElementById('documentoId').addEventListener('input', function() {
+            this.dataset.manual = 'true';
+        });
+
+        // Formatar código
+        document.getElementById('formatCode').addEventListener('click', function() {
+            const textarea = document.getElementById('codigoHtml');
+            const code = textarea.value;
+            
+            try {
+                // Tentar formatar o HTML (simples)
+                const formatted = formatHTML(code);
+                textarea.value = formatted;
+                showNotification('Código formatado com sucesso!', 'success');
+            } catch (error) {
+                showNotification('Não foi possível formatar o código', 'warning');
+            }
+        });
+
+        // Limpar código
+        document.getElementById('clearCode').addEventListener('click', function() {
+            if (confirm('Tem certeza que deseja limpar todo o código?')) {
+                document.getElementById('codigoHtml').value = '';
+            }
+        });
+
+        // Visualizar código
+        document.getElementById('previewButton').addEventListener('click', function() {
+            const code = document.getElementById('codigoHtml').value;
+            const previewContent = document.getElementById('previewContent');
+            
+            if (!code.trim()) {
+                showNotification('Digite algum código para visualizar', 'warning');
+                return;
+            }
+            
+            // Criar iframe para visualização segura
+            previewContent.innerHTML = `
+                <iframe 
+                    srcdoc="${encodeURIComponent(code)}"
+                    class="w-full h-full"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                    frameborder="0"
+                ></iframe>
+            `;
+            
+            document.getElementById('previewModal').classList.remove('hidden');
+        });
+
+        // Fechar preview
+        document.getElementById('closePreview').addEventListener('click', function() {
+            document.getElementById('previewModal').classList.add('hidden');
+        });
+
+        // Função simples para formatar HTML
+        function formatHTML(html) {
+            let formatted = '';
+            let indent = 0;
+            const lines = html.split('\n');
+            
+            for (let line of lines) {
+                line = line.trim();
+                
+                if (line.match(/<\/\w/)) {
+                    indent--;
+                }
+                
+                formatted += '  '.repeat(Math.max(0, indent)) + line + '\n';
+                
+                if (line.match(/<\w[^>]*[^\/]>.*$/)) {
+                    indent++;
+                }
+            }
+            
+            return formatted;
+        }
+
+        // Carregar páginas salvas
+        function loadSavedPages() {
+            const pagesList = document.getElementById('pagesList');
+            
+            db.collection('HTML2W')
+                .orderBy('createdAt', 'desc')
+                .limit(20)
+                .get()
+                .then((querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        pagesList.innerHTML = `
+                            <div class="text-center py-8 text-gray-500">
+                                <i class="fas fa-code text-4xl mb-4"></i>
+                                <p>Nenhuma página salva ainda.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    pagesList.innerHTML = '';
+                    
+                    querySnapshot.forEach((doc) => {
+                        const page = { id: doc.id, ...doc.data() };
+                        
+                        const pageElement = document.createElement('div');
+                        pageElement.className = 'border border-gray-200 rounded-lg p-4 hover:bg-gray-50';
+                        pageElement.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-800">${page.nomePagina || 'Sem nome'}</h3>
+                                    <p class="text-gray-600 text-sm mt-1">ID: <code class="bg-gray-100 px-2 py-1 rounded">${page.id}</code></p>
+                                    ${page.categoria ? `<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-2">${page.categoria}</span>` : ''}
+                                    ${page.tags ? `<p class="text-gray-500 text-sm mt-2"><i class="fas fa-tags"></i> ${page.tags}</p>` : ''}
+                                    <p class="text-gray-500 text-sm mt-2">
+                                        <i class="far fa-clock"></i> ${page.createdAt ? new Date(page.createdAt.toDate()).toLocaleString('pt-BR') : 'Data desconhecida'}
+                                    </p>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <a href="/html/?uid=${page.id}" target="_blank" 
+                                       class="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 text-sm">
+                                        <i class="fas fa-external-link-alt mr-1"></i> Ver
+                                    </a>
+                                    <button class="edit-page px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 text-sm"
+                                            data-id="${page.id}">
+                                        <i class="fas fa-edit mr-1"></i> Editar
+                                    </button>
+                                    <button class="delete-page px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 text-sm"
+                                            data-id="${page.id}">
+                                        <i class="fas fa-trash-alt mr-1"></i> Excluir
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        pagesList.appendChild(pageElement);
+                    });
+                    
+                    // Adicionar eventos aos botões
+                    document.querySelectorAll('.edit-page').forEach(button => {
+                        button.addEventListener('click', function() {
+                            loadPageForEditing(this.dataset.id);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.delete-page').forEach(button => {
+                        button.addEventListener('click', function() {
+                            deletePage(this.dataset.id);
+                        });
+                    });
+                    
+                })
+                .catch((error) => {
+                    console.error("❌ Erro ao carregar páginas:", error);
+                    showNotification('Erro ao carregar páginas: ' + error.message, 'error');
+                });
+        }
+
+        // Carregar página para edição
+        function loadPageForEditing(pageId) {
+            db.collection('HTML2W').doc(pageId).get()
+                .then((doc) => {
+                    if (doc.exists) {
+                        const page = doc.data();
+                        
+                        document.getElementById('documentoId').value = pageId;
+                        document.getElementById('documentoId').dataset.manual = 'true';
+                        document.getElementById('nomePagina').value = page.nomePagina || '';
+                        document.getElementById('categoria').value = page.categoria || '';
+                        document.getElementById('tags').value = page.tags || '';
+                        document.getElementById('codigoHtml').value = page.codigo || '';
+                        
+                        // Atualizar preview da URL
+                        document.getElementById('documentoId').dispatchEvent(new Event('input'));
+                        
+                        // Scroll para o formulário
+                        document.getElementById('htmlForm').scrollIntoView({ behavior: 'smooth' });
+                        
+                        showNotification(`Página "${page.nomePagina}" carregada para edição`, 'success');
+                    } else {
+                        showNotification('Página não encontrada', 'error');
+                    }
+                })
+                .catch((error) => {
+                    console.error("❌ Erro ao carregar página:", error);
+                    showNotification('Erro ao carregar página: ' + error.message, 'error');
+                });
+        }
+
+        // Excluir página
+        function deletePage(pageId) {
+            if (confirm('Tem certeza que deseja excluir esta página? Esta ação não pode ser desfeita.')) {
+                db.collection('HTML2W').doc(pageId).delete()
+                    .then(() => {
+                        showNotification('Página excluída com sucesso', 'success');
+                        loadSavedPages();
+                    })
+                    .catch((error) => {
+                        console.error("❌ Erro ao excluir página:", error);
+                        showNotification('Erro ao excluir página: ' + error.message, 'error');
+                    });
+            }
+        }
+
+        // Salvar código HTML
+        document.getElementById('htmlForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Obter valores dos campos
+            const documentoId = document.getElementById('documentoId').value.trim();
+            const nomePagina = document.getElementById('nomePagina').value;
+            const categoria = document.getElementById('categoria').value;
+            const tags = document.getElementById('tags').value;
+            const codigo = document.getElementById('codigoHtml').value;
+
+            // Validações
+            if (!documentoId || !nomePagina || !codigo) {
+                showNotification('Preencha todos os campos obrigatórios (*)', 'warning');
+                return;
+            }
+
+            // Validar formato do ID
+            if (!/^[a-z0-9-]+$/.test(documentoId)) {
+                showNotification('O nome do documento deve conter apenas letras minúsculas, números e hífens', 'error');
+                return;
+            }
+
+            try {
+                const docRef = db.collection('HTML2W').doc(documentoId);
+                const docSnap = await docRef.get();
+                
+                const pageData = {
+                    nomePagina: nomePagina,
+                    codigo: codigo,
+                    documentoId: documentoId,
+                    categoria: categoria,
+                    tags: tags,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                if (docSnap.exists) {
+                    // Atualizar documento existente
+                    if (!confirm(`Já existe uma página com o ID "${documentoId}". Deseja substituí-la?`)) {
+                        return;
+                    }
+                    await docRef.update(pageData);
+                } else {
+                    // Criar novo documento
+                    pageData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await docRef.set(pageData);
+                }
+
+                showNotification(
+                    `✅ Página "${nomePagina}" salva com sucesso!<br>
+                    URL: https://wazzimagiygg.com/html/?uid=${documentoId}`,
+                    'success',
+                    5000
+                );
+                
+                // Limpar formulário (opcional)
+                // document.getElementById('htmlForm').reset();
+                // document.getElementById('urlPreview').textContent = 'https://wazzimagiygg.com/html/?uid=';
+                
+                // Recarregar lista de páginas
+                loadSavedPages();
+                
+            } catch (error) {
+                console.error('❌ Erro ao salvar página:', error);
+                showNotification('❌ Erro ao salvar página: ' + error.message, 'error');
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutButton').addEventListener('click', async () => {
+            try {
+                await auth.signOut();
+                
+                // Usar postMessage para comunicar com o parent se estiver em iframe
+                if (window.self !== window.top) {
+                    window.parent.postMessage({
+                        type: 'logout',
+                        message: 'Logout realizado'
+                    }, '*');
+                } else {
+                    window.location.href = '/';
+                }
+                
+            } catch (error) {
+                console.error("❌ Erro no logout:", error);
+                showNotification('Erro no logout: ' + error.message, 'error');
+            }
+        });
+
+        // Verificar autenticação
+        auth.onAuthStateChanged((user) => {
+            if (!user) {
+                // Redirecionar para login
+                if (window.self !== window.top) {
+                    window.parent.postMessage({
+                        type: 'navigate',
+                        url: '/'
+                    }, '*');
+                } else {
+                    window.location.href = '/';
+                }
+            } else {
+                console.log("👤 Usuário autenticado no editor:", user.email);
+                // Carregar páginas salvas
+                loadSavedPages();
+            }
+        });
+
+        // Verificar se está em iframe e configurar comunicação
+        if (window.self !== window.top) {
+            console.log('📝 Editor rodando dentro de iframe');
+            
+            // Notificar o parent que o editor carregou
+            window.parent.postMessage({
+                type: 'editorLoaded',
+                message: 'Editor HTML carregado'
+            }, '*');
+        }
+    </script>
+</body>
+</html>
