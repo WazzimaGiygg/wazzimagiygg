@@ -62,14 +62,33 @@
         button[type="submit"]:hover {
             background-color: #0056b3;
         }
+        .doc-id-container {
+            margin-bottom: 20px;
+        }
+        .doc-id-note {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>Salvar Código HTML</h1>
     <form id="htmlForm">
-        <label for="nomePagina">Nome da Página:</label>
-        <input type="text" id="nomePagina" name="nomePagina" required>
+        <div class="doc-id-container">
+            <label for="documentoId">Nome do Documento (ID):</label>
+            <input type="text" id="documentoId" name="documentoId" required 
+                   placeholder="Ex: estacao-artur-alvim, pagina-inicial, sobre-nos">
+            <div class="doc-id-note">
+                ⓘ Este será o nome do documento no Firebase. Use apenas letras minúsculas, números e hífens.
+                Este nome será usado para acessar a página na URL: https://wazzimagiygg.com/html/?uid=<strong>nome-do-documento-aqui</strong>
+            </div>
+        </div>
+
+        <label for="nomePagina">Nome da Página (para exibição):</label>
+        <input type="text" id="nomePagina" name="nomePagina" required 
+               placeholder="Ex: Estação Artur Alvim, Página Inicial, Sobre Nós">
 
         <label for="codigoHtml">Código HTML:</label>
         <textarea id="codigoHtml" name="codigoHtml" placeholder="Cole o código HTML aqui..." required></textarea>
@@ -101,31 +120,70 @@
         e.preventDefault();
 
         // Obtenha os valores dos campos
+        const documentoId = document.getElementById('documentoId').value.trim();
         const nomePagina = document.getElementById('nomePagina').value;
         const codigo = document.getElementById('codigoHtml').value;
 
-        if (!nomePagina || !codigo) {
+        if (!documentoId || !nomePagina || !codigo) {
             alert('Por favor, preencha todos os campos obrigatórios. ⚠️');
             return;
         }
 
+        // Validação básica do ID do documento
+        if (!/^[a-z0-9-]+$/.test(documentoId)) {
+            alert('O nome do documento deve conter apenas letras minúsculas, números e hífens. ⚠️');
+            return;
+        }
+
         try {
-            // A CORREÇÃO ESTÁ AQUI:
-            // O método add() retorna uma DocumentReference. Armazenamos ela na variável docRef.
-            const docRef = await db.collection('HTML2W').add({
+            // Verifica se já existe um documento com este ID
+            const docRef = db.collection('HTML2W').doc(documentoId);
+            const docSnap = await docRef.get();
+            
+            if (docSnap.exists) {
+                if (!confirm(`Já existe um documento com o ID "${documentoId}". Deseja substituí-lo?`)) {
+                    return;
+                }
+            }
+
+            // Salva o documento com o ID específico
+            await docRef.set({
                 nomePagina: nomePagina,
                 codigo: codigo,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                documentoId: documentoId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-            // Usamos docRef.id para obter o nome/ID do documento gerado.
-            alert(`✅ Código salvo com sucesso!\nColeção: HTML2W\nID do Documento: ${docRef.id}`);
+            alert(`✅ Código salvo com sucesso!\nColeção: HTML2W\nDocumento: ${documentoId}\n\nURL de acesso: https://wazzimagiygg.com/html/?uid=${documentoId}`);
             
             document.getElementById('htmlForm').reset();
         } catch (error) {
             console.error('❌ Erro ao adicionar o código: ', error);
             alert('❌ Erro ao salvar o código. Verifique o console para mais detalhes.');
         }
+    });
+
+    // Sugere um ID baseado no nome da página
+    document.getElementById('nomePagina').addEventListener('input', function() {
+        const nomePaginaInput = document.getElementById('nomePagina');
+        const documentoIdInput = document.getElementById('documentoId');
+        
+        // Se o campo de ID ainda não foi preenchido manualmente
+        if (!documentoIdInput.dataset.manual && nomePaginaInput.value.trim()) {
+            const nome = nomePaginaInput.value.trim()
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                .replace(/[^a-z0-9\s]/g, '') // Remove caracteres especiais
+                .replace(/\s+/g, '-'); // Substitui espaços por hífens
+            
+            documentoIdInput.value = nome;
+        }
+    });
+
+    // Marca quando o usuário edita manualmente o campo de ID
+    document.getElementById('documentoId').addEventListener('input', function() {
+        this.dataset.manual = 'true';
     });
 </script>
 </body>
