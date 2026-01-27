@@ -125,6 +125,156 @@
         }
 
         /**
+         * Prepara o conteúdo HTML para funcionar em blob/data URL
+         */
+        function prepareHtmlForBlob(htmlContent, jsScript) {
+            // Remove scripts do Firebase Auth que não funcionam em blob/data URLs
+            let cleanedHtml = htmlContent;
+            
+            // Remove importações do Firebase Auth
+            cleanedHtml = cleanedHtml.replace(
+                /<script[^>]*src=["'][^"']*firebase-auth[^"']*["'][^>]*><\/script>/gi,
+                ''
+            );
+            
+            // Remove scripts que inicializam Firebase Auth
+            cleanedHtml = cleanedHtml.replace(
+                /<script>[\s\S]*?firebase\.auth\(\)[\s\S]*?<\/script>/gi,
+                ''
+            );
+            
+            // Remove event listeners de login com Google
+            cleanedHtml = cleanedHtml.replace(
+                /onclick=["']signInWithGoogle\(\)["']/gi,
+                'onclick="handleAuthClick(event)"'
+            );
+            
+            // Adiciona mensagem informativa sobre login
+            const authMessage = `
+                <div style="position: fixed; top: 10px; right: 10px; background: #ffeb3b; padding: 10px; border-radius: 5px; z-index: 1000; max-width: 300px;">
+                    <strong>⚠️ Login Firebase:</strong>
+                    <p style="margin: 5px 0; font-size: 12px;">
+                        A funcionalidade de login não está disponível nesta visualização.
+                        Para usar o login completo, acesse a página original.
+                    </p>
+                    <button onclick="this.parentElement.style.display='none'" style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                        Fechar
+                    </button>
+                </div>
+            `;
+            
+            return authMessage + cleanedHtml;
+        }
+
+        /**
+         * Cria um script de substituição para funções de autenticação
+         */
+        function createAuthReplacementScript() {
+            return `
+                <script>
+                    // Função para substituir o Firebase Auth em blob/data URLs
+                    function handleAuthClick(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        
+                        const originalUrl = window.location.origin + window.location.pathname + '?uid=${cachedHtmlData.uid}';
+                        
+                        const message = document.createElement('div');
+                        message.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center;';
+                        message.innerHTML = \`
+                            <div style="background: white; padding: 30px; border-radius: 10px; max-width: 500px; text-align: center;">
+                                <h3 style="color: #f44336; margin-bottom: 15px;">⚠️ Funcionalidade de Login</h3>
+                                <p style="margin-bottom: 20px;">
+                                    A autenticação com Firebase não está disponível nesta visualização.<br>
+                                    Para usar o login completo, você precisa acessar a página original.
+                                </p>
+                                <div style="display: flex; gap: 10px; justify-content: center;">
+                                    <button onclick="window.open('\\\${originalUrl}', '_blank')" style="background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                                        Abrir Página Original
+                                    </button>
+                                    <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: #9E9E9E; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                                        Fechar
+                                    </button>
+                                </div>
+                            </div>
+                        \`;
+                        
+                        document.body.appendChild(message);
+                        return false;
+                    }
+                    
+                    // Substitui qualquer referência ao Firebase Auth
+                    if (typeof firebase !== 'undefined') {
+                        try {
+                            // Se firebase.auth() for chamado, mostra mensagem
+                            const originalAuth = firebase.auth;
+                            firebase.auth = function() {
+                                console.warn('Firebase Auth não está disponível nesta visualização.');
+                                
+                                return {
+                                    signInWithPopup: function() {
+                                        return Promise.reject(new Error('Firebase Auth não disponível em blob/data URLs'));
+                                    },
+                                    signInWithEmailAndPassword: function() {
+                                        return Promise.reject(new Error('Firebase Auth não disponível em blob/data URLs'));
+                                    },
+                                    createUserWithEmailAndPassword: function() {
+                                        return Promise.reject(new Error('Firebase Auth não disponível em blob/data URLs'));
+                                    },
+                                    signOut: function() {
+                                        return Promise.resolve();
+                                    },
+                                    onAuthStateChanged: function(callback) {
+                                        // Não chama o callback ou chama com null
+                                        return function() {};
+                                    },
+                                    currentUser: null
+                                };
+                            };
+                        } catch (e) {
+                            console.warn('Não foi possível substituir firebase.auth:', e);
+                        }
+                    }
+                    
+                    // Remove qualquer script problemático após o carregamento
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // Remove scripts que podem causar erros
+                        const scripts = document.querySelectorAll('script');
+                        scripts.forEach(script => {
+                            const content = script.textContent || script.innerHTML || '';
+                            if (content.includes('auth/operation-not-supported-in-this-environment') ||
+                                content.includes('location.protocol') ||
+                                content.includes('firebase.auth()')) {
+                                script.remove();
+                            }
+                        });
+                        
+                        // Intercepta links para abrir na mesma janela
+                        const links = document.querySelectorAll('a');
+                        links.forEach(link => {
+                            if (link.target !== '_blank') {
+                                link.addEventListener('click', function(e) {
+                                    if (this.href && this.href.startsWith('blob:') || this.href.startsWith('data:')) {
+                                        e.preventDefault();
+                                        return;
+                                    }
+                                    
+                                    if (this.target !== '_blank') {
+                                        e.preventDefault();
+                                        const href = this.href;
+                                        if (href) {
+                                            window.location.href = href;
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    });
+                <\/script>
+            `;
+        }
+
+        /**
          * Cria e abre o conteúdo em uma nova aba
          */
         function openInNewTab() {
@@ -149,6 +299,10 @@
                 `;
             }
 
+            // Prepara o conteúdo HTML removendo problemas de autenticação
+            const preparedHtml = prepareHtmlForBlob(cachedHtmlData.content, cachedHtmlData.js);
+            const authReplacementScript = createAuthReplacementScript();
+
             // Cria um novo HTML completo para a nova aba
             const fullHtml = `
                 <!DOCTYPE html>
@@ -161,42 +315,30 @@
                         body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
                         /* Remove qualquer frame-busting */
                         iframe { display: none; }
+                        
+                        /* Estilo para mensagens de aviso */
+                        .auth-warning {
+                            position: fixed;
+                            top: 10px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            background: #ff9800;
+                            color: white;
+                            padding: 10px 20px;
+                            border-radius: 5px;
+                            z-index: 10000;
+                            text-align: center;
+                            max-width: 80%;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                        }
                     </style>
                 </head>
                 <body>
-                    ${cachedHtmlData.content}
+                    ${preparedHtml}
                     
                     ${cachedHtmlData.js ? `<script>${cachedHtmlData.js}<\/script>` : ''}
                     
-                    <script>
-                        // Intercepta links para abrir na mesma janela
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const links = document.querySelectorAll('a');
-                            links.forEach(link => {
-                                if (link.target !== '_blank') {
-                                    link.addEventListener('click', function(e) {
-                                        e.preventDefault();
-                                        const href = this.href;
-                                        if (href) {
-                                            window.location.href = href;
-                                        }
-                                    });
-                                }
-                            });
-                            
-                            // Remove qualquer script que tente quebrar frames
-                            const scripts = document.querySelectorAll('script');
-                            scripts.forEach(script => {
-                                const scriptContent = script.textContent || script.innerHTML || '';
-                                if (scriptContent.includes('top.location') || 
-                                    scriptContent.includes('parent.location') ||
-                                    scriptContent.includes('frameElement') ||
-                                    scriptContent.includes('self !== top')) {
-                                    script.remove();
-                                }
-                            });
-                        });
-                    <\/script>
+                    ${authReplacementScript}
                 </body>
                 </html>
             `;
@@ -242,10 +384,9 @@
                 // Foca na nova aba
                 newTab.focus();
                 
-                // Opcional: fecha esta janela após alguns segundos
+                // Fecha esta janela após 2 segundos (opcional)
                 setTimeout(() => {
-                    // Você pode remover este timeout se não quiser fechar automaticamente
-                    // window.close();
+                    // window.close(); // Descomente se quiser fechar automaticamente
                 }, 2000);
             } else {
                 console.warn('O navegador pode estar bloqueando pop-ups.');
