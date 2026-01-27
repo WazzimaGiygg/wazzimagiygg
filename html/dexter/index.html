@@ -45,19 +45,26 @@
             
             <div class="loading-container flex flex-col items-center justify-center p-8 space-y-4">
                 <div class="spinner w-12 h-12"></div>
-                <p class="text-center text-gray-500 text-lg font-medium">Verificando se você é uma pessoa real...</p>
+                <p class="text-center text-gray-500 text-lg font-medium">Carregando conteúdo...</p>
+                <p class="text-center text-blue-500 text-sm">A página será aberta automaticamente em uma nova aba.</p>
             </div>
         </div>
 
-        <!-- Botão para abrir em nova janela (inicialmente escondido) -->
-        <div id="open-window-container" class="mt-6 hidden">
-            <button id="open-window-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center space-x-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                    <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                </svg>
-                <span>Abrir em Nova Janela</span>
-            </button>
+        <!-- Container para mostrar status e botão manual (se necessário) -->
+        <div id="status-container" class="mt-6 hidden">
+            <div class="flex flex-col items-center space-y-4 p-4 border border-gray-200 rounded-lg">
+                <div id="auto-open-status" class="flex items-center space-x-2">
+                    <div class="spinner w-6 h-6"></div>
+                    <span class="text-gray-600">Abrindo em nova aba...</span>
+                </div>
+                <button id="manual-open-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                        <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                    </svg>
+                    <span>Abrir Manualmente</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -79,8 +86,9 @@
 
         const htmlDisplay = document.getElementById('html-display');
         const pageTitle = document.getElementById('page-title');
-        const openWindowContainer = document.getElementById('open-window-container');
-        const openWindowBtn = document.getElementById('open-window-btn');
+        const statusContainer = document.getElementById('status-container');
+        const autoOpenStatus = document.getElementById('auto-open-status');
+        const manualOpenBtn = document.getElementById('manual-open-btn');
 
         // Armazenar dados em cache
         let cachedHtmlData = {
@@ -88,8 +96,13 @@
             content: null,
             title: null,
             js: null,
-            timestamp: null
+            timestamp: null,
+            lastOpened: null
         };
+
+        // Controle de tentativas de abertura
+        let openAttemptCount = 0;
+        const MAX_OPEN_ATTEMPTS = 2;
 
         /**
          * Salva os dados no localStorage do navegador
@@ -100,10 +113,10 @@
                 content: htmlContent,
                 title: title,
                 js: jsScript,
-                timestamp: new Date().getTime()
+                timestamp: new Date().getTime(),
+                lastOpened: new Date().getTime()
             };
             
-            // Salva no localStorage para persistência entre sessões
             try {
                 localStorage.setItem('wzzm_cached_html', JSON.stringify(cachedHtmlData));
             } catch (e) {
@@ -112,15 +125,31 @@
         }
 
         /**
-         * Abre uma nova janela com o conteúdo armazenado
+         * Cria e abre o conteúdo em uma nova aba
          */
-        function openInNewWindow() {
+        function openInNewTab() {
             if (!cachedHtmlData.content) {
-                alert('Nenhum conteúdo disponível para abrir.');
+                console.error('Nenhum conteúdo disponível para abrir.');
+                showManualButton();
                 return;
             }
 
-            // Cria um novo HTML completo para a janela
+            openAttemptCount++;
+            
+            // Atualiza status
+            if (openAttemptCount === 1) {
+                autoOpenStatus.innerHTML = `
+                    <div class="spinner w-6 h-6"></div>
+                    <span class="text-gray-600">Abrindo em nova aba...</span>
+                `;
+            } else {
+                autoOpenStatus.innerHTML = `
+                    <div class="spinner w-6 h-6"></div>
+                    <span class="text-gray-600">Tentativa ${openAttemptCount} de ${MAX_OPEN_ATTEMPTS}...</span>
+                `;
+            }
+
+            // Cria um novo HTML completo para a nova aba
             const fullHtml = `
                 <!DOCTYPE html>
                 <html lang="pt-BR">
@@ -154,31 +183,97 @@
                                     });
                                 }
                             });
+                            
+                            // Remove qualquer script que tente quebrar frames
+                            const scripts = document.querySelectorAll('script');
+                            scripts.forEach(script => {
+                                const scriptContent = script.textContent || script.innerHTML || '';
+                                if (scriptContent.includes('top.location') || 
+                                    scriptContent.includes('parent.location') ||
+                                    scriptContent.includes('frameElement') ||
+                                    scriptContent.includes('self !== top')) {
+                                    script.remove();
+                                }
+                            });
                         });
                     <\/script>
                 </body>
                 </html>
             `;
 
-            // Cria um blob com o HTML
-            const blob = new Blob([fullHtml], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
+            // Tenta abrir usando diferentes métodos
+            let newTab = null;
             
-            // Abre em nova janela com todas as funcionalidades do navegador
-            const newWindow = window.open(url, '_blank', 
-                'noopener,noreferrer,width=1200,height=700,resizable=yes,scrollbars=yes,toolbar=yes,menubar=yes,location=yes'
-            );
-            
-            if (newWindow) {
-                newWindow.focus();
+            // Método 1: Blob URL
+            try {
+                const blob = new Blob([fullHtml], { type: 'text/html' });
+                const blobUrl = URL.createObjectURL(blob);
+                
+                newTab = window.open(blobUrl, '_blank');
                 
                 // Limpa a URL do blob após a abertura
-                setTimeout(() => {
-                    URL.revokeObjectURL(url);
-                }, 1000);
-            } else {
-                alert('O navegador bloqueou a abertura da nova janela. Por favor, permita pop-ups para este site.');
+                if (newTab) {
+                    setTimeout(() => {
+                        URL.revokeObjectURL(blobUrl);
+                    }, 1000);
+                }
+            } catch (e) {
+                console.warn('Erro com Blob URL:', e);
+                
+                // Método 2: Data URL (fallback)
+                try {
+                    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml);
+                    newTab = window.open(dataUrl, '_blank');
+                } catch (e2) {
+                    console.warn('Erro com Data URL:', e2);
+                }
             }
+
+            // Verifica se a nova aba foi aberta com sucesso
+            if (newTab) {
+                // Atualiza status de sucesso
+                autoOpenStatus.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span class="text-green-600">Aberto com sucesso!</span>
+                `;
+                
+                // Foca na nova aba
+                newTab.focus();
+                
+                // Opcional: fecha esta janela após alguns segundos
+                setTimeout(() => {
+                    // Você pode remover este timeout se não quiser fechar automaticamente
+                    // window.close();
+                }, 2000);
+            } else {
+                console.warn('O navegador pode estar bloqueando pop-ups.');
+                
+                if (openAttemptCount < MAX_OPEN_ATTEMPTS) {
+                    // Tenta novamente após um delay
+                    setTimeout(() => {
+                        openInNewTab();
+                    }, 1000);
+                } else {
+                    // Mostra botão manual após tentativas falharem
+                    showManualButton();
+                }
+            }
+        }
+
+        /**
+         * Mostra o botão para abertura manual
+         */
+        function showManualButton() {
+            autoOpenStatus.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span class="text-yellow-600">Abertura automática bloqueada</span>
+            `;
+            
+            manualOpenBtn.style.display = 'flex';
         }
 
         /**
@@ -219,7 +314,7 @@
 
                 if (doc.exists) {
                     const htmlData = doc.data();
-                    pageTitle.innerText = htmlData.nomePagina || 'Página sem Título';
+                    pageTitle.innerText = htmlData.nomePagina || 'Página carregada';
                     const htmlContent = htmlData.html_content || htmlData.codigo;
                     const jsScript = htmlData.js_script;
 
@@ -235,8 +330,13 @@
                             jsScript
                         );
                         
-                        // Mostra o botão para abrir em nova janela
-                        openWindowContainer.classList.remove('hidden');
+                        // Mostra o status container
+                        statusContainer.classList.remove('hidden');
+                        
+                        // Abre automaticamente em nova aba
+                        setTimeout(() => {
+                            openInNewTab();
+                        }, 500); // Pequeno delay para garantir que o conteúdo foi processado
                     } else {
                         htmlDisplay.innerHTML = '<p class="text-center text-red-500 font-bold p-4">Conteúdo HTML não encontrado no documento.</p>';
                     }
@@ -252,9 +352,7 @@
                 }
             } catch (error) {
                 console.error("Ocorreu um erro ao carregar o conteúdo:", error);
-                const errorMessage = !navigator.onLine ? 
-                    '<p class="text-center text-red-500 font-bold p-4>O sistema detectou uma anomalia em seu trafego, a página não pode ser aberta!</p>' : 
-                    '<p class="text-center text-red-500 font-bold p-4">O sistema detectou uma anomalia em seu trafego, a página não pode ser aberta!</p>';
+                const errorMessage = '<p class="text-center text-red-500 font-bold p-4">O sistema detectou uma anomalia em seu trafego, a página não pode ser aberta!</p>';
                 
                 htmlDisplay.innerHTML = errorMessage;
                 pageTitle.innerText = "Erro";
@@ -263,7 +361,7 @@
         
         // Event Listeners
         window.onload = buscarEExibirHtml;
-        openWindowBtn.addEventListener('click', openInNewWindow);
+        manualOpenBtn.addEventListener('click', openInNewTab);
 
         // Verifica se há cache do localStorage ao carregar
         window.addEventListener('DOMContentLoaded', function() {
@@ -275,7 +373,6 @@
                     const now = new Date().getTime();
                     if (now - parsed.timestamp < 24 * 60 * 60 * 1000) {
                         cachedHtmlData = parsed;
-                        openWindowContainer.classList.remove('hidden');
                     }
                 }
             } catch (e) {
