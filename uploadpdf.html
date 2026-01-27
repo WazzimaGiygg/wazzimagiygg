@@ -442,6 +442,18 @@
             return `${timestamp}-${random}`.toUpperCase();
         }
 
+        // Função para limpar caracteres especiais do nome do arquivo para URL
+        function sanitizeFileNameForUrl(fileName) {
+            // Remove extensão .pdf
+            let name = fileName.replace(/\.pdf$/i, '');
+            // Substitui espaços por hífens
+            name = name.replace(/\s+/g, '-');
+            // Remove caracteres especiais
+            name = name.replace(/[^\w\-]/g, '');
+            // Converte para minúsculas
+            return name.toLowerCase();
+        }
+
         async function uploadPdf() {
             closePopup();
 
@@ -510,8 +522,14 @@
                         // Gerar UID único para o PDF
                         const pdfUid = generatePdfUid();
                         
-                        // Criar o link completo
-                        const pdfLink = `https://wazzimagiygg.com/pdf/?uid=${pdfUid}`;
+                        // **OPÇÃO 1: Usar o nome do arquivo limpo na URL**
+                        const urlSafeFileName = sanitizeFileNameForUrl(fileName);
+                        
+                        // **OPÇÃO 2: Ou use o nome original do arquivo (pode ter problemas com espaços/caracteres especiais)**
+                        // const urlSafeFileName = encodeURIComponent(fileName);
+                        
+                        // Criar o link usando o nome do arquivo
+                        const pdfLink = `https://wazzimagiygg.com/pdf/?filename=${urlSafeFileName}`;
                         
                         // Salvar o documento com todos os dados
                         await docRef.set({
@@ -529,7 +547,8 @@
                             is_google_scholar: isGoogleScholar,
                             consent_copyright: hasConsent,
                             pdf_uid: pdfUid,
-                            pdf_link: pdfLink
+                            pdf_link: pdfLink,
+                            url_safe_name: urlSafeFileName
                         });
                         
                         // Exibir informações do PDF e o link
@@ -537,6 +556,7 @@
                             <strong style="color: #4CAF50;">✓ PDF salvo com sucesso!</strong><br><br>
                             <strong>📄 Informações do PDF:</strong><br>
                             • <strong>Nome do documento:</strong> ${fileName}<br>
+                            • <strong>Nome para URL:</strong> ${urlSafeFileName}<br>
                             • <strong>UID do PDF:</strong> <code>${pdfUid}</code><br>
                             • <strong>📎 Link para visualização:</strong><br>
                             <a href="${pdfLink}" target="_blank">${pdfLink}</a><br><br>
@@ -551,9 +571,10 @@
                                 'UID usuário': user.uid,
                                 'UID PDF': pdfUid,
                                 'Nome PDF': fileName,
+                                'Nome URL': urlSafeFileName,
                                 'Data': new Date().toLocaleDateString('pt-BR'),
                                 'Hora': new Date().toLocaleTimeString('pt-BR'),
-                                'Descrição': `PDF '${fileName}' convertido para Base64 e salvo. UID: ${pdfUid}`,
+                                'Descrição': `PDF '${fileName}' convertido para Base64 e salvo.`,
                                 'Link PDF': pdfLink,
                                 'Navegador': navigator.userAgent,
                                 'IP': 'Aguardando API ou IP não disponível',
