@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Administrativo - Cidades Sancionadas</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-cog"></i> Painel Administrativo</h1>
+            <p class="subtitle">Gerenciamento de Cidades Sancionadas</p>
+            <div class="header-actions">
+                <a href="index.html" class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Voltar para Verificação
+                </a>
+            </div>
+        </header>
+
+        <main>
+            <!-- Card de Adicionar Cidade -->
+            <div class="card">
+                <h2><i class="fas fa-plus-circle"></i> Adicionar Nova Cidade</h2>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="newCityName"><i class="fas fa-city"></i> Nome da Cidade *</label>
+                        <input type="text" id="newCityName" placeholder="Ex: São Paulo">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newCityModerator"><i class="fas fa-user-shield"></i> Moderador Responsável *</label>
+                        <input type="text" id="newCityModerator" placeholder="Ex: João Silva">
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="newCityNotes"><i class="fas fa-sticky-note"></i> Observações</label>
+                        <textarea id="newCityNotes" rows="3" placeholder="Motivo da sanção, informações adicionais..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button onclick="addNewCity()" class="btn-primary">
+                        <i class="fas fa-save"></i> Adicionar Cidade
+                    </button>
+                    <button onclick="clearForm()" class="btn-secondary">
+                        <i class="fas fa-times"></i> Limpar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Card de Gerenciamento -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-edit"></i> Gerenciar Cidades</h2>
+                    <div class="stats">
+                        <span id="totalCities">0</span> cidades
+                    </div>
+                </div>
+                
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="statusFilter">Filtrar por Status:</label>
+                        <select id="statusFilter" onchange="filterCities()">
+                            <option value="all">Todas</option>
+                            <option value="active" selected>Ativas</option>
+                            <option value="inactive">Inativas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="searchFilter">Buscar:</label>
+                        <input type="text" id="searchFilter" 
+                               placeholder="Nome da cidade ou moderador..."
+                               onkeyup="filterCities()">
+                    </div>
+                </div>
+                
+                <div class="cities-management" id="citiesManagement">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> Carregando cidades...
+                    </div>
+                </div>
+                
+                <div class="export-actions">
+                    <button onclick="exportToJSON()" class="btn-export">
+                        <i class="fas fa-download"></i> Exportar para JSON
+                    </button>
+                    <button onclick="importFromJSON()" class="btn-import">
+                        <i class="fas fa-upload"></i> Importar de JSON
+                    </button>
+                </div>
+            </div>
+
+            <!-- Card de Estatísticas -->
+            <div class="card">
+                <h2><i class="fas fa-chart-bar"></i> Estatísticas</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #667eea;">
+                            <i class="fas fa-city"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="activeCount">0</h3>
+                            <p>Cidades Ativas</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #48bb78;">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="inactiveCount">0</h3>
+                            <p>Cidades Inativas</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #ed8936;">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="moderatorsCount">0</h3>
+                            <p>Moderadores Únicos</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #9f7aea;">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="lastAdded">--</h3>
+                            <p>Última Adição</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="activity-log">
+                    <h3><i class="fas fa-history"></i> Últimas Atividades</h3>
+                    <div id="activityLog" class="log-list">
+                        <div class="log-item">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Nenhuma atividade recente</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Edição -->
+    <div id="editModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close-modal" onclick="closeEditModal()">&times;</span>
+            <h2><i class="fas fa-edit"></i> Editar Cidade</h2>
+            <div id="editFormContent"></div>
+        </div>
+    </div>
+
+    <!-- Input oculto para importação -->
+    <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+
+    <script src="firebase-config.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
