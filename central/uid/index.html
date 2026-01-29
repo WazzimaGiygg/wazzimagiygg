@@ -764,17 +764,106 @@
             `;
         }
 
-        // Buscar artigo da URL
-        async function searchArticleFromURL() {
+        // FUNÇÃO NOVA: Extrair parâmetros de URLs aninhadas
+        function extractArticleParams() {
             const urlParams = new URLSearchParams(window.location.search);
-            const uid = urlParams.get('uid');
-            const collection = urlParams.get('collection') || 'materiadeensaio';
+            let uid = urlParams.get('uid');
+            let collection = urlParams.get('collection') || 'materiadeensaio';
+            
+            console.log('Parâmetros brutos da URL:', { uid, collection });
+            
+            // Se o uid é uma URL completa (começa com http)
+            if (uid && (uid.startsWith('http://') || uid.startsWith('https://'))) {
+                console.log('UID detectado como URL completa, tentando extrair parâmetros...');
+                
+                try {
+                    // Criar objeto URL para parse
+                    const urlObj = new URL(uid);
+                    
+                    // Tentar extrair UID do caminho da URL
+                    const pathParts = urlObj.pathname.split('/');
+                    let pathUid = pathParts[pathParts.length - 1];
+                    
+                    // Se o último segmento do path estiver vazio, pegar o anterior
+                    if (!pathUid || pathUid === 'uid') {
+                        pathUid = pathParts[pathParts.length - 2];
+                    }
+                    
+                    // Extrair parâmetros da query string da URL aninhada
+                    const nestedParams = new URLSearchParams(urlObj.search);
+                    const nestedUid = nestedParams.get('uid');
+                    const nestedCollection = nestedParams.get('collection');
+                    
+                    // Prioridade: parâmetros da query string > UID do path > UID original
+                    uid = nestedUid || pathUid || uid;
+                    
+                    // Só usa collection da URL aninhada se existir
+                    if (nestedCollection) {
+                        collection = nestedCollection;
+                    }
+                    
+                    console.log('Parâmetros extraídos da URL aninhada:', { 
+                        original: urlObj.href,
+                        uid, 
+                        collection,
+                        pathUid,
+                        nestedUid,
+                        nestedCollection
+                    });
+                    
+                } catch (error) {
+                    console.warn('Não foi possível fazer parse da URL aninhada:', error);
+                    
+                    // Tentativa alternativa: regex para extrair parâmetros
+                    if (uid.includes('?uid=')) {
+                        const uidMatch = uid.match(/[?&]uid=([^&]+)/);
+                        if (uidMatch) uid = uidMatch[1];
+                        
+                        const collectionMatch = uid.match(/[?&]collection=([^&]+)/);
+                        if (collectionMatch) collection = collectionMatch[1];
+                    }
+                }
+            }
+            
+            // Se o uid ainda contém uma query string (caso de URL não parseada corretamente)
+            if (uid && uid.includes('?uid=')) {
+                console.log('UID contém query string, extraindo via regex...');
+                
+                const uidMatch = uid.match(/[?&]uid=([^&]+)/);
+                if (uidMatch) {
+                    const extractedUid = uidMatch[1];
+                    console.log('UID extraído via regex:', extractedUid);
+                    uid = extractedUid;
+                }
+                
+                const collectionMatch = uid.match(/[?&]collection=([^&]+)/);
+                if (collectionMatch) {
+                    collection = collectionMatch[1];
+                }
+            }
+            
+            // Limpar e validar
+            uid = uid ? uid.toString().trim() : null;
+            collection = collection.toString().trim();
+            
+            console.log('Parâmetros finais extraídos:', { uid, collection });
+            
+            return { uid, collection };
+        }
+
+        // Buscar artigo da URL (ATUALIZADA)
+        async function searchArticleFromURL() {
+            // Extrair parâmetros (agora lida com URLs aninhadas)
+            const { uid, collection } = extractArticleParams();
             
             currentUID = uid;
             currentCollection = collection;
             
+            console.log('Parâmetros para busca:', { uid, collection });
+            
             if (!uid) {
                 // Sem UID na URL, mostrar estado inicial
+                showEmptyState();
                 return;
             }
 
@@ -852,6 +941,7 @@
         // Inicializar
         window.onload = function() {
             console.log('Visualizador de artigos iniciado');
+            console.log('URL completa:', window.location.href);
             
             // Verificar estado de autenticação inicial
             const user = auth.currentUser;
