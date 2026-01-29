@@ -19,10 +19,18 @@
   <meta name="twitter:title" content="ERRO 404: Página Não Encontrada | Wazzimagiygg">
   <meta name="twitter:description" content="Entenda o erro 404 e outros códigos HTTP. Guia completo sobre erros de navegação.">
   
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+  
   <!-- Preload font for better performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -256,6 +264,7 @@
       border-radius: 8px;
       padding: 1rem;
       transition: border-color 0.3s ease;
+      position: relative;
     }
     
     .search-box:focus-within {
@@ -270,6 +279,120 @@
       font-size: 1rem;
       padding: 0.5rem;
       outline: none;
+    }
+    
+    /* Search Results Styles */
+    .search-results-container {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 0 0 8px 8px;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 50;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      display: none;
+    }
+    
+    .search-results-container.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .search-result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .search-result-item:hover {
+      background-color: #f8fafc;
+    }
+    
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+    
+    .search-result-icon {
+      color: var(--secondary-color);
+      font-size: 18px;
+      width: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .search-result-content {
+      flex: 1;
+    }
+    
+    .search-result-title {
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 2px;
+    }
+    
+    .search-result-url {
+      font-size: 12px;
+      color: #6b7280;
+      word-break: break-all;
+    }
+    
+    .search-result-category {
+      font-size: 11px;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-top: 4px;
+      display: inline-block;
+    }
+    
+    .no-results {
+      padding: 20px;
+      text-align: center;
+      color: #6b7280;
+    }
+    
+    .loading-results {
+      padding: 20px;
+      text-align: center;
+      color: #6b7280;
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e2e8f0;
+      border-top: 2px solid var(--secondary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     
     .quick-links {
@@ -304,6 +427,39 @@
       color: var(--secondary-color);
     }
     
+    /* Login Modal Styles */
+    .login-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .login-modal.show {
+      display: flex;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .login-modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
     @media (max-width: 768px) {
       .error-code {
         font-size: 4rem;
@@ -321,6 +477,10 @@
       
       .quick-links {
         grid-template-columns: 1fr;
+      }
+      
+      .search-results-container {
+        max-height: 300px;
       }
     }
     
@@ -352,15 +512,55 @@
     
     <!-- Search box -->
     <div class="search-box mb-8">
-      <form id="searchForm" class="flex items-center">
+      <div class="flex items-center">
         <svg class="w-6 h-6 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
         </svg>
-        <input type="text" id="searchInput" class="search-input" placeholder="O que você está procurando?">
-        <button type="submit" class="ml-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por páginas salvas...">
+        <button id="searchButton" class="ml-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
           Buscar
         </button>
-      </form>
+      </div>
+      
+      <!-- Search Results -->
+      <div class="search-results-container" id="searchResults">
+        <!-- Results will be populated here -->
+      </div>
+    </div>
+    
+    <!-- Login Modal -->
+    <div class="login-modal" id="loginModal">
+      <div class="login-modal-content">
+        <h3 class="text-xl font-bold mb-4 text-center text-blue-600">
+          <i class="fas fa-user-circle mr-2"></i>
+          Login Necessário
+        </h3>
+        <p class="mb-6 text-gray-600">
+          Para acessar suas páginas salvas, faça login com sua conta.
+        </p>
+        <div class="space-y-4">
+          <button onclick="loginWithGoogle()" class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+            <i class="fab fa-google"></i>
+            Entrar com Google
+          </button>
+          <button onclick="showEmailLogin()" class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition">
+            <i class="fas fa-envelope"></i>
+            Entrar com E-mail
+          </button>
+          <div id="emailLoginForm" class="hidden mt-4">
+            <div class="mb-4">
+              <input type="email" id="loginEmail" placeholder="Seu e-mail" class="w-full px-4 py-2 border rounded-lg mb-3">
+              <input type="password" id="loginPassword" placeholder="Sua senha" class="w-full px-4 py-2 border rounded-lg">
+            </div>
+            <button onclick="loginWithEmail()" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">
+              Entrar
+            </button>
+          </div>
+        </div>
+        <button onclick="hideLoginModal()" class="mt-6 w-full text-gray-500 hover:text-gray-700">
+          Fechar
+        </button>
+      </div>
     </div>
     
     <!-- Quick navigation links -->
@@ -418,7 +618,7 @@
           <li><strong>Verifique a URL:</strong> Confira se digitou o endereço corretamente</li>
           <li><strong>Atualize a página:</strong> Pode ser um erro temporário</li>
           <li><strong>Limpe o cache:</strong> Elimine versões antigas da página</li>
-          <li><strong>Use a busca do site:</strong> Encontre o conteúdo desejado</li>
+          <li><strong>Use a busca do site:</strong> Encontre o conteúdo desejado (acima)</li>
           <li><strong>Volte à página inicial:</strong> Navegue a partir do menu principal</li>
         </ul>
 
@@ -476,27 +676,457 @@
     <footer class="mt-8 text-center text-gray-500 text-sm">
       <p>© 2024 Wazzimagiygg. Todos os direitos reservados.</p>
       <p class="mt-2">Este é uma página de erro personalizada. <a href="/politica-de-privacidade" class="text-blue-500 hover:underline">Política de Privacidade</a> • <a href="/termos-de-uso" class="text-blue-500 hover:underline">Termos de Uso</a></p>
+      <div id="userStatus" class="mt-3 text-xs"></div>
     </footer>
   </div>
 
-  <!-- JavaScript for enhanced interactivity -->
+  <!-- JavaScript -->
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Handle search form submission
-      const searchForm = document.getElementById('searchForm');
-      const searchInput = document.getElementById('searchInput');
-      
-      searchForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const query = searchInput.value.trim();
+    // ==============================================
+    // FIREBASE CONFIGURATION
+    // ==============================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+      authDomain: "wzzm-ce3fc.firebaseapp.com",
+      projectId: "wzzm-ce3fc",
+      storageBucket: "wzzm-ce3fc.appspot.com",
+      messagingSenderId: "249427877153",
+      appId: "1:249427877153:web:0e4297294794a5aadeb260",
+      measurementId: "G-PLKNZNFCQ8"
+    };
+
+    // Initialize Firebase
+    let app, auth, db;
+    try {
+      app = firebase.app();
+      auth = firebase.auth();
+      db = firebase.firestore();
+    } catch (e) {
+      app = firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+    }
+
+    // ==============================================
+    // GLOBAL VARIABLES
+    // ==============================================
+    let currentUser = null;
+    let userPages = [];
+    let searchTimeout = null;
+
+    // ==============================================
+    // DOM ELEMENTS
+    // ==============================================
+    const elements = {
+      searchInput: document.getElementById('searchInput'),
+      searchButton: document.getElementById('searchButton'),
+      searchResults: document.getElementById('searchResults'),
+      loginModal: document.getElementById('loginModal'),
+      emailLoginForm: document.getElementById('emailLoginForm'),
+      loginEmail: document.getElementById('loginEmail'),
+      loginPassword: document.getElementById('loginPassword'),
+      userStatus: document.getElementById('userStatus')
+    };
+
+    // ==============================================
+    // AUTHENTICATION FUNCTIONS
+    // ==============================================
+    
+    // Show login modal
+    function showLoginModal() {
+      elements.loginModal.classList.add('show');
+    }
+    
+    // Hide login modal
+    function hideLoginModal() {
+      elements.loginModal.classList.remove('show');
+      elements.emailLoginForm.classList.add('hidden');
+    }
+    
+    // Show email login form
+    function showEmailLogin() {
+      elements.emailLoginForm.classList.remove('hidden');
+    }
+    
+    // Login with Google
+    async function loginWithGoogle() {
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
+        provider.setCustomParameters({ prompt: 'select_account' });
         
-        if (query) {
-          // You can implement actual search functionality here
-          // For now, just alert and simulate search
-          alert(`Buscando por: "${query}"\n\nEsta funcionalidade pode ser integrada com sua busca real.`);
-          searchInput.value = '';
+        await auth.signInWithPopup(provider);
+        hideLoginModal();
+        showNotification('Login realizado com sucesso!', 'success');
+      } catch (error) {
+        console.error('Google login error:', error);
+        showNotification('Erro no login: ' + error.message, 'error');
+      }
+    }
+    
+    // Login with email
+    async function loginWithEmail() {
+      const email = elements.loginEmail.value.trim();
+      const password = elements.loginPassword.value;
+      
+      if (!email || !password) {
+        showNotification('Preencha e-mail e senha', 'error');
+        return;
+      }
+      
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        hideLoginModal();
+        showNotification('Login realizado!', 'success');
+      } catch (error) {
+        console.error('Email login error:', error);
+        showNotification('Erro no login: ' + error.message, 'error');
+      }
+    }
+    
+    // Logout
+    async function logout() {
+      try {
+        await auth.signOut();
+        showNotification('Logout realizado!', 'success');
+      } catch (error) {
+        console.error('Logout error:', error);
+        showNotification('Erro ao sair: ' + error.message, 'error');
+      }
+    }
+    
+    // Update user status display
+    function updateUserStatus() {
+      if (currentUser) {
+        const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+        elements.userStatus.innerHTML = `
+          <span class="text-green-600">
+            <i class="fas fa-user-circle mr-1"></i>
+            Logado como: ${displayName} 
+            <button onclick="logout()" class="ml-2 text-red-500 hover:text-red-700">
+              (Sair)
+            </button>
+          </span>
+        `;
+      } else {
+        elements.userStatus.innerHTML = `
+          <span class="text-gray-500">
+            <i class="fas fa-user mr-1"></i>
+            Não logado 
+            <button onclick="showLoginModal()" class="ml-2 text-blue-500 hover:text-blue-700">
+              (Entrar)
+            </button>
+          </span>
+        `;
+      }
+    }
+
+    // ==============================================
+    // PAGE MANAGEMENT FUNCTIONS
+    // ==============================================
+    
+    // Load user's pages from Firestore
+    async function loadUserPages() {
+      if (!currentUser) {
+        userPages = [];
+        return;
+      }
+      
+      try {
+        // Try to load from paginasUsuario collection
+        const docRef = db.collection('paginasUsuario').doc(currentUser.uid);
+        const doc = await docRef.get();
+        
+        if (doc.exists) {
+          const data = doc.data();
+          userPages = data["Lista de Páginas de Busca"] || [];
+          console.log('✅', userPages.length, 'páginas carregadas do usuário');
+        } else {
+          console.log('📭 Nenhuma página encontrada para este usuário');
+          userPages = [];
         }
-      });
+      } catch (error) {
+        console.error('❌ Erro ao carregar páginas:', error);
+        userPages = [];
+      }
+    }
+    
+    // Search pages
+    function searchPages(query) {
+      if (!query.trim()) {
+        clearSearchResults();
+        return;
+      }
+      
+      // Show loading
+      elements.searchResults.innerHTML = `
+        <div class="loading-results">
+          <div class="loading-spinner"></div>
+          Buscando páginas...
+        </div>
+      `;
+      elements.searchResults.classList.add('show');
+      
+      // Simulate network delay for better UX
+      setTimeout(() => {
+        const searchTerm = query.toLowerCase();
+        let results = [];
+        
+        if (userPages.length === 0) {
+          // If user is not logged in or has no pages, show login prompt
+          elements.searchResults.innerHTML = `
+            <div class="no-results">
+              <div class="mb-3">
+                <i class="fas fa-user-lock text-3xl text-gray-400"></i>
+              </div>
+              <p class="mb-3">Faça login para acessar suas páginas salvas</p>
+              <button onclick="showLoginModal()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                Fazer Login
+              </button>
+            </div>
+          `;
+          elements.searchResults.classList.add('show');
+          return;
+        }
+        
+        // Search in pages
+        results = userPages.filter(page => {
+          const name = (page.Nome || '').toLowerCase();
+          const url = (page.Link || '').toLowerCase();
+          const category = (page.categoria || '').toLowerCase();
+          const description = (page.descricao || '').toLowerCase();
+          
+          return name.includes(searchTerm) || 
+                 url.includes(searchTerm) || 
+                 category.includes(searchTerm) ||
+                 description.includes(searchTerm);
+        });
+        
+        displaySearchResults(results, query);
+      }, 300);
+    }
+    
+    // Display search results
+    function displaySearchResults(results, query) {
+      if (results.length === 0) {
+        elements.searchResults.innerHTML = `
+          <div class="no-results">
+            <i class="fas fa-search text-3xl text-gray-400 mb-3"></i>
+            <p>Nenhuma página encontrada para "${query}"</p>
+            <p class="text-sm mt-2">Tente outros termos ou verifique sua ortografia</p>
+          </div>
+        `;
+        elements.searchResults.classList.add('show');
+        return;
+      }
+      
+      const resultsHtml = results.map(page => {
+        const icon = page.icone || 'link';
+        const iconMap = {
+          'home': 'fas fa-home',
+          'search': 'fas fa-search',
+          'link': 'fas fa-link',
+          'public': 'fas fa-globe',
+          'language': 'fas fa-language',
+          'web': 'fas fa-globe-americas',
+          'bookmark': 'fas fa-bookmark',
+          'star': 'fas fa-star'
+        };
+        
+        const iconClass = iconMap[icon] || 'fas fa-link';
+        
+        return `
+          <div class="search-result-item" onclick="openPage('${page.Link}')">
+            <div class="search-result-icon">
+              <i class="${iconClass}"></i>
+            </div>
+            <div class="search-result-content">
+              <div class="search-result-title">${page.Nome || 'Sem nome'}</div>
+              <div class="search-result-url">${page.Link}</div>
+              ${page.categoria ? `<span class="search-result-category">${page.categoria}</span>` : ''}
+            </div>
+            <div class="text-gray-400">
+              <i class="fas fa-external-link-alt"></i>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      elements.searchResults.innerHTML = resultsHtml;
+      elements.searchResults.classList.add('show');
+    }
+    
+    // Clear search results
+    function clearSearchResults() {
+      elements.searchResults.classList.remove('show');
+      elements.searchResults.innerHTML = '';
+    }
+    
+    // Open page in new tab
+    function openPage(url) {
+      if (!url) return;
+      
+      // Ensure URL has protocol
+      let fullUrl = url;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        fullUrl = 'https://' + url;
+      }
+      
+      // Open in new tab
+      window.open(fullUrl, '_blank');
+      
+      // Close results
+      clearSearchResults();
+      elements.searchInput.value = '';
+      
+      // Track the click (optional)
+      console.log('📤 Abrindo página:', fullUrl);
+    }
+    
+    // Show notification
+    function showNotification(message, type = 'info') {
+      // Create notification element
+      const notification = document.createElement('div');
+      notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300 ${
+        type === 'success' ? 'bg-green-500 text-white' :
+        type === 'error' ? 'bg-red-500 text-white' :
+        'bg-blue-500 text-white'
+      }`;
+      notification.innerHTML = `
+        <div class="flex items-center">
+          <i class="fas fa-${
+            type === 'success' ? 'check-circle' :
+            type === 'error' ? 'exclamation-circle' :
+            'info-circle'
+          } mr-3"></i>
+          <span>${message}</span>
+        </div>
+      `;
+      
+      // Add to page
+      document.body.appendChild(notification);
+      
+      // Remove after 3 seconds
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100px)';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      }, 3000);
+    }
+
+    // ==============================================
+    // EVENT LISTENERS
+    // ==============================================
+    
+    // Search input events
+    elements.searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.trim();
+      
+      // Clear previous timeout
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+      
+      // Set new timeout for debouncing
+      searchTimeout = setTimeout(() => {
+        searchPages(query);
+      }, 300);
+    });
+    
+    // Search button click
+    elements.searchButton.addEventListener('click', () => {
+      const query = elements.searchInput.value.trim();
+      if (query) {
+        searchPages(query);
+      } else {
+        elements.searchInput.focus();
+      }
+    });
+    
+    // Search form submission (prevent default)
+    document.addEventListener('submit', (e) => {
+      if (e.target.id === 'searchForm') {
+        e.preventDefault();
+        const query = elements.searchInput.value.trim();
+        if (query) {
+          searchPages(query);
+        }
+      }
+    });
+    
+    // Close search results when clicking outside
+    document.addEventListener('click', (e) => {
+      const searchBox = document.querySelector('.search-box');
+      const searchResults = elements.searchResults;
+      
+      if (!searchBox.contains(e.target) && searchResults.classList.contains('show')) {
+        clearSearchResults();
+      }
+    });
+    
+    // Close modal with ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (elements.loginModal.classList.contains('show')) {
+          hideLoginModal();
+        }
+        if (elements.searchResults.classList.contains('show')) {
+          clearSearchResults();
+        }
+      }
+    });
+    
+    // Focus search input on / key press
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && !e.target.matches('input, textarea')) {
+        e.preventDefault();
+        elements.searchInput.focus();
+      }
+    });
+
+    // ==============================================
+    // FIREBASE AUTH STATE LISTENER
+    // ==============================================
+    auth.onAuthStateChanged(async (user) => {
+      currentUser = user;
+      updateUserStatus();
+      
+      if (user) {
+        // User is signed in, load their pages
+        await loadUserPages();
+        
+        // If there's a search query, refresh results
+        const query = elements.searchInput.value.trim();
+        if (query) {
+          searchPages(query);
+        }
+      } else {
+        // User is signed out, clear pages
+        userPages = [];
+        
+        // Clear search results if showing
+        if (elements.searchResults.classList.contains('show')) {
+          clearSearchResults();
+        }
+      }
+    });
+
+    // ==============================================
+    // INITIALIZATION
+    // ==============================================
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('✅ Página 404 com busca integrada carregada');
+      
+      // Check if user is already logged in
+      if (currentUser) {
+        console.log('👤 Usuário já autenticado:', currentUser.email);
+      }
       
       // Add animation to error code
       const errorCode = document.querySelector('.error-code');
@@ -509,23 +1139,6 @@
         }, 1000);
       }
       
-      // Smooth scroll for internal links
-      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-          e.preventDefault();
-          const targetId = this.getAttribute('href');
-          if (targetId === '#') return;
-          
-          const targetElement = document.querySelector(targetId);
-          if (targetElement) {
-            window.scrollTo({
-              top: targetElement.offsetTop - 100,
-              behavior: 'smooth'
-            });
-          }
-        });
-      });
-      
       // Highlight code blocks
       document.querySelectorAll('pre code').forEach(block => {
         // Simple syntax highlighting for HTTP codes
@@ -535,8 +1148,15 @@
           .replace(/(GET|POST|PUT|DELETE|HEAD|OPTIONS)/g, '<span class="text-yellow-400">$1</span>');
         block.innerHTML = html;
       });
+      
+      // Focus search input with instructions
+      setTimeout(() => {
+        if (!currentUser) {
+          elements.searchInput.placeholder = "Faça login para buscar suas páginas salvas";
+        }
+      }, 1000);
     });
-    
+
     // Track 404 errors (if you have analytics)
     window.dataLayer = window.dataLayer || [];
     function gtag() { dataLayer.push(arguments); }
