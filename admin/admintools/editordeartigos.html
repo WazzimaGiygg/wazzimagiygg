@@ -808,6 +808,21 @@
             return `${uid}-${timestamp}`;
         }
 
+        function sanitizeUID(uid) {
+            if (uid && uid.includes('://')) {
+                try {
+                    const url = new URL(uid);
+                    const pathSegments = url.pathname.split('/').filter(segment => segment);
+                    if (pathSegments.length > 0) {
+                        return pathSegments[pathSegments.length - 1];
+                    }
+                } catch (e) {
+                    console.warn("Não foi possível sanitizar o UID:", e);
+                }
+            }
+            return uid;
+        }
+
         function updateLinkDisplay() {
             if (currentArticleId && currentArticleUID) {
                 elements.linkInfo.style.display = 'block';
@@ -855,7 +870,7 @@
             return fieldId;
         }
 
-        function removeAuthorField(fieldId, isStudent = false) {
+        window.removeAuthorField = function(fieldId, isStudent = false) {
             const field = document.getElementById(fieldId);
             if (field && field.parentNode) {
                 field.parentNode.remove();
@@ -940,17 +955,9 @@
                 let uid = urlParams.get('uid');
                 
                 // Sanitiza o UID se necessário
-                if (uid && uid.includes('://')) {
-                    try {
-                        const url = new URL(uid);
-                        const pathSegments = url.pathname.split('/').filter(segment => segment);
-                        if (pathSegments.length > 0) {
-                            uid = pathSegments[pathSegments.length - 1];
-                            console.log("UID sanitizado:", uid);
-                        }
-                    } catch (e) {
-                        console.warn("Não foi possível sanitizar o UID:", e);
-                    }
+                if (uid) {
+                    uid = sanitizeUID(uid);
+                    console.log("UID sanitizado:", uid);
                 }
                 
                 if (uid) {
@@ -1185,12 +1192,10 @@
                 citation: elements.inputs.citation.value.trim(),
                 authors: authorsList,
                 students: studentsList,
-                status: elements.articleStatusSelect.value, // Status do artigo (published/draft)
+                status: elements.articleStatusSelect.value,
                 uid: uid,
                 lastModified: firebase.firestore.FieldValue.serverTimestamp(),
-                wordCount: quill.getText().trim().split(/\s+/).filter(w => w.length > 0).length,
-                // Removido verificationStatus
-                // Removido pending
+                wordCount: quill.getText().trim().split(/\s+/).filter(w => w.length > 0).length
             };
 
             if (!currentArticleId) {
