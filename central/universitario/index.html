@@ -831,34 +831,70 @@
             button.textContent = elements.debugPanel.classList.contains('show') ? 'Ocultar' : 'Mostrar';
         }
 
-        function formatDate(dateString) {
-            if (!dateString) return 'N/A';
+        function formatDate(dateValue) {
+            if (!dateValue) return 'N/A';
             try {
-                const date = dateString?.toDate ? dateString.toDate() : new Date(dateString);
+                let date;
+                if (dateValue && typeof dateValue === 'object' && 'toDate' in dateValue) {
+                    // É um Timestamp do Firebase
+                    date = dateValue.toDate();
+                } else if (typeof dateValue === 'string') {
+                    // É uma string ISO
+                    date = new Date(dateValue);
+                } else if (typeof dateValue === 'number') {
+                    // É um timestamp em milissegundos
+                    date = new Date(dateValue);
+                } else if (dateValue && dateValue.seconds) {
+                    // É um objeto com seconds e nanoseconds
+                    date = new Date(dateValue.seconds * 1000);
+                } else {
+                    date = new Date(dateValue);
+                }
+                
+                if (isNaN(date.getTime())) {
+                    return 'Data inválida';
+                }
+                
                 return date.toLocaleDateString('pt-BR', {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric'
                 });
             } catch (e) {
+                debugLog(`Erro ao formatar data ${dateValue}: ${e.message}`, 'error');
                 return 'Data inválida';
             }
         }
 
-        function formatDateTime(dateString) {
-            if (!dateString) return 'N/A';
-            try {
-                const date = dateString?.toDate ? dateString.toDate() : new Date(dateString);
-                return date.toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            } catch (e) {
-                return 'Data inválida';
+        function getArticleDate(articleData) {
+            // Tenta obter a data do artigo em várias fontes possíveis
+            const dateSources = [
+                articleData.createdAt,
+                articleData.timestamp,
+                articleData.lastModified,
+                articleData.date,
+                articleData.publishedDate
+            ];
+            
+            for (const dateSource of dateSources) {
+                if (dateSource) {
+                    try {
+                        if (dateSource && typeof dateSource === 'object' && 'toDate' in dateSource) {
+                            return dateSource.toDate();
+                        } else if (typeof dateSource === 'string') {
+                            return new Date(dateSource);
+                        } else if (typeof dateSource === 'number') {
+                            return new Date(dateSource);
+                        } else if (dateSource && dateSource.seconds) {
+                            return new Date(dateSource.seconds * 1000);
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
             }
+            
+            return new Date(0); // Data padrão se não encontrar
         }
 
         function truncateText(text, maxLength = 100) {
@@ -916,13 +952,19 @@
 
         function articleMatchesSearch(article, params) {
             const data = article.data();
+            debugLog(`Verificando artigo: ${data.title || 'Sem título'}`, 'info');
             
             // Verificar se o artigo tem dados básicos
-            if (!data) return false;
+            if (!data) {
+                debugLog('Artigo sem dados', 'error');
+                return false;
+            }
             
             // Busca por título
             if (params.title && data.title) {
-                if (!data.title.toLowerCase().includes(params.title.toLowerCase())) {
+                const titleMatch = data.title.toLowerCase().includes(params.title.toLowerCase());
+                if (!titleMatch) {
+                    debugLog(`Falhou no título: "${data.title}" não contém "${params.title}"`, 'info');
                     return false;
                 }
             }
@@ -930,31 +972,42 @@
             // Busca por autor/discente
             if (params.author) {
                 const authorQuery = params.author.toLowerCase();
-                const authors = data.authors || [];
-                const students = data.students || [];
+                const authors = Array.isArray(data.authors) ? data.authors : 
+                               (data.authors ? [data.authors] : []);
+                const students = Array.isArray(data.students) ? data.students : 
+                               (data.students ? [data.students] : []);
                 const allPeople = [...authors, ...students];
                 
-                if (allPeople.length === 0) return false;
+                if (allPeople.length === 0) {
+                    debugLog('Artigo não tem autores definidos', 'info');
+                    return false;
+                }
                 
                 const found = allPeople.some(person => 
                     person && person.toLowerCase().includes(authorQuery));
-                if (!found) return false;
+                if (!found) {
+                    debugLog(`Falhou nos autores: nenhum autor contém "${params.author}"`, 'info');
+                    return false;
+                }
             }
             
             // Filtro por status
             if (params.status && data.status !== params.status) {
+                debugLog(`Falhou no status: ${data.status} !== ${params.status}`, 'info');
                 return false;
             }
             
             // Filtro por tipo
             if (params.type && data.articleType !== params.type) {
+                debugLog(`Falhou no tipo: ${data.articleType} !== ${params.type}`, 'info');
                 return false;
             }
             
             // Busca no conteúdo
             if (params.content) {
-                const content = stripHTML(data.formattedContent || data.content || '').toLowerCase();
+                const content = stripHTML(data.formattedContent || data.content || data.body || '').toLowerCase();
                 if (!content.includes(params.content.toLowerCase())) {
+                    debugLog(`Falhou no conteúdo: não contém "${params.content}"`, 'info');
                     return false;
                 }
             }
@@ -962,43 +1015,57 @@
             // Busca na citação
             if (params.citation && data.citation) {
                 if (!data.citation.toLowerCase().includes(params.citation.toLowerCase())) {
+                    debugLog(`Falhou na citação: não contém "${params.citation}"`, 'info');
                     return false;
                 }
             }
             
             // Filtro por idioma
             if (params.language && data.language !== params.language) {
+                debugLog(`Falhou no idioma: ${data.language} !== ${params.language}`, 'info');
                 return false;
             }
             
             // Filtro por data
             if (params.dateFrom || params.dateTo) {
-                let articleDate;
                 try {
-                    articleDate = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || data.timestamp || 0);
+                    const articleDate = getArticleDate(data);
+                    debugLog(`Data do artigo: ${articleDate.toISOString()}`, 'info');
+                    
+                    if (params.dateFrom) {
+                        const fromDate = new Date(params.dateFrom);
+                        fromDate.setHours(0, 0, 0, 0);
+                        if (articleDate < fromDate) {
+                            debugLog(`Falhou na data: ${articleDate.toISOString()} < ${fromDate.toISOString()}`, 'info');
+                            return false;
+                        }
+                    }
+                    
+                    if (params.dateTo) {
+                        const toDate = new Date(params.dateTo);
+                        toDate.setHours(23, 59, 59, 999);
+                        if (articleDate > toDate) {
+                            debugLog(`Falhou na data: ${articleDate.toISOString()} > ${toDate.toISOString()}`, 'info');
+                            return false;
+                        }
+                    }
                 } catch (e) {
-                    articleDate = new Date(0);
-                }
-                
-                if (params.dateFrom) {
-                    const fromDate = new Date(params.dateFrom);
-                    if (articleDate < fromDate) return false;
-                }
-                
-                if (params.dateTo) {
-                    const toDate = new Date(params.dateTo);
-                    toDate.setHours(23, 59, 59, 999); // Fim do dia
-                    if (articleDate > toDate) return false;
+                    debugLog(`Erro ao processar datas: ${e.message}`, 'error');
+                    // Se houver erro nas datas, não filtra por data
                 }
             }
             
+            debugLog(`Artigo "${data.title}" passou em todos os filtros`, 'success');
             return true;
         }
 
         function performSearch() {
-            debugLog('Iniciando busca...');
+            debugLog('=== INICIANDO BUSCA ===', 'info');
+            debugLog(`Total de artigos disponíveis: ${allArticles.length}`, 'info');
+            
             const startTime = performance.now();
             searchParams = collectSearchParams();
+            debugLog(`Parâmetros de busca: ${JSON.stringify(searchParams)}`, 'info');
             
             filteredArticles = allArticles.filter(article => 
                 articleMatchesSearch(article, searchParams)
@@ -1007,7 +1074,7 @@
             const endTime = performance.now();
             const searchDuration = Math.round(endTime - startTime);
             
-            debugLog(`Busca concluída: ${filteredArticles.length} resultados em ${searchDuration}ms`);
+            debugLog(`Busca concluída: ${filteredArticles.length} resultados em ${searchDuration}ms`, 'success');
             
             // Atualizar estatísticas
             updateSearchStats(searchDuration);
@@ -1058,8 +1125,10 @@
             const data = article.data();
             const articleId = article.id;
             
-            const authorsText = data.authors ? truncateText(Array.isArray(data.authors) ? data.authors.join(', ') : data.authors, 60) : 'Não informado';
-            const createdDate = formatDate(data.createdAt || data.timestamp || data.date);
+            const authorsText = data.authors ? 
+                truncateText(Array.isArray(data.authors) ? data.authors.join(', ') : data.authors, 60) : 
+                'Não informado';
+            const createdDate = formatDate(data.createdAt || data.timestamp);
             
             return `
                 <tr>
@@ -1091,7 +1160,7 @@
                             <button class="table-action-btn edit-btn-table" onclick="editArticle('${articleId}')">
                                 <i class="material-icons">edit</i>
                             </button>
-                            <button class="table-action-btn delete-btn-table" onclick="deleteArticle('${articleId}', '${(data.title || 'este artigo').replace(/'/g, "\\'")}')">
+                            <button class="table-action-btn delete-btn-table" onclick="deleteArticle('${articleId}', '${(data.title || 'este artigo').replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
                                 <i class="material-icons">delete</i>
                             </button>
                         </div>
@@ -1105,7 +1174,9 @@
             const articleId = article.id;
             
             const previewText = stripHTML(data.formattedContent || data.content || data.body || '');
-            const authorsText = data.authors ? (Array.isArray(data.authors) ? data.authors.join(', ') : data.authors) : 'Autor desconhecido';
+            const authorsText = data.authors ? 
+                (Array.isArray(data.authors) ? data.authors.join(', ') : data.authors) : 
+                'Autor desconhecido';
             
             return `
                 <div class="article-card">
@@ -1124,7 +1195,7 @@
                             </span>
                             <span class="meta-item">
                                 <i class="material-icons">calendar_today</i>
-                                ${formatDate(data.createdAt || data.date)}
+                                ${formatDate(data.createdAt || data.timestamp)}
                             </span>
                             <span class="meta-item">
                                 <i class="material-icons">visibility</i>
@@ -1159,7 +1230,7 @@
                             <button class="action-btn edit-btn-card" onclick="editArticle('${articleId}')">
                                 <i class="material-icons">edit</i> Editar
                             </button>
-                            <button class="action-btn delete-btn-card" onclick="deleteArticle('${articleId}', '${(data.title || 'este artigo').replace(/'/g, "\\'")}')">
+                            <button class="action-btn delete-btn-card" onclick="deleteArticle('${articleId}', '${(data.title || 'este artigo').replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">
                                 <i class="material-icons">delete</i> Excluir
                             </button>
                         </div>
@@ -1169,13 +1240,15 @@
         }
 
         function renderResults() {
+            debugLog(`Renderizando resultados: ${filteredArticles.length} artigos`, 'info');
+            
             // Calcular paginação
             const totalPages = Math.ceil(filteredArticles.length / articlesPerPage);
             const startIndex = (currentPage - 1) * articlesPerPage;
             const endIndex = startIndex + articlesPerPage;
             const pageArticles = filteredArticles.slice(startIndex, endIndex);
             
-            debugLog(`Renderizando página ${currentPage}/${totalPages} com ${pageArticles.length} artigos`);
+            debugLog(`Página ${currentPage}/${totalPages} com ${pageArticles.length} artigos`, 'info');
             
             // Atualizar controles de paginação
             if (totalPages > 1) {
@@ -1196,7 +1269,7 @@
                                 <i class="material-icons" style="font-size: 48px; opacity: 0.3;">search_off</i>
                                 <h3>${allArticles.length === 0 ? 'Nenhum artigo cadastrado' : 'Nenhum artigo encontrado'}</h3>
                                 <p>${Object.values(searchParams).some(v => v) ? 'Tente alterar seus critérios de busca' : 'Comece usando os filtros acima para buscar artigos'}</p>
-                                ${allArticles.length === 0 ? '<p><strong>Dica:</strong> Verifique se a coleção "articlesdoc" existe no Firebase.</p>' : ''}
+                                ${allArticles.length > 0 ? '<p><strong>Dica:</strong> Clique no botão "Diagnóstico" para ver mais detalhes.</p>' : ''}
                             </td>
                         </tr>
                     `;
@@ -1218,12 +1291,13 @@
             }
             
             // Atualizar contador detalhado
+            const showing = Math.min(pageArticles.length, articlesPerPage);
             elements.detailedCount.textContent = 
-                `Mostrando ${pageArticles.length} de ${filteredArticles.length} artigo${filteredArticles.length !== 1 ? 's' : ''}`;
+                `Mostrando ${showing} de ${filteredArticles.length} artigo${filteredArticles.length !== 1 ? 's' : ''}`;
         }
 
         function switchView(view) {
-            debugLog(`Alternando para view: ${view}`);
+            debugLog(`Alternando para view: ${view}`, 'info');
             currentView = view;
             
             // Atualizar botões ativos
@@ -1251,7 +1325,7 @@
         // --- Funções Firebase ---
         async function loadAllArticles() {
             try {
-                debugLog('Iniciando carregamento de artigos...');
+                debugLog('=== CARREGANDO ARTIGOS ===', 'info');
                 
                 // Mostrar loading
                 elements.tableResults.innerHTML = `
@@ -1270,56 +1344,36 @@
                     snapshot = await firestore.collection('articlesdoc')
                         .orderBy('createdAt', 'desc')
                         .get();
-                    debugLog('Artigos carregados com ordenação por createdAt');
+                    debugLog('Artigos carregados com ordenação por createdAt', 'success');
                 } catch (orderError) {
-                    debugLog(`Não é possível ordenar por createdAt: ${orderError.message}`);
+                    debugLog(`Não é possível ordenar por createdAt: ${orderError.message}`, 'warning');
                     // Tentar sem ordenação
                     snapshot = await firestore.collection('articlesdoc').get();
-                    debugLog('Artigos carregados sem ordenação');
+                    debugLog('Artigos carregados sem ordenação', 'success');
                 }
                 
                 allArticles = snapshot.docs;
-                debugLog(`Total de artigos carregados: ${allArticles.length}`);
+                debugLog(`Total de artigos carregados: ${allArticles.length}`, 'success');
                 
                 // Depurar estrutura dos dados
                 if (allArticles.length > 0) {
-                    const firstArticle = allArticles[0];
-                    debugLog('Primeiro artigo:', 'info');
-                    debugLog(`ID: ${firstArticle.id}`, 'info');
-                    debugLog('Campos disponíveis:', 'info');
-                    const data = firstArticle.data();
-                    Object.keys(data).forEach(key => {
-                        debugLog(`  - ${key}: ${JSON.stringify(data[key]).substring(0, 50)}...`, 'info');
+                    debugLog('=== ESTRUTURA DOS DADOS ===', 'info');
+                    allArticles.forEach((article, index) => {
+                        const data = article.data();
+                        debugLog(`Artigo ${index + 1}: ${data.title || 'Sem título'}`, 'info');
+                        debugLog(`  ID: ${article.id}`, 'info');
+                        debugLog(`  Status: ${data.status || 'não definido'}`, 'info');
+                        debugLog(`  Tipo: ${data.articleType || data.type || 'não definido'}`, 'info');
+                        debugLog(`  Data: ${formatDate(data.createdAt || data.timestamp)}`, 'info');
                     });
                 }
                 
                 // Ordenar localmente por data se possível
                 allArticles.sort((a, b) => {
-                    const getDate = (doc) => {
-                        const data = doc.data();
-                        try {
-                            const date = data.createdAt?.toDate ? data.createdAt.toDate() : 
-                                        data.timestamp?.toDate ? data.timestamp.toDate() :
-                                        new Date(data.createdAt || data.timestamp || data.date || 0);
-                            return date.getTime();
-                        } catch (e) {
-                            return 0;
-                        }
-                    };
-                    return getDate(b) - getDate(a);
+                    const dateA = getArticleDate(a.data());
+                    const dateB = getArticleDate(b.data());
+                    return dateB - dateA; // Mais recentes primeiro
                 });
-                
-                // Se houver parâmetros na URL, aplicar busca automática
-                const urlParams = new URLSearchParams(window.location.search);
-                const urlTitle = urlParams.get('title');
-                const urlAuthor = urlParams.get('author');
-                
-                if (urlTitle) {
-                    elements.searchTitle.value = urlTitle;
-                }
-                if (urlAuthor) {
-                    elements.searchAuthor.value = urlAuthor;
-                }
                 
                 // Realizar busca inicial
                 performSearch();
@@ -1368,13 +1422,12 @@
             // 3. Testar conexão com Firestore
             debugLog('3. Testando conexão com Firestore...', 'info');
             try {
-                const collections = await firestore.listCollections();
-                debugLog(`Coleções disponíveis: ${collections.length}`, 'info');
-                collections.forEach(col => {
-                    debugLog(`  - ${col.id}`, 'info');
-                });
+                // Método alternativo para testar conexão
+                const testQuery = firestore.collection('articlesdoc').limit(1);
+                await testQuery.get();
+                debugLog('Conexão com Firestore OK', 'success');
             } catch (error) {
-                debugLog(`ERRO ao listar coleções: ${error.message}`, 'error');
+                debugLog(`ERRO ao conectar com Firestore: ${error.message}`, 'error');
             }
             
             // 4. Testar coleção articlesdoc
@@ -1390,12 +1443,38 @@
                         debugLog(`  Documento ${index + 1}: ${doc.id}`, 'info');
                         const data = doc.data();
                         debugLog(`    Título: ${data.title || 'Não definido'}`, 'info');
+                        debugLog(`    Status: ${data.status || 'não definido'}`, 'info');
+                        debugLog(`    Tipo: ${data.articleType || data.type || 'não definido'}`, 'info');
                         debugLog(`    Autores: ${data.authors ? (Array.isArray(data.authors) ? data.authors.join(', ') : data.authors) : 'Não definido'}`, 'info');
                     });
                 }
             } catch (error) {
                 debugLog(`ERRO ao acessar articlesdoc: ${error.message}`, 'error');
                 debugLog('Certifique-se de que a coleção existe e as regras de segurança permitem leitura.', 'error');
+            }
+            
+            // 5. Verificar dados atuais
+            debugLog('5. Verificando dados atuais...', 'info');
+            debugLog(`Artigos carregados: ${allArticles.length}`, 'info');
+            debugLog(`Artigos filtrados: ${filteredArticles.length}`, 'info');
+            debugLog(`Parâmetros de busca atuais: ${JSON.stringify(searchParams)}`, 'info');
+            
+            // 6. Testar filtragem manualmente
+            debugLog('6. Testando filtragem manual...', 'info');
+            if (allArticles.length > 0) {
+                const testArticle = allArticles[0];
+                const testData = testArticle.data();
+                debugLog(`Testando filtro no artigo: "${testData.title}"`, 'info');
+                
+                // Testar filtro por status
+                const hasStatus = testData.status === 'published' || testData.status === 'draft';
+                debugLog(`  Tem status válido? ${hasStatus ? 'SIM' : 'NÃO'} (${testData.status})`, 
+                        hasStatus ? 'success' : 'error');
+                
+                // Testar filtro por tipo
+                const hasType = testData.articleType || testData.type;
+                debugLog(`  Tem tipo definido? ${hasType ? 'SIM' : 'NÃO'} (${testData.articleType || testData.type})`, 
+                        hasType ? 'success' : 'error');
             }
             
             debugLog('=== FIM DO DIAGNÓSTICO ===', 'success');
@@ -1613,6 +1692,35 @@
                 debugLog(`Teste OK! Coleção encontrada com ${test.size} documentos`, 'success');
             } catch (error) {
                 debugLog(`ERRO: ${error.message}`, 'error');
+            }
+        };
+        
+        // Função para testar filtragem manualmente
+        window.testFilter = function() {
+            debugLog('=== TESTANDO FILTRAGEM MANUAL ===', 'info');
+            if (allArticles.length > 0) {
+                const testArticle = allArticles[0];
+                const testData = testArticle.data();
+                debugLog(`Artigo de teste: ${testData.title}`, 'info');
+                debugLog(`Status: ${testData.status}`, 'info');
+                debugLog(`Tipo: ${testData.articleType}`, 'info');
+                
+                // Testar com parâmetros vazios
+                const emptyParams = {
+                    title: '',
+                    author: '',
+                    status: '',
+                    type: '',
+                    content: '',
+                    citation: '',
+                    language: '',
+                    dateFrom: '',
+                    dateTo: ''
+                };
+                
+                const shouldMatch = articleMatchesSearch(testArticle, emptyParams);
+                debugLog(`Deve passar com filtros vazios? ${shouldMatch ? 'SIM' : 'NÃO'}`, 
+                        shouldMatch ? 'success' : 'error');
             }
         };
     </script>
