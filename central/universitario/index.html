@@ -629,6 +629,9 @@
                 <button id="debug-btn" class="mdl-button mdl-js-button mdl-button--raised" style="background: #9c27b0; color: white;">
                     <i class="material-icons">bug_report</i> Diagnóstico
                 </button>
+                <button id="clear-date" class="mdl-button mdl-js-button mdl-button--raised" style="background: #ff9800; color: white;">
+                    <i class="material-icons">date_range</i> Limpar Data
+                </button>
                 <button id="clear-search" class="mdl-button mdl-js-button mdl-button--raised">
                     <i class="material-icons">clear</i> Limpar
                 </button>
@@ -783,6 +786,7 @@
             advancedToggle: document.getElementById('advanced-toggle'),
             advancedFields: document.getElementById('advanced-fields'),
             clearSearch: document.getElementById('clear-search'),
+            clearDate: document.getElementById('clear-date'),
             searchBtn: document.getElementById('search-btn'),
             newArticleBtn: document.getElementById('new-article-btn'),
             debugBtn: document.getElementById('debug-btn'),
@@ -952,7 +956,6 @@
 
         function articleMatchesSearch(article, params) {
             const data = article.data();
-            debugLog(`Verificando artigo: ${data.title || 'Sem título'}`, 'info');
             
             // Verificar se o artigo tem dados básicos
             if (!data) {
@@ -1026,26 +1029,23 @@
                 return false;
             }
             
-            // Filtro por data
+            // Filtro por data - CORREÇÃO DO FUSO HORÁRIO
             if (params.dateFrom || params.dateTo) {
                 try {
                     const articleDate = getArticleDate(data);
-                    debugLog(`Data do artigo: ${articleDate.toISOString()}`, 'info');
                     
                     if (params.dateFrom) {
-                        const fromDate = new Date(params.dateFrom);
-                        fromDate.setHours(0, 0, 0, 0);
+                        const fromDate = new Date(params.dateFrom + 'T00:00:00.000Z'); // Usar UTC
                         if (articleDate < fromDate) {
-                            debugLog(`Falhou na data: ${articleDate.toISOString()} < ${fromDate.toISOString()}`, 'info');
+                            debugLog(`Falhou na data inicial: ${articleDate.toISOString()} < ${fromDate.toISOString()}`, 'info');
                             return false;
                         }
                     }
                     
                     if (params.dateTo) {
-                        const toDate = new Date(params.dateTo);
-                        toDate.setHours(23, 59, 59, 999);
+                        const toDate = new Date(params.dateTo + 'T23:59:59.999Z'); // Usar UTC, fim do dia
                         if (articleDate > toDate) {
-                            debugLog(`Falhou na data: ${articleDate.toISOString()} > ${toDate.toISOString()}`, 'info');
+                            debugLog(`Falhou na data final: ${articleDate.toISOString()} > ${toDate.toISOString()}`, 'info');
                             return false;
                         }
                     }
@@ -1269,7 +1269,7 @@
                                 <i class="material-icons" style="font-size: 48px; opacity: 0.3;">search_off</i>
                                 <h3>${allArticles.length === 0 ? 'Nenhum artigo cadastrado' : 'Nenhum artigo encontrado'}</h3>
                                 <p>${Object.values(searchParams).some(v => v) ? 'Tente alterar seus critérios de busca' : 'Comece usando os filtros acima para buscar artigos'}</p>
-                                ${allArticles.length > 0 ? '<p><strong>Dica:</strong> Clique no botão "Diagnóstico" para ver mais detalhes.</p>' : ''}
+                                ${allArticles.length > 0 ? '<p><strong>Dica:</strong> Clique no botão "Limpar Data" para remover filtros de data.</p>' : ''}
                             </td>
                         </tr>
                     `;
@@ -1459,24 +1459,6 @@
             debugLog(`Artigos filtrados: ${filteredArticles.length}`, 'info');
             debugLog(`Parâmetros de busca atuais: ${JSON.stringify(searchParams)}`, 'info');
             
-            // 6. Testar filtragem manualmente
-            debugLog('6. Testando filtragem manual...', 'info');
-            if (allArticles.length > 0) {
-                const testArticle = allArticles[0];
-                const testData = testArticle.data();
-                debugLog(`Testando filtro no artigo: "${testData.title}"`, 'info');
-                
-                // Testar filtro por status
-                const hasStatus = testData.status === 'published' || testData.status === 'draft';
-                debugLog(`  Tem status válido? ${hasStatus ? 'SIM' : 'NÃO'} (${testData.status})`, 
-                        hasStatus ? 'success' : 'error');
-                
-                // Testar filtro por tipo
-                const hasType = testData.articleType || testData.type;
-                debugLog(`  Tem tipo definido? ${hasType ? 'SIM' : 'NÃO'} (${testData.articleType || testData.type})`, 
-                        hasType ? 'success' : 'error');
-            }
-            
             debugLog('=== FIM DO DIAGNÓSTICO ===', 'success');
             
             // Mostrar painel de debug
@@ -1605,9 +1587,8 @@
                 window.componentHandler.upgradeDom();
             }
             
-            // Configurar data atual como valor padrão para data final
-            const today = new Date().toISOString().split('T')[0];
-            elements.searchDateTo.value = today;
+            // NÃO configurar data padrão - deixar vazio para buscar todos os artigos
+            // Isso evita o problema do filtro de data pré-preenchido
             
             // Event Listeners para busca avançada
             elements.advancedToggle.addEventListener('click', () => {
@@ -1621,6 +1602,11 @@
             // Event Listeners para botões de busca
             elements.searchBtn.addEventListener('click', performSearch);
             elements.clearSearch.addEventListener('click', clearSearch);
+            elements.clearDate.addEventListener('click', () => {
+                elements.searchDateFrom.value = '';
+                elements.searchDateTo.value = '';
+                performSearch();
+            });
             elements.newArticleBtn.addEventListener('click', createNewArticle);
             elements.debugBtn.addEventListener('click', runDiagnostics);
             
@@ -1701,7 +1687,7 @@
             if (allArticles.length > 0) {
                 const testArticle = allArticles[0];
                 const testData = testArticle.data();
-                debugLog(`Artigo de teste: ${testData.title}`, 'info');
+                debugLog(`Artigo de teste: "${testData.title}"`, 'info');
                 debugLog(`Status: ${testData.status}`, 'info');
                 debugLog(`Tipo: ${testData.articleType}`, 'info');
                 
