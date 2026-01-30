@@ -433,6 +433,55 @@
             gap: 8px;
         }
 
+        .debug-panel {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .debug-panel.show {
+            display: block;
+        }
+
+        .debug-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .debug-toggle {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .debug-log {
+            color: #495057;
+            margin: 2px 0;
+        }
+
+        .debug-error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .debug-success {
+            color: #28a745;
+            font-weight: bold;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -577,6 +626,9 @@
             </div>
 
             <div class="search-actions">
+                <button id="debug-btn" class="mdl-button mdl-js-button mdl-button--raised" style="background: #9c27b0; color: white;">
+                    <i class="material-icons">bug_report</i> Diagnóstico
+                </button>
                 <button id="clear-search" class="mdl-button mdl-js-button mdl-button--raised">
                     <i class="material-icons">clear</i> Limpar
                 </button>
@@ -586,6 +638,14 @@
                 <button id="new-article-btn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">
                     <i class="material-icons">add</i> Novo Artigo
                 </button>
+            </div>
+
+            <div class="debug-panel" id="debug-panel">
+                <div class="debug-header">
+                    <strong>Console de Depuração</strong>
+                    <button class="debug-toggle" onclick="toggleDebug()">Ocultar</button>
+                </div>
+                <div id="debug-output"></div>
             </div>
         </div>
 
@@ -676,11 +736,12 @@
             measurementId: "G-PLKNZNFCQ8"
         };
 
+        // Inicializar Firebase
         let app;
-        try {
-            app = firebase.app();
-        } catch (e) {
+        if (!firebase.apps.length) {
             app = firebase.initializeApp(firebaseConfig);
+        } else {
+            app = firebase.app();
         }
         
         const firestore = firebase.firestore();
@@ -724,6 +785,7 @@
             clearSearch: document.getElementById('clear-search'),
             searchBtn: document.getElementById('search-btn'),
             newArticleBtn: document.getElementById('new-article-btn'),
+            debugBtn: document.getElementById('debug-btn'),
             
             // Views
             tableView: document.getElementById('table-view'),
@@ -745,30 +807,58 @@
             nextPage: document.getElementById('next-page'),
             
             // View toggle
-            viewButtons: document.querySelectorAll('.view-btn')
+            viewButtons: document.querySelectorAll('.view-btn'),
+            
+            // Debug
+            debugPanel: document.getElementById('debug-panel'),
+            debugOutput: document.getElementById('debug-output')
         };
 
         // --- Funções de Utilidade ---
+        function debugLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `debug-log debug-${type}`;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            elements.debugOutput.appendChild(logEntry);
+            elements.debugOutput.scrollTop = elements.debugOutput.scrollHeight;
+            console.log(`[DEBUG] ${message}`);
+        }
+
+        function toggleDebug() {
+            elements.debugPanel.classList.toggle('show');
+            const button = elements.debugPanel.querySelector('.debug-toggle');
+            button.textContent = elements.debugPanel.classList.contains('show') ? 'Ocultar' : 'Mostrar';
+        }
+
         function formatDate(dateString) {
             if (!dateString) return 'N/A';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
+            try {
+                const date = dateString?.toDate ? dateString.toDate() : new Date(dateString);
+                return date.toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            } catch (e) {
+                return 'Data inválida';
+            }
         }
 
         function formatDateTime(dateString) {
             if (!dateString) return 'N/A';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            try {
+                const date = dateString?.toDate ? dateString.toDate() : new Date(dateString);
+                return date.toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return 'Data inválida';
+            }
         }
 
         function truncateText(text, maxLength = 100) {
@@ -827,9 +917,14 @@
         function articleMatchesSearch(article, params) {
             const data = article.data();
             
+            // Verificar se o artigo tem dados básicos
+            if (!data) return false;
+            
             // Busca por título
-            if (params.title && !data.title?.toLowerCase().includes(params.title.toLowerCase())) {
-                return false;
+            if (params.title && data.title) {
+                if (!data.title.toLowerCase().includes(params.title.toLowerCase())) {
+                    return false;
+                }
             }
             
             // Busca por autor/discente
@@ -839,10 +934,11 @@
                 const students = data.students || [];
                 const allPeople = [...authors, ...students];
                 
-                if (!allPeople.some(person => 
-                    person.toLowerCase().includes(authorQuery))) {
-                    return false;
-                }
+                if (allPeople.length === 0) return false;
+                
+                const found = allPeople.some(person => 
+                    person && person.toLowerCase().includes(authorQuery));
+                if (!found) return false;
             }
             
             // Filtro por status
@@ -857,7 +953,7 @@
             
             // Busca no conteúdo
             if (params.content) {
-                const content = stripHTML(data.formattedContent || '').toLowerCase();
+                const content = stripHTML(data.formattedContent || data.content || '').toLowerCase();
                 if (!content.includes(params.content.toLowerCase())) {
                     return false;
                 }
@@ -877,7 +973,12 @@
             
             // Filtro por data
             if (params.dateFrom || params.dateTo) {
-                const articleDate = new Date(data.createdAt || data.timestamp?.toDate?.() || 0);
+                let articleDate;
+                try {
+                    articleDate = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || data.timestamp || 0);
+                } catch (e) {
+                    articleDate = new Date(0);
+                }
                 
                 if (params.dateFrom) {
                     const fromDate = new Date(params.dateFrom);
@@ -895,6 +996,7 @@
         }
 
         function performSearch() {
+            debugLog('Iniciando busca...');
             const startTime = performance.now();
             searchParams = collectSearchParams();
             
@@ -904,6 +1006,8 @@
             
             const endTime = performance.now();
             const searchDuration = Math.round(endTime - startTime);
+            
+            debugLog(`Busca concluída: ${filteredArticles.length} resultados em ${searchDuration}ms`);
             
             // Atualizar estatísticas
             updateSearchStats(searchDuration);
@@ -954,19 +1058,19 @@
             const data = article.data();
             const articleId = article.id;
             
-            const authorsText = data.authors ? truncateText(data.authors.join(', '), 60) : 'Não informado';
-            const createdDate = formatDate(data.createdAt);
+            const authorsText = data.authors ? truncateText(Array.isArray(data.authors) ? data.authors.join(', ') : data.authors, 60) : 'Não informado';
+            const createdDate = formatDate(data.createdAt || data.timestamp || data.date);
             
             return `
                 <tr>
                     <td>
                         <strong>${data.title || 'Sem título'}</strong>
                         <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                            ${truncateText(data.description || '', 80)}
+                            ${truncateText(data.description || data.summary || '', 80)}
                         </div>
                     </td>
                     <td>${authorsText}</td>
-                    <td>${getArticleTypeLabel(data.articleType)}</td>
+                    <td>${getArticleTypeLabel(data.articleType || data.type)}</td>
                     <td>
                         <span class="status-badge ${data.status === 'published' ? 'status-published' : 'status-draft'}">
                             ${data.status === 'published' ? 'PUBLICADO' : 'RASCUNHO'}
@@ -976,7 +1080,7 @@
                     <td>
                         <div style="display: flex; align-items: center; gap: 5px;">
                             <i class="material-icons" style="font-size: 16px;">visibility</i>
-                            ${data.views || 0}
+                            ${data.views || data.viewCount || 0}
                         </div>
                     </td>
                     <td>
@@ -987,7 +1091,7 @@
                             <button class="table-action-btn edit-btn-table" onclick="editArticle('${articleId}')">
                                 <i class="material-icons">edit</i>
                             </button>
-                            <button class="table-action-btn delete-btn-table" onclick="deleteArticle('${articleId}', '${data.title?.replace(/'/g, "\\'") || 'este artigo'}')">
+                            <button class="table-action-btn delete-btn-table" onclick="deleteArticle('${articleId}', '${(data.title || 'este artigo').replace(/'/g, "\\'")}')">
                                 <i class="material-icons">delete</i>
                             </button>
                         </div>
@@ -1000,8 +1104,8 @@
             const data = article.data();
             const articleId = article.id;
             
-            const previewText = stripHTML(data.formattedContent || '');
-            const authorsText = data.authors ? data.authors.join(', ') : 'Autor desconhecido';
+            const previewText = stripHTML(data.formattedContent || data.content || data.body || '');
+            const authorsText = data.authors ? (Array.isArray(data.authors) ? data.authors.join(', ') : data.authors) : 'Autor desconhecido';
             
             return `
                 <div class="article-card">
@@ -1016,15 +1120,15 @@
                         <div class="article-meta">
                             <span class="meta-item">
                                 <i class="material-icons">person</i>
-                                ${data.userEmail?.split('@')[0] || 'Autor'}
+                                ${data.userEmail?.split('@')[0] || data.authorName || 'Autor'}
                             </span>
                             <span class="meta-item">
                                 <i class="material-icons">calendar_today</i>
-                                ${formatDate(data.createdAt)}
+                                ${formatDate(data.createdAt || data.date)}
                             </span>
                             <span class="meta-item">
                                 <i class="material-icons">visibility</i>
-                                ${data.views || 0}
+                                ${data.views || data.viewCount || 0}
                             </span>
                         </div>
                         
@@ -1037,7 +1141,7 @@
                             <div class="authors-list">${truncateText(authorsText, 80)}</div>
                             ${data.students && data.students.length > 0 ? `
                                 <span class="authors-label" style="margin-top: 8px;">Discentes:</span>
-                                <div class="authors-list">${truncateText(data.students.join(', '), 60)}</div>
+                                <div class="authors-list">${truncateText(Array.isArray(data.students) ? data.students.join(', ') : data.students, 60)}</div>
                             ` : ''}
                         </div>
                         
@@ -1055,7 +1159,7 @@
                             <button class="action-btn edit-btn-card" onclick="editArticle('${articleId}')">
                                 <i class="material-icons">edit</i> Editar
                             </button>
-                            <button class="action-btn delete-btn-card" onclick="deleteArticle('${articleId}', '${data.title?.replace(/'/g, "\\'") || 'este artigo'}')">
+                            <button class="action-btn delete-btn-card" onclick="deleteArticle('${articleId}', '${(data.title || 'este artigo').replace(/'/g, "\\'")}')">
                                 <i class="material-icons">delete</i> Excluir
                             </button>
                         </div>
@@ -1070,6 +1174,8 @@
             const startIndex = (currentPage - 1) * articlesPerPage;
             const endIndex = startIndex + articlesPerPage;
             const pageArticles = filteredArticles.slice(startIndex, endIndex);
+            
+            debugLog(`Renderizando página ${currentPage}/${totalPages} com ${pageArticles.length} artigos`);
             
             // Atualizar controles de paginação
             if (totalPages > 1) {
@@ -1088,8 +1194,9 @@
                         <tr>
                             <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
                                 <i class="material-icons" style="font-size: 48px; opacity: 0.3;">search_off</i>
-                                <h3>Nenhum artigo encontrado</h3>
+                                <h3>${allArticles.length === 0 ? 'Nenhum artigo cadastrado' : 'Nenhum artigo encontrado'}</h3>
                                 <p>${Object.values(searchParams).some(v => v) ? 'Tente alterar seus critérios de busca' : 'Comece usando os filtros acima para buscar artigos'}</p>
+                                ${allArticles.length === 0 ? '<p><strong>Dica:</strong> Verifique se a coleção "articlesdoc" existe no Firebase.</p>' : ''}
                             </td>
                         </tr>
                     `;
@@ -1101,7 +1208,7 @@
                     elements.cardsResults.innerHTML = `
                         <div class="empty-state">
                             <i class="material-icons">search_off</i>
-                            <h3>Nenhum artigo encontrado</h3>
+                            <h3>${allArticles.length === 0 ? 'Nenhum artigo cadastrado' : 'Nenhum artigo encontrado'}</h3>
                             <p>${Object.values(searchParams).some(v => v) ? 'Tente alterar seus critérios de busca' : 'Comece usando os filtros acima para buscar artigos'}</p>
                         </div>
                     `;
@@ -1116,6 +1223,7 @@
         }
 
         function switchView(view) {
+            debugLog(`Alternando para view: ${view}`);
             currentView = view;
             
             // Atualizar botões ativos
@@ -1143,6 +1251,8 @@
         // --- Funções Firebase ---
         async function loadAllArticles() {
             try {
+                debugLog('Iniciando carregamento de artigos...');
+                
                 // Mostrar loading
                 elements.tableResults.innerHTML = `
                     <tr>
@@ -1153,11 +1263,51 @@
                     </tr>
                 `;
                 
-                const snapshot = await firestore.collection('articlesdoc')
-                    .orderBy('createdAt', 'desc')
-                    .get();
+                // Tentar diferentes abordagens para obter os artigos
+                let snapshot;
+                try {
+                    // Tentar ordenar por createdAt se existir
+                    snapshot = await firestore.collection('articlesdoc')
+                        .orderBy('createdAt', 'desc')
+                        .get();
+                    debugLog('Artigos carregados com ordenação por createdAt');
+                } catch (orderError) {
+                    debugLog(`Não é possível ordenar por createdAt: ${orderError.message}`);
+                    // Tentar sem ordenação
+                    snapshot = await firestore.collection('articlesdoc').get();
+                    debugLog('Artigos carregados sem ordenação');
+                }
                 
                 allArticles = snapshot.docs;
+                debugLog(`Total de artigos carregados: ${allArticles.length}`);
+                
+                // Depurar estrutura dos dados
+                if (allArticles.length > 0) {
+                    const firstArticle = allArticles[0];
+                    debugLog('Primeiro artigo:', 'info');
+                    debugLog(`ID: ${firstArticle.id}`, 'info');
+                    debugLog('Campos disponíveis:', 'info');
+                    const data = firstArticle.data();
+                    Object.keys(data).forEach(key => {
+                        debugLog(`  - ${key}: ${JSON.stringify(data[key]).substring(0, 50)}...`, 'info');
+                    });
+                }
+                
+                // Ordenar localmente por data se possível
+                allArticles.sort((a, b) => {
+                    const getDate = (doc) => {
+                        const data = doc.data();
+                        try {
+                            const date = data.createdAt?.toDate ? data.createdAt.toDate() : 
+                                        data.timestamp?.toDate ? data.timestamp.toDate() :
+                                        new Date(data.createdAt || data.timestamp || data.date || 0);
+                            return date.getTime();
+                        } catch (e) {
+                            return 0;
+                        }
+                    };
+                    return getDate(b) - getDate(a);
+                });
                 
                 // Se houver parâmetros na URL, aplicar busca automática
                 const urlParams = new URLSearchParams(window.location.search);
@@ -1175,17 +1325,83 @@
                 performSearch();
                 
             } catch (error) {
-                console.error('Erro ao carregar artigos:', error);
+                debugLog(`ERRO ao carregar artigos: ${error.message}`, 'error');
+                console.error('Erro detalhado:', error);
+                
                 elements.tableResults.innerHTML = `
                     <tr>
                         <td colspan="7" style="text-align: center; padding: 40px; color: #f44336;">
-                            <i class="material-icons" style="font-size: 48px;">error</i>
+                            <i class="material-icons" style="font-size: 48px;">error_outline</i>
                             <h3>Erro ao carregar artigos</h3>
-                            <p>${error.message}</p>
+                            <p><strong>${error.code || 'Erro'}:</strong> ${error.message}</p>
+                            <div style="margin-top: 20px; text-align: left; background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 12px;">
+                                <strong>Possíveis causas:</strong>
+                                <ul style="margin: 5px 0; padding-left: 20px;">
+                                    <li>Coleção "articlesdoc" não existe</li>
+                                    <li>Regras de segurança do Firestore</li>
+                                    <li>Problema de conexão</li>
+                                    <li>Erro de autenticação</li>
+                                </ul>
+                            </div>
+                            <button onclick="runDiagnostics()" style="margin-top: 20px; padding: 10px 20px; background: #3f51b5; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Executar Diagnóstico Completo
+                            </button>
                         </td>
                     </tr>
                 `;
             }
+        }
+
+        async function runDiagnostics() {
+            debugLog('=== INÍCIO DO DIAGNÓSTICO ===', 'success');
+            
+            // 1. Verificar Firebase
+            debugLog('1. Verificando Firebase...', 'info');
+            debugLog(`Apps inicializados: ${firebase.apps.length}`, 'info');
+            debugLog(`Nome do app: ${firebase.app().name}`, 'info');
+            
+            // 2. Verificar autenticação
+            debugLog('2. Verificando autenticação...', 'info');
+            debugLog(`Usuário atual: ${auth.currentUser?.email || 'Não autenticado'}`, 
+                    auth.currentUser ? 'success' : 'error');
+            
+            // 3. Testar conexão com Firestore
+            debugLog('3. Testando conexão com Firestore...', 'info');
+            try {
+                const collections = await firestore.listCollections();
+                debugLog(`Coleções disponíveis: ${collections.length}`, 'info');
+                collections.forEach(col => {
+                    debugLog(`  - ${col.id}`, 'info');
+                });
+            } catch (error) {
+                debugLog(`ERRO ao listar coleções: ${error.message}`, 'error');
+            }
+            
+            // 4. Testar coleção articlesdoc
+            debugLog('4. Testando coleção articlesdoc...', 'info');
+            try {
+                const testQuery = firestore.collection('articlesdoc').limit(5);
+                const testSnapshot = await testQuery.get();
+                debugLog(`Documentos em articlesdoc: ${testSnapshot.size}`, 
+                        testSnapshot.size > 0 ? 'success' : 'warning');
+                
+                if (testSnapshot.size > 0) {
+                    testSnapshot.forEach((doc, index) => {
+                        debugLog(`  Documento ${index + 1}: ${doc.id}`, 'info');
+                        const data = doc.data();
+                        debugLog(`    Título: ${data.title || 'Não definido'}`, 'info');
+                        debugLog(`    Autores: ${data.authors ? (Array.isArray(data.authors) ? data.authors.join(', ') : data.authors) : 'Não definido'}`, 'info');
+                    });
+                }
+            } catch (error) {
+                debugLog(`ERRO ao acessar articlesdoc: ${error.message}`, 'error');
+                debugLog('Certifique-se de que a coleção existe e as regras de segurança permitem leitura.', 'error');
+            }
+            
+            debugLog('=== FIM DO DIAGNÓSTICO ===', 'success');
+            
+            // Mostrar painel de debug
+            elements.debugPanel.classList.add('show');
         }
 
         async function deleteArticle(articleId, articleTitle) {
@@ -1194,14 +1410,16 @@
             }
             
             try {
+                debugLog(`Excluindo artigo: ${articleId}`, 'info');
                 await firestore.collection('articlesdoc').doc(articleId).delete();
                 showNotification('Artigo excluído com sucesso!', 'success');
+                debugLog('Artigo excluído com sucesso', 'success');
                 
                 // Recarregar artigos
                 await loadAllArticles();
                 
             } catch (error) {
-                console.error('Erro ao excluir artigo:', error);
+                debugLog(`ERRO ao excluir artigo: ${error.message}`, 'error');
                 showNotification('Erro ao excluir artigo: ' + error.message, 'error');
             }
         }
@@ -1212,7 +1430,8 @@
                 const data = article.data();
                 // Usar UID se disponível, senão usar ID
                 const uid = data.uid || articleId;
-                window.open(`view-article.html?uid=${uid}`, '_blank');
+                debugLog(`Abrindo artigo para visualização: ${uid}`, 'info');
+                window.open(`view-article.html?uid=${encodeURIComponent(uid)}`, '_blank');
             }
         }
 
@@ -1222,11 +1441,13 @@
                 const data = article.data();
                 // Usar UID se disponível, senão usar ID
                 const uid = data.uid || articleId;
-                window.open(`edit-article.html?uid=${uid}`, '_blank');
+                debugLog(`Abrindo artigo para edição: ${uid}`, 'info');
+                window.open(`edit-article.html?uid=${encodeURIComponent(uid)}`, '_blank');
             }
         }
 
         function createNewArticle() {
+            debugLog('Criando novo artigo', 'info');
             window.open('edit-article.html', '_blank');
         }
 
@@ -1261,6 +1482,7 @@
         }
 
         function clearSearch() {
+            debugLog('Limpando busca', 'info');
             // Limpar todos os campos
             elements.searchTitle.value = '';
             elements.searchAuthor.value = '';
@@ -1284,10 +1506,11 @@
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
-                console.log("Usuário logado:", user.email);
+                debugLog(`Usuário autenticado: ${user.email}`, 'success');
                 loadAllArticles();
             } else {
                 currentUser = null;
+                debugLog('Usuário não autenticado', 'error');
                 showNotification('Você precisa fazer login para continuar', 'error');
                 setTimeout(() => {
                     window.location.href = './login.html';
@@ -1296,6 +1519,8 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
+            debugLog('Página carregada', 'success');
+            
             // Inicializar MDL
             if (window.componentHandler) {
                 window.componentHandler.upgradeDom();
@@ -1318,6 +1543,7 @@
             elements.searchBtn.addEventListener('click', performSearch);
             elements.clearSearch.addEventListener('click', clearSearch);
             elements.newArticleBtn.addEventListener('click', createNewArticle);
+            elements.debugBtn.addEventListener('click', runDiagnostics);
             
             // Event Listeners para view toggle
             elements.viewButtons.forEach(btn => {
@@ -1378,6 +1604,17 @@
         window.editArticle = editArticle;
         window.deleteArticle = deleteArticle;
         window.createNewArticle = createNewArticle;
+        window.runDiagnostics = runDiagnostics;
+        window.toggleDebug = toggleDebug;
+        window.debugFirebase = async function() {
+            debugLog('Testando conexão Firebase...', 'info');
+            try {
+                const test = await firestore.collection('articlesdoc').limit(1).get();
+                debugLog(`Teste OK! Coleção encontrada com ${test.size} documentos`, 'success');
+            } catch (error) {
+                debugLog(`ERRO: ${error.message}`, 'error');
+            }
+        };
     </script>
 </body>
 </html>
