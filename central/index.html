@@ -93,12 +93,10 @@
 
         /* Novo estilo para o layout de duas colunas */
         .main-container {
-            display: none;
+            display: grid;
             flex-grow: 1;
-            flex-wrap: wrap;
             padding: 2em;
             gap: 20px;
-            display: grid;
             grid-template-columns: 350px 1fr;
             grid-template-areas: "sidebar main-content";
             min-height: calc(100vh - 120px);
@@ -781,7 +779,7 @@
             <button id="criar-artigo-btn">Criar Novo Artigo</button>
             <button id="minhas-contribuicoes-btn">Minhas Contribuições</button>
             <button id="busca-avancada-btn">Busca Avançada</button>
-            
+            <button id="buscar-artigos-btn">Buscar Artigos</button>
         </div>
         <div>
             <button id="logout-button">Sair</button>
@@ -968,20 +966,12 @@
                                 <input class="mdl-textfield__input" id="search-type-display" readonly tabIndex="-1" value="Título">
                                 <label for="search-type-display" class="mdl-textfield__label">Buscar por</label>
                                 <ul for="search-type-display" class="mdl-menu mdl-menu--bottom-left mdl-js-menu" id="search-type-menu">
-                                    <li class="mdl-menu__item" data-val="title">Título</li>
-                                    <li class="mdl-menu__item" data-val="description">Descrição Curta</li>
-                                    <li class="mdl-menu__item" data-val="summary">Resumo</li>
-                                    <li class="mdl-menu__item" data-val="abstract">Abstract</li>
-                                    <li class="mdl-menu__item" data-val="introduction">Introdução</li>
-                                    <li class="mdl-menu__item" data-val="methodology">Metodologia</li>
-                                    <li class="mdl-menu__item" data-val="discussion">Discussão</li>
-                                    <li class="mdl-menu__item" data-val="conclusion">Conclusão</li>
-                                    <li class="mdl-menu__item" data-val="sources">Fontes</li>
-                                    <li class="mdl-menu__item" data-val="userId">ID do Usuário</li>
-                                    <li class="mdl-menu__item" data-val="id">ID do Artigo</li>
-                                    <li class="mdl-menu__item" data-val="originalUrl">Url</li>
+                                    <li class="mdl-menu__item" data-val="titulo">Título</li>
+                                    <li class="mdl-menu__item" data-val="descricao">Descrição</li>
+                                    <li class="mdl-menu__item" data-val="setor">Setor</li>
+                                    <li class="mdl-menu__item" data-val="armario">Idioma</li>
                                 </ul>
-                                <input type="hidden" name="search-type" id="search-type" value="title">
+                                <input type="hidden" name="search-type" id="search-type" value="titulo">
                             </div>
                             <div class="mdl-textfield mdl-js-textfield">
                                 <input class="mdl-textfield__input" type="text" id="search-term">
@@ -995,23 +985,17 @@
                             <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
                                 <select id="filter-language" class="mdl-textfield__input">
                                     <option value="">Todos os Idiomas</option>
-                                    <option value="pt-BR">Português (Brasil)</option>
-                                    <option value="en-US">English (United States)</option>
+                                    <option value="Português">Português</option>
+                                    <option value="Inglês">Inglês</option>
+                                    <option value="Espanhol">Espanhol</option>
                                 </select>
                                 <label for="filter-language" class="mdl-textfield__label">Idioma</label>
                             </div>
                             <div class="mdl-selectfield mdl-js-selectfield mdl-textfield--floating-label">
-                                <select id="filter-article-type" class="mdl-textfield__input">
-                                    <option value="">Todos os Tipos</option>
-                                    <option value="cientifico">Científico</option>
-                                    <option value="revisao">Revisão Bibliográfica</option>
-                                    <option value="noticia">Notícia</option>
-                                    <option value="editorial">Editorial</option>
-                                    <option value="opiniao">Opinião</option>
-                                    <option value="entrevista">Entrevista</option>
-                                    <option value="tutorial">Tutorial</option>
+                                <select id="filter-setor" class="mdl-textfield__input">
+                                    <option value="">Todos os Setores</option>
                                 </select>
-                                <label for="filter-article-type" class="mdl-textfield__label">Tipo de Artigo</label>
+                                <label for="filter-setor" class="mdl-textfield__label">Setor</label>
                             </div>
                         </div>
                     </div>
@@ -1053,6 +1037,8 @@
         // Definir a coleção baseada no parâmetro da URL ou usar 'materiadeensaio' como padrão
         const currentCollection = collectionParam || 'materiadeensaio';
 
+        console.log("Coleção atual:", currentCollection);
+
         // --- Configuração do Firebase ---
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
@@ -1080,8 +1066,6 @@
         const criarArtigoBtn = document.getElementById('criar-artigo-btn');
         const minhasContribuicoesBtn = document.getElementById('minhas-contribuicoes-btn');
         const buscaAvancadaBtn = document.getElementById('busca-avancada-btn');
-        
-        // Botão e painel da página de busca
         const buscarArtigosBtn = document.getElementById('buscar-artigos-btn');
         const buscarArtigosPane = document.getElementById('buscar-artigos-pane');
 
@@ -1134,7 +1118,7 @@
         const cancelarPaginaPessoalBtn = document.getElementById('cancelar-pagina-pessoal');
         const voltarAoPainelPerfilBtn = document.getElementById('voltar-ao-painel-perfil');
 
-        // NOVOS ELEMENTOS PARA ORDENAÇÃO E FILTRO
+        // Elementos para ordenação e filtro
         const ordenarPorSelect = document.getElementById('ordenar-por');
         const filtroDataInicio = document.getElementById('filtro-data-inicio');
         const filtroDataFim = document.getElementById('filtro-data-fim');
@@ -1142,9 +1126,24 @@
         const limparFiltrosBtn = document.getElementById('limpar-filtros');
         const contadorArtigos = document.getElementById('contador-artigos');
 
+        // Elementos da página de busca
+        const articlesListDiv = document.getElementById('articles-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorDisplay = document.getElementById('error-display');
+        const searchTermInput = document.getElementById('search-term');
+        const searchTypeInput = document.getElementById('search-type');
+        const searchTypeDisplayInput = document.getElementById('search-type-display');
+        const searchTypeMenu = document.getElementById('search-type-menu');
+        const searchButton = document.getElementById('search-button');
+        const mainSearchButton = document.getElementById('main-search-button');
+        const clearSearchButton = document.getElementById('clear-search-button');
+        const scholarSearchBox = document.getElementById('scholar-search-box');
+        const filterLanguageSelect = document.getElementById('filter-language');
+        const filterSetorSelect = document.getElementById('filter-setor');
+
         let currentUserRole = 'guest';
         let artigoSelecionado = null;
-        let versoesSelecionadas = []; // Para armazenar versões selecionadas para comparação
+        let versoesSelecionadas = [];
 
         // --- Lógica de Autenticação ---
         auth.onAuthStateChanged(async (user) => {
@@ -1163,6 +1162,7 @@
                 userRole.textContent = `Cargo: ${currentUserRole}`;
                 exibirPainel('detalhes-artigo');
                 buscarArtigos();
+                carregarSetoresParaFiltro();
             } else {
                 console.log("Nenhum usuário logado.");
                 loginSection.style.display = 'flex';
@@ -1234,6 +1234,32 @@
             exibirPainel('buscar-artigos-pane');
             loadArticles();
         });
+
+        // --- Função para carregar setores para o filtro ---
+        async function carregarSetoresParaFiltro() {
+            try {
+                const snapshot = await db.collection(currentCollection).get();
+                const setores = new Set();
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.setor) {
+                        setores.add(data.setor);
+                    }
+                });
+                
+                const setorSelect = document.getElementById('filter-setor');
+                if (setorSelect) {
+                    // Manter a opção "Todos os Setores"
+                    const options = Array.from(setores).sort().map(setor => 
+                        `<option value="${setor}">${setor}</option>`
+                    ).join('');
+                    setorSelect.innerHTML = '<option value="">Todos os Setores</option>' + options;
+                }
+            } catch (error) {
+                console.error("Erro ao carregar setores:", error);
+            }
+        }
 
         // --- Lógica de busca e exibição dos artigos ---
         async function buscarArtigos(filtros = {}, usarFiltros = false) {
@@ -1492,7 +1518,7 @@
             if (materia.dataCriacao) infoHtml += `<p><strong>Data de Criação:</strong> ${dataCriacao}</p>`;
             if (materia.ultimaEdicao) infoHtml += `<p><strong>Última Edição:</strong> ${ultimaEdicao}</p>`;
             if (materia.setor) infoHtml += `<p><strong>Setor:</strong> ${materia.setor}</p>`;
-            if (materia.armario) infoHtml += `<p><strong>Armário:</strong> ${materia.armario}</p>`;
+            if (materia.armario) infoHtml += `<p><strong>Idioma:</strong> ${materia.armario}</p>`;
 
             let fontesHtml = '';
             if (materia.fontes && materia.fontes.length > 0) {
@@ -1620,6 +1646,11 @@
                 const doc = await db.collection(currentCollection).doc(docId).get();
                 if (doc.exists) {
                     carregarDetalhesArtigo(doc.id, doc.data());
+                }
+
+                // Atualizar a página de busca se estiver visível
+                if (document.getElementById('buscar-artigos-pane').style.display !== 'none') {
+                    loadArticles();
                 }
 
             } catch (error) {
@@ -2095,6 +2126,9 @@
             const armario = newArmario.value;
             const descricao = newDescricao.value;
 
+            console.log("Criando artigo na coleção:", currentCollection);
+            console.log("Dados do artigo:", { titulo, setor, armario, descricao });
+
             try {
                 // Criar artigo
                 const docRef = await db.collection(currentCollection).add({
@@ -2111,6 +2145,8 @@
                     ultimoEditorEmail: user.email,
                     fontes: []
                 });
+
+                console.log("Artigo criado com ID:", docRef.id);
 
                 // Salvar versão inicial no histórico
                 await db.collection('historico').add({
@@ -2135,10 +2171,18 @@
                     tamanhoAnterior: 0
                 });
 
-                alert('Artigo criado com sucesso!');
+                alert('Artigo criado com sucesso! ID: ' + docRef.id);
                 formNovoArtigo.reset();
                 exibirPainel('detalhes-artigo');
                 buscarArtigos();
+                
+                // Atualizar a página de busca se estiver visível
+                if (document.getElementById('buscar-artigos-pane').style.display !== 'none') {
+                    loadArticles();
+                }
+                
+                // Atualizar a lista de setores no filtro
+                carregarSetoresParaFiltro();
             } catch (error) {
                 console.error("Erro ao criar artigo: ", error);
                 alert("Erro ao criar artigo: " + error.message);
@@ -2270,7 +2314,7 @@
             }
         }
         
-        // Funções para a página de busca
+        // --- Funções para a página de busca ---
         function escapeHtml(unsafe) {
             return unsafe
                 .replace(/&/g, "&amp;")
@@ -2285,20 +2329,6 @@
             return doc.documentElement.textContent;
         }
 
-        const articlesListDiv = document.getElementById('articles-list');
-        const loadingMessage = document.getElementById('loading-message');
-        const errorDisplay = document.getElementById('error-display');
-        const searchTermInput = document.getElementById('search-term');
-        const searchTypeInput = document.getElementById('search-type');
-        const searchTypeDisplayInput = document.getElementById('search-type-display');
-        const searchTypeMenu = document.getElementById('search-type-menu');
-        const searchButton = document.getElementById('search-button');
-        const mainSearchButton = document.getElementById('main-search-button');
-        const clearSearchButton = document.getElementById('clear-search-button');
-        const scholarSearchBox = document.getElementById('scholar-search-box');
-        const filterLanguageSelect = document.getElementById('filter-language');
-        const filterArticleTypeSelect = document.getElementById('filter-article-type');
-        
         function displayError(message) {
             if (errorDisplay) {
                 errorDisplay.textContent = `Erro: ${message}`;
@@ -2307,14 +2337,16 @@
             }
         }
 
-        async function loadArticles(searchTerm = '', searchField = 'title', languageFilter = '', articleTypeFilter = '') {
+        async function loadArticles(searchTerm = '', searchField = 'titulo', languageFilter = '', setorFilter = '') {
+            console.log("Buscando artigos na coleção:", currentCollection);
+            
             if (!articlesListDiv) return;
             
             articlesListDiv.innerHTML = '';
             if (loadingMessage) loadingMessage.style.display = 'block';
             if (errorDisplay) errorDisplay.style.display = 'none';
             
-            if (!searchTerm.trim() && !languageFilter && !articleTypeFilter) {
+            if (!searchTerm.trim() && !languageFilter && !setorFilter) {
                 articlesListDiv.innerHTML = `<p class="empty-state">Use a barra de pesquisa e/ou os filtros acima para encontrar artigos.</p>`;
                 if (loadingMessage) loadingMessage.style.display = 'none';
                 return;
@@ -2323,8 +2355,11 @@
             try {
                 const trimmedSearchTerm = searchTerm.trim();
                 let snapshot;
+                
+                let articlesRef = db.collection(currentCollection);
+                
                 if (searchField === 'id' && trimmedSearchTerm) {
-                    const doc = await db.collection('articlesdoc').doc(trimmedSearchTerm).get();
+                    const doc = await db.collection(currentCollection).doc(trimmedSearchTerm).get();
                     if (doc.exists) {
                         snapshot = {
                             empty: false,
@@ -2334,34 +2369,30 @@
                         snapshot = { empty: true };
                     }
                 } else {
-                    let articlesRef = db.collection('articlesdoc');
                     if (trimmedSearchTerm && searchField) {
                         articlesRef = articlesRef
                             .where(searchField, '>=', trimmedSearchTerm)
                             .where(searchField, '<=', trimmedSearchTerm + '\uf8ff');
                     }
                     if (languageFilter) {
-                        articlesRef = articlesRef.where('language', '==', languageFilter);
+                        articlesRef = articlesRef.where('armario', '==', languageFilter);
                     }
-                    if (articleTypeFilter) {
-                        articlesRef = articlesRef.where('articleType', '==', articleTypeFilter);
+                    if (setorFilter) {
+                        articlesRef = articlesRef.where('setor', '==', setorFilter);
                     }
-                    if (trimmedSearchTerm && searchField && searchField !== 'id') {
-                        articlesRef = articlesRef.orderBy(searchField);
-                    } else if (languageFilter || articleTypeFilter) {
-                        articlesRef = articlesRef.orderBy('timestamp', 'desc').limit(5);
-                    } else {
-                        articlesRef = articlesRef.orderBy('timestamp', 'desc').limit(5);
-                    }
+                    
+                    // Ordenar por data de edição mais recente
+                    articlesRef = articlesRef.orderBy('ultimaEdicao', 'desc').limit(50);
+                    
                     snapshot = await articlesRef.get();
                 }
                 
                 if (loadingMessage) loadingMessage.style.display = 'none';
                 
                 if (snapshot.empty) {
-                    const emptyMessage = (trimmedSearchTerm || languageFilter || articleTypeFilter) ?
+                    const emptyMessage = (trimmedSearchTerm || languageFilter || setorFilter) ?
                         `Nenhum artigo encontrado com os critérios de busca.` :
-                        'Nenhum artigo (articlesdoc) publicado ainda.';
+                        'Nenhum artigo encontrado nesta coleção.';
                     articlesListDiv.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
                     return;
                 }
@@ -2369,32 +2400,15 @@
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const id = doc.id;
-                    const title = data.title || 'Título Indisponível';
-                    const userId = data.userId || 'ID do Usuário Indisponível';
-                    const externalLink = data.originalUrl ? String(data.originalUrl).trim() : '';
-                    const language = data.language || 'Não especificado';
-                    const articleType = data.articleType || 'Não especificado';
-                    const timestampDate = data.timestamp ? new Date(data.timestamp.toDate()) : null;
-                    const formattedTimestamp = timestampDate ? timestampDate.toLocaleDateString('pt-BR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : 'Data de Criação Indisponível';
-                    const lastModifiedDate = data.lastModified ? new Date(data.lastModified.toDate()) : null;
-                    const formattedLastModified = lastModifiedDate ? lastModifiedDate.toLocaleDateString('pt-BR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : 'Data de Modificação Indisponível';
-                    const formattedContentForCard = data.formattedContent || '';
-                    const decodedContent = formattedContentForCard ? decodeHtmlEntities(formattedContentForCard) : '';
-                    const abntPreviewHtml = decodedContent
-                        ? DOMPurify.sanitize(decodedContent)
-                        : '<p>Nenhum conteúdo de visualização rápida disponível. (campo "formattedContent" ausente ou vazio)</p>';
+                    const title = data.titulo || 'Título Indisponível';
+                    const descricao = data.descricao || 'Descrição indisponível';
+                    const setor = data.setor || 'Não especificado';
+                    const armario = data.armario || 'Não especificado';
+                    const criadorEmail = data.criadorEmail || 'Desconhecido';
+                    const ultimaEdicao = data.ultimaEdicao ? 
+                        new Date(data.ultimaEdicao.seconds * 1000).toLocaleDateString('pt-BR') : 
+                        'Data desconhecida';
+                    
                     const card = document.createElement('div');
                     card.className = 'article-card mdl-cell mdl-cell--4-col mdl-cell--8-col-tablet mdl-cell--12-col-phone';
                     card.innerHTML = `
@@ -2403,16 +2417,16 @@
                         </div>
                         <div class="mdl-card__supporting-text">
                             <strong>ID do artigo:</strong> <p>${escapeHtml(id)}</p>
-                            <strong>ID do Usuário:</strong> <p>${escapeHtml(userId)}</p>
-                            <strong>Idioma:</strong> <p>${escapeHtml(language)}</p>
-                            <strong>Tipo de Artigo:</strong> <p>${escapeHtml(articleType)}</p>
-                            <div class="abnt-preview">${abntPreviewHtml}</div>
-                            ${externalLink ? `<p style="display: block; margin-top: 10px;"><strong>Link Externo:</strong> <a href="${encodeURI(externalLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(externalLink)}</a></p>` : ''}
-                            <strong>Última Modificação:</strong> <p>${formattedLastModified}</p>
-                            <strong>Data de Criação:</strong> <p>${formattedTimestamp}</p>
+                            <strong>Setor:</strong> <p>${escapeHtml(setor)}</p>
+                            <strong>Idioma:</strong> <p>${escapeHtml(armario)}</p>
+                            <strong>Criado por:</strong> <p>${escapeHtml(criadorEmail)}</p>
+                            <strong>Última edição:</strong> <p>${ultimaEdicao}</p>
+                            <div class="abnt-preview">${escapeHtml(descricao.substring(0, 200))}${descricao.length > 200 ? '...' : ''}</div>
                         </div>
                         <div class="mdl-card__actions mdl-card--border">
-                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">Visualizar Artigo Completo</button>
+                            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect view-article-button" data-article-id="${escapeHtml(id)}">
+                                Ver Detalhes
+                            </button>
                         </div>
                     `;
                     articlesListDiv.appendChild(card);
@@ -2427,41 +2441,33 @@
             }
         }
         
-        async function viewArticleInNewWindow(articleId) {
-            const newWindow = window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
-            if (!newWindow) {
-                alert('Por favor, permita pop-ups para visualizar o artigo completo.');
-                return;
-            }
-        }
-        
         if (mainSearchButton) {
             mainSearchButton.addEventListener('click', () => {
                 const searchTerm = searchTermInput?.value || '';
-                const searchField = searchTypeInput?.value || 'title';
+                const searchField = searchTypeInput?.value || 'titulo';
                 const languageFilter = filterLanguageSelect?.value || '';
-                const articleTypeFilter = filterArticleTypeSelect?.value || '';
-                loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+                const setorFilter = filterSetorSelect?.value || '';
+                loadArticles(searchTerm, searchField, languageFilter, setorFilter);
             });
         }
         
         if (searchButton) {
             searchButton.addEventListener('click', () => {
                 const searchTerm = searchTermInput?.value || '';
-                const searchField = searchTypeInput?.value || 'title';
+                const searchField = searchTypeInput?.value || 'titulo';
                 const languageFilter = filterLanguageSelect?.value || '';
-                const articleTypeFilter = filterArticleTypeSelect?.value || '';
-                loadArticles(searchTerm, searchField, languageFilter, articleTypeFilter);
+                const setorFilter = filterSetorSelect?.value || '';
+                loadArticles(searchTerm, searchField, languageFilter, setorFilter);
             });
         }
         
         if (clearSearchButton) {
             clearSearchButton.addEventListener('click', () => {
                 if (searchTermInput) searchTermInput.value = '';
-                if (searchTypeInput) searchTypeInput.value = 'title';
+                if (searchTypeInput) searchTypeInput.value = 'titulo';
                 if (searchTypeDisplayInput) searchTypeDisplayInput.value = 'Título';
                 if (filterLanguageSelect) filterLanguageSelect.value = '';
-                if (filterArticleTypeSelect) filterArticleTypeSelect.value = '';
+                if (filterSetorSelect) filterSetorSelect.value = '';
                 
                 loadArticles();
             });
@@ -2472,7 +2478,13 @@
                 if (event.target.classList.contains('view-article-button')) {
                     const articleId = event.target.dataset.articleId;
                     if (articleId) {
-                        window.open(`/visualizar.html?id=${encodeURIComponent(articleId)}`, '_blank');
+                        // Carregar o artigo nos detalhes
+                        db.collection(currentCollection).doc(articleId).get().then(doc => {
+                            if (doc.exists) {
+                                carregarDetalhesArtigo(doc.id, doc.data());
+                                exibirPainel('detalhes-artigo');
+                            }
+                        });
                     }
                 }
             });
@@ -2508,8 +2520,26 @@
             if (confirm('Tem certeza que deseja remover este artigo? Esta ação não pode ser desfeita.')) {
                 try {
                     await db.collection(currentCollection).doc(id).delete();
+                    
+                    // Também remover do histórico
+                    const historicoQuery = await db.collection('historico')
+                        .where('docId', '==', id)
+                        .where('colecao', '==', currentCollection)
+                        .get();
+                    
+                    const batch = db.batch();
+                    historicoQuery.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                    
                     alert('Artigo removido com sucesso!');
                     buscarArtigos();
+                    
+                    // Atualizar a página de busca se estiver visível
+                    if (document.getElementById('buscar-artigos-pane').style.display !== 'none') {
+                        loadArticles();
+                    }
                 } catch (error) {
                     console.error("Erro ao remover artigo: ", error);
                     alert("Erro ao remover artigo: " + error.message);
