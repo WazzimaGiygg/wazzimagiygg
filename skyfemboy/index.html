@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyFemboy - Postagens de 127 caracteres</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #f0f0f0;
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #30475e;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo i {
+            font-size: 2.5rem;
+            color: #8a2be2;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(to right, #8a2be2, #00bfff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #a0a0c0;
+            font-size: 1rem;
+            margin-top: 5px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #8a2be2;
+            object-fit: cover;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #f0f0f0;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-login {
+            background: linear-gradient(to right, #8a2be2, #4169e1);
+            color: white;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+        }
+
+        .btn-logout {
+            background: #30475e;
+            color: #f0f0f0;
+        }
+
+        .btn-logout:hover {
+            background: #4a6280;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .post-form {
+            background: rgba(30, 30, 50, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(138, 43, 226, 0.2);
+        }
+
+        .form-title {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            color: #8a2be2;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: rgba(20, 20, 40, 0.8);
+            border: 1px solid #30475e;
+            border-radius: 10px;
+            padding: 15px;
+            color: #f0f0f0;
+            font-size: 1rem;
+            resize: none;
+            transition: border 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #8a2be2;
+        }
+
+        .char-counter {
+            text-align: right;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: #a0a0c0;
+        }
+
+        .char-counter.warning {
+            color: #ffa500;
+        }
+
+        .char-counter.error {
+            color: #ff4444;
+        }
+
+        .btn-post {
+            width: 100%;
+            margin-top: 20px;
+            background: linear-gradient(to right, #4169e1, #00bfff);
+            color: white;
+            font-size: 1.1rem;
+            justify-content: center;
+        }
+
+        .btn-post:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(65, 105, 225, 0.4);
+        }
+
+        .btn-post:disabled {
+            background: #30475e;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .posts-section {
+            background: rgba(30, 30, 50, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 191, 255, 0.2);
+        }
+
+        .section-title {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            color: #00bfff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .posts-container {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        /* Estilização da barra de rolagem */
+        .posts-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .posts-container::-webkit-scrollbar-track {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 4px;
+        }
+
+        .posts-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #8a2be2, #4169e1);
+            border-radius: 4px;
+        }
+
+        .post {
+            background: rgba(20, 20, 40, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #8a2be2;
+            transition: transform 0.3s;
+        }
+
+        .post:hover {
+            transform: translateX(5px);
+        }
+
+        .post-content {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+
+        .post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #a0a0c0;
+        }
+
+        .post-author {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .author-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .post-time {
+            font-style: italic;
+        }
+
+        .login-message {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(30, 30, 50, 0.7);
+            border-radius: 15px;
+            margin-top: 30px;
+            border: 2px dashed #30475e;
+        }
+
+        .login-message i {
+            font-size: 3rem;
+            color: #8a2be2;
+            margin-bottom: 20px;
+        }
+
+        .login-message h3 {
+            margin-bottom: 15px;
+            color: #f0f0f0;
+        }
+
+        .login-message p {
+            color: #a0a0c0;
+            max-width: 500px;
+            margin: 0 auto 25px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #00bfff;
+            font-size: 1.2rem;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .error-message {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.5);
+            color: #ff9999;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #a0a0c0;
+            font-size: 0.9rem;
+            padding-top: 20px;
+            border-top: 1px solid #30475e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-feather-alt"></i>
+                <div>
+                    <h1>SkyFemboy</h1>
+                    <div class="subtitle">Postagens curtas de 127 caracteres</div>
+                </div>
+            </div>
+            
+            <div class="user-info" id="userInfo">
+                <!-- Conteúdo dinâmico do usuário será inserido aqui -->
+            </div>
+        </header>
+
+        <div id="errorMessage" class="error-message"></div>
+
+        <main>
+            <div id="mainContent" style="display: none;">
+                <div class="main-content">
+                    <div class="post-form">
+                        <h2 class="form-title"><i class="fas fa-edit"></i> Nova Postagem</h2>
+                        <form id="postForm">
+                            <textarea id="postContent" placeholder="Digite sua postagem aqui (máximo de 127 caracteres)..." maxlength="127"></textarea>
+                            <div class="char-counter" id="charCounter">0/127</div>
+                            <button type="submit" class="btn btn-post" id="submitPost">
+                                <i class="fas fa-paper-plane"></i> Publicar
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="posts-section">
+                        <h2 class="section-title"><i class="fas fa-stream"></i> Postagens Recentes</h2>
+                        <div class="posts-container" id="postsContainer">
+                            <div class="loading" id="loadingPosts">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Carregando postagens...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="loginPrompt" class="login-message">
+                <i class="fas fa-user-lock"></i>
+                <h3>Faça login para começar a postar</h3>
+                <p>Conecte-se com sua conta do Google para criar e visualizar postagens de até 127 caracteres na comunidade SkyFemboy.</p>
+                <button id="loginButton" class="btn btn-login">
+                    <i class="fab fa-google"></i> Entrar com Google
+                </button>
+            </div>
+        </main>
+
+        <footer>
+            <p>SkyFemboy &copy; 2023 - Todos os direitos reservados | Desenvolvido com Firebase</p>
+        </footer>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Elementos do DOM
+        const userInfo = document.getElementById('userInfo');
+        const loginButton = document.getElementById('loginButton');
+        const logoutButton = document.getElementById('logoutButton');
+        const mainContent = document.getElementById('mainContent');
+        const loginPrompt = document.getElementById('loginPrompt');
+        const postForm = document.getElementById('postForm');
+        const postContent = document.getElementById('postContent');
+        const charCounter = document.getElementById('charCounter');
+        const submitPost = document.getElementById('submitPost');
+        const postsContainer = document.getElementById('postsContainer');
+        const loadingPosts = document.getElementById('loadingPosts');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Referência à coleção skyfemboy
+        const postsRef = db.collection("skyfemboy");
+
+        // Contador de caracteres
+        postContent.addEventListener('input', function() {
+            const length = this.value.length;
+            charCounter.textContent = `${length}/127`;
+            
+            if (length > 120) {
+                charCounter.className = 'char-counter warning';
+            } else if (length > 127) {
+                charCounter.className = 'char-counter error';
+            } else {
+                charCounter.className = 'char-counter';
+            }
+            
+            submitPost.disabled = length === 0 || length > 127;
+        });
+
+        // Login com Google
+        loginButton.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => {
+                    showError(`Erro no login: ${error.message}`);
+                });
+        });
+
+        // Logout
+        function logout() {
+            auth.signOut()
+                .catch(error => {
+                    showError(`Erro ao sair: ${error.message}`);
+                });
+        }
+
+        // Mostrar/ocultar conteúdo baseado no estado de autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // Usuário logado
+                displayUserInfo(user);
+                loginPrompt.style.display = 'none';
+                mainContent.style.display = 'block';
+                loadPosts();
+            } else {
+                // Usuário não logado
+                userInfo.innerHTML = '';
+                loginPrompt.style.display = 'block';
+                mainContent.style.display = 'none';
+                postsContainer.innerHTML = '<div class="loading" id="loadingPosts"><i class="fas fa-spinner fa-spin"></i>Carregando postagens...</div>';
+            }
+        });
+
+        // Exibir informações do usuário
+        function displayUserInfo(user) {
+            const avatar = user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || 'Usuário') + '&background=8a2be2&color=fff';
+            const name = user.displayName || 'Usuário';
+            const email = user.email || '';
+            
+            userInfo.innerHTML = `
+                <div>
+                    <div class="user-name">${name}</div>
+                    <div style="font-size: 0.8rem; color: #a0a0c0;">${email}</div>
+                </div>
+                <img src="${avatar}" alt="Avatar" class="user-avatar">
+                <button onclick="logout()" class="btn btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Sair
+                </button>
+            `;
+        }
+
+        // Enviar nova postagem
+        postForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const user = auth.currentUser;
+            if (!user) {
+                showError('Você precisa estar logado para postar.');
+                return;
+            }
+            
+            const content = postContent.value.trim();
+            if (content.length === 0 || content.length > 127) {
+                showError('A postagem deve ter entre 1 e 127 caracteres.');
+                return;
+            }
+            
+            submitPost.disabled = true;
+            submitPost.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publicando...';
+            
+            try {
+                const postData = {
+                    content: content,
+                    userId: user.uid,
+                    userName: user.displayName || 'Anônimo',
+                    userAvatar: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'Usuário')}&background=8a2be2&color=fff`,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    likes: 0
+                };
+                
+                await postsRef.add(postData);
+                
+                // Limpar formulário
+                postContent.value = '';
+                charCounter.textContent = '0/127';
+                charCounter.className = 'char-counter';
+                
+                // Recarregar postagens
+                loadPosts();
+                
+            } catch (error) {
+                showError(`Erro ao publicar: ${error.message}`);
+            } finally {
+                submitPost.disabled = false;
+                submitPost.innerHTML = '<i class="fas fa-paper-plane"></i> Publicar';
+            }
+        });
+
+        // Carregar postagens
+        function loadPosts() {
+            loadingPosts.style.display = 'block';
+            
+            postsRef
+                .orderBy('timestamp', 'desc')
+                .limit(50)
+                .onSnapshot(snapshot => {
+                    loadingPosts.style.display = 'none';
+                    
+                    if (snapshot.empty) {
+                        postsContainer.innerHTML = '<div class="post"><div class="post-content">Nenhuma postagem ainda. Seja o primeiro a postar!</div></div>';
+                        return;
+                    }
+                    
+                    let postsHTML = '';
+                    snapshot.forEach(doc => {
+                        const post = doc.data();
+                        const time = post.timestamp ? formatTime(post.timestamp.toDate()) : 'Agora mesmo';
+                        
+                        postsHTML += `
+                            <div class="post">
+                                <div class="post-content">${escapeHtml(post.content)}</div>
+                                <div class="post-meta">
+                                    <div class="post-author">
+                                        <img src="${post.userAvatar}" alt="Avatar" class="author-avatar">
+                                        <span>${escapeHtml(post.userName)}</span>
+                                    </div>
+                                    <div class="post-time">${time}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    postsContainer.innerHTML = postsHTML;
+                }, error => {
+                    loadingPosts.style.display = 'none';
+                    showError(`Erro ao carregar postagens: ${error.message}`);
+                });
+        }
+
+        // Formatar data/hora
+        function formatTime(date) {
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Agora mesmo';
+            if (diffMins < 60) return `${diffMins} min atrás`;
+            if (diffHours < 24) return `${diffHours} h atrás`;
+            if (diffDays < 7) return `${diffDays} dia${diffDays > 1 ? 's' : ''} atrás`;
+            
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        // Exibir mensagem de erro
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Escapar HTML para segurança
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            // Verificar se o usuário já está logado
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    displayUserInfo(user);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
