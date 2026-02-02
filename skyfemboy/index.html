@@ -598,6 +598,32 @@
             display: none;
         }
 
+        .firebase-rules {
+            background: rgba(15, 30, 45, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            border: 1px solid #4169e1;
+        }
+
+        .rules-title {
+            color: #00bfff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rules-code {
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            color: #8f8;
+        }
+
         footer {
             text-align: center;
             margin-top: 40px;
@@ -661,6 +687,36 @@
                             </div>
                         </div>
                     </div>
+                </div>
+                
+                <!-- Seção com as regras do Firebase -->
+                <div class="firebase-rules">
+                    <h3 class="rules-title"><i class="fas fa-shield-alt"></i> Configuração das Regras do Firebase</h3>
+                    <p>Para que as funcionalidades de comentários e curtidas funcionem, você precisa configurar estas regras no Firebase Console:</p>
+                    <div class="rules-code">
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permitir leitura pública para todos
+    match /skyfemboy/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      
+      // Subcoleção de comentários
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      }
+    }
+  }
+}
+                    </div>
+                    <p style="margin-top: 15px; color: #ffa500; font-size: 0.9rem;">
+                        <i class="fas fa-exclamation-triangle"></i> Copie estas regras e cole no Firebase Console → Firestore Database → Rules
+                    </p>
                 </div>
             </div>
             
@@ -746,7 +802,7 @@
         
         // Variáveis globais
         let currentUser = null;
-        let currentPostId = null; // Para armazenar o ID da postagem sendo compartilhada
+        let currentPostId = null;
 
         // Contador de caracteres
         postContent.addEventListener('input', function() {
@@ -785,13 +841,11 @@
         auth.onAuthStateChanged(user => {
             currentUser = user;
             if (user) {
-                // Usuário logado
                 displayUserInfo(user);
                 loginPrompt.style.display = 'none';
                 mainContent.style.display = 'block';
                 loadPosts();
             } else {
-                // Usuário não logado
                 userInfo.innerHTML = '';
                 loginPrompt.style.display = 'block';
                 mainContent.style.display = 'none';
@@ -843,13 +897,12 @@
                     userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=8a2be2&color=fff`,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     likes: 0,
-                    likesBy: [], // Array de IDs de usuários que curtiram
+                    likesBy: [],
                     commentsCount: 0
                 };
                 
                 await postsRef.add(postData);
                 
-                // Limpar formulário
                 postContent.value = '';
                 charCounter.textContent = '0/127';
                 charCounter.className = 'char-counter';
@@ -889,7 +942,6 @@
                         const postId = doc.id;
                         const time = post.timestamp ? formatTime(post.timestamp.toDate()) : 'Agora mesmo';
                         
-                        // Verificar se o usuário atual curtiu esta postagem
                         const userLiked = currentUser && post.likesBy && post.likesBy.includes(currentUser.uid);
                         
                         postsHTML += `
@@ -927,7 +979,7 @@
                                         <button type="submit" class="btn-comment">Comentar</button>
                                     </form>
                                     <div class="comments-list" id="comments-list-${postId}">
-                                        <div class="loading-comments">Carregando comentários...</div>
+                                        <!-- Comentários carregados dinamicamente -->
                                     </div>
                                 </div>
                             </div>
@@ -935,8 +987,6 @@
                     });
                     
                     postsContainer.innerHTML = postsHTML;
-                    
-                    // Adicionar event listeners aos botões de interação
                     addPostInteractionListeners();
                     
                 }, error => {
@@ -945,9 +995,9 @@
                 });
         }
 
-        // Adicionar listeners para interações com posts
+        // Adicionar listeners para interações
         function addPostInteractionListeners() {
-            // Curtir postagem
+            // Curtir
             document.querySelectorAll('.like-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const postId = this.getAttribute('data-postid');
@@ -955,7 +1005,7 @@
                 });
             });
             
-            // Mostrar/ocultar comentários
+            // Comentários
             document.querySelectorAll('.comment-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const postId = this.getAttribute('data-postid');
@@ -963,7 +1013,7 @@
                 });
             });
             
-            // Compartilhar postagem
+            // Compartilhar
             document.querySelectorAll('.share-btn:not(.facebook, .twitter, .whatsapp, .copy)').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const postId = this.getAttribute('data-postid');
@@ -987,7 +1037,7 @@
             });
         }
 
-        // Curtir/Descurtir postagem
+        // Curtir/Descurtir
         async function toggleLike(postId) {
             if (!currentUser) {
                 showError('Você precisa estar logado para curtir postagens.');
@@ -1004,22 +1054,18 @@
                 const likesBy = post.likesBy || [];
                 const userId = currentUser.uid;
                 
-                // Verificar se o usuário já curtiu
                 const userIndex = likesBy.indexOf(userId);
                 let newLikesBy = [...likesBy];
                 let newLikesCount = post.likes || 0;
                 
                 if (userIndex > -1) {
-                    // Remover curtida
                     newLikesBy.splice(userIndex, 1);
                     newLikesCount--;
                 } else {
-                    // Adicionar curtida
                     newLikesBy.push(userId);
                     newLikesCount++;
                 }
                 
-                // Atualizar no Firebase
                 await postRef.update({
                     likes: newLikesCount,
                     likesBy: newLikesBy
@@ -1039,14 +1085,13 @@
                 commentsSection.classList.remove('expanded');
             } else {
                 commentsSection.classList.add('expanded');
-                // Carregar comentários se ainda não carregados
-                if (commentsList.innerHTML.includes('Carregando')) {
-                    loadComments(postId);
+                if (commentsList.children.length === 0) {
+                    await loadComments(postId);
                 }
             }
         }
 
-        // Carregar comentários de uma postagem
+        // Carregar comentários
         async function loadComments(postId) {
             const commentsList = document.getElementById(`comments-list-${postId}`);
             
@@ -1056,7 +1101,7 @@
                     .get();
                 
                 if (commentsSnapshot.empty) {
-                    commentsList.innerHTML = '<div class="empty-state">Nenhum comentário ainda. Seja o primeiro a comentar!</div>';
+                    commentsList.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.9rem;">Nenhum comentário ainda. Seja o primeiro a comentar!</div>';
                     return;
                 }
                 
@@ -1079,11 +1124,12 @@
                 
                 commentsList.innerHTML = commentsHTML;
             } catch (error) {
-                commentsList.innerHTML = '<div class="error-message">Erro ao carregar comentários</div>';
+                console.error('Erro ao carregar comentários:', error);
+                commentsList.innerHTML = '<div class="error-message" style="margin: 10px;">Erro ao carregar comentários. Verifique as regras do Firebase.</div>';
             }
         }
 
-        // Adicionar comentário
+        // Adicionar comentário (versão simplificada para testes)
         async function addComment(postId, commentText) {
             if (!currentUser) {
                 showError('Você precisa estar logado para comentar.');
@@ -1091,6 +1137,7 @@
             }
             
             try {
+                // Primeiro, tentar adicionar o comentário
                 const commentData = {
                     content: commentText,
                     userId: currentUser.uid,
@@ -1099,10 +1146,10 @@
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
-                // Adicionar comentário na subcoleção
+                // Tente adicionar o comentário
                 await postsRef.doc(postId).collection('comments').add(commentData);
                 
-                // Atualizar contador de comentários
+                // Atualize o contador de comentários
                 const postRef = postsRef.doc(postId);
                 const postDoc = await postRef.get();
                 const currentCount = postDoc.data().commentsCount || 0;
@@ -1111,11 +1158,18 @@
                     commentsCount: currentCount + 1
                 });
                 
-                // Recarregar comentários
-                loadComments(postId);
+                // Recarregue os comentários
+                await loadComments(postId);
                 
             } catch (error) {
-                showError(`Erro ao adicionar comentário: ${error.message}`);
+                console.error('Erro detalhado ao adicionar comentário:', error);
+                
+                // Se houver erro de permissões, mostre uma mensagem específica
+                if (error.code === 'permission-denied') {
+                    showError('Permissões insuficientes. Configure as regras do Firebase conforme instruído abaixo.');
+                } else {
+                    showError(`Erro ao adicionar comentário: ${error.message}`);
+                }
             }
         }
 
@@ -1124,19 +1178,8 @@
             currentPostId = postId;
             
             try {
-                // Obter dados da postagem para gerar URL
-                const postDoc = await postsRef.doc(postId).get();
-                
-                if (!postDoc.exists) {
-                    showError('Postagem não encontrada.');
-                    return;
-                }
-                
-                // Gerar URL para compartilhamento (simulada)
                 const shareUrlText = `${window.location.origin}?post=${postId}`;
                 shareUrl.textContent = shareUrlText;
-                
-                // Abrir modal
                 shareModal.classList.add('active');
                 
             } catch (error) {
@@ -1173,7 +1216,6 @@
         copyUrl.addEventListener('click', () => {
             navigator.clipboard.writeText(shareUrl.textContent)
                 .then(() => {
-                    // Feedback visual
                     const originalText = copyUrl.innerHTML;
                     copyUrl.innerHTML = '<i class="fas fa-check"></i> Copiado!';
                     setTimeout(() => {
@@ -1227,7 +1269,6 @@
 
         // Inicializar
         document.addEventListener('DOMContentLoaded', () => {
-            // Verificar se o usuário já está logado
             auth.onAuthStateChanged(user => {
                 if (user) {
                     displayUserInfo(user);
