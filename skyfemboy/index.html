@@ -497,6 +497,16 @@
             display: none;
         }
 
+        .success-message {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            color: #a5d6a7;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
         footer {
             text-align: center;
             margin-top: 40px;
@@ -632,6 +642,16 @@
             font-size: 1.5rem;
             cursor: pointer;
         }
+
+        .comments-help {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #ffd54f;
+        }
     </style>
 </head>
 <body>
@@ -651,6 +671,7 @@
         </header>
 
         <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
 
         <main>
             <div id="mainContent" style="display: none;">
@@ -755,6 +776,7 @@
         const postsContainer = document.getElementById('postsContainer');
         const loadingPosts = document.getElementById('loadingPosts');
         const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
         
         // Modal de compartilhamento
         const shareModal = document.getElementById('shareModal');
@@ -839,7 +861,7 @@
             `;
         }
 
-        // Enviar nova postagem - AJUSTADO para as regras existentes
+        // Enviar nova postagem
         postForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -861,13 +883,14 @@
                 // Estrutura de dados que atende às regras do Firebase
                 const postData = {
                     content: content,
-                    criadorId: currentUser.uid, // Campo exigido pelas regras (isCreator)
+                    criadorId: currentUser.uid, // Campo exigido pelas regras
                     userName: currentUser.displayName || 'Anônimo',
                     userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=8a2be2&color=fff`,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     likes: 0,
                     likesBy: [],
                     commentsCount: 0,
+                    comments: [], // Array para armazenar comentários
                     restrito: false // Campo exigido pelas regras de leitura
                 };
                 
@@ -918,6 +941,9 @@
                         
                         const userLiked = currentUser && post.likesBy && post.likesBy.includes(currentUser.uid);
                         
+                        // Verificar se usuário pode comentar (é o criador ou admin)
+                        const canComment = currentUser && (currentUser.uid === post.criadorId || isAdminUser());
+                        
                         postsHTML += `
                             <div class="post" id="post-${postId}">
                                 <div class="post-header">
@@ -948,10 +974,17 @@
                                 
                                 <div class="comments-section" id="comments-${postId}">
                                     <h4 class="comments-title"><i class="fas fa-comments"></i> Comentários</h4>
+                                    ${canComment ? `
                                     <form class="comment-form" id="comment-form-${postId}">
                                         <input type="text" class="comment-input" placeholder="Escreva um comentário..." maxlength="200">
                                         <button type="submit" class="btn-comment">Comentar</button>
                                     </form>
+                                    ` : `
+                                    <div class="comments-help">
+                                        <i class="fas fa-info-circle"></i>
+                                        Apenas o autor desta postagem pode adicionar comentários.
+                                    </div>
+                                    `}
                                     <div class="comments-list" id="comments-list-${postId}">
                                         <!-- Comentários serão carregados dinamicamente -->
                                     </div>
@@ -979,6 +1012,16 @@
                         showError(`Erro ao carregar postagens: ${error.message}`);
                     }
                 });
+        }
+
+        // Função para verificar se usuário é admin (simplificada)
+        function isAdminUser() {
+            // Esta é uma verificação simplificada
+            // Em um sistema real, você verificaria no banco de dados
+            return currentUser && (
+                currentUser.uid === "sZxfMuOBPbXdR8nttVPXIN8QOOl1" || // ID do admin específico das regras
+                currentUser.email?.includes('admin') // Exemplo simplificado
+            );
         }
 
         // Adicionar listeners para interações
@@ -1023,7 +1066,7 @@
             });
         }
 
-        // Curtir/Descurtir - AJUSTADO para as regras existentes
+        // Curtir/Descurtir
         async function toggleLike(postId) {
             if (!currentUser) {
                 showError('Você precisa estar logado para curtir postagens.');
@@ -1055,11 +1098,18 @@
                     newLikesCount++;
                 }
                 
-                // Atualizar apenas os campos de like (permitido pelas regras para usuários autenticados)
+                // Atualizar apenas os campos de like
                 await postRef.update({
                     likes: newLikesCount,
                     likesBy: newLikesBy
                 });
+                
+                // Feedback visual
+                const likeBtn = document.querySelector(`.like-btn[data-postid="${postId}"]`);
+                const likeCount = likeBtn.querySelector('.like-count');
+                
+                likeBtn.classList.toggle('liked');
+                likeCount.textContent = newLikesCount;
                 
             } catch (error) {
                 console.error('Erro ao curtir:', error);
@@ -1081,37 +1131,71 @@
                 commentsSection.classList.remove('expanded');
             } else {
                 commentsSection.classList.add('expanded');
-                if (commentsList.children.length === 0) {
+                if (commentsList.children.length === 0 || 
+                    commentsList.innerHTML.includes('Carregando') || 
+                    commentsList.innerHTML.includes('Nenhum')) {
                     await loadComments(postId);
                 }
             }
         }
 
-        // Carregar comentários - Sistema alternativo sem subcoleções
+        // Carregar comentários
         async function loadComments(postId) {
             const commentsList = document.getElementById(`comments-list-${postId}`);
-            commentsList.innerHTML = '<div class="loading">Carregando comentários...</div>';
+            commentsList.innerHTML = '<div class="loading" style="padding: 20px; font-size: 0.9rem;"><i class="fas fa-spinner fa-spin"></i> Carregando comentários...</div>';
             
             try {
-                // Como as regras não permitem subcoleções para skyfemboy, vamos usar um array no documento
                 const postDoc = await postsRef.doc(postId).get();
+                
+                if (!postDoc.exists) {
+                    commentsList.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.9rem;">Postagem não encontrada.</div>';
+                    return;
+                }
+                
                 const post = postDoc.data();
                 
                 if (!post.comments || post.comments.length === 0) {
-                    commentsList.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.9rem;">Nenhum comentário ainda. Seja o primeiro a comentar!</div>';
+                    commentsList.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.9rem;">Nenhum comentário ainda.</div>';
                     return;
                 }
                 
                 let commentsHTML = '';
-                post.comments.forEach(comment => {
-                    const time = comment.timestamp ? formatTime(comment.timestamp.toDate()) : 'Agora mesmo';
+                
+                // Ordenar comentários por timestamp (mais recentes primeiro)
+                const sortedComments = [...post.comments].sort((a, b) => {
+                    // Se não tiver timestamp, colocar no final
+                    if (!a.timestamp) return 1;
+                    if (!b.timestamp) return -1;
+                    
+                    // Converter para Date se for Timestamp do Firebase
+                    const timeA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+                    const timeB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+                    
+                    return timeB - timeA; // Mais recentes primeiro
+                });
+                
+                sortedComments.forEach(comment => {
+                    let timeText = 'Agora mesmo';
+                    
+                    if (comment.timestamp) {
+                        try {
+                            // Tentar converter timestamp do Firebase
+                            const timestamp = comment.timestamp.toDate ? 
+                                comment.timestamp.toDate() : 
+                                new Date(comment.timestamp);
+                            timeText = formatTime(timestamp);
+                        } catch (e) {
+                            console.error('Erro ao formatar timestamp:', e);
+                        }
+                    }
                     
                     commentsHTML += `
                         <div class="comment">
                             <div class="comment-header">
-                                <img src="${comment.userAvatar}" alt="Avatar" class="comment-avatar">
-                                <div class="comment-username">${escapeHtml(comment.userName)}</div>
-                                <div class="comment-time">${time}</div>
+                                <img src="${comment.userAvatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(comment.userName || 'Usuário') + '&background=4169e1&color=fff'}" 
+                                     alt="Avatar" class="comment-avatar">
+                                <div class="comment-username">${escapeHtml(comment.userName || 'Anônimo')}</div>
+                                <div class="comment-time">${timeText}</div>
                             </div>
                             <div class="comment-content">${escapeHtml(comment.content)}</div>
                         </div>
@@ -1119,13 +1203,14 @@
                 });
                 
                 commentsList.innerHTML = commentsHTML;
+                
             } catch (error) {
                 console.error('Erro ao carregar comentários:', error);
-                commentsList.innerHTML = '<div class="error-message" style="margin: 10px;">Comentários não disponíveis para esta postagem.</div>';
+                commentsList.innerHTML = '<div class="error-message" style="margin: 10px;">Erro ao carregar comentários.</div>';
             }
         }
 
-        // Adicionar comentário - Sistema alternativo sem subcoleções
+        // Adicionar comentário - VERSÃO CORRIGIDA
         async function addComment(postId, commentText) {
             if (!currentUser) {
                 showError('Você precisa estar logado para comentar.');
@@ -1142,23 +1227,29 @@
                 }
                 
                 const post = postDoc.data();
+                
+                // Verificar se o usuário pode comentar (é o criador ou admin)
+                if (currentUser.uid !== post.criadorId && !isAdminUser()) {
+                    showError('Apenas o autor desta postagem pode adicionar comentários.');
+                    return;
+                }
+                
+                // Obter array atual de comentários
                 const currentComments = post.comments || [];
                 
-                // Criar novo comentário
+                // Criar novo comentário COM TIMESTAMP MANUAL
                 const newComment = {
                     content: commentText,
                     userId: currentUser.uid,
                     userName: currentUser.displayName || 'Anônimo',
-                    userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=8a2be2&color=fff`,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=4169e1&color=fff`,
+                    timestamp: new Date() // Usar Date() normal em vez de FieldValue.serverTimestamp()
                 };
                 
                 // Adicionar ao array de comentários
                 const updatedComments = [...currentComments, newComment];
                 
-                // Atualizar documento (apenas o dono ou admin pode fazer isso)
-                // Como o usuário atual não é necessariamente o criador, isso pode falhar
-                // Vamos tentar mesmo assim
+                // Atualizar documento com o novo array
                 await postRef.update({
                     comments: updatedComments,
                     commentsCount: updatedComments.length
@@ -1167,13 +1258,20 @@
                 // Recarregar comentários
                 await loadComments(postId);
                 
+                // Atualizar contador de comentários na interface
+                const commentBtn = document.querySelector(`.comment-btn[data-postid="${postId}"]`);
+                const commentCount = commentBtn.querySelector('.comment-count');
+                commentCount.textContent = updatedComments.length;
+                
                 showSuccess('Comentário adicionado com sucesso!');
                 
             } catch (error) {
                 console.error('Erro ao adicionar comentário:', error);
                 
                 if (error.code === 'permission-denied') {
-                    showError('Você não tem permissão para comentar nesta postagem. Apenas o autor ou administradores podem adicionar comentários.');
+                    showError('Permissão negada. Apenas o autor ou administradores podem comentar.');
+                } else if (error.message.includes('FieldValue.serverTimestamp()')) {
+                    showError('Erro técnico com o timestamp. Por favor, tente novamente.');
                 } else {
                     showError(`Erro ao adicionar comentário: ${error.message}`);
                 }
@@ -1243,6 +1341,14 @@
 
         // Formatar data/hora
         function formatTime(date) {
+            if (!(date instanceof Date)) {
+                try {
+                    date = new Date(date);
+                } catch (e) {
+                    return 'Data inválida';
+                }
+            }
+            
             const now = new Date();
             const diffMs = now - date;
             const diffMins = Math.floor(diffMs / 60000);
@@ -1261,6 +1367,7 @@
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
             
             setTimeout(() => {
                 errorMessage.style.display = 'none';
@@ -1269,17 +1376,12 @@
 
         // Exibir mensagem de sucesso
         function showSuccess(message) {
-            errorMessage.style.background = 'rgba(76, 175, 80, 0.1)';
-            errorMessage.style.border = '1px solid rgba(76, 175, 80, 0.5)';
-            errorMessage.style.color = '#a5d6a7';
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
             
             setTimeout(() => {
-                errorMessage.style.display = 'none';
-                errorMessage.style.background = 'rgba(255, 68, 68, 0.1)';
-                errorMessage.style.border = '1px solid rgba(255, 68, 68, 0.5)';
-                errorMessage.style.color = '#ff9999';
+                successMessage.style.display = 'none';
             }, 3000);
         }
 
