@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyFemboy - Postagens com Interações</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: #f0f0f0;
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(138, 43, 226, 0.3);
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo i {
+            font-size: 2.5rem;
+            color: #8a2be2;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(to right, #8a2be2, #00bfff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #a0a0c0;
+            font-size: 1rem;
+            margin-top: 5px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #8a2be2;
+            object-fit: cover;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #f0f0f0;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-login {
+            background: linear-gradient(to right, #8a2be2, #4169e1);
+            color: white;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+        }
+
+        .btn-logout {
+            background: rgba(48, 71, 94, 0.7);
+            color: #f0f0f0;
+        }
+
+        .btn-logout:hover {
+            background: rgba(74, 98, 128, 0.7);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .post-form {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(138, 43, 226, 0.3);
+        }
+
+        .form-title {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            color: #8a2be2;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: rgba(15, 15, 30, 0.9);
+            border: 1px solid #30475e;
+            border-radius: 10px;
+            padding: 15px;
+            color: #f0f0f0;
+            font-size: 1rem;
+            resize: none;
+            transition: border 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #8a2be2;
+        }
+
+        .char-counter {
+            text-align: right;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: #a0a0c0;
+        }
+
+        .char-counter.warning {
+            color: #ffa500;
+        }
+
+        .char-counter.error {
+            color: #ff4444;
+        }
+
+        .btn-post {
+            width: 100%;
+            margin-top: 20px;
+            background: linear-gradient(to right, #4169e1, #00bfff);
+            color: white;
+            font-size: 1.1rem;
+            justify-content: center;
+        }
+
+        .btn-post:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(65, 105, 225, 0.4);
+        }
+
+        .btn-post:disabled {
+            background: #30475e;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .posts-section {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 191, 255, 0.3);
+        }
+
+        .section-title {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            color: #00bfff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .posts-container {
+            max-height: 700px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        /* Estilização da barra de rolagem */
+        .posts-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .posts-container::-webkit-scrollbar-track {
+            background: rgba(15, 15, 30, 0.9);
+            border-radius: 4px;
+        }
+
+        .posts-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #8a2be2, #4169e1);
+            border-radius: 4px;
+        }
+
+        .post {
+            background: rgba(15, 15, 30, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(138, 43, 226, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .post:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(138, 43, 226, 0.2);
+            border-color: rgba(138, 43, 226, 0.4);
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 12px;
+        }
+
+        .post-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #8a2be2;
+        }
+
+        .post-user-info {
+            flex-grow: 1;
+        }
+
+        .post-username {
+            font-weight: 600;
+            color: #f0f0f0;
+            font-size: 1.1rem;
+        }
+
+        .post-time {
+            font-size: 0.85rem;
+            color: #8888cc;
+            margin-top: 3px;
+        }
+
+        .post-content {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(25, 25, 45, 0.7);
+            border-radius: 10px;
+            border-left: 3px solid #8a2be2;
+        }
+
+        .post-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: none;
+            border: none;
+            color: #a0a0c0;
+            cursor: pointer;
+            padding: 8px 15px;
+            border-radius: 20px;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        .action-btn:hover {
+            background: rgba(138, 43, 226, 0.1);
+            color: #8a2be2;
+        }
+
+        .action-btn.liked {
+            color: #ff4444;
+        }
+
+        .action-btn.liked i {
+            color: #ff4444;
+        }
+
+        .action-btn i {
+            font-size: 1.1rem;
+        }
+
+        .like-count, .comment-count {
+            font-weight: 600;
+        }
+
+        .comments-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: none;
+        }
+
+        .comments-section.expanded {
+            display: block;
+        }
+
+        .comments-title {
+            font-size: 1rem;
+            color: #00bfff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .comment-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .comment-input {
+            flex-grow: 1;
+            padding: 12px 15px;
+            background: rgba(15, 15, 30, 0.9);
+            border: 1px solid #30475e;
+            border-radius: 20px;
+            color: #f0f0f0;
+            font-size: 0.95rem;
+        }
+
+        .comment-input:focus {
+            outline: none;
+            border-color: #8a2be2;
+        }
+
+        .btn-comment {
+            padding: 10px 20px;
+            background: linear-gradient(to right, #4169e1, #00bfff);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-comment:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(65, 105, 225, 0.3);
+        }
+
+        .comments-list {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .comment {
+            background: rgba(25, 25, 45, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-left: 2px solid #4169e1;
+        }
+
+        .comment-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .comment-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .comment-username {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #f0f0f0;
+        }
+
+        .comment-time {
+            font-size: 0.8rem;
+            color: #8888cc;
+            margin-left: auto;
+        }
+
+        .comment-content {
+            font-size: 0.95rem;
+            line-height: 1.4;
+            color: #d0d0f0;
+        }
+
+        .login-message {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 15px;
+            margin-top: 30px;
+            border: 2px dashed rgba(138, 43, 226, 0.5);
+        }
+
+        .login-message i {
+            font-size: 3rem;
+            color: #8a2be2;
+            margin-bottom: 20px;
+        }
+
+        .login-message h3 {
+            margin-bottom: 15px;
+            color: #f0f0f0;
+        }
+
+        .login-message p {
+            color: #a0a0c0;
+            max-width: 500px;
+            margin: 0 auto 25px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #00bfff;
+            font-size: 1.2rem;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .error-message {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.5);
+            color: #ff9999;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            color: #a5d6a7;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #a0a0c0;
+            font-size: 0.9rem;
+            padding-top: 20px;
+            border-top: 1px solid rgba(138, 43, 226, 0.3);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8888cc;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #8a2be2;
+        }
+
+        .info-box {
+            background: rgba(25, 25, 45, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 3px solid #00bfff;
+        }
+
+        .info-box i {
+            color: #00bfff;
+            margin-right: 10px;
+        }
+
+        /* Modal de Compartilhamento */
+        .share-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .share-modal.active {
+            display: flex;
+        }
+
+        .share-content {
+            background: rgba(20, 20, 40, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid rgba(138, 43, 226, 0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .share-title {
+            color: #8a2be2;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .share-url {
+            background: rgba(15, 15, 30, 0.9);
+            border: 1px solid #30475e;
+            border-radius: 8px;
+            padding: 15px;
+            width: 100%;
+            color: #f0f0f0;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            word-break: break-all;
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .share-btn {
+            padding: 10px 20px;
+            background: rgba(48, 71, 94, 0.7);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .share-btn:hover {
+            background: rgba(74, 98, 128, 0.7);
+            transform: translateY(-2px);
+        }
+
+        .share-btn.facebook {
+            background: #3b5998;
+        }
+
+        .share-btn.twitter {
+            background: #1da1f2;
+        }
+
+        .share-btn.whatsapp {
+            background: #25d366;
+        }
+
+        .share-btn.copy {
+            background: #8a2be2;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #a0a0c0;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .comments-help {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #ffd54f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-feather-alt"></i>
+                <div>
+                    <h1>SkyFemboy</h1>
+                    <div class="subtitle">Postagens curtas com interações</div>
+                </div>
+            </div>
+            
+            <div class="user-info" id="userInfo">
+                <!-- Conteúdo dinâmico do usuário será inserido aqui -->
+            </div>
+        </header>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <main>
+            <div id="mainContent" style="display: none;">
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Importante:</strong> Este sistema usa as regras de segurança existentes do Firebase. Para funcionar corretamente, certifique-se de que:
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Você está logado com uma conta do Google</li>
+                        <li>Sua conta não está banida no sistema</li>
+                        <li>Você tem permissões de escrita na coleção skyfemboy</li>
+                    </ol>
+                </div>
+                
+                <div class="main-content">
+                    <div class="post-form">
+                        <h2 class="form-title"><i class="fas fa-edit"></i> Nova Postagem</h2>
+                        <form id="postForm">
+                            <textarea id="postContent" placeholder="Digite sua postagem aqui (máximo de 127 caracteres)..." maxlength="127"></textarea>
+                            <div class="char-counter" id="charCounter">0/127</div>
+                            <button type="submit" class="btn btn-post" id="submitPost">
+                                <i class="fas fa-paper-plane"></i> Publicar
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="posts-section">
+                        <h2 class="section-title"><i class="fas fa-stream"></i> Postagens Recentes</h2>
+                        <div class="posts-container" id="postsContainer">
+                            <div class="loading" id="loadingPosts">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Carregando postagens...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="loginPrompt" class="login-message">
+                <i class="fas fa-user-lock"></i>
+                <h3>Faça login para começar a postar</h3>
+                <p>Conecte-se com sua conta do Google para criar e interagir com postagens de até 127 caracteres na comunidade SkyFemboy.</p>
+                <button id="loginButton" class="btn btn-login">
+                    <i class="fab fa-google"></i> Entrar com Google
+                </button>
+            </div>
+        </main>
+
+        <!-- Modal de Compartilhamento -->
+        <div id="shareModal" class="share-modal">
+            <div class="share-content">
+                <button class="close-modal" id="closeModal">&times;</button>
+                <h3 class="share-title"><i class="fas fa-share-alt"></i> Compartilhar Postagem</h3>
+                <div class="share-url" id="shareUrl">URL de compartilhamento aparecerá aqui</div>
+                <div class="share-buttons">
+                    <button class="share-btn facebook" id="shareFacebook">
+                        <i class="fab fa-facebook"></i> Facebook
+                    </button>
+                    <button class="share-btn twitter" id="shareTwitter">
+                        <i class="fab fa-twitter"></i> Twitter
+                    </button>
+                    <button class="share-btn whatsapp" id="shareWhatsapp">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </button>
+                    <button class="share-btn copy" id="copyUrl">
+                        <i class="fas fa-copy"></i> Copiar Link
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>SkyFemboy &copy; 2023 - Todos os direitos reservados | Desenvolvido com Firebase</p>
+        </footer>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Elementos do DOM
+        const userInfo = document.getElementById('userInfo');
+        const loginButton = document.getElementById('loginButton');
+        const mainContent = document.getElementById('mainContent');
+        const loginPrompt = document.getElementById('loginPrompt');
+        const postForm = document.getElementById('postForm');
+        const postContent = document.getElementById('postContent');
+        const charCounter = document.getElementById('charCounter');
+        const submitPost = document.getElementById('submitPost');
+        const postsContainer = document.getElementById('postsContainer');
+        const loadingPosts = document.getElementById('loadingPosts');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        
+        // Modal de compartilhamento
+        const shareModal = document.getElementById('shareModal');
+        const closeModal = document.getElementById('closeModal');
+        const shareUrl = document.getElementById('shareUrl');
+        const shareFacebook = document.getElementById('shareFacebook');
+        const shareTwitter = document.getElementById('shareTwitter');
+        const shareWhatsapp = document.getElementById('shareWhatsapp');
+        const copyUrl = document.getElementById('copyUrl');
+
+        // Referência às coleções
+        const postsRef = db.collection("skyfemboy");
+        
+        // Variáveis globais
+        let currentUser = null;
+        let currentPostId = null;
+
+        // Contador de caracteres
+        postContent.addEventListener('input', function() {
+            const length = this.value.length;
+            charCounter.textContent = `${length}/127`;
+            
+            if (length > 120) {
+                charCounter.className = 'char-counter warning';
+            } else if (length > 127) {
+                charCounter.className = 'char-counter error';
+            } else {
+                charCounter.className = 'char-counter';
+            }
+            
+            submitPost.disabled = length === 0 || length > 127;
+        });
+
+        // Login com Google
+        loginButton.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => {
+                    showError(`Erro no login: ${error.message}`);
+                });
+        });
+
+        // Logout
+        function logout() {
+            auth.signOut()
+                .catch(error => {
+                    showError(`Erro ao sair: ${error.message}`);
+                });
+        }
+
+        // Mostrar/ocultar conteúdo baseado no estado de autenticação
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            if (user) {
+                displayUserInfo(user);
+                loginPrompt.style.display = 'none';
+                mainContent.style.display = 'block';
+                loadPosts();
+            } else {
+                userInfo.innerHTML = '';
+                loginPrompt.style.display = 'block';
+                mainContent.style.display = 'none';
+                postsContainer.innerHTML = '<div class="loading" id="loadingPosts"><i class="fas fa-spinner fa-spin"></i>Carregando postagens...</div>';
+            }
+        });
+
+        // Exibir informações do usuário
+        function displayUserInfo(user) {
+            const avatar = user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || 'Usuário') + '&background=8a2be2&color=fff';
+            const name = user.displayName || 'Usuário';
+            const email = user.email || '';
+            
+            userInfo.innerHTML = `
+                <div>
+                    <div class="user-name">${name}</div>
+                    <div style="font-size: 0.8rem; color: #a0a0c0;">${email}</div>
+                </div>
+                <img src="${avatar}" alt="Avatar" class="user-avatar">
+                <button onclick="logout()" class="btn btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Sair
+                </button>
+            `;
+        }
+
+        // Enviar nova postagem
+        postForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                showError('Você precisa estar logado para postar.');
+                return;
+            }
+            
+            const content = postContent.value.trim();
+            if (content.length === 0 || content.length > 127) {
+                showError('A postagem deve ter entre 1 e 127 caracteres.');
+                return;
+            }
+            
+            submitPost.disabled = true;
+            submitPost.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publicando...';
+            
+            try {
+                // Estrutura de dados que atende às regras do Firebase
+                const postData = {
+                    content: content,
+                    criadorId: currentUser.uid, // Campo exigido pelas regras
+                    userName: currentUser.displayName || 'Anônimo',
+                    userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=8a2be2&color=fff`,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    likes: 0,
+                    likesBy: [],
+                    commentsCount: 0,
+                    comments: [], // Array para armazenar comentários
+                    restrito: false // Campo exigido pelas regras de leitura
+                };
+                
+                await postsRef.add(postData);
+                
+                postContent.value = '';
+                charCounter.textContent = '0/127';
+                charCounter.className = 'char-counter';
+                
+                showSuccess('Postagem publicada com sucesso!');
+                
+            } catch (error) {
+                console.error('Erro detalhado:', error);
+                showError(`Erro ao publicar: ${error.message}`);
+            } finally {
+                submitPost.disabled = false;
+                submitPost.innerHTML = '<i class="fas fa-paper-plane"></i> Publicar';
+            }
+        });
+
+        // Carregar postagens
+        function loadPosts() {
+            loadingPosts.style.display = 'block';
+            
+            postsRef
+                .where('restrito', '!=', true) // Filtra postagens não restritas
+                .orderBy('timestamp', 'desc')
+                .limit(20)
+                .onSnapshot(snapshot => {
+                    loadingPosts.style.display = 'none';
+                    
+                    if (snapshot.empty) {
+                        postsContainer.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-feather"></i>
+                                <h3>Nenhuma postagem ainda</h3>
+                                <p>Seja o primeiro a compartilhar algo com a comunidade!</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    let postsHTML = '';
+                    snapshot.forEach(doc => {
+                        const post = doc.data();
+                        const postId = doc.id;
+                        const time = post.timestamp ? formatTime(post.timestamp.toDate()) : 'Agora mesmo';
+                        
+                        const userLiked = currentUser && post.likesBy && post.likesBy.includes(currentUser.uid);
+                        
+                        // Verificar se usuário pode comentar (é o criador ou admin)
+                        const canComment = currentUser && (currentUser.uid === post.criadorId || isAdminUser());
+                        
+                        postsHTML += `
+                            <div class="post" id="post-${postId}">
+                                <div class="post-header">
+                                    <img src="${post.userAvatar}" alt="Avatar" class="post-avatar">
+                                    <div class="post-user-info">
+                                        <div class="post-username">${escapeHtml(post.userName)}</div>
+                                        <div class="post-time">${time}</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="post-content">${escapeHtml(post.content)}</div>
+                                
+                                <div class="post-actions">
+                                    <div class="action-buttons">
+                                        <button class="action-btn like-btn ${userLiked ? 'liked' : ''}" data-postid="${postId}">
+                                            <i class="fas fa-heart"></i>
+                                            <span class="like-count">${post.likes || 0}</span>
+                                        </button>
+                                        <button class="action-btn comment-btn" data-postid="${postId}">
+                                            <i class="fas fa-comment"></i>
+                                            <span class="comment-count">${post.commentsCount || 0}</span>
+                                        </button>
+                                        <button class="action-btn share-btn" data-postid="${postId}">
+                                            <i class="fas fa-share-alt"></i> Compartilhar
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="comments-section" id="comments-${postId}">
+                                    <h4 class="comments-title"><i class="fas fa-comments"></i> Comentários</h4>
+                                    ${canComment ? `
+                                    <form class="comment-form" id="comment-form-${postId}">
+                                        <input type="text" class="comment-input" placeholder="Escreva um comentário..." maxlength="200">
+                                        <button type="submit" class="btn-comment">Comentar</button>
+                                    </form>
+                                    ` : `
+                                    <div class="comments-help">
+                                        <i class="fas fa-info-circle"></i>
+                                        Apenas o autor desta postagem pode adicionar comentários.
+                                    </div>
+                                    `}
+                                    <div class="comments-list" id="comments-list-${postId}">
+                                        <!-- Comentários serão carregados dinamicamente -->
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    postsContainer.innerHTML = postsHTML;
+                    addPostInteractionListeners();
+                    
+                }, error => {
+                    loadingPosts.style.display = 'none';
+                    console.error('Erro ao carregar postagens:', error);
+                    
+                    if (error.code === 'permission-denied') {
+                        postsContainer.innerHTML = `
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <h3>Permissão Negada</h3>
+                                <p>Você não tem permissão para ver as postagens. Certifique-se de estar logado.</p>
+                            </div>
+                        `;
+                    } else {
+                        showError(`Erro ao carregar postagens: ${error.message}`);
+                    }
+                });
+        }
+
+        // Função para verificar se usuário é admin (simplificada)
+        function isAdminUser() {
+            // Esta é uma verificação simplificada
+            // Em um sistema real, você verificaria no banco de dados
+            return currentUser && (
+                currentUser.uid === "sZxfMuOBPbXdR8nttVPXIN8QOOl1" || // ID do admin específico das regras
+                currentUser.email?.includes('admin') // Exemplo simplificado
+            );
+        }
+
+        // Adicionar listeners para interações
+        function addPostInteractionListeners() {
+            // Curtir
+            document.querySelectorAll('.like-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const postId = this.getAttribute('data-postid');
+                    toggleLike(postId);
+                });
+            });
+            
+            // Comentários
+            document.querySelectorAll('.comment-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const postId = this.getAttribute('data-postid');
+                    toggleComments(postId);
+                });
+            });
+            
+            // Compartilhar
+            document.querySelectorAll('.share-btn:not(.facebook, .twitter, .whatsapp, .copy)').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const postId = this.getAttribute('data-postid');
+                    openShareModal(postId);
+                });
+            });
+            
+            // Formulários de comentário
+            document.querySelectorAll('.comment-form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const postId = this.id.replace('comment-form-', '');
+                    const input = this.querySelector('.comment-input');
+                    const commentText = input.value.trim();
+                    
+                    if (commentText && currentUser) {
+                        addComment(postId, commentText);
+                        input.value = '';
+                    }
+                });
+            });
+        }
+
+        // Curtir/Descurtir
+        async function toggleLike(postId) {
+            if (!currentUser) {
+                showError('Você precisa estar logado para curtir postagens.');
+                return;
+            }
+            
+            try {
+                const postRef = postsRef.doc(postId);
+                const postDoc = await postRef.get();
+                
+                if (!postDoc.exists) {
+                    showError('Postagem não encontrada.');
+                    return;
+                }
+                
+                const post = postDoc.data();
+                const likesBy = post.likesBy || [];
+                const userId = currentUser.uid;
+                
+                const userIndex = likesBy.indexOf(userId);
+                let newLikesBy = [...likesBy];
+                let newLikesCount = post.likes || 0;
+                
+                if (userIndex > -1) {
+                    newLikesBy.splice(userIndex, 1);
+                    newLikesCount--;
+                } else {
+                    newLikesBy.push(userId);
+                    newLikesCount++;
+                }
+                
+                // Atualizar apenas os campos de like
+                await postRef.update({
+                    likes: newLikesCount,
+                    likesBy: newLikesBy
+                });
+                
+                // Feedback visual
+                const likeBtn = document.querySelector(`.like-btn[data-postid="${postId}"]`);
+                const likeCount = likeBtn.querySelector('.like-count');
+                
+                likeBtn.classList.toggle('liked');
+                likeCount.textContent = newLikesCount;
+                
+            } catch (error) {
+                console.error('Erro ao curtir:', error);
+                
+                if (error.code === 'permission-denied') {
+                    showError('Você não tem permissão para curtir esta postagem.');
+                } else {
+                    showError(`Erro ao curtir: ${error.message}`);
+                }
+            }
+        }
+
+        // Mostrar/ocultar comentários
+        async function toggleComments(postId) {
+            const commentsSection = document.getElementById(`comments-${postId}`);
+            const commentsList = document.getElementById(`comments-list-${postId}`);
+            
+            if (commentsSection.classList.contains('expanded')) {
+                commentsSection.classList.remove('expanded');
+            } else {
+                commentsSection.classList.add('expanded');
+                if (commentsList.children.length === 0 || 
+                    commentsList.innerHTML.includes('Carregando') || 
+                    commentsList.innerHTML.includes('Nenhum')) {
+                    await loadComments(postId);
+                }
+            }
+        }
+
+        // Carregar comentários
+        async function loadComments(postId) {
+            const commentsList = document.getElementById(`comments-list-${postId}`);
+            commentsList.innerHTML = '<div class="loading" style="padding: 20px; font-size: 0.9rem;"><i class="fas fa-spinner fa-spin"></i> Carregando comentários...</div>';
+            
+            try {
+                const postDoc = await postsRef.doc(postId).get();
+                
+                if (!postDoc.exists) {
+                    commentsList.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.9rem;">Postagem não encontrada.</div>';
+                    return;
+                }
+                
+                const post = postDoc.data();
+                
+                if (!post.comments || post.comments.length === 0) {
+                    commentsList.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.9rem;">Nenhum comentário ainda.</div>';
+                    return;
+                }
+                
+                let commentsHTML = '';
+                
+                // Ordenar comentários por timestamp (mais recentes primeiro)
+                const sortedComments = [...post.comments].sort((a, b) => {
+                    // Se não tiver timestamp, colocar no final
+                    if (!a.timestamp) return 1;
+                    if (!b.timestamp) return -1;
+                    
+                    // Converter para Date se for Timestamp do Firebase
+                    const timeA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+                    const timeB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+                    
+                    return timeB - timeA; // Mais recentes primeiro
+                });
+                
+                sortedComments.forEach(comment => {
+                    let timeText = 'Agora mesmo';
+                    
+                    if (comment.timestamp) {
+                        try {
+                            // Tentar converter timestamp do Firebase
+                            const timestamp = comment.timestamp.toDate ? 
+                                comment.timestamp.toDate() : 
+                                new Date(comment.timestamp);
+                            timeText = formatTime(timestamp);
+                        } catch (e) {
+                            console.error('Erro ao formatar timestamp:', e);
+                        }
+                    }
+                    
+                    commentsHTML += `
+                        <div class="comment">
+                            <div class="comment-header">
+                                <img src="${comment.userAvatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(comment.userName || 'Usuário') + '&background=4169e1&color=fff'}" 
+                                     alt="Avatar" class="comment-avatar">
+                                <div class="comment-username">${escapeHtml(comment.userName || 'Anônimo')}</div>
+                                <div class="comment-time">${timeText}</div>
+                            </div>
+                            <div class="comment-content">${escapeHtml(comment.content)}</div>
+                        </div>
+                    `;
+                });
+                
+                commentsList.innerHTML = commentsHTML;
+                
+            } catch (error) {
+                console.error('Erro ao carregar comentários:', error);
+                commentsList.innerHTML = '<div class="error-message" style="margin: 10px;">Erro ao carregar comentários.</div>';
+            }
+        }
+
+        // Adicionar comentário - VERSÃO CORRIGIDA
+        async function addComment(postId, commentText) {
+            if (!currentUser) {
+                showError('Você precisa estar logado para comentar.');
+                return;
+            }
+            
+            try {
+                const postRef = postsRef.doc(postId);
+                const postDoc = await postRef.get();
+                
+                if (!postDoc.exists) {
+                    showError('Postagem não encontrada.');
+                    return;
+                }
+                
+                const post = postDoc.data();
+                
+                // Verificar se o usuário pode comentar (é o criador ou admin)
+                if (currentUser.uid !== post.criadorId && !isAdminUser()) {
+                    showError('Apenas o autor desta postagem pode adicionar comentários.');
+                    return;
+                }
+                
+                // Obter array atual de comentários
+                const currentComments = post.comments || [];
+                
+                // Criar novo comentário COM TIMESTAMP MANUAL
+                const newComment = {
+                    content: commentText,
+                    userId: currentUser.uid,
+                    userName: currentUser.displayName || 'Anônimo',
+                    userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=4169e1&color=fff`,
+                    timestamp: new Date() // Usar Date() normal em vez de FieldValue.serverTimestamp()
+                };
+                
+                // Adicionar ao array de comentários
+                const updatedComments = [...currentComments, newComment];
+                
+                // Atualizar documento com o novo array
+                await postRef.update({
+                    comments: updatedComments,
+                    commentsCount: updatedComments.length
+                });
+                
+                // Recarregar comentários
+                await loadComments(postId);
+                
+                // Atualizar contador de comentários na interface
+                const commentBtn = document.querySelector(`.comment-btn[data-postid="${postId}"]`);
+                const commentCount = commentBtn.querySelector('.comment-count');
+                commentCount.textContent = updatedComments.length;
+                
+                showSuccess('Comentário adicionado com sucesso!');
+                
+            } catch (error) {
+                console.error('Erro ao adicionar comentário:', error);
+                
+                if (error.code === 'permission-denied') {
+                    showError('Permissão negada. Apenas o autor ou administradores podem comentar.');
+                } else if (error.message.includes('FieldValue.serverTimestamp()')) {
+                    showError('Erro técnico com o timestamp. Por favor, tente novamente.');
+                } else {
+                    showError(`Erro ao adicionar comentário: ${error.message}`);
+                }
+            }
+        }
+
+        // Abrir modal de compartilhamento
+        async function openShareModal(postId) {
+            currentPostId = postId;
+            
+            try {
+                const shareUrlText = `${window.location.origin}?post=${postId}`;
+                shareUrl.textContent = shareUrlText;
+                shareModal.classList.add('active');
+                
+            } catch (error) {
+                showError(`Erro ao preparar compartilhamento: ${error.message}`);
+            }
+        }
+
+        // Fechar modal
+        closeModal.addEventListener('click', () => {
+            shareModal.classList.remove('active');
+        });
+
+        // Compartilhar no Facebook
+        shareFacebook.addEventListener('click', () => {
+            const url = encodeURIComponent(shareUrl.textContent);
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+        });
+
+        // Compartilhar no Twitter
+        shareTwitter.addEventListener('click', () => {
+            const url = encodeURIComponent(shareUrl.textContent);
+            const text = encodeURIComponent("Confira esta postagem no SkyFemboy!");
+            window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+        });
+
+        // Compartilhar no WhatsApp
+        shareWhatsapp.addEventListener('click', () => {
+            const url = encodeURIComponent(shareUrl.textContent);
+            const text = encodeURIComponent("Confira esta postagem no SkyFemboy!");
+            window.open(`https://wa.me/?text=${text}%20${url}`, '_blank');
+        });
+
+        // Copiar URL
+        copyUrl.addEventListener('click', () => {
+            navigator.clipboard.writeText(shareUrl.textContent)
+                .then(() => {
+                    const originalText = copyUrl.innerHTML;
+                    copyUrl.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+                    setTimeout(() => {
+                        copyUrl.innerHTML = originalText;
+                    }, 2000);
+                })
+                .catch(err => {
+                    showError('Erro ao copiar URL: ' + err.message);
+                });
+        });
+
+        // Fechar modal ao clicar fora
+        window.addEventListener('click', (e) => {
+            if (e.target === shareModal) {
+                shareModal.classList.remove('active');
+            }
+        });
+
+        // Formatar data/hora
+        function formatTime(date) {
+            if (!(date instanceof Date)) {
+                try {
+                    date = new Date(date);
+                } catch (e) {
+                    return 'Data inválida';
+                }
+            }
+            
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Agora mesmo';
+            if (diffMins < 60) return `${diffMins} min atrás`;
+            if (diffHours < 24) return `${diffHours} h atrás`;
+            if (diffDays < 7) return `${diffDays} dia${diffDays > 1 ? 's' : ''} atrás`;
+            
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        // Exibir mensagem de erro
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+            
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Exibir mensagem de sucesso
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+            
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 3000);
+        }
+
+        // Escapar HTML para segurança
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    displayUserInfo(user);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
