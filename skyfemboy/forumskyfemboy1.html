@@ -66,6 +66,16 @@
             margin-top: 5px;
         }
 
+        .db-info {
+            background: rgba(138, 43, 226, 0.2);
+            border: 1px solid rgba(138, 43, 226, 0.5);
+            border-radius: 10px;
+            padding: 8px 15px;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            display: inline-block;
+        }
+
         .user-info {
             display: flex;
             align-items: center;
@@ -652,6 +662,51 @@
             font-size: 0.85rem;
             color: #ffd54f;
         }
+
+        .database-selector {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(25, 25, 45, 0.7);
+            border-radius: 10px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+        }
+
+        .database-selector h4 {
+            color: #8a2be2;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .db-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .db-link {
+            padding: 8px 15px;
+            background: rgba(138, 43, 226, 0.2);
+            color: #d0b0ff;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+        }
+
+        .db-link:hover {
+            background: rgba(138, 43, 226, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .db-link.active {
+            background: rgba(138, 43, 226, 0.6);
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -660,8 +715,11 @@
             <div class="logo">
                 <i class="fas fa-feather-alt"></i>
                 <div>
-                    <h1>SkyFemboy</h1>
+                    <h1 id="pageTitle">SkyFemboy</h1>
                     <div class="subtitle">Postagens curtas com interações</div>
+                    <div class="db-info">
+                        <i class="fas fa-database"></i> Banco: <span id="currentDatabase">skyfemboy</span>
+                    </div>
                 </div>
             </div>
             
@@ -678,11 +736,23 @@
                 <div class="info-box">
                     <i class="fas fa-info-circle"></i>
                     <strong>Importante:</strong> Este sistema usa as regras de segurança existentes do Firebase. Para funcionar corretamente, certifique-se de que:
-                    <ol style="margin-left: 20px; margin-top: 10px;">
+                    <ol style="margin-left: 20px; margin-top: 10px;" id="infoList">
                         <li>Você está logado com uma conta do Google</li>
                         <li>Sua conta não está banida no sistema</li>
-                        <li>Você tem permissões de escrita na coleção skyfemboy</li>
+                        <li>Você tem permissões de escrita na coleção <span id="dbName">skyfemboy</span></li>
+                        <li>Banco de dados atual: <strong><span id="currentDbName">skyfemboy</span></strong></li>
                     </ol>
+                </div>
+
+                <div class="database-selector">
+                    <h4><i class="fas fa-exchange-alt"></i> Trocar Banco de Dados</h4>
+                    <p>Use os links abaixo para acessar diferentes bancos de dados ou adicione <code>?uid=nome_do_banco</code> à URL.</p>
+                    <div class="db-links">
+                        <a href="?uid=skyfemboy" class="db-link" id="db-skyfemboy">skyfemboy</a>
+                        <a href="?uid=skyfemboy1" class="db-link" id="db-skyfemboy1">skyfemboy1</a>
+                        <a href="?uid=skyfemboy2" class="db-link" id="db-skyfemboy2">skyfemboy2</a>
+                        <a href="?uid=comunidade" class="db-link" id="db-comunidade">comunidade</a>
+                    </div>
                 </div>
                 
                 <div class="main-content">
@@ -713,6 +783,7 @@
                 <i class="fas fa-user-lock"></i>
                 <h3>Faça login para começar a postar</h3>
                 <p>Conecte-se com sua conta do Google para criar e interagir com postagens de até 127 caracteres na comunidade SkyFemboy.</p>
+                <p><strong>Banco atual:</strong> <span id="loginDbName">skyfemboy</span></p>
                 <button id="loginButton" class="btn btn-login">
                     <i class="fab fa-google"></i> Entrar com Google
                 </button>
@@ -744,10 +815,78 @@
 
         <footer>
             <p>SkyFemboy &copy; 2023 - Todos os direitos reservados | Desenvolvido com Firebase</p>
+            <p style="margin-top: 10px; font-size: 0.8rem;">
+                Banco de dados: <span id="footerDbName">skyfemboy</span> | 
+                Use <code>?uid=nome_do_banco</code> para trocar
+            </p>
         </footer>
     </div>
 
     <script>
+        // ==================== FUNÇÕES AUXILIARES ====================
+        // Função para obter parâmetros da URL
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // Escapar HTML para segurança
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Formatar data/hora
+        function formatTime(date) {
+            if (!(date instanceof Date)) {
+                try {
+                    date = new Date(date);
+                } catch (e) {
+                    return 'Data inválida';
+                }
+            }
+            
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Agora mesmo';
+            if (diffMins < 60) return `${diffMins} min atrás`;
+            if (diffHours < 24) return `${diffHours} h atrás`;
+            if (diffDays < 7) return `${diffDays} dia${diffDays > 1 ? 's' : ''} atrás`;
+            
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        // Exibir mensagem de erro
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+            
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Exibir mensagem de sucesso
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+            
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 3000);
+        }
+
+        // ==================== CONFIGURAÇÕES ====================
+        // Obter UID da URL (ou usar padrão 'skyfemboy')
+        const databaseUid = getQueryParam('uid') || 'skyfemboy';
+
         // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
@@ -764,7 +903,10 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
         
-        // Elementos do DOM
+        // Referência às coleções (dinâmica baseada no UID)
+        const postsRef = db.collection(databaseUid);
+        
+        // ==================== ELEMENTOS DO DOM ====================
         const userInfo = document.getElementById('userInfo');
         const loginButton = document.getElementById('loginButton');
         const mainContent = document.getElementById('mainContent');
@@ -777,6 +919,12 @@
         const loadingPosts = document.getElementById('loadingPosts');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
+        const pageTitle = document.getElementById('pageTitle');
+        const currentDatabase = document.getElementById('currentDatabase');
+        const currentDbName = document.getElementById('currentDbName');
+        const dbName = document.getElementById('dbName');
+        const loginDbName = document.getElementById('loginDbName');
+        const footerDbName = document.getElementById('footerDbName');
         
         // Modal de compartilhamento
         const shareModal = document.getElementById('shareModal');
@@ -787,14 +935,52 @@
         const shareWhatsapp = document.getElementById('shareWhatsapp');
         const copyUrl = document.getElementById('copyUrl');
 
-        // Referência às coleções
-        const postsRef = db.collection("skyfemboy");
-        
         // Variáveis globais
         let currentUser = null;
         let currentPostId = null;
 
-        // Contador de caracteres
+        // ==================== INICIALIZAÇÃO ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Atualizar interface com o nome do banco de dados
+            updateDatabaseUI();
+            
+            // Marcar link ativo do banco de dados
+            highlightActiveDatabaseLink();
+        });
+
+        // Atualizar interface com informações do banco de dados
+        function updateDatabaseUI() {
+            const dbDisplayName = databaseUid || 'skyfemboy';
+            
+            // Atualizar título
+            pageTitle.textContent = `SkyFemboy - ${dbDisplayName}`;
+            
+            // Atualizar informações do banco
+            currentDatabase.textContent = dbDisplayName;
+            currentDbName.textContent = dbDisplayName;
+            dbName.textContent = dbDisplayName;
+            loginDbName.textContent = dbDisplayName;
+            footerDbName.textContent = dbDisplayName;
+            
+            // Atualizar título da página
+            document.title = `SkyFemboy - ${dbDisplayName}`;
+        }
+
+        // Destacar link ativo do banco de dados
+        function highlightActiveDatabaseLink() {
+            // Remover classe active de todos os links
+            document.querySelectorAll('.db-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Adicionar classe active ao link correspondente
+            const activeLink = document.getElementById(`db-${databaseUid}`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+        }
+
+        // ==================== CONTADOR DE CARACTERES ====================
         postContent.addEventListener('input', function() {
             const length = this.value.length;
             charCounter.textContent = `${length}/127`;
@@ -810,6 +996,7 @@
             submitPost.disabled = length === 0 || length > 127;
         });
 
+        // ==================== AUTENTICAÇÃO ====================
         // Login com Google
         loginButton.addEventListener('click', () => {
             const provider = new firebase.auth.GoogleAuthProvider();
@@ -827,7 +1014,7 @@
                 });
         }
 
-        // Mostrar/ocultar conteúdo baseado no estado de autenticação
+        // Monitorar estado de autenticação
         auth.onAuthStateChanged(user => {
             currentUser = user;
             if (user) {
@@ -861,6 +1048,7 @@
             `;
         }
 
+        // ==================== POSTAGENS ====================
         // Enviar nova postagem
         postForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -880,18 +1068,18 @@
             submitPost.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publicando...';
             
             try {
-                // Estrutura de dados que atende às regras do Firebase
+                // Estrutura de dados
                 const postData = {
                     content: content,
-                    criadorId: currentUser.uid, // Campo exigido pelas regras
+                    criadorId: currentUser.uid,
                     userName: currentUser.displayName || 'Anônimo',
                     userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=8a2be2&color=fff`,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     likes: 0,
                     likesBy: [],
                     commentsCount: 0,
-                    comments: [], // Array para armazenar comentários
-                    restrito: false // Campo exigido pelas regras de leitura
+                    comments: [],
+                    restrito: false
                 };
                 
                 await postsRef.add(postData);
@@ -916,7 +1104,7 @@
             loadingPosts.style.display = 'block';
             
             postsRef
-                .where('restrito', '!=', true) // Filtra postagens não restritas
+                .where('restrito', '!=', true)
                 .orderBy('timestamp', 'desc')
                 .limit(20)
                 .onSnapshot(snapshot => {
@@ -928,6 +1116,7 @@
                                 <i class="fas fa-feather"></i>
                                 <h3>Nenhuma postagem ainda</h3>
                                 <p>Seja o primeiro a compartilhar algo com a comunidade!</p>
+                                <p><small>Banco: ${databaseUid}</small></p>
                             </div>
                         `;
                         return;
@@ -941,7 +1130,7 @@
                         
                         const userLiked = currentUser && post.likesBy && post.likesBy.includes(currentUser.uid);
                         
-                        // Verificar se usuário pode comentar (é o criador ou admin)
+                        // Verificar se usuário pode comentar
                         const canComment = currentUser && (currentUser.uid === post.criadorId || isAdminUser());
                         
                         postsHTML += `
@@ -1005,7 +1194,8 @@
                             <div class="error-message">
                                 <i class="fas fa-exclamation-triangle"></i>
                                 <h3>Permissão Negada</h3>
-                                <p>Você não tem permissão para ver as postagens. Certifique-se de estar logado.</p>
+                                <p>Você não tem permissão para ver as postagens no banco "${databaseUid}".</p>
+                                <p>Certifique-se de estar logado e ter acesso a este banco de dados.</p>
                             </div>
                         `;
                     } else {
@@ -1014,13 +1204,12 @@
                 });
         }
 
-        // Função para verificar se usuário é admin (simplificada)
+        // ==================== INTERAÇÕES ====================
+        // Verificar se usuário é admin
         function isAdminUser() {
-            // Esta é uma verificação simplificada
-            // Em um sistema real, você verificaria no banco de dados
             return currentUser && (
-                currentUser.uid === "sZxfMuOBPbXdR8nttVPXIN8QOOl1" || // ID do admin específico das regras
-                currentUser.email?.includes('admin') // Exemplo simplificado
+                currentUser.uid === "sZxfMuOBPbXdR8nttVPXIN8QOOl1" ||
+                currentUser.email?.includes('admin')
             );
         }
 
@@ -1098,7 +1287,6 @@
                     newLikesCount++;
                 }
                 
-                // Atualizar apenas os campos de like
                 await postRef.update({
                     likes: newLikesCount,
                     likesBy: newLikesBy
@@ -1161,17 +1349,15 @@
                 
                 let commentsHTML = '';
                 
-                // Ordenar comentários por timestamp (mais recentes primeiro)
+                // Ordenar comentários por timestamp
                 const sortedComments = [...post.comments].sort((a, b) => {
-                    // Se não tiver timestamp, colocar no final
                     if (!a.timestamp) return 1;
                     if (!b.timestamp) return -1;
                     
-                    // Converter para Date se for Timestamp do Firebase
                     const timeA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
                     const timeB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
                     
-                    return timeB - timeA; // Mais recentes primeiro
+                    return timeB - timeA;
                 });
                 
                 sortedComments.forEach(comment => {
@@ -1179,7 +1365,6 @@
                     
                     if (comment.timestamp) {
                         try {
-                            // Tentar converter timestamp do Firebase
                             const timestamp = comment.timestamp.toDate ? 
                                 comment.timestamp.toDate() : 
                                 new Date(comment.timestamp);
@@ -1210,7 +1395,7 @@
             }
         }
 
-        // Adicionar comentário - VERSÃO CORRIGIDA
+        // Adicionar comentário
         async function addComment(postId, commentText) {
             if (!currentUser) {
                 showError('Você precisa estar logado para comentar.');
@@ -1228,7 +1413,7 @@
                 
                 const post = postDoc.data();
                 
-                // Verificar se o usuário pode comentar (é o criador ou admin)
+                // Verificar se o usuário pode comentar
                 if (currentUser.uid !== post.criadorId && !isAdminUser()) {
                     showError('Apenas o autor desta postagem pode adicionar comentários.');
                     return;
@@ -1237,19 +1422,19 @@
                 // Obter array atual de comentários
                 const currentComments = post.comments || [];
                 
-                // Criar novo comentário COM TIMESTAMP MANUAL
+                // Criar novo comentário
                 const newComment = {
                     content: commentText,
                     userId: currentUser.uid,
                     userName: currentUser.displayName || 'Anônimo',
                     userAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || 'Usuário')}&background=4169e1&color=fff`,
-                    timestamp: new Date() // Usar Date() normal em vez de FieldValue.serverTimestamp()
+                    timestamp: new Date()
                 };
                 
                 // Adicionar ao array de comentários
                 const updatedComments = [...currentComments, newComment];
                 
-                // Atualizar documento com o novo array
+                // Atualizar documento
                 await postRef.update({
                     comments: updatedComments,
                     commentsCount: updatedComments.length
@@ -1278,12 +1463,14 @@
             }
         }
 
+        // ==================== COMPARTILHAMENTO ====================
         // Abrir modal de compartilhamento
         async function openShareModal(postId) {
             currentPostId = postId;
             
             try {
-                const shareUrlText = `${window.location.origin}?post=${postId}`;
+                // Incluir UID na URL de compartilhamento
+                const shareUrlText = `${window.location.origin}${window.location.pathname}?uid=${databaseUid}&post=${postId}`;
                 shareUrl.textContent = shareUrlText;
                 shareModal.classList.add('active');
                 
@@ -1306,14 +1493,14 @@
         // Compartilhar no Twitter
         shareTwitter.addEventListener('click', () => {
             const url = encodeURIComponent(shareUrl.textContent);
-            const text = encodeURIComponent("Confira esta postagem no SkyFemboy!");
+            const text = encodeURIComponent(`Confira esta postagem no SkyFemboy (${databaseUid})!`);
             window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
         });
 
         // Compartilhar no WhatsApp
         shareWhatsapp.addEventListener('click', () => {
             const url = encodeURIComponent(shareUrl.textContent);
-            const text = encodeURIComponent("Confira esta postagem no SkyFemboy!");
+            const text = encodeURIComponent(`Confira esta postagem no SkyFemboy (${databaseUid})!`);
             window.open(`https://wa.me/?text=${text}%20${url}`, '_blank');
         });
 
@@ -1337,68 +1524,6 @@
             if (e.target === shareModal) {
                 shareModal.classList.remove('active');
             }
-        });
-
-        // Formatar data/hora
-        function formatTime(date) {
-            if (!(date instanceof Date)) {
-                try {
-                    date = new Date(date);
-                } catch (e) {
-                    return 'Data inválida';
-                }
-            }
-            
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-            
-            if (diffMins < 1) return 'Agora mesmo';
-            if (diffMins < 60) return `${diffMins} min atrás`;
-            if (diffHours < 24) return `${diffHours} h atrás`;
-            if (diffDays < 7) return `${diffDays} dia${diffDays > 1 ? 's' : ''} atrás`;
-            
-            return date.toLocaleDateString('pt-BR');
-        }
-
-        // Exibir mensagem de erro
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            successMessage.style.display = 'none';
-            
-            setTimeout(() => {
-                errorMessage.style.display = 'none';
-            }, 5000);
-        }
-
-        // Exibir mensagem de sucesso
-        function showSuccess(message) {
-            successMessage.textContent = message;
-            successMessage.style.display = 'block';
-            errorMessage.style.display = 'none';
-            
-            setTimeout(() => {
-                successMessage.style.display = 'none';
-            }, 3000);
-        }
-
-        // Escapar HTML para segurança
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Inicializar
-        document.addEventListener('DOMContentLoaded', () => {
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    displayUserInfo(user);
-                }
-            });
         });
     </script>
 </body>
