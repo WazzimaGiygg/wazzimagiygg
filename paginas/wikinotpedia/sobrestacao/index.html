@@ -119,6 +119,7 @@
             display: flex;
             gap: 10px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
         
         button {
@@ -161,6 +162,26 @@
             background-color: #c0392b;
         }
         
+        #exportBtn {
+            background-color: #f39c12;
+            color: white;
+            flex: 1;
+        }
+        
+        #exportBtn:hover {
+            background-color: #d68910;
+        }
+        
+        #importBtn {
+            background-color: #9b59b6;
+            color: white;
+            flex: 1;
+        }
+        
+        #importBtn:hover {
+            background-color: #8e44ad;
+        }
+        
         .example-link {
             color: #3498db;
             text-decoration: none;
@@ -199,6 +220,28 @@
             margin-top: 5px;
         }
         
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        #jsonFile {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .json-buttons {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ddd;
+        }
+        
         @media (max-width: 768px) {
             .content {
                 flex-direction: column;
@@ -207,6 +250,14 @@
             .form-section {
                 border-right: none;
                 border-bottom: 1px solid #eee;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
             }
         }
     </style>
@@ -305,6 +356,17 @@
                     <button id="resetBtn">Limpar Tudo</button>
                 </div>
                 
+                <div class="json-buttons">
+                    <h3>Importar/Exportar Dados</h3>
+                    <div class="button-group">
+                        <button id="exportBtn">Exportar para JSON</button>
+                        <div class="file-input-wrapper">
+                            <button id="importBtn">Importar de JSON</button>
+                            <input type="file" id="jsonFile" accept=".json">
+                        </div>
+                    </div>
+                </div>
+                
                 <a class="example-link" id="loadExample">Carregar exemplo com dados da estação Engenheiro Goulart</a>
             </div>
             
@@ -339,6 +401,8 @@
                         <li>Preencha os campos ao lado (campos com * são obrigatórios)</li>
                         <li>Clique em "Gerar Código Wiki" para atualizar a pré-visualização</li>
                         <li>Clique em "Copiar Código" para copiar o código gerado para a área de transferência</li>
+                        <li>Use "Exportar para JSON" para salvar seus dados</li>
+                        <li>Use "Importar de JSON" para carregar dados salvos anteriormente</li>
                         <li>Use "Limpar Tudo" para resetar todos os campos</li>
                     </ol>
                     <p><strong>Dica:</strong> Para links internos no Wiki, use colchetes duplos: <code>[[Nome da Página]]</code> ou <code>[[Nome da Página|Texto alternativo]]</code></p>
@@ -355,6 +419,9 @@
             const generateBtn = document.getElementById('generateBtn');
             const copyBtn = document.getElementById('copyBtn');
             const resetBtn = document.getElementById('resetBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const importBtn = document.getElementById('importBtn');
+            const jsonFileInput = document.getElementById('jsonFile');
             const loadExample = document.getElementById('loadExample');
             const preview = document.getElementById('preview');
             const notification = document.getElementById('notification');
@@ -424,7 +491,7 @@
                 // Usar a API Clipboard moderna
                 if (navigator.clipboard && window.isSecureContext) {
                     navigator.clipboard.writeText(text)
-                        .then(() => showNotification())
+                        .then(() => showNotification("Código copiado para a área de transferência!"))
                         .catch(err => {
                             console.error('Erro ao copiar: ', err);
                             fallbackCopy(text);
@@ -448,7 +515,7 @@
                 try {
                     const successful = document.execCommand('copy');
                     if (successful) {
-                        showNotification();
+                        showNotification("Código copiado para a área de transferência!");
                     } else {
                         alert('Não foi possível copiar o código. Tente selecionar e copiar manualmente.');
                     }
@@ -461,7 +528,8 @@
             }
             
             // Função para mostrar notificação
-            function showNotification() {
+            function showNotification(message) {
+                notification.textContent = message;
                 notification.classList.add('show');
                 setTimeout(() => {
                     notification.classList.remove('show');
@@ -470,12 +538,13 @@
             
             // Função para resetar todos os campos
             function resetFields() {
-                fields.forEach(field => {
-                    document.getElementById(field).value = '';
-                });
-                
-                // Gerar código vazio
-                preview.textContent = `{{InformaçãoEstação
+                if (confirm("Tem certeza que deseja limpar todos os campos?")) {
+                    fields.forEach(field => {
+                        document.getElementById(field).value = '';
+                    });
+                    
+                    // Gerar código vazio
+                    preview.textContent = `{{InformaçãoEstação
 | nome            = 
 | imagem          = 
 | legenda         = 
@@ -492,24 +561,138 @@
 | proxima_estacao  =
 | coordenadas      = 
 }}`;
+                    
+                    showNotification("Todos os campos foram limpos!");
+                }
             }
             
             // Função para carregar dados de exemplo
             function loadExampleData() {
+                if (confirm("Deseja carregar os dados de exemplo da Estação Engenheiro Goulart?")) {
+                    fields.forEach(field => {
+                        if (exampleData[field]) {
+                            document.getElementById(field).value = exampleData[field];
+                        }
+                    });
+                    
+                    // Gerar código com os dados de exemplo
+                    generateWikiCode();
+                    showNotification("Dados de exemplo carregados!");
+                }
+            }
+            
+            // Função para exportar dados para JSON
+            function exportToJSON() {
+                const data = {};
+                
+                // Coletar dados dos campos
                 fields.forEach(field => {
-                    if (exampleData[field]) {
-                        document.getElementById(field).value = exampleData[field];
-                    }
+                    data[field] = document.getElementById(field).value;
                 });
                 
-                // Gerar código com os dados de exemplo
-                generateWikiCode();
+                // Adicionar metadados
+                data.metadata = {
+                    exportDate: new Date().toISOString(),
+                    tool: "Gerador de Código Wiki - Modelo InformaçãoEstação",
+                    version: "1.0"
+                };
+                
+                // Criar objeto JSON
+                const jsonData = JSON.stringify(data, null, 2);
+                
+                // Criar blob e link para download
+                const blob = new Blob([jsonData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `estacao_wiki_${data.nome || 'dados'}_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showNotification("Dados exportados para JSON com sucesso!");
+            }
+            
+            // Função para importar dados de JSON
+            function importFromJSON(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                // Verificar se é um arquivo JSON
+                if (!file.name.endsWith('.json')) {
+                    alert('Por favor, selecione um arquivo JSON válido.');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        
+                        // Verificar se o JSON tem a estrutura esperada
+                        if (typeof data !== 'object') {
+                            throw new Error('Formato de arquivo inválido');
+                        }
+                        
+                        // Limpar campos primeiro
+                        fields.forEach(field => {
+                            document.getElementById(field).value = '';
+                        });
+                        
+                        // Preencher campos com dados do JSON
+                        let importedCount = 0;
+                        fields.forEach(field => {
+                            if (data[field] !== undefined && data[field] !== '') {
+                                document.getElementById(field).value = data[field];
+                                importedCount++;
+                            }
+                        });
+                        
+                        // Gerar código com os dados importados
+                        generateWikiCode();
+                        
+                        // Resetar o input de arquivo para permitir importar o mesmo arquivo novamente
+                        event.target.value = '';
+                        
+                        showNotification(`${importedCount} campos importados com sucesso!`);
+                        
+                    } catch (error) {
+                        console.error('Erro ao processar JSON:', error);
+                        alert('Erro ao importar arquivo JSON. Certifique-se de que o arquivo está no formato correto.');
+                    }
+                };
+                
+                reader.onerror = function() {
+                    alert('Erro ao ler o arquivo. Tente novamente.');
+                };
+                
+                reader.readAsText(file);
+            }
+            
+            // Função para validar se há dados nos campos
+            function hasData() {
+                for (const field of fields) {
+                    if (document.getElementById(field).value.trim() !== '') {
+                        return true;
+                    }
+                }
+                return false;
             }
             
             // Event Listeners
             generateBtn.addEventListener('click', generateWikiCode);
             copyBtn.addEventListener('click', copyToClipboard);
             resetBtn.addEventListener('click', resetFields);
+            exportBtn.addEventListener('click', function() {
+                if (hasData()) {
+                    exportToJSON();
+                } else {
+                    alert('Não há dados para exportar. Preencha pelo menos um campo primeiro.');
+                }
+            });
+            jsonFileInput.addEventListener('change', importFromJSON);
             loadExample.addEventListener('click', loadExampleData);
             
             // Gerar código inicial vazio
@@ -523,6 +706,11 @@
                         generateWikiCode();
                     }
                 });
+            });
+            
+            // Adicionar dica de importação quando o botão de importação é clicado
+            importBtn.addEventListener('click', function() {
+                jsonFileInput.click();
             });
         });
     </script>
