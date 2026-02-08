@@ -462,7 +462,7 @@
             <div class="modal-body">
                 <div id="modalUserInfo">
                     <p><strong>UID:</strong> <span id="modalUid"></span></p>
-                    <p><strong>Email:</strong> <span id="pedrohenriquecardonaperes@gmail.com"></span></p>
+                    <p><strong>Email:</strong> <span id="modalEmail"></span></p>
                     <p><strong>Criado em:</strong> <span id="modalCreated"></span></p>
                 </div>
                 
@@ -551,6 +551,30 @@
             modalIsBanned: document.getElementById('modalIsBanned')
         };
         
+        // Verificar se todos os elementos necessários existem
+        function validateElements() {
+            const requiredElements = [
+                'userInfo', 'adminContent', 'noPermission', 'message',
+                'searchInput', 'searchBtn', 'refreshBtn', 'usersTableBody',
+                'totalUsers', 'adminUsers', 'teacherUsers', 'bannedUsers',
+                'editModal', 'modalUid', 'modalEmail', 'modalCreated',
+                'modalIsAdmin', 'modalIsTeacher', 'modalIsBanned'
+            ];
+            
+            for (const elementId of requiredElements) {
+                if (!document.getElementById(elementId)) {
+                    console.error(`Elemento não encontrado: ${elementId}`);
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        // Verificação inicial
+        if (!validateElements()) {
+            console.error('Alguns elementos não foram encontrados no DOM');
+        }
+        
         // Utility functions
         function showMessage(text, type = 'info') {
             elements.message.textContent = text;
@@ -581,41 +605,71 @@
             return badges.join(' ');
         }
         
-        // Check admin status
-        async function checkAdminStatus() {
-    if (!currentUser) return false;
-
-    // Adicione esta linha para dar permissão de admin ao seu email
-    if (currentUser.email === "pedrohenriquecardonaperes@gmail.com") {
-        currentAdminStatus = true;
-        return true;
-    }
-
-    try {
-        const userDoc = await firestore.collection('users').doc(currentUser.uid).get();
-
-        if (!userDoc.exists) {
-            // Create user document if it doesn't exist
-            await firestore.collection('users').doc(currentUser.uid).set({
-                email: currentUser.email,
-                name: currentUser.displayName || 'Usuário',
-                isAdmin: false, // Default to false for security
-                isTeacher: false,
-                isBanned: false,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+        // FORÇAR ACESSO ADMIN - REMOVA ESTA FUNÇÃO DEPOIS
+        async function forceAdminAccess() {
+            try {
+                const user = auth.currentUser;
+                if (user && user.email === "pedrohenriquecardonaperes@gmail.com") {
+                    const userRef = firestore.collection('users').doc(user.uid);
+                    const userDoc = await userRef.get();
+                    
+                    if (!userDoc.exists) {
+                        await userRef.set({
+                            email: user.email,
+                            name: user.displayName || "Admin",
+                            isAdmin: true,
+                            isTeacher: true,
+                            isBanned: false,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log("✅ Documento de admin criado!");
+                        return true;
+                    } else {
+                        await userRef.update({
+                            isAdmin: true,
+                            isTeacher: true,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log("✅ Permissões de admin concedidas!");
+                        return true;
+                    }
+                }
+            } catch (error) {
+                console.error("Erro ao forçar acesso admin:", error);
+            }
             return false;
         }
-
-        const data = userDoc.data();
-        currentAdminStatus = data.isAdmin === true;
-        return currentAdminStatus;
-    } catch (error) {
-        console.error('Error checking admin status:', error);
-        return false;
-    }
-}
+        
+        // Check admin status
+        async function checkAdminStatus() {
+            if (!currentUser) return false;
+            
+            try {
+                const userDoc = await firestore.collection('users').doc(currentUser.uid).get();
+                
+                if (!userDoc.exists) {
+                    // Create user document if it doesn't exist
+                    await firestore.collection('users').doc(currentUser.uid).set({
+                        email: currentUser.email,
+                        name: currentUser.displayName || 'Usuário',
+                        isAdmin: false,
+                        isTeacher: false,
+                        isBanned: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    return false;
+                }
+                
+                const data = userDoc.data();
+                currentAdminStatus = data.isAdmin === true;
+                return currentAdminStatus;
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+                return false;
+            }
+        }
         
         // Load users
         async function loadUsers() {
@@ -717,7 +771,10 @@
         // Modal functions
         function openEditModal(userId) {
             const user = allUsers.find(u => u.id === userId);
-            if (!user) return;
+            if (!user) {
+                showMessage('Usuário não encontrado!', 'error');
+                return;
+            }
             
             editingUserId = userId;
             elements.modalUid.textContent = user.id;
@@ -748,7 +805,7 @@
                 
                 showMessage('Usuário atualizado com sucesso!', 'success');
                 closeModal();
-                loadUsers(); // Reload to show updated data
+                loadUsers();
                 
             } catch (error) {
                 console.error('Error updating user:', error);
@@ -757,19 +814,86 @@
         }
         
         function viewUser(userId) {
-            showMessage(`Visualizando usuário ${userId.substring(0, 8)}...`, 'info');
-            // You can implement a detailed view here
+            const user = allUsers.find(u => u.id === userId);
+            if (!user) {
+                showMessage('Usuário não encontrado!', 'error');
+                return;
+            }
+            
+            const viewModal = document.createElement('div');
+            viewModal.className = 'modal';
+            viewModal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 style="margin: 0;"><i class="material-icons">person</i> Detalhes do Usuário</h3>
+                        <button onclick="this.closest('.modal').remove()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer;">
+                            <i class="material-icons">close</i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div style="display: grid; gap: 15px;">
+                            <div>
+                                <strong>UID:</strong><br>
+                                <code style="background: #f5f5f5; padding: 5px; border-radius: 3px; font-size: 12px; word-break: break-all;">${user.id}</code>
+                            </div>
+                            <div>
+                                <strong>Nome:</strong><br>
+                                ${user.name || 'Não informado'}
+                            </div>
+                            <div>
+                                <strong>Email:</strong><br>
+                                ${user.email || 'Não informado'}
+                            </div>
+                            <div>
+                                <strong>Status:</strong><br>
+                                ${getStatusBadges(user)}
+                            </div>
+                            <div>
+                                <strong>Criado em:</strong><br>
+                                ${formatDate(user.createdAt)}
+                            </div>
+                            <div>
+                                <strong>Último login:</strong><br>
+                                ${formatDate(user.lastLoginAt) || 'Não registrado'}
+                            </div>
+                            ${user.updatedAt ? `
+                            <div>
+                                <strong>Última atualização:</strong><br>
+                                ${formatDate(user.updatedAt)}
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="openEditModal('${user.id}'); this.closest('.modal').remove()" class="btn btn-edit">
+                            <i class="material-icons">edit</i> Editar Usuário
+                        </button>
+                        <button onclick="this.closest('.modal').remove()" class="btn btn-cancel">Fechar</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(viewModal);
+            viewModal.style.display = 'flex';
+            
+            viewModal.addEventListener('click', (e) => {
+                if (e.target === viewModal) {
+                    viewModal.remove();
+                }
+            });
         }
         
         // Initialize
         async function initialize() {
-            // Wait for auth state
             return new Promise((resolve) => {
                 auth.onAuthStateChanged(async (user) => {
                     currentUser = user;
                     
+                    if (user && user.email === "pedrohenriquecardonaperes@gmail.com") {
+                        await forceAdminAccess();
+                    }
+                    
                     if (user) {
-                        // Update user info display
                         elements.userInfo.innerHTML = `
                             <div class="avatar">${user.email ? user.email[0].toUpperCase() : 'U'}</div>
                             <div>
@@ -783,7 +907,6 @@
                             </div>
                         `;
                         
-                        // Check admin status
                         const isAdmin = await checkAdminStatus();
                         
                         if (isAdmin) {
@@ -795,7 +918,6 @@
                             elements.noPermission.style.display = 'block';
                         }
                     } else {
-                        // Not logged in
                         elements.userInfo.innerHTML = `
                             <div style="text-align: center; width: 100%;">
                                 <p>Por favor, faça login para acessar o painel administrativo</p>
@@ -839,7 +961,6 @@
         // Logout handler
         auth.onAuthStateChanged((user) => {
             if (!user && currentUser) {
-                // User logged out
                 window.location.href = '/';
             }
         });
