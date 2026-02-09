@@ -252,6 +252,13 @@
             transform: translateY(-1px);
         }
 
+        /* BOTÃO DE VERIFICAÇÃO */
+        .modal-btn.tertiary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #aaa;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
         /* MENSAGENS */
         .message {
             position: fixed;
@@ -306,6 +313,14 @@
             .user-info {
                 font-size: 12px;
             }
+
+            .modal-buttons {
+                flex-direction: column;
+            }
+            
+            .modal-btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -338,6 +353,7 @@
             <div class="modal-buttons">
                 <button class="modal-btn secondary" id="logoutBtn">🚪 Sair</button>
                 <button class="modal-btn primary" id="completeRegistrationBtn">📝 Completar Cadastro</button>
+                <button class="modal-btn tertiary" id="recheckBtn">🔄 Verificar Novamente</button>
             </div>
         </div>
     </div>
@@ -416,6 +432,7 @@
         const registrationStatus = document.getElementById('registrationStatus');
         const completeRegistrationBtn = document.getElementById('completeRegistrationBtn');
         const logoutBtn = document.getElementById('logoutBtn');
+        const recheckBtn = document.getElementById('recheckBtn');
         const backBtn = document.getElementById('backBtn');
         const reloadBtn = document.getElementById('reloadBtn');
         const homeBtn = document.getElementById('homeBtn');
@@ -469,64 +486,47 @@
         }
 
         // ============================================
-        // IMPORTAR HTML EXTERNO - CORRIGIDO
+        // IMPORTAR HTML EXTERNO
         // ============================================
         async function importExternalHTML() {
             try {
-                // Fontes em ordem de prioridade - CORRIGIDO: sem duplicação
                 const sources = [
-                    'index.txt',                           // 1. Arquivo local
-                    'https://wazzimagiygg.com/index.txt',  // 2. URL direta
-                    'index2.html',                         // 3. Fallback local
-                    'https://wazzimagiygg.com/index2.html' // 4. Fallback remoto
+                    'index.txt',
+                    'https://wazzimagiygg.com/index.txt',
+                    'index2.html',
+                    'https://wazzimagiygg.com/index2.html'
                 ];
                 
                 let htmlContent = '';
                 
                 for (const source of sources) {
                     try {
-                        console.log(`🔍 Tentando carregar: ${source}`);
                         const response = await fetch(source);
-                        
                         if (response.ok) {
                             htmlContent = await response.text();
-                            console.log(`✅ HTML importado de: ${source}`);
-                            
-                            // Limpa possíveis caracteres especiais de arquivos .txt
                             if (source.includes('.txt')) {
-                                htmlContent = htmlContent.replace(/^\uFEFF/, ''); // Remove BOM
-                                console.log('🧹 Limpado BOM de arquivo .txt');
+                                htmlContent = htmlContent.replace(/^\uFEFF/, '');
                             }
-                            
-                            break; // Para no primeiro sucesso
-                        } else {
-                            console.log(`❌ ${source} não encontrado (${response.status})`);
+                            break;
                         }
                     } catch (error) {
                         console.log(`⚠️ Erro ao carregar ${source}:`, error.message);
                     }
                 }
                 
-                // Se não conseguiu importar de nenhuma fonte
                 if (!htmlContent) {
-                    console.log('⚠️ Nenhuma fonte funcionou, usando HTML padrão');
                     htmlContent = createDefaultHTML();
                 } else if (htmlContent.trim() === '') {
-                    console.log('⚠️ Arquivo importado está vazio, usando HTML padrão');
                     htmlContent = createDefaultHTML();
                 }
                 
-                // Verifica se é HTML válido
                 if (!htmlContent.includes('<!DOCTYPE') && !htmlContent.includes('<html')) {
-                    console.log('⚠️ Conteúdo não parece HTML válido, adicionando estrutura');
                     htmlContent = wrapInHTMLStructure(htmlContent);
                 }
                 
-                // Salva no localStorage para uso offline
                 try {
                     localStorage.setItem('importedHTML', htmlContent);
                     localStorage.setItem('importedHTMLTimestamp', Date.now());
-                    console.log('💾 HTML salvo no localStorage');
                 } catch (storageError) {
                     console.warn('⚠️ Não foi possível salvar no localStorage:', storageError.message);
                 }
@@ -536,7 +536,7 @@
             } catch (error) {
                 console.error('❌ Erro crítico ao importar HTML:', error);
                 showMessage('Erro ao carregar conteúdo do sistema', 'error');
-                return createDefaultHTML(); // Fallback seguro
+                return createDefaultHTML();
             }
         }
 
@@ -667,86 +667,104 @@
         }
 
         // ============================================
-        // VERIFICAR CADASTRO DO CLIENTE
+        // VERIFICAR CADASTRO DO CLIENTE - CORRIGIDO
         // ============================================
         async function checkClientRegistration(userId) {
             try {
                 console.log(`🔍 Verificando cadastro do cliente: ${userId}`);
                 
-                // Verifica se existe na coleção 'clients'
                 const clientDoc = await getDoc(doc(db, "clients", userId));
                 
                 if (clientDoc.exists()) {
                     console.log('✅ Cliente encontrado no Firestore');
                     const data = clientDoc.data();
                     
-                    // Campos obrigatórios para cadastro completo
-                    const requiredFields = [
-                        'fullName',
-                        'cpf',
-                        'birthDate',
-                        'address',
-                        'zipCode',
-                        'city',
-                        'state',
-                        'phoneNumber',
-                        'emailAddress'
-                    ];
+                    console.log('📊 Dados do cliente:', data);
                     
-                    // Verifica telefone
-                    const phoneQuery = query(
-                        collection(db, "clientPhones"),
-                        where("clientId", "==", userId),
-                        where("isPrimary", "==", true)
-                    );
+                    // VERIFICAÇÃO SIMPLIFICADA E FLEXÍVEL
                     
-                    const phoneSnapshot = await getDocs(phoneQuery);
-                    const hasPhone = !phoneSnapshot.empty;
+                    // 1. Campos básicos (nome e CPF são essenciais)
+                    const hasFullName = data.fullName && data.fullName.trim() !== '';
+                    const hasCPF = data.cpf && data.cpf.trim() !== '';
+                    const hasBasicInfo = hasFullName && hasCPF;
                     
-                    // Verifica email adicional
-                    const emailQuery = query(
-                        collection(db, "clientEmails"),
-                        where("clientId", "==", userId),
-                        where("isPrimary", "==", true)
-                    );
-                    
-                    const emailSnapshot = await getDocs(emailQuery);
-                    const hasEmail = !emailSnapshot.empty || currentUser.email;
-                    
-                    // Verifica campos básicos
-                    let missingFields = [];
-                    for (const field of requiredFields) {
-                        if (!data[field] || data[field] === '') {
-                            missingFields.push(field);
-                        }
+                    // 2. Data de nascimento (aceita vários formatos)
+                    let hasBirthDate = false;
+                    if (data.birthDate) {
+                        // Pode ser timestamp do Firestore, Date ou string
+                        hasBirthDate = true;
                     }
                     
-                    // Verifica campos especiais
-                    if (!hasPhone) missingFields.push('phoneNumber');
-                    if (!hasEmail) missingFields.push('emailAddress');
+                    // 3. Endereço (cidade e estado são os mais importantes)
+                    const hasCity = data.city && data.city.trim() !== '';
+                    const hasState = data.state && data.state.trim() !== '';
+                    const hasAddress = data.address && data.address.trim() !== '';
+                    const hasAddressInfo = hasCity && hasState && hasAddress;
                     
-                    const isComplete = missingFields.length === 0;
+                    // 4. Telefone (verifica phoneDDD que foi adicionado no cadastro)
+                    const hasPhoneDDD = data.phoneDDD && data.phoneDDD.trim() !== '';
                     
-                    console.log(`📊 Status cadastro: ${isComplete ? 'COMPLETO' : 'INCOMPLETO'}`);
-                    if (!isComplete) {
-                        console.log('📝 Campos faltantes:', missingFields);
+                    // 5. Termos aceitos (essenciais)
+                    const hasAcceptedTerms = data.acceptedTerms === true;
+                    const hasAcceptedPrivacy = data.acceptedPrivacyPolicy === true;
+                    
+                    // 6. Campo registrationComplete (se existir, usa como referência)
+                    const registrationComplete = data.registrationComplete === true;
+                    
+                    console.log('📊 Status de verificação:');
+                    console.log('- Nome completo:', hasFullName ? '✅' : '❌');
+                    console.log('- CPF:', hasCPF ? '✅' : '❌');
+                    console.log('- Data nascimento:', hasBirthDate ? '✅' : '❌');
+                    console.log('- Cidade:', hasCity ? '✅' : '❌');
+                    console.log('- Estado:', hasState ? '✅' : '❌');
+                    console.log('- Endereço:', hasAddress ? '✅' : '❌');
+                    console.log('- DDD:', hasPhoneDDD ? '✅' : '❌');
+                    console.log('- Termos aceitos:', hasAcceptedTerms ? '✅' : '❌');
+                    console.log('- Privacidade aceita:', hasAcceptedPrivacy ? '✅' : '❌');
+                    console.log('- registrationComplete:', registrationComplete ? '✅' : '❌');
+                    
+                    // DEFINIÇÃO DE CADASTRO COMPLETO:
+                    // Requisitos MÍNIMOS considerando o que o formulário de cadastro salva
+                    const isComplete = hasFullName && hasCPF && hasBirthDate && 
+                                     hasCity && hasState && hasPhoneDDD &&
+                                     hasAcceptedTerms && hasAcceptedPrivacy;
+                    
+                    console.log(`📊 Resultado: Cadastro ${isComplete ? 'COMPLETO' : 'INCOMPLETO'}`);
+                    
+                    if (isComplete) {
+                        return {
+                            complete: true,
+                            clientData: data,
+                            message: 'Cadastro completo'
+                        };
+                    } else {
+                        // Identifica campos faltantes
+                        const missingFields = [];
+                        if (!hasFullName) missingFields.push('nome completo');
+                        if (!hasCPF) missingFields.push('CPF');
+                        if (!hasBirthDate) missingFields.push('data de nascimento');
+                        if (!hasCity) missingFields.push('cidade');
+                        if (!hasState) missingFields.push('estado (UF)');
+                        if (!hasAddress) missingFields.push('endereço');
+                        if (!hasPhoneDDD) missingFields.push('DDD do telefone');
+                        if (!hasAcceptedTerms) missingFields.push('aceite dos termos');
+                        if (!hasAcceptedPrivacy) missingFields.push('aceite da política de privacidade');
+                        
+                        return {
+                            complete: false,
+                            missingFields: missingFields,
+                            clientData: data,
+                            message: 'Cadastro incompleto'
+                        };
                     }
-                    
-                    return {
-                        complete: isComplete,
-                        missingFields: missingFields,
-                        clientData: data,
-                        hasPhone: hasPhone,
-                        hasEmail: hasEmail
-                    };
                     
                 } else {
-                    // Cliente não existe
                     console.log('❌ Cliente não encontrado no Firestore');
                     return {
                         complete: false,
-                        missingFields: ['cadastro_nao_existe'],
-                        clientData: null
+                        missingFields: ['cadastro não existe'],
+                        clientData: null,
+                        message: 'Cadastro não encontrado'
                     };
                 }
                 
@@ -754,8 +772,9 @@
                 console.error('❌ Erro ao verificar cadastro:', error);
                 return {
                     complete: false,
-                    missingFields: ['erro_na_verificacao'],
-                    error: error.message
+                    missingFields: ['erro na verificação'],
+                    error: error.message,
+                    message: 'Erro ao verificar cadastro'
                 };
             }
         }
@@ -767,42 +786,43 @@
             try {
                 showScreen('loading');
                 
-                // 1. Importar HTML
-                console.log('📥 Iniciando importação do HTML...');
-                importedHTML = await importExternalHTML();
+                console.log('🔧 === INICIANDO CARREGAMENTO ===');
                 
-                if (!importedHTML) {
-                    throw new Error('Não foi possível importar o conteúdo');
-                }
-                
-                console.log('✅ HTML importado com sucesso');
-                
-                // 2. Verificar se usuário está autenticado
+                // 1. Verificar autenticação
                 if (!currentUser) {
-                    console.log('⚠️ Usuário não autenticado, mostrando tela de login');
+                    console.log('⚠️ Usuário não autenticado');
                     showScreen('login');
                     return;
                 }
                 
-                console.log(`👤 Usuário autenticado: ${currentUser.email}`);
+                console.log(`👤 Usuário: ${currentUser.email} (UID: ${currentUser.uid})`);
+                
+                // 2. Importar HTML (se necessário)
+                if (!importedHTML) {
+                    console.log('📥 Importando HTML...');
+                    importedHTML = await importExternalHTML();
+                } else {
+                    console.log('📁 Usando HTML em cache');
+                }
                 
                 // 3. Verificar cadastro
-                console.log('🔍 Verificando cadastro do cliente...');
+                console.log('🔍 Verificando cadastro...');
                 const registrationCheck = await checkClientRegistration(currentUser.uid);
+                
+                console.log('📊 Resultado da verificação:', registrationCheck);
                 
                 if (registrationCheck.complete) {
                     console.log('✅ Cadastro completo, mostrando emulador');
-                    // Cadastro completo - mostrar emulador
+                    isRegistrationComplete = true;
                     showEmulator();
                 } else {
                     console.log('⚠️ Cadastro incompleto, mostrando modal');
-                    // Cadastro incompleto - mostrar modal
                     showRegistrationModal(registrationCheck);
                 }
                 
             } catch (error) {
-                console.error('❌ Erro ao carregar conteúdo:', error);
-                showMessage('Erro ao inicializar sistema: ' + error.message, 'error');
+                console.error('❌ Erro no carregamento:', error);
+                showMessage('Erro: ' + error.message, 'error');
                 showScreen('login');
             }
         }
@@ -854,22 +874,29 @@
         }
 
         // ============================================
-        // MOSTRAR MODAL DE CADASTRO
+        // MOSTRAR MODAL DE CADASTRO - CORRIGIDO
         // ============================================
         function showRegistrationModal(registrationCheck) {
             let statusHTML = '';
             
-            if (registrationCheck.missingFields.includes('cadastro_nao_existe')) {
-                statusHTML = '<p style="color: #ff6b6b;">❌ Você ainda não possui cadastro.</p>';
-            } else if (registrationCheck.missingFields.includes('erro_na_verificacao')) {
-                statusHTML = '<p style="color: #ff6b6b;">⚠️ Erro ao verificar cadastro.</p>';
+            if (registrationCheck.missingFields.includes('cadastro não existe')) {
+                statusHTML = `
+                    <p style="color: #ff6b6b;">❌ Você ainda não possui cadastro.</p>
+                    <p style="font-size: 14px; margin-top: 10px;">É necessário criar um cadastro para acessar o sistema.</p>
+                `;
+            } else if (registrationCheck.missingFields.includes('erro na verificação')) {
+                statusHTML = `
+                    <p style="color: #ff6b6b;">⚠️ Erro ao verificar cadastro.</p>
+                    <p style="font-size: 14px; margin-top: 10px;">${registrationCheck.error || 'Tente novamente mais tarde'}</p>
+                `;
             } else {
                 statusHTML = `
                     <p style="color: #ffa726;">⚠️ Cadastro incompleto</p>
-                    <p style="font-size: 14px; opacity: 0.8;">${registrationCheck.missingFields.length} campo(s) faltando</p>
-                    <div style="font-size: 12px; opacity: 0.7; margin-top: 10px; max-height: 100px; overflow-y: auto;">
-                        ${registrationCheck.missingFields.map(field => `<div>• ${field}</div>`).join('')}
+                    <p style="font-size: 14px; opacity: 0.8;">Faltam ${registrationCheck.missingFields.length} informação(ões)</p>
+                    <div style="font-size: 13px; opacity: 0.9; margin-top: 15px; max-height: 120px; overflow-y: auto; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px;">
+                        ${registrationCheck.missingFields.map(field => `<div style="padding: 3px 0;">• ${field}</div>`).join('')}
                     </div>
+                    <p style="font-size: 12px; margin-top: 10px; color: #aaa;">Complete seu cadastro para acessar todas as funcionalidades</p>
                 `;
             }
             
@@ -898,7 +925,6 @@
         // ============================================
         completeRegistrationBtn.addEventListener('click', () => {
             console.log('📝 Redirecionando para cadastro...');
-            // Abrir página de cadastro em uma nova janela/iframe
             const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
             
             if (window.parent && window.parent.loadPage) {
@@ -907,9 +933,22 @@
                 window.open(registrationUrl, '_blank');
             }
             
-            // Esconder modal
             registrationModal.style.display = 'none';
             showMessage('Redirecionando para cadastro...', 'info');
+        });
+
+        recheckBtn.addEventListener('click', async () => {
+            if (currentUser) {
+                showMessage('🔍 Verificando cadastro...', 'info');
+                const check = await checkClientRegistration(currentUser.uid);
+                showRegistrationModal(check);
+                
+                if (check.complete) {
+                    setTimeout(() => {
+                        showEmulator();
+                    }, 1000);
+                }
+            }
         });
 
         logoutBtn.addEventListener('click', async () => {
@@ -946,13 +985,12 @@
             console.log('📨 Mensagem recebida do iframe:', event.data.type);
             
             if (event.data.type === 'registrationCompleted') {
-                // Cadastro foi completado - recarregar verificação
+                console.log('✅ Cadastro completado notificado pelo iframe');
                 showMessage('✅ Cadastro verificado! Recarregando...', 'success');
                 setTimeout(() => loadContent(), 1500);
             }
             
             if (event.data.type === 'requestUserData') {
-                // Enviar dados do usuário para o iframe
                 if (currentUser) {
                     event.source.postMessage({
                         type: 'userData',
@@ -979,19 +1017,7 @@
                 currentUser = user;
                 console.log('👤 Usuário autenticado detectado:', user.email);
                 
-                // Carregar conteúdo
                 await loadContent();
-                
-                // Monitorar mudanças no cadastro
-                const checkInterval = setInterval(async () => {
-                    if (currentUser) {
-                        const check = await checkClientRegistration(currentUser.uid);
-                        if (check.complete && !isRegistrationComplete) {
-                            isRegistrationComplete = true;
-                            console.log('✅ Cadastro completado (verificação periódica)');
-                        }
-                    }
-                }, 30000); // Verificar a cada 30 segundos
                 
             } else {
                 console.log('👤 Nenhum usuário autenticado');
@@ -1067,7 +1093,6 @@
     
     <!-- Script para sincronização com páginas de cadastro -->
     <script>
-        // Este script é injetado nas páginas de cadastro para notificar o emulador
         function notifyRegistrationCompletion() {
             if (window.parent) {
                 console.log('📤 Notificando sistema pai sobre cadastro completo');
@@ -1078,11 +1103,10 @@
             }
         }
         
-        // Verificar se estamos na página de cadastro e se o cadastro foi concluído
+        // Verificar se estamos na página de cadastro
         if (window.location.href.includes('cadastro_cliente')) {
             console.log('📝 Detectado página de cadastro, ativando notificações');
             
-            // Monitorar mudanças no localStorage
             const originalSetItem = localStorage.setItem;
             localStorage.setItem = function(key, value) {
                 originalSetItem.apply(this, arguments);
@@ -1090,6 +1114,13 @@
                     notifyRegistrationCompletion();
                 }
             };
+            
+            // Verificar periodicamente se o cadastro foi completado
+            setInterval(() => {
+                if (localStorage.getItem('clientRegistrationComplete') === 'true') {
+                    notifyRegistrationCompletion();
+                }
+            }, 2000);
         }
     </script>
 </body>
