@@ -326,14 +326,31 @@
         }
         
         /* Estilos específicos para campos */
-        .phone-input {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .phone-input select {
-            flex: 0 0 80px;
-        }
+.phone-input {
+    display: flex;
+    gap: 10px;
+}
+
+.phone-input select {
+    flex: 0 0 100px;
+    padding: 12px 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #f8f9fa;
+    transition: all 0.3s;
+}
+
+        .phone-input select:focus {
+    outline: none;
+    border-color: #3f51b5;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.1);
+}
+
+.phone-input input {
+    flex: 1;
+}a
         
         .phone-input input {
             flex: 1;
@@ -741,8 +758,8 @@
 
         function validatePhone(phone) {
             const phoneNumbers = phone.replace(/\D/g, '');
-            if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
-                return { valid: false, message: 'Telefone deve ter 10 ou 11 dígitos' };
+            if (phoneNumbers.length < 8 || phoneNumbers.length > 11) {
+                return { valid: false, message: 'Telefone deve ter 8 ou 11 dígitos' };
             }
             return { valid: true };
         }
@@ -796,10 +813,10 @@
             }
             
             // Telefone
-            const phoneValidation = validatePhone(phoneNumberInput.value);
-            if (!phoneValidation.valid) {
-                errors.push({ field: 'phoneNumber', message: phoneValidation.message });
-            }
+    const phoneValidation = validatePhone(phoneDDDSelect.value, phoneNumberInput.value);
+    if (!phoneValidation.valid) {
+        errors.push({ field: 'phoneNumber', message: phoneValidation.message });
+    }
             
             // E-mail
             const emailValidation = validateEmail(emailAddressInput.value);
@@ -819,127 +836,229 @@
             return errors;
         }
 
+async function loadBrazilianDDDs() {
+    try {
+        // Todos os DDDs do Brasil
+        const brazilianDDDs = [
+            '11', '12', '13', '14', '15', '16', '17', '18', '19',
+            '21', '22', '24', '27', '28',
+            '31', '32', '33', '34', '35', '37', '38',
+            '41', '42', '43', '44', '45', '46', '47', '48', '49',
+            '51', '53', '54', '55',
+            '61', '62', '63', '64', '65', '66', '67', '68', '69',
+            '71', '73', '74', '75', '77', '79',
+            '81', '82', '83', '84', '85', '86', '87', '88', '89',
+            '91', '92', '93', '94', '95', '96', '97', '98', '99'
+        ];
+        
+        const select = document.getElementById('phoneDDD');
+        
+        // Limpar opções atuais
+        select.innerHTML = '';
+        
+        // Adicionar opção padrão
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'DDD';
+        select.appendChild(defaultOption);
+        
+        // Adicionar todos os DDDs
+        brazilianDDDs.forEach(ddd => {
+            const option = document.createElement('option');
+            option.value = ddd;
+            option.textContent = ddd;
+            select.appendChild(option);
+        });
+        
+        // Se tiver DDD salvo, selecionar
+        if (clientData && clientData.phoneDDD) {
+            select.value = clientData.phoneDDD;
+        } else {
+            // Tentar detectar DDD pelo estado (opcional)
+            if (stateInput.value) {
+                detectDDDByState(stateInput.value);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar DDDs:', error);
+    }
+}
+
+// Função auxiliar para sugerir DDD baseado no estado
+function detectDDDByState(state) {
+    const stateDDDs = {
+        'SP': ['11', '12', '13', '14', '15', '16', '17', '18', '19'],
+        'RJ': ['21', '22', '24'],
+        'ES': ['27', '28'],
+        'MG': ['31', '32', '33', '34', '35', '37', '38'],
+        'PR': ['41', '42', '43', '44', '45', '46'],
+        'SC': ['47', '48', '49'],
+        'RS': ['51', '53', '54', '55'],
+        'DF': ['61'],
+        'GO': ['61', '62', '64'],
+        'MT': ['65', '66'],
+        'MS': ['67'],
+        'AC': ['68'],
+        'RO': ['69'],
+        'BA': ['71', '73', '74', '75', '77'],
+        'SE': ['79'],
+        'PE': ['81', '87'],
+        'AL': ['82'],
+        'PB': ['83'],
+        'RN': ['84'],
+        'CE': ['85', '88'],
+        'PI': ['86', '89'],
+        'MA': ['98', '99'],
+        'PA': ['91', '93', '94'],
+        'AP': ['96'],
+        'AM': ['92', '97'],
+        'RR': ['95'],
+        'TO': ['63']
+    };
+    
+    const select = document.getElementById('phoneDDD');
+    const stateCode = state.toUpperCase();
+    
+    if (stateDDDs[stateCode] && stateDDDs[stateCode].length > 0) {
+        // Se já tiver algum DDD do estado selecionado, manter
+        if (!select.value || !stateDDDs[stateCode].includes(select.value)) {
+            select.value = stateDDDs[stateCode][0];
+        }
+    }
+}
+        
         // ============================================
         // CARREGAR DADOS DO CLIENTE
         // ============================================
         async function loadClientData() {
-            try {
-                showLoading(true);
-                
-                const user = auth.currentUser;
-                if (!user) {
-                    showMessage('Você precisa estar logado para editar o cadastro', 'error');
-                    setTimeout(() => {
-                        if (window.parent && window.parent.loadPage) {
-                            window.parent.loadPage('index.html', true);
-                        } else {
-                            window.location.href = 'https://wazzimagiygg.com';
-                        }
-                    }, 2000);
-                    return;
-                }
-                
-                currentUser = user;
-                currentClientId = user.uid;
-                
-                // Atualizar status do usuário
-                statusUserName.textContent = user.displayName || 'Usuário';
-                statusUserEmail.textContent = user.email;
-                
-                // Buscar dados do cliente
-                const clientDoc = await firestore.collection('clients').doc(currentClientId).get();
-                
-                if (clientDoc.exists) {
-                    isExistingClient = true;
-                    clientData = clientDoc.data();
-                    
-                    // Preencher formulário
-                    fullNameInput.value = clientData.fullName || '';
-                    cpfInput.value = clientData.cpf ? formatCPF(clientData.cpf) : '';
-                    rgInput.value = clientData.rg || '';
-                    socialNameInput.value = clientData.socialName || '';
-                    
-                    if (clientData.birthDate) {
-                        const date = new Date(clientData.birthDate.seconds * 1000);
-                        birthDateInput.value = date.toISOString().split('T')[0];
-                    } else {
-                        // Data padrão (18 anos atrás)
-                        const today = new Date();
-                        const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-                        birthDateInput.value = eighteenYearsAgo.toISOString().split('T')[0];
-                    }
-                    
-                    genderSelect.value = clientData.gender || '';
-                    addressInput.value = clientData.address || '';
-                    zipCodeInput.value = clientData.zipCode ? formatCEP(clientData.zipCode) : '';
-                    cityInput.value = clientData.city || '';
-                    stateInput.value = clientData.state || '';
-                    countryInput.value = clientData.country || 'Brasil';
-                    
-                    // Buscar telefone
-                    const phoneSnapshot = await firestore.collection('clientPhones')
-                        .where('clientId', '==', currentClientId)
-                        .where('isPrimary', '==', true)
-                        .limit(1)
-                        .get();
-                    
-                    if (!phoneSnapshot.empty) {
-                        const phoneData = phoneSnapshot.docs[0].data();
-                        const phone = phoneData.phoneNumber || '';
-                        const phoneNumbers = phone.replace(/\D/g, '');
-                        
-                        if (phoneNumbers.length >= 2) {
-                            phoneDDDSelect.value = phoneNumbers.substring(0, 2);
-                            phoneNumberInput.value = phoneNumbers.substring(2);
-                        }
-                    }
-                    
-                    // Buscar email
-                    const emailSnapshot = await firestore.collection('clientEmails')
-                        .where('clientId', '==', currentClientId)
-                        .where('isPrimary', '==', true)
-                        .limit(1)
-                        .get();
-                    
-                    if (!emailSnapshot.empty) {
-                        const emailData = emailSnapshot.docs[0].data();
-                        emailAddressInput.value = emailData.emailAddress || user.email || '';
-                    } else {
-                        emailAddressInput.value = user.email || '';
-                    }
-                    
-                    // Termos
-                    acceptTermsCheck.checked = clientData.acceptedTerms || false;
-                    acceptPrivacyCheck.checked = clientData.acceptedPrivacyPolicy || false;
-                    marketingEmailsCheck.checked = clientData.marketingEmails || false;
-                    
-                    // Atualizar barra de progresso
-                    updateRegistrationProgress();
-                    
+    try {
+        showLoading(true);
+        
+        const user = auth.currentUser;
+        if (!user) {
+            showMessage('Você precisa estar logado para editar o cadastro', 'error');
+            setTimeout(() => {
+                if (window.parent && window.parent.loadPage) {
+                    window.parent.loadPage('index.html', true);
                 } else {
-                    // Cliente novo
-                    isExistingClient = false;
-                    
-                    // Preencher com dados do Google
-                    fullNameInput.value = user.displayName || '';
-                    emailAddressInput.value = user.email || '';
-                    
-                    // Data padrão
-                    const today = new Date();
-                    const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-                    birthDateInput.value = eighteenYearsAgo.toISOString().split('T')[0];
-                    
-                    showMessage('Complete seu cadastro pela primeira vez', 'info');
+                    window.location.href = 'https://wazzimagiygg.com';
                 }
-                
-                showLoading(false);
-                
-            } catch (error) {
-                console.error('Erro ao carregar dados:', error);
-                showMessage(`Erro ao carregar dados: ${error.message}`, 'error');
-                showLoading(false);
-            }
+            }, 2000);
+            return;
         }
+        
+        currentUser = user;
+        currentClientId = user.uid;
+        
+        // Atualizar status do usuário
+        statusUserName.textContent = user.displayName || 'Usuário';
+        statusUserEmail.textContent = user.email;
+        
+        // Buscar dados do cliente
+        const clientDoc = await firestore.collection('clients').doc(currentClientId).get();
+        
+        if (clientDoc.exists) {
+            isExistingClient = true;
+            clientData = clientDoc.data();
+            
+            // Preencher formulário
+            fullNameInput.value = clientData.fullName || '';
+            cpfInput.value = clientData.cpf ? formatCPF(clientData.cpf) : '';
+            rgInput.value = clientData.rg || '';
+            socialNameInput.value = clientData.socialName || '';
+            
+            if (clientData.birthDate) {
+                const date = new Date(clientData.birthDate.seconds * 1000);
+                birthDateInput.value = date.toISOString().split('T')[0];
+            } else {
+                // Data padrão (18 anos atrás)
+                const today = new Date();
+                const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                birthDateInput.value = eighteenYearsAgo.toISOString().split('T')[0];
+            }
+            
+            genderSelect.value = clientData.gender || '';
+            addressInput.value = clientData.address || '';
+            zipCodeInput.value = clientData.zipCode ? formatCEP(clientData.zipCode) : '';
+            cityInput.value = clientData.city || '';
+            stateInput.value = clientData.state || '';
+            countryInput.value = clientData.country || 'Brasil';
+            
+            // Carregar DDDs do Brasil
+            await loadBrazilianDDDs();
+            
+            // Buscar telefone
+            const phoneSnapshot = await firestore.collection('clientPhones')
+                .where('clientId', '==', currentClientId)
+                .where('isPrimary', '==', true)
+                .limit(1)
+                .get();
+            
+            if (!phoneSnapshot.empty) {
+                const phoneData = phoneSnapshot.docs[0].data();
+                const phone = phoneData.phoneNumber || '';
+                const phoneNumbers = phone.replace(/\D/g, '');
+                
+                if (phoneNumbers.length >= 2) {
+                    // Separar DDD e número
+                    const ddd = phoneNumbers.substring(0, 2);
+                    const number = phoneNumbers.substring(2);
+                    
+                    phoneDDDSelect.value = ddd;
+                    phoneNumberInput.value = number;
+                }
+            }
+            
+            // Buscar email
+            const emailSnapshot = await firestore.collection('clientEmails')
+                .where('clientId', '==', currentClientId)
+                .where('isPrimary', '==', true)
+                .limit(1)
+                .get();
+            
+            if (!emailSnapshot.empty) {
+                const emailData = emailSnapshot.docs[0].data();
+                emailAddressInput.value = emailData.emailAddress || user.email || '';
+            } else {
+                emailAddressInput.value = user.email || '';
+            }
+            
+            // Termos
+            acceptTermsCheck.checked = clientData.acceptedTerms || false;
+            acceptPrivacyCheck.checked = clientData.acceptedPrivacyPolicy || false;
+            marketingEmailsCheck.checked = clientData.marketingEmails || false;
+            
+            // Atualizar barra de progresso
+            updateRegistrationProgress();
+            
+        } else {
+            // Cliente novo
+            isExistingClient = false;
+            
+            // Preencher com dados do Google
+            fullNameInput.value = user.displayName || '';
+            emailAddressInput.value = user.email || '';
+            
+            // Data padrão
+            const today = new Date();
+            const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+            birthDateInput.value = eighteenYearsAgo.toISOString().split('T')[0];
+            
+            // Carregar DDDs do Brasil
+            await loadBrazilianDDDs();
+            
+            showMessage('Complete seu cadastro pela primeira vez', 'info');
+        }
+        
+        showLoading(false);
+        
+    } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        showMessage(`Erro ao carregar dados: ${error.message}`, 'error');
+        showLoading(false);
+    }
+}
 
         function updateRegistrationProgress() {
             if (!clientData) return;
@@ -1135,6 +1254,17 @@
             e.preventDefault();
             await saveClientData();
         });
+
+        stateInput.addEventListener('change', function() {
+    detectDDDByState(this.value);
+});
+
+        phoneDDDSelect.addEventListener('change', function() {
+    if (!this.value) {
+        showMessage('Selecione um DDD', 'error', 2000);
+    }
+});
+        
 
         cancelBtn.addEventListener('click', () => {
             if (window.parent && window.parent.loadPage) {
