@@ -650,6 +650,53 @@
         };
 
         // ============================================
+        // GERENCIADOR DE UIDs (EVITA DUPLICAÇÃO)
+        // ============================================
+        const uidManager = {
+            processedUIDs: new Set(),
+            
+            shouldProcessUID: function(uid) {
+                if (!uid) return false;
+                
+                const key = `uid_${uid}_${currentUser?.uid || 'anonymous'}`;
+                
+                // Verificar se já processamos este UID
+                if (this.processedUIDs.has(key)) {
+                    console.log(`⏭️ UID já processado: ${uid}`);
+                    return false;
+                }
+                
+                // Verificar no sessionStorage
+                if (sessionStorage.getItem(key)) {
+                    console.log(`⏭️ UID já processado (session): ${uid}`);
+                    return false;
+                }
+                
+                // Marcar como processado
+                this.processedUIDs.add(key);
+                sessionStorage.setItem(key, 'true');
+                
+                // Limpar após 5 minutos (opcional)
+                setTimeout(() => {
+                    this.processedUIDs.delete(key);
+                    sessionStorage.removeItem(key);
+                }, 5 * 60 * 1000);
+                
+                return true;
+            },
+            
+            clearProcessedUIDs: function() {
+                this.processedUIDs.clear();
+                // Limpar também do sessionStorage
+                Object.keys(sessionStorage).forEach(key => {
+                    if (key.startsWith('uid_')) {
+                        sessionStorage.removeItem(key);
+                    }
+                });
+            }
+        };
+
+        // ============================================
         // SISTEMA DE JANELAS
         // ============================================
         const windowManager = {
@@ -1092,14 +1139,42 @@
                                         const urlParams = new URLSearchParams(window.location.search);
                                         const uid = urlParams.get('uid');
                                         
+                                        // Verificar se o UID já foi processado pelo sistema pai
                                         if (uid && window.parent && window.parent.openWZZMWindow) {
-                                            console.log('🔗 UID detectado no iframe:', uid);
-                                            setTimeout(() => {
-                                                window.parent.openWZZMWindow(
-                                                    'https://wazzimagiygg.com/pdf/?uid=' + encodeURIComponent(uid),
-                                                    'Documento: ' + uid
-                                                );
-                                            }, 1000);
+                                            // Verificar com o sistema pai se já processou este UID
+                                            const checkUID = new Promise((resolve) => {
+                                                const handler = (event) => {
+                                                    if (event.data.type === 'uidCheckResponse' && event.data.uid === uid) {
+                                                        window.removeEventListener('message', handler);
+                                                        resolve(event.data.processed);
+                                                    }
+                                                };
+                                                
+                                                window.addEventListener('message', handler);
+                                                
+                                                // Pedir verificação ao parent
+                                                window.parent.postMessage({
+                                                    type: 'uidCheckRequest',
+                                                    uid: uid
+                                                }, '*');
+                                                
+                                                // Timeout de segurança
+                                                setTimeout(() => resolve(true), 1000);
+                                            });
+                                            
+                                            checkUID.then((alreadyProcessed) => {
+                                                if (!alreadyProcessed) {
+                                                    console.log('🔗 UID detectado no iframe (não processado):', uid);
+                                                    setTimeout(() => {
+                                                        window.parent.openWZZMWindow(
+                                                            'https://wazzimagiygg.com/pdf/?uid=' + encodeURIComponent(uid),
+                                                            'Documento: ' + uid
+                                                        );
+                                                    }, 1500);
+                                                } else {
+                                                    console.log('⏭️ UID ignorado no iframe (já processado):', uid);
+                                                }
+                                            });
                                         }
                                         
                                         // Corrigir imagens que podem ter sido carregadas antes do script
@@ -1482,12 +1557,12 @@
                 
                 console.log(`👤 Usuário: ${currentUser.email} (UID: ${currentUser.uid})`);
                 
-                // 2. Verificar se há parâmetro UID na URL
+                // 2. Verificar se há parâmetro UID na URL (EVITAR DUPLICAÇÃO)
                 const uidParam = urlParamsProcessor.getUidParam();
-                if (uidParam) {
-                    console.log(`🎯 Parâmetro UID detectado: ${uidParam}`);
+                if (uidParam && uidManager.shouldProcessUID(uidParam)) {
+                    console.log(`🎯 Parâmetro UID detectado (primeira vez): ${uidParam}`);
                     
-                    // Processar imediatamente para abrir janela
+                    // Processar para abrir janela com pequeno delay
                     const userData = {
                         uid: currentUser.uid,
                         displayName: currentUser.displayName,
@@ -1495,12 +1570,14 @@
                         photoURL: currentUser.photoURL
                     };
                     
-                    const processed = urlParamsProcessor.processUidParam(uidParam, userData);
+                    // Pequeno delay para garantir que o sistema está estável
+                    setTimeout(() => {
+                        urlParamsProcessor.processUidParam(uidParam, userData);
+                        console.log(`✅ UID processado após delay: ${uidParam}`);
+                    }, 800); // 0.8 segundos de delay
                     
-                    if (processed) {
-                        // Continuar com o carregamento normal, mas já abriu a janela
-                        console.log('✅ UID processado, continuando carregamento normal...');
-                    }
+                } else if (uidParam) {
+                    console.log(`⏭️ UID ignorado (já foi processado): ${uidParam}`);
                 }
                 
                 // 3. Importar HTML (se necessário)
@@ -1775,6 +1852,20 @@
             
             if (event.data.type === 'contentLoaded') {
                 console.log('✅ Conteúdo do iframe carregado com sucesso');
+            }
+            
+            // NOVO: Handler para verificação de UID
+            if (event.data.type === 'uidCheckRequest' && event.data.uid) {
+                const alreadyProcessed = uidManager.processedUIDs.has(
+                    `uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`
+                ) || sessionStorage.getItem(`uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`);
+                
+                // Responder ao iframe
+                event.source.postMessage({
+                    type: 'uidCheckResponse',
+                    uid: event.data.uid,
+                    processed: !!alreadyProcessed
+                }, event.origin);
             }
         });
 
