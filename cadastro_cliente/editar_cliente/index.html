@@ -341,7 +341,7 @@
     transition: all 0.3s;
 }
 
-        .phone-input select:focus {
+.phone-input select:focus {
     outline: none;
     border-color: #3f51b5;
     background: white;
@@ -351,11 +351,6 @@
 .phone-input input {
     flex: 1;
 }
-        
-        .phone-input input {
-            flex: 1;
-        }
-        
         .field-hint {
             font-size: 12px;
             color: #666;
@@ -1005,20 +1000,31 @@ function detectDDDByState(state) {
                 .limit(1)
                 .get();
             
-            if (!phoneSnapshot.empty) {
-                const phoneData = phoneSnapshot.docs[0].data();
-                const phone = phoneData.phoneNumber || '';
-                const phoneNumbers = phone.replace(/\D/g, '');
-                
-                if (phoneNumbers.length >= 2) {
-                    // Separar DDD e número
-                    const ddd = phoneNumbers.substring(0, 2);
-                    const number = phoneNumbers.substring(2);
-                    
-                    phoneDDDSelect.value = ddd;
-                    phoneNumberInput.value = number;
-                }
+            // Atualize esta parte na função loadClientData():
+if (!phoneSnapshot.empty) {
+    const phoneData = phoneSnapshot.docs[0].data();
+    const phone = phoneData.phoneNumber || '';
+    const phoneNumbers = phone.replace(/\D/g, '');
+    
+    if (phoneNumbers.length >= 2) {
+        // Separar DDD e número
+        const ddd = phoneNumbers.substring(0, 2);
+        const number = phoneNumbers.substring(2);
+        
+        // Aguardar carregamento dos DDDs
+        setTimeout(() => {
+            if (phoneDDDSelect.querySelector(`option[value="${ddd}"]`)) {
+                phoneDDDSelect.value = ddd;
+            } else {
+                // Se DDD não estiver na lista (improvável), mostrar mensagem
+                console.warn(`DDD ${ddd} não encontrado na lista`);
+                phoneDDDSelect.value = ''; // Deixar vazio para usuário selecionar
             }
+        }, 100);
+        
+        phoneNumberInput.value = number;
+    }
+}
             
             // Buscar email
             const emailSnapshot = await firestore.collection('clientEmails')
@@ -1070,6 +1076,32 @@ function detectDDDByState(state) {
     }
 }
 
+        // Adicione esta função para formatar o número de telefone em tempo real
+function formatPhoneNumberInput() {
+    let value = phoneNumberInput.value.replace(/\D/g, '');
+    
+    // Limitar a 9 dígitos (máximo para celular)
+    if (value.length > 9) {
+        value = value.substring(0, 9);
+    }
+    
+    phoneNumberInput.value = value;
+}
+
+// Atualize o event listener existente:
+phoneNumberInput.addEventListener('input', function(e) {
+    formatPhoneNumberInput();
+    updateRegistrationProgress();
+    
+    // Validar automaticamente se já tiver DDD
+    if (phoneDDDSelect.value && this.value) {
+        const phoneValidation = validatePhone(phoneDDDSelect.value, this.value);
+        if (!phoneValidation.valid && this.value.length >= 8) {
+            showMessage(phoneValidation.message, 'error', 2000);
+        }
+    }
+});
+
         function updateRegistrationProgress() {
             if (!clientData) return;
             
@@ -1109,136 +1141,138 @@ function detectDDDByState(state) {
         // ============================================
         // SALVAR DADOS
         // ============================================
-        async function saveClientData() {
-            try {
-                const errors = validateForm();
-                if (errors.length > 0) {
-                    errors.forEach(error => {
-                        showMessage(error.message, 'error', 3000);
-                    });
-                    return false;
-                }
-                
-                showLoading(true);
-                updateProgress(20, 'Validando dados...');
-                
-                const user = auth.currentUser;
-                if (!user) {
-                    throw new Error('Usuário não autenticado');
-                }
-                
-                // Preparar dados
-                const clientData = {
-                    fullName: fullNameInput.value.trim(),
-                    cpf: cpfInput.value.replace(/\D/g, ''),
-                    rg: rgInput.value.trim() || '',
-                    socialName: socialNameInput.value.trim() || '',
-                    birthDate: new Date(birthDateInput.value),
-                    gender: genderSelect.value || '',
-                    address: addressInput.value.trim(),
-                    zipCode: zipCodeInput.value.replace(/\D/g, ''),
-                    city: cityInput.value.trim(),
-                    state: stateInput.value.trim().toUpperCase(),
-                    country: countryInput.value.trim(),
-                    acceptedTerms: acceptTermsCheck.checked,
-                    acceptedPrivacyPolicy: acceptPrivacyCheck.checked,
-                    marketingEmails: marketingEmailsCheck.checked,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    registrationComplete: true
-                };
-                
-                updateProgress(40, 'Salvando informações básicas...');
-                
-                if (isExistingClient) {
-                    // Atualizar
-                    await firestore.collection('clients').doc(currentClientId).update(clientData);
-                } else {
-                    // Criar novo
-                    clientData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    clientData.uid = currentClientId;
-                    clientData.email = user.email;
-                    clientData.isActive = true;
-                    clientData.isBanned = false;
-                    
-                    await firestore.collection('clients').doc(currentClientId).set(clientData);
-                }
-                
-                updateProgress(60, 'Salvando telefone...');
-                
-                // Salvar telefone
-                const phoneNumber = (phoneDDDSelect.value + phoneNumberInput.value).replace(/\D/g, '');
-                const phoneSnapshot = await firestore.collection('clientPhones')
-                    .where('clientId', '==', currentClientId)
-                    .where('isPrimary', '==', true)
-                    .limit(1)
-                    .get();
-                
-                if (!phoneSnapshot.empty) {
-                    await phoneSnapshot.docs[0].ref.update({
-                        phoneNumber: phoneNumber,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                } else {
-                    await firestore.collection('clientPhones').add({
-                        clientId: currentClientId,
-                        phoneNumber: phoneNumber,
-                        isPrimary: true,
-                        type: 'mobile',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-                
-                updateProgress(80, 'Salvando e-mail...');
-                
-                // Salvar e-mail
-                const emailAddress = emailAddressInput.value.trim().toLowerCase();
-                const emailSnapshot = await firestore.collection('clientEmails')
-                    .where('clientId', '==', currentClientId)
-                    .where('isPrimary', '==', true)
-                    .limit(1)
-                    .get();
-                
-                if (!emailSnapshot.empty) {
-                    await emailSnapshot.docs[0].ref.update({
-                        emailAddress: emailAddress,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                } else {
-                    await firestore.collection('clientEmails').add({
-                        clientId: currentClientId,
-                        emailAddress: emailAddress,
-                        isPrimary: true,
-                        verified: false,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-                
-                updateProgress(100, 'Cadastro completo!');
-                
-                // Notificar sistema pai
-                notifyRegistrationCompletion();
-                
-                showMessage('✅ Cadastro salvo com sucesso!', 'success');
-                
-                // Redirecionar após 2 segundos
-                setTimeout(() => {
-                    if (window.parent && window.parent.loadPage) {
-                        window.parent.loadPage('informacoes_cliente/?uid=' + currentClientId, true);
-                    } else {
-                        window.location.href = '../informacoes_cliente/?uid=' + currentClientId;
-                    }
-                }, 2000);
-                
-                return true;
-                
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                showMessage(`❌ Erro ao salvar: ${error.message}`, 'error');
-                showLoading(false);
-                hideProgress();
-                return false;
-            }
+       async function saveClientData() {
+    try {
+        const errors = validateForm();
+        if (errors.length > 0) {
+            errors.forEach(error => {
+                showMessage(error.message, 'error', 3000);
+            });
+            return false;
         }
+        
+        showLoading(true);
+        updateProgress(20, 'Validando dados...');
+        
+        const user = auth.currentUser;
+        if (!user) {
+            throw new Error('Usuário não autenticado');
+        }
+        
+        // Preparar dados (AGORA INCLUINDO phoneDDD)
+        const clientData = {
+            fullName: fullNameInput.value.trim(),
+            cpf: cpfInput.value.replace(/\D/g, ''),
+            rg: rgInput.value.trim() || '',
+            socialName: socialNameInput.value.trim() || '',
+            birthDate: new Date(birthDateInput.value),
+            gender: genderSelect.value || '',
+            address: addressInput.value.trim(),
+            zipCode: zipCodeInput.value.replace(/\D/g, ''),
+            city: cityInput.value.trim(),
+            state: stateInput.value.trim().toUpperCase(),
+            country: countryInput.value.trim(),
+            // ADICIONE ESTA LINHA ↓↓↓
+            phoneDDD: phoneDDDSelect.value,
+            acceptedTerms: acceptTermsCheck.checked,
+            acceptedPrivacyPolicy: acceptPrivacyCheck.checked,
+            marketingEmails: marketingEmailsCheck.checked,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            registrationComplete: true
+        };
+        
+        updateProgress(40, 'Salvando informações básicas...');
+        
+        if (isExistingClient) {
+            // Atualizar
+            await firestore.collection('clients').doc(currentClientId).update(clientData);
+        } else {
+            // Criar novo
+            clientData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            clientData.uid = currentClientId;
+            clientData.email = user.email;
+            clientData.isActive = true;
+            clientData.isBanned = false;
+            
+            await firestore.collection('clients').doc(currentClientId).set(clientData);
+        }
+        
+        updateProgress(60, 'Salvando telefone...');
+        
+        // Salvar telefone (com DDD incluído)
+        const phoneNumber = (phoneDDDSelect.value + phoneNumberInput.value).replace(/\D/g, '');
+        const phoneSnapshot = await firestore.collection('clientPhones')
+            .where('clientId', '==', currentClientId)
+            .where('isPrimary', '==', true)
+            .limit(1)
+            .get();
+        
+        if (!phoneSnapshot.empty) {
+            await phoneSnapshot.docs[0].ref.update({
+                phoneNumber: phoneNumber,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            await firestore.collection('clientPhones').add({
+                clientId: currentClientId,
+                phoneNumber: phoneNumber,
+                isPrimary: true,
+                type: 'mobile',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
+        updateProgress(80, 'Salvando e-mail...');
+        
+        // Salvar e-mail
+        const emailAddress = emailAddressInput.value.trim().toLowerCase();
+        const emailSnapshot = await firestore.collection('clientEmails')
+            .where('clientId', '==', currentClientId)
+            .where('isPrimary', '==', true)
+            .limit(1)
+            .get();
+        
+        if (!emailSnapshot.empty) {
+            await emailSnapshot.docs[0].ref.update({
+                emailAddress: emailAddress,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            await firestore.collection('clientEmails').add({
+                clientId: currentClientId,
+                emailAddress: emailAddress,
+                isPrimary: true,
+                verified: false,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
+        updateProgress(100, 'Cadastro completo!');
+        
+        // Notificar sistema pai
+        notifyRegistrationCompletion();
+        
+        showMessage('✅ Cadastro salvo com sucesso!', 'success');
+        
+        // Redirecionar após 2 segundos
+        setTimeout(() => {
+            if (window.parent && window.parent.loadPage) {
+                window.parent.loadPage('informacoes_cliente/?uid=' + currentClientId, true);
+            } else {
+                window.location.href = '../informacoes_cliente/?uid=' + currentClientId;
+            }
+        }, 2000);
+        
+        return true;
+        
+    } catch (error) {
+        console.error('Erro ao salvar:', error);
+        showMessage(`❌ Erro ao salvar: ${error.message}`, 'error');
+        showLoading(false);
+        hideProgress();
+        return false;
+    }
+}
 
         // ============================================
         // NOTIFICAÇÃO PARA SISTEMA PAI
@@ -1265,8 +1299,16 @@ function detectDDDByState(state) {
             await saveClientData();
         });
 
-        stateInput.addEventListener('change', function() {
+stateInput.addEventListener('change', function() {
     detectDDDByState(this.value);
+    
+    // Se o usuário já tiver digitado número, validar automaticamente
+    if (phoneNumberInput.value && phoneDDDSelect.value) {
+        const phoneValidation = validatePhone(phoneDDDSelect.value, phoneNumberInput.value);
+        if (!phoneValidation.valid) {
+            showMessage(`Após selecionar DDD: ${phoneValidation.message}`, 'error', 3000);
+        }
+    }
 });
 
         phoneDDDSelect.addEventListener('change', function() {
