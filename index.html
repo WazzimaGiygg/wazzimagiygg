@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WazzimaGiygg Core</title>
+    <!-- Múltiplos fallbacks para favicon -->
     <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="icon" href="https://wazzimagiygg.com/favicom.png" type="image/png">
+    <link rel="apple-touch-icon" href="https://wazzimagiygg.com/favicom.png">
+    <link rel="shortcut icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     <style>
         /* RESET E ESTILOS GERAIS */
         * {
@@ -365,6 +370,8 @@
                 <button class="control-btn" id="backBtn">← Voltar</button>
                 <button class="control-btn" id="reloadBtn">↻ Recarregar</button>
                 <button class="control-btn" id="homeBtn">🏠 Início</button>
+                <button class="control-btn" id="clearCacheBtn">🧹 Limpar Cache</button>
+                <button class="control-btn" id="fixImagesBtn">🖼️ Corrigir Imagens</button>
             </div>
             
             <div class="user-info">
@@ -436,6 +443,8 @@
         const backBtn = document.getElementById('backBtn');
         const reloadBtn = document.getElementById('reloadBtn');
         const homeBtn = document.getElementById('homeBtn');
+        const clearCacheBtn = document.getElementById('clearCacheBtn');
+        const fixImagesBtn = document.getElementById('fixImagesBtn');
         const userName = document.getElementById('userName');
         const userEmail = document.getElementById('userEmail');
         const userAvatar = document.getElementById('userAvatar');
@@ -444,7 +453,6 @@
         // VARIÁVEIS GLOBAIS
         // ============================================
         let currentUser = null;
-        let userData = null;
         let importedHTML = '';
         let isRegistrationComplete = false;
 
@@ -462,78 +470,6 @@
                 setTimeout(() => messageDiv.remove(), 300);
             }, duration);
         }
-
-        // Função para corrigir caminhos de imagens no HTML
-function fixImagePaths(html) {
-    console.log('🔧 Corrigindo caminhos de imagens no HTML...');
-    
-    // Substituir todos os src de imagens para URLs absolutas
-    let fixedHtml = html.replace(/src=["']([^"']*\.(png|jpg|jpeg|gif|svg|ico|webp))["']/gi, (match, src, extension) => {
-        console.log('📝 Imagem encontrada:', src);
-        
-        // Se já for URL absoluta, não alterar
-        if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
-            console.log('  ✅ Já é URL absoluta');
-            return match;
-        }
-        
-        // Se for favicon e existe localmente, manter local
-        if (src.includes('favicom') || src.includes('favicon')) {
-            console.log('  🔧 Favicon mantido local');
-            return match;
-        }
-        
-        // Base URL do site
-        const baseUrl = 'https://wazzimagiygg.com/';
-        
-        let fixedSrc = src;
-        
-        // Limpar caminho
-        if (fixedSrc.startsWith('./')) {
-            fixedSrc = fixedSrc.substring(2);
-        }
-        
-        // Adicionar base URL
-        if (!fixedSrc.startsWith('/')) {
-            fixedSrc = baseUrl + fixedSrc;
-        } else {
-            fixedSrc = baseUrl + fixedSrc.substring(1);
-        }
-        
-        console.log('  🔄 Convertido para:', fixedSrc);
-        
-        // Retornar com onerror para fallback
-        return `src="${fixedSrc}" onerror="console.log('❌ Falha ao carregar: \\'' + this.src + '\\''); this.src='data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"100\\" height=\\"100\\" viewBox=\\"0 0 100 100\\"><rect width=\\"100\\" height=\\"100\\" fill=\\"%230078d7\\"/><text x=\\"50\\" y=\\"50\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"white\\" text-anchor=\\"middle\\" dy=\\".3em\\">${src.split('/').pop() || 'IMG'}</text></svg>';"`;
-    });
-    
-    // Também corrigir background-image em CSS
-    fixedHtml = fixedHtml.replace(/background-image:\s*url\(['"]?([^'"\)]+)['"]?\)/gi, (match, url) => {
-        console.log('🎨 Background-image encontrado:', url);
-        
-        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
-            return match;
-        }
-        
-        const baseUrl = 'https://wazzimagiygg.com/';
-        let fixedUrl = url;
-        
-        if (fixedUrl.startsWith('./')) {
-            fixedUrl = fixedUrl.substring(2);
-        }
-        
-        if (!fixedUrl.startsWith('/')) {
-            fixedUrl = baseUrl + fixedUrl;
-        } else {
-            fixedUrl = baseUrl + fixedUrl.substring(1);
-        }
-        
-        console.log('  🔄 Background convertido para:', fixedUrl);
-        return `background-image: url('${fixedUrl}')`;
-    });
-    
-    console.log('✅ Caminhos de imagens corrigidos');
-    return fixedHtml;
-}
 
         function showScreen(screen) {
             loadingScreen.style.display = 'none';
@@ -557,6 +493,189 @@ function fixImagePaths(html) {
             }
         }
 
+        // Função para escapar HTML
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================
+        // FUNÇÕES PARA CORRIGIR IMAGENS
+        // ============================================
+
+        // Função para corrigir caminhos de imagens no HTML
+        function fixImagePaths(html) {
+            console.log('🔧 Corrigindo caminhos de imagens no HTML...');
+            
+            // Substituir todos os src de imagens para URLs absolutas
+            let fixedHtml = html.replace(/src=["']([^"']*\.(png|jpg|jpeg|gif|svg|ico|webp))["']/gi, (match, src, extension) => {
+                console.log('📝 Imagem encontrada:', src);
+                
+                // Se já for URL absoluta, não alterar
+                if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+                    console.log('  ✅ Já é URL absoluta');
+                    return match;
+                }
+                
+                // Se for favicon e existe localmente, manter local
+                if (src.includes('favicom') || src.includes('favicon')) {
+                    console.log('  🔧 Favicon mantido local');
+                    return match;
+                }
+                
+                // Base URL do site
+                const baseUrl = 'https://wazzimagiygg.com/';
+                
+                let fixedSrc = src;
+                
+                // Limpar caminho
+                if (fixedSrc.startsWith('./')) {
+                    fixedSrc = fixedSrc.substring(2);
+                }
+                
+                // Adicionar base URL
+                if (!fixedSrc.startsWith('/')) {
+                    fixedSrc = baseUrl + fixedSrc;
+                } else {
+                    fixedSrc = baseUrl + fixedSrc.substring(1);
+                }
+                
+                console.log('  🔄 Convertido para:', fixedSrc);
+                
+                // Retornar com onerror para fallback
+                return `src="${fixedSrc}" onerror="console.log('❌ Falha ao carregar: \\'' + this.src + '\\''); this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"100\\" height=\\"100\\" viewBox=\\"0 0 100 100\\"><rect width=\\"100\\" height=\\"100\\" fill=\\"%230078d7\\"/><text x=\\"50\\" y=\\"50\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"white\\" text-anchor=\\"middle\\" dy=\\".3em\\">${src.split('/').pop()?.split('.')[0] || 'IMG'}</text></svg>';"`;
+            });
+            
+            // Também corrigir background-image em CSS
+            fixedHtml = fixedHtml.replace(/background-image:\s*url\(['"]?([^'"\)]+)['"]?\)/gi, (match, url) => {
+                console.log('🎨 Background-image encontrado:', url);
+                
+                if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+                    return match;
+                }
+                
+                const baseUrl = 'https://wazzimagiygg.com/';
+                let fixedUrl = url;
+                
+                if (fixedUrl.startsWith('./')) {
+                    fixedUrl = fixedUrl.substring(2);
+                }
+                
+                if (!fixedUrl.startsWith('/')) {
+                    fixedUrl = baseUrl + fixedUrl;
+                } else {
+                    fixedUrl = baseUrl + fixedUrl.substring(1);
+                }
+                
+                console.log('  🔄 Background convertido para:', fixedUrl);
+                return `background-image: url('${fixedUrl}')`;
+            });
+            
+            console.log('✅ Caminhos de imagens corrigidos');
+            return fixedHtml;
+        }
+
+        // Função para injetar script de correção no iframe
+        function injectImageFixScript() {
+            if (emulatorFrame.contentWindow) {
+                try {
+                    const script = document.createElement('script');
+                    script.textContent = `
+                        // Script de correção de imagens
+                        console.log('🖼️ Injetando script de correção de imagens...');
+                        
+                        // Mapeamento de imagens conhecidas
+                        const imageMap = {
+                            'logo.png': 'https://wazzimagiygg.com/logo.png',
+                            'bg.png': 'https://wazzimagiygg.com/images/bg.png',
+                            'icon.png': 'https://wazzimagiygg.com/icons/icon.png',
+                            'background.png': 'https://wazzimagiygg.com/background.png',
+                            'hero.png': 'https://wazzimagiygg.com/images/hero.png',
+                            'loading.gif': 'https://wazzimagiygg.com/loading.gif',
+                            'spinner.gif': 'https://wazzimagiygg.com/spinner.gif',
+                            'profile.png': 'https://wazzimagiygg.com/profile.png',
+                            'avatar.png': 'https://wazzimagiygg.com/avatar.png'
+                        };
+                        
+                        // Função para corrigir uma imagem
+                        function fixImage(img) {
+                            const originalSrc = img.src;
+                            const filename = originalSrc.split('/').pop();
+                            
+                            // Se já é uma URL do wazzimagiygg ou data URL, não fazer nada
+                            if (originalSrc.includes('wazzimagiygg.com') || originalSrc.startsWith('data:')) {
+                                return;
+                            }
+                            
+                            // Se temos mapeamento conhecido, usar ele
+                            if (imageMap[filename]) {
+                                img.src = imageMap[filename];
+                                console.log('🔄 Imagem redirecionada:', filename, '->', imageMap[filename]);
+                                return;
+                            }
+                            
+                            // Lista de possíveis locais para tentar
+                            const fallbacks = [
+                                'https://wazzimagiygg.com/' + filename,
+                                'https://wazzimagiygg.com/images/' + filename,
+                                'https://wazzimagiygg.com/img/' + filename,
+                                'https://wazzimagiygg.com/assets/' + filename,
+                                'https://wazzimagiygg.com/icons/' + filename,
+                                'https://wazzimagiygg.com/media/' + filename,
+                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0078d7"/><text x="50" y="50" font-family="Arial" font-size="10" fill="white" text-anchor="middle" dy=".3em">' + (filename.split('.')[0] || 'IMG') + '</text></svg>'
+                            ];
+                            
+                            let currentIndex = 0;
+                            const originalErrorHandler = img.onerror;
+                            
+                            img.onerror = function() {
+                                if (currentIndex < fallbacks.length) {
+                                    this.src = fallbacks[currentIndex];
+                                    currentIndex++;
+                                    console.log('🔄 Tentando fallback ' + currentIndex + ':', this.src);
+                                } else if (originalErrorHandler) {
+                                    originalErrorHandler.call(this);
+                                }
+                            };
+                            
+                            // Se a imagem já falhou, disparar o handler de erro
+                            if (img.complete && img.naturalHeight === 0) {
+                                img.onerror();
+                            }
+                        }
+                        
+                        // Aplicar a todas as imagens existentes
+                        document.querySelectorAll('img').forEach(fixImage);
+                        
+                        // Observar novas imagens adicionadas dinamicamente
+                        const observer = new MutationObserver((mutations) => {
+                            mutations.forEach((mutation) => {
+                                mutation.addedNodes.forEach((node) => {
+                                    if (node.tagName === 'IMG') {
+                                        fixImage(node);
+                                    } else if (node.querySelectorAll) {
+                                        node.querySelectorAll('img').forEach(fixImage);
+                                    }
+                                });
+                            });
+                        });
+                        
+                        observer.observe(document.body, { childList: true, subtree: true });
+                        
+                        console.log('✅ Sistema de correção de imagens ativado');
+                    `;
+                    
+                    emulatorFrame.contentDocument.head.appendChild(script);
+                    console.log('✅ Script de correção injetado no iframe');
+                    showMessage('✅ Script de correção de imagens injetado', 'success');
+                } catch (error) {
+                    console.warn('⚠️ Não foi possível injetar script:', error.message);
+                    showMessage('Erro ao corrigir imagens', 'error');
+                }
+            }
+        }
+
         // ============================================
         // IMPORTAR HTML EXTERNO
         // ============================================
@@ -573,12 +692,42 @@ function fixImagePaths(html) {
                 
                 for (const source of sources) {
                     try {
+                        console.log(`🔍 Tentando importar de: ${source}`);
                         const response = await fetch(source);
                         if (response.ok) {
                             htmlContent = await response.text();
+                            
+                            // Limpar BOM de arquivos .txt
                             if (source.includes('.txt')) {
                                 htmlContent = htmlContent.replace(/^\uFEFF/, '');
                             }
+                            
+                            console.log(`✅ Importado de: ${source}`);
+                            
+                            // CORREÇÃO IMPORTANTE: Fixar caminhos de imagens
+                            htmlContent = fixImagePaths(htmlContent);
+                            
+                            // Adicionar script de fallback no final do body
+                            htmlContent = htmlContent.replace('</body>', `
+                                <!-- Script de fallback de imagens -->
+                                <script>
+                                    console.log('🖼️ Script de fallback carregado');
+                                    window.addEventListener('load', function() {
+                                        // Corrigir imagens que podem ter sido carregadas antes do script
+                                        setTimeout(() => {
+                                            const images = document.querySelectorAll('img');
+                                            images.forEach(img => {
+                                                if (!img.src.includes('wazzimagiygg.com') && !img.src.startsWith('data:')) {
+                                                    const filename = img.src.split('/').pop();
+                                                    img.src = 'https://wazzimagiygg.com/' + filename;
+                                                }
+                                            });
+                                        }, 100);
+                                    });
+                                <\/script>
+                                </body>
+                            `);
+                            
                             break;
                         }
                     } catch (error) {
@@ -586,19 +735,22 @@ function fixImagePaths(html) {
                     }
                 }
                 
-                if (!htmlContent) {
-                    htmlContent = createDefaultHTML();
-                } else if (htmlContent.trim() === '') {
+                if (!htmlContent || htmlContent.trim() === '') {
+                    console.log('⚠️ Nenhum conteúdo importado, usando HTML padrão');
                     htmlContent = createDefaultHTML();
                 }
                 
+                // Verificar se é HTML válido
                 if (!htmlContent.includes('<!DOCTYPE') && !htmlContent.includes('<html')) {
+                    console.log('⚠️ Conteúdo não parece HTML válido, adicionando estrutura');
                     htmlContent = wrapInHTMLStructure(htmlContent);
                 }
                 
+                // Salvar no localStorage para cache
                 try {
                     localStorage.setItem('importedHTML', htmlContent);
                     localStorage.setItem('importedHTMLTimestamp', Date.now());
+                    console.log('💾 HTML salvo no cache do localStorage');
                 } catch (storageError) {
                     console.warn('⚠️ Não foi possível salvar no localStorage:', storageError.message);
                 }
@@ -731,15 +883,8 @@ function fixImagePaths(html) {
 </html>`;
         }
 
-        // Função para escapar HTML
-        function escapeHTML(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
         // ============================================
-        // VERIFICAR CADASTRO DO CLIENTE - CORRIGIDO
+        // VERIFICAR CADASTRO DO CLIENTE
         // ============================================
         async function checkClientRegistration(userId) {
             try {
@@ -751,57 +896,23 @@ function fixImagePaths(html) {
                     console.log('✅ Cliente encontrado no Firestore');
                     const data = clientDoc.data();
                     
-                    console.log('📊 Dados do cliente:', data);
-                    
-                    // VERIFICAÇÃO SIMPLIFICADA E FLEXÍVEL
-                    
-                    // 1. Campos básicos (nome e CPF são essenciais)
+                    // VERIFICAÇÃO SIMPLIFICADA
                     const hasFullName = data.fullName && data.fullName.trim() !== '';
                     const hasCPF = data.cpf && data.cpf.trim() !== '';
-                    const hasBasicInfo = hasFullName && hasCPF;
-                    
-                    // 2. Data de nascimento (aceita vários formatos)
-                    let hasBirthDate = false;
-                    if (data.birthDate) {
-                        // Pode ser timestamp do Firestore, Date ou string
-                        hasBirthDate = true;
-                    }
-                    
-                    // 3. Endereço (cidade e estado são os mais importantes)
+                    const hasBirthDate = data.birthDate;
                     const hasCity = data.city && data.city.trim() !== '';
                     const hasState = data.state && data.state.trim() !== '';
                     const hasAddress = data.address && data.address.trim() !== '';
-                    const hasAddressInfo = hasCity && hasState && hasAddress;
-                    
-                    // 4. Telefone (verifica phoneDDD que foi adicionado no cadastro)
                     const hasPhoneDDD = data.phoneDDD && data.phoneDDD.trim() !== '';
-                    
-                    // 5. Termos aceitos (essenciais)
                     const hasAcceptedTerms = data.acceptedTerms === true;
                     const hasAcceptedPrivacy = data.acceptedPrivacyPolicy === true;
                     
-                    // 6. Campo registrationComplete (se existir, usa como referência)
-                    const registrationComplete = data.registrationComplete === true;
-                    
-                    console.log('📊 Status de verificação:');
-                    console.log('- Nome completo:', hasFullName ? '✅' : '❌');
-                    console.log('- CPF:', hasCPF ? '✅' : '❌');
-                    console.log('- Data nascimento:', hasBirthDate ? '✅' : '❌');
-                    console.log('- Cidade:', hasCity ? '✅' : '❌');
-                    console.log('- Estado:', hasState ? '✅' : '❌');
-                    console.log('- Endereço:', hasAddress ? '✅' : '❌');
-                    console.log('- DDD:', hasPhoneDDD ? '✅' : '❌');
-                    console.log('- Termos aceitos:', hasAcceptedTerms ? '✅' : '❌');
-                    console.log('- Privacidade aceita:', hasAcceptedPrivacy ? '✅' : '❌');
-                    console.log('- registrationComplete:', registrationComplete ? '✅' : '❌');
-                    
-                    // DEFINIÇÃO DE CADASTRO COMPLETO:
-                    // Requisitos MÍNIMOS considerando o que o formulário de cadastro salva
+                    // Requisitos mínimos para cadastro completo
                     const isComplete = hasFullName && hasCPF && hasBirthDate && 
                                      hasCity && hasState && hasPhoneDDD &&
                                      hasAcceptedTerms && hasAcceptedPrivacy;
                     
-                    console.log(`📊 Resultado: Cadastro ${isComplete ? 'COMPLETO' : 'INCOMPLETO'}`);
+                    console.log(`📊 Cadastro ${isComplete ? 'COMPLETO' : 'INCOMPLETO'}`);
                     
                     if (isComplete) {
                         return {
@@ -810,13 +921,12 @@ function fixImagePaths(html) {
                             message: 'Cadastro completo'
                         };
                     } else {
-                        // Identifica campos faltantes
                         const missingFields = [];
                         if (!hasFullName) missingFields.push('nome completo');
                         if (!hasCPF) missingFields.push('CPF');
                         if (!hasBirthDate) missingFields.push('data de nascimento');
                         if (!hasCity) missingFields.push('cidade');
-                        if (!hasState) missingFields.push('estado (UF)');
+                        if (!hasState) missingFields.push('estado');
                         if (!hasAddress) missingFields.push('endereço');
                         if (!hasPhoneDDD) missingFields.push('DDD do telefone');
                         if (!hasAcceptedTerms) missingFields.push('aceite dos termos');
@@ -906,7 +1016,12 @@ function fixImagePaths(html) {
             // Atualizar informações do usuário
             userName.textContent = currentUser.displayName || 'Usuário';
             userEmail.textContent = currentUser.email || '';
-            userAvatar.src = currentUser.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(currentUser.displayName || 'U') + '&background=0078d7&color=fff';
+            
+            // Carregar avatar com fallback
+            const avatarSrc = currentUser.photoURL || 
+                'https://ui-avatars.com/api/?name=' + encodeURIComponent(currentUser.displayName || 'U') + 
+                '&background=0078d7&color=fff&size=32';
+            userAvatar.src = avatarSrc;
             
             console.log('🖼️ Carregando conteúdo no iframe...');
             
@@ -918,9 +1033,16 @@ function fixImagePaths(html) {
                 
                 console.log('✅ Iframe carregado com URL blob');
                 
-                // Enviar dados do usuário para o iframe após carregar
+                // Quando o iframe carregar, enviar dados do usuário
                 emulatorFrame.onload = function() {
                     console.log('✅ Iframe carregado, enviando dados do usuário...');
+                    
+                    // Injeta script de correção de imagens
+                    setTimeout(() => {
+                        injectImageFixScript();
+                    }, 500);
+                    
+                    // Enviar dados do usuário
                     try {
                         emulatorFrame.contentWindow.postMessage({
                             type: 'userData',
@@ -946,7 +1068,7 @@ function fixImagePaths(html) {
         }
 
         // ============================================
-        // MOSTRAR MODAL DE CADASTRO - CORRIGIDO
+        // MOSTRAR MODAL DE CADASTRO
         // ============================================
         function showRegistrationModal(registrationCheck) {
             let statusHTML = '';
@@ -974,6 +1096,18 @@ function fixImagePaths(html) {
             
             registrationStatus.innerHTML = statusHTML;
             showScreen('registration');
+        }
+
+        // ============================================
+        // FUNÇÃO PARA LIMPAR CACHE
+        // ============================================
+        function clearCacheAndReload() {
+            console.log('🧹 Limpando cache...');
+            localStorage.removeItem('importedHTML');
+            localStorage.removeItem('importedHTMLTimestamp');
+            importedHTML = '';
+            showMessage('✅ Cache limpo, recarregando...', 'success');
+            setTimeout(() => loadContent(), 1000);
         }
 
         // ============================================
@@ -1050,6 +1184,12 @@ function fixImagePaths(html) {
             loadContent();
         });
 
+        clearCacheBtn.addEventListener('click', clearCacheAndReload);
+
+        fixImagesBtn.addEventListener('click', () => {
+            injectImageFixScript();
+        });
+
         // ============================================
         // LISTENER DE MENSAGENS DO IFRAME
         // ============================================
@@ -1121,18 +1261,6 @@ function fixImagePaths(html) {
             return false;
         });
 
-        // Permitir clique direito apenas no iframe
-        emulatorFrame.addEventListener('load', function() {
-            try {
-                const frameDoc = emulatorFrame.contentDocument || emulatorFrame.contentWindow.document;
-                frameDoc.addEventListener('contextmenu', function(e) {
-                    return true;
-                });
-            } catch (error) {
-                // Cross-origin error - ignore
-            }
-        });
-
         // ============================================
         // INICIAR SISTEMA
         // ============================================
@@ -1163,94 +1291,62 @@ function fixImagePaths(html) {
 
     </script>
     
-    <!-- Script para sincronização com páginas de cadastro -->
+    <!-- Script para diagnóstico de imagens -->
     <script>
-        function notifyRegistrationCompletion() {
-            if (window.parent) {
-                console.log('📤 Notificando sistema pai sobre cadastro completo');
-                window.parent.postMessage({
-                    type: 'registrationCompleted',
-                    timestamp: Date.now()
-                }, '*');
+        // Diagnóstico de imagens PNG
+        console.log('🖼️ DIAGNÓSTICO DE IMAGENS PNG');
+        
+        // Lista de imagens que deveriam existir
+        const imagesToCheck = [
+            'favicom.png',
+            'logo.png',
+            'bg.png',
+            'icon.png',
+            'background.png',
+            'hero.png',
+            'loading.gif',
+            'spinner.gif'
+        ];
+        
+        // Função para verificar se uma imagem existe
+        async function checkImage(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ url, status: '✅ OK' });
+                img.onerror = () => resolve({ url, status: '❌ FALHA' });
+                img.src = url + '?t=' + Date.now(); // Evitar cache
+            });
+        }
+        
+        // Verificar todas as imagens
+        async function diagnoseImages() {
+            console.log('🔍 Verificando imagens...');
+            
+            for (const image of imagesToCheck) {
+                const result = await checkImage(image);
+                console.log(`${result.status} ${result.url}`);
+            }
+            
+            // Verificar também caminhos relativos
+            const relativePaths = [
+                './favicom.png',
+                '../favicom.png',
+                'images/favicom.png',
+                'img/favicom.png',
+                'assets/favicom.png'
+            ];
+            
+            console.log('🔍 Verificando caminhos relativos...');
+            for (const path of relativePaths) {
+                const result = await checkImage(path);
+                console.log(`${result.status} ${path}`);
             }
         }
         
-        // Verificar se estamos na página de cadastro
-        if (window.location.href.includes('cadastro_cliente')) {
-            console.log('📝 Detectado página de cadastro, ativando notificações');
-            
-            const originalSetItem = localStorage.setItem;
-            localStorage.setItem = function(key, value) {
-                originalSetItem.apply(this, arguments);
-                if (key.includes('registration') || key.includes('client')) {
-                    notifyRegistrationCompletion();
-                }
-            };
-            
-            // Verificar periodicamente se o cadastro foi completado
-            setInterval(() => {
-                if (localStorage.getItem('clientRegistrationComplete') === 'true') {
-                    notifyRegistrationCompletion();
-                }
-            }, 2000);
-        }
+        // Executar diagnóstico após 2 segundos
+        setTimeout(() => {
+            diagnoseImages();
+        }, 2000);
     </script>
-    <!-- Adicione este código ANTES do fechamento do body -->
-<script>
-    // Diagnóstico de imagens PNG
-    console.log('🖼️ DIAGNÓSTICO DE IMAGENS PNG');
-    
-    // Lista de imagens que deveriam existir
-    const imagesToCheck = [
-        'favicom.png',
-        'logo.png',
-        'bg.png',
-        'icon.png',
-        'background.png',
-        'hero.png',
-        'loading.gif',
-        'spinner.gif'
-    ];
-    
-    // Função para verificar se uma imagem existe
-    async function checkImage(url) {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve({ url, status: '✅ OK' });
-            img.onerror = () => resolve({ url, status: '❌ FALHA' });
-            img.src = url + '?t=' + Date.now(); // Evitar cache
-        });
-    }
-    
-    // Verificar todas as imagens
-    async function diagnoseImages() {
-        console.log('🔍 Verificando imagens...');
-        
-        for (const image of imagesToCheck) {
-            const result = await checkImage(image);
-            console.log(`${result.status} ${result.url}`);
-        }
-        
-        // Verificar também caminhos relativos
-        const relativePaths = [
-            './favicom.png',
-            '../favicom.png',
-            'images/favicom.png',
-            'img/favicom.png',
-            'assets/favicom.png'
-        ];
-        
-        console.log('🔍 Verificando caminhos relativos...');
-        for (const path of relativePaths) {
-            const result = await checkImage(path);
-            console.log(`${result.status} ${path}`);
-        }
-    }
-    
-    // Executar diagnóstico após 2 segundos
-    setTimeout(() => {
-        diagnoseImages();
-    }, 2000);
-</script>
 </body>
 </html>
