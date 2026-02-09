@@ -302,6 +302,67 @@
             }
         }
 
+        /* JANELAS SIMPLES (para UIDs) */
+        .simple-window {
+            position: fixed;
+            top: 50px;
+            left: 50px;
+            width: 800px;
+            height: 600px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            resize: both;
+            overflow: hidden;
+            min-width: 400px;
+            min-height: 300px;
+        }
+
+        .simple-window-header {
+            background: #0078d7;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 10px 10px 0 0;
+            cursor: move;
+            user-select: none;
+        }
+
+        .simple-window-header span {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .simple-window-header button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .simple-window-header button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .simple-window-frame {
+            flex: 1;
+            border: none;
+            border-radius: 0 0 10px 10px;
+        }
+
         /* RESPONSIVIDADE */
         @media (max-width: 768px) {
             .emulator-controls {
@@ -325,6 +386,13 @@
             
             .modal-btn {
                 width: 100%;
+            }
+
+            .simple-window {
+                top: 20px;
+                left: 20px;
+                width: calc(100% - 40px);
+                height: calc(100% - 40px);
             }
         }
     </style>
@@ -372,6 +440,8 @@
                 <button class="control-btn" id="homeBtn">🏠 Início</button>
                 <button class="control-btn" id="clearCacheBtn">🧹 Limpar Cache</button>
                 <button class="control-btn" id="fixImagesBtn">🖼️ Corrigir Imagens</button>
+                <button class="control-btn" id="desktopBtn">🖥️ Sistema Desktop</button>
+                <button class="control-btn" id="openWindowBtn">🪟 Nova Janela</button>
             </div>
             
             <div class="user-info">
@@ -428,6 +498,273 @@
         provider.setCustomParameters({ prompt: 'select_account' });
 
         // ============================================
+        // PROCESSADOR DE PARÂMETROS URL
+        // ============================================
+        const urlParamsProcessor = {
+            getUidParam: function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const uid = urlParams.get('uid');
+                console.log(`🔍 UID detectado na URL: ${uid}`);
+                return uid;
+            },
+            
+            processUidParam: function(uidValue, userData) {
+                if (!uidValue || !userData) return false;
+                
+                console.log(`🎯 Processando UID para janela: ${uidValue}`);
+                
+                // Tipos de UID que podemos processar
+                const uidTypes = {
+                    'pdf': uidValue.includes('.pdf') || uidValue.toLowerCase().endsWith('pdf'),
+                    'html': uidValue.includes('.html') || uidValue.toLowerCase().endsWith('html'),
+                    'directUrl': uidValue.startsWith('http'),
+                    'wiki': uidValue.includes('wiki') || uidValue.includes('pedia'),
+                    'central': uidValue.includes('central'),
+                    'plain': !uidValue.includes('.') && !uidValue.startsWith('http')
+                };
+                
+                let finalUrl = '';
+                let windowTitle = 'Janela Externa';
+                
+                // Lógica de processamento do sistema antigo
+                if (uidTypes.directUrl) {
+                    finalUrl = uidValue;
+                    windowTitle = 'Link Externo';
+                } 
+                else if (uidTypes.pdf) {
+                    const filename = uidValue.includes('/') ? uidValue.split('/').pop() : uidValue;
+                    finalUrl = `https://wazzimagiygg.com/pdf/?uid=${encodeURIComponent(filename)}`;
+                    windowTitle = 'Documento PDF';
+                }
+                else if (uidTypes.html) {
+                    const filename = uidValue.includes('/') ? uidValue.split('/').pop() : uidValue;
+                    finalUrl = `https://wazzimagiygg.com/html/?uid=${encodeURIComponent(filename)}`;
+                    windowTitle = 'Página HTML';
+                }
+                else if (uidTypes.central) {
+                    finalUrl = `https://wazzimagiygg.com/central/?uid=${uidValue}`;
+                    windowTitle = 'Central WZZM';
+                }
+                else if (uidTypes.wiki) {
+                    finalUrl = `https://wazzimagiygg.com/r/?id=${uidValue}`;
+                    windowTitle = 'Wiki Not Pedia';
+                }
+                else if (uidTypes.plain) {
+                    // Tentar abrir como arquivo genérico
+                    finalUrl = `https://wazzimagiygg.com/pdf/?uid=${encodeURIComponent(uidValue)}`;
+                    windowTitle = 'Arquivo';
+                    
+                    // Alternativas para tentar
+                    const alternativeUrls = [
+                        `https://wazzimagiygg.com/html/?uid=${encodeURIComponent(uidValue)}`,
+                        `https://wazzimagiygg.com/central/?uid=${uidValue}`,
+                        `https://wazzimagiygg.com/r/?id=${uidValue}`
+                    ];
+                    
+                    console.log(`🔍 Tentando abrir UID simples: ${uidValue}`);
+                    console.log(`📋 URLs alternativas:`, alternativeUrls);
+                }
+                else {
+                    // Fallback geral
+                    finalUrl = `https://wazzimagiygg.com/${uidValue}`;
+                    windowTitle = 'Recurso WZZM';
+                }
+                
+                console.log(`🌐 URL final gerada: ${finalUrl}`);
+                
+                // Abrir em uma nova janela
+                this.openInNewWindow(windowTitle, finalUrl, userData);
+                return true;
+            },
+            
+            openInNewWindow: function(title, url, userData) {
+                console.log(`🪟 Abrindo janela: ${title} -> ${url}`);
+                
+                // Usar nosso sistema de janelas simples
+                try {
+                    const urlWithAuth = this.addAuthParams(url, userData);
+                    windowManager.createWindow(title, urlWithAuth, 'https://wazzimagiygg.com/iconmagic.png');
+                    showMessage(`✅ Janela aberta: ${title}`, 'success');
+                } catch (error) {
+                    console.error('❌ Erro ao abrir janela:', error);
+                    
+                    // Fallback: abrir em nova guia
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                }
+            },
+            
+            addAuthParams: function(url, userData) {
+                if (!userData || !url.includes('wazzimagiygg.com')) return url;
+                
+                try {
+                    const urlObj = new URL(url);
+                    
+                    // Adicionar parâmetros de autenticação se não existirem
+                    if (!urlObj.searchParams.has('uid')) {
+                        urlObj.searchParams.append('user', userData.uid);
+                        urlObj.searchParams.append('email', encodeURIComponent(userData.email));
+                    }
+                    
+                    return urlObj.toString();
+                } catch (error) {
+                    console.warn('⚠️ Não foi possível adicionar parâmetros de auth:', error);
+                    return url;
+                }
+            },
+            
+            // Função para extrair UID de vários formatos de URL
+            extractUidFromUrl: function(url) {
+                if (!url) return null;
+                
+                const patterns = [
+                    /[?&]uid=([^&]+)/i,
+                    /\/pdf\/\?uid=([^&]+)/i,
+                    /\/html\/\?uid=([^&]+)/i,
+                    /\/central\/\?uid=([^&]+)/i,
+                    /\/r\/\?id=([^&]+)/i,
+                    /\/view\/\?id=([^&]+)/i
+                ];
+                
+                for (const pattern of patterns) {
+                    const match = url.match(pattern);
+                    if (match) return decodeURIComponent(match[1]);
+                }
+                
+                // Último segmento da URL
+                const lastSegment = url.split('/').pop();
+                if (lastSegment && lastSegment.includes('?')) {
+                    return lastSegment.split('?')[0];
+                }
+                
+                return lastSegment || null;
+            },
+            
+            normalizeString: function(str) {
+                if (!str) return '';
+                return str.toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^\w\s]/gi, '')
+                    .replace(/\s+/g, '-')
+                    .trim();
+            }
+        };
+
+        // ============================================
+        // SISTEMA DE JANELAS
+        // ============================================
+        const windowManager = {
+            windows: [],
+            activeWindow: null,
+            windowCounter: 0,
+            
+            createWindow: function(title, url, icon = 'https://wazzimagiygg.com/iconmagic.png') {
+                this.windowCounter++;
+                const windowId = 'win_' + this.windowCounter;
+                
+                const windowElement = document.createElement('div');
+                windowElement.className = 'simple-window';
+                windowElement.id = windowId;
+                windowElement.innerHTML = `
+                    <div class="simple-window-header">
+                        <span>${title}</span>
+                        <button class="close-window">✖</button>
+                    </div>
+                    <iframe src="${url}" class="simple-window-frame"></iframe>
+                `;
+                
+                document.body.appendChild(windowElement);
+                
+                // Configurar drag and drop
+                this.setupWindowDrag(windowElement.querySelector('.simple-window-header'), windowElement);
+                
+                // Configurar botão de fechar
+                windowElement.querySelector('.close-window').onclick = () => {
+                    this.closeWindow(windowId);
+                };
+                
+                // Adicionar à lista de janelas
+                this.windows.push({
+                    id: windowId,
+                    element: windowElement,
+                    title: title,
+                    url: url
+                });
+                
+                // Ativar esta janela
+                this.activateWindow(windowId);
+                
+                return windowId;
+            },
+            
+            setupWindowDrag: function(header, windowElement) {
+                let isDragging = false;
+                let offsetX, offsetY;
+                
+                header.addEventListener('mousedown', (e) => {
+                    if (e.target.classList.contains('close-window')) return;
+                    
+                    isDragging = true;
+                    offsetX = e.clientX - windowElement.offsetLeft;
+                    offsetY = e.clientY - windowElement.offsetTop;
+                    
+                    // Ativar esta janela
+                    const windowId = windowElement.id;
+                    this.activateWindow(windowId);
+                    
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        windowElement.style.left = (e.clientX - offsetX) + 'px';
+                        windowElement.style.top = (e.clientY - offsetY) + 'px';
+                    }
+                });
+                
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+            },
+            
+            activateWindow: function(windowId) {
+                // Remover todas as classes ativas
+                this.windows.forEach(win => {
+                    win.element.style.zIndex = '10000';
+                });
+                
+                // Ativar a janela específica
+                const window = this.windows.find(w => w.id === windowId);
+                if (window) {
+                    window.element.style.zIndex = '10001';
+                    this.activeWindow = windowId;
+                }
+            },
+            
+            closeWindow: function(windowId) {
+                const index = this.windows.findIndex(w => w.id === windowId);
+                if (index !== -1) {
+                    this.windows[index].element.remove();
+                    this.windows.splice(index, 1);
+                    
+                    // Ativar a última janela se houver
+                    if (this.windows.length > 0) {
+                        this.activateWindow(this.windows[this.windows.length - 1].id);
+                    } else {
+                        this.activeWindow = null;
+                    }
+                }
+            },
+            
+            closeAllWindows: function() {
+                this.windows.forEach(win => {
+                    win.element.remove();
+                });
+                this.windows = [];
+                this.activeWindow = null;
+            }
+        };
+
+        // ============================================
         // ELEMENTOS DO DOM
         // ============================================
         const loadingScreen = document.getElementById('loading-screen');
@@ -445,6 +782,8 @@
         const homeBtn = document.getElementById('homeBtn');
         const clearCacheBtn = document.getElementById('clearCacheBtn');
         const fixImagesBtn = document.getElementById('fixImagesBtn');
+        const desktopBtn = document.getElementById('desktopBtn');
+        const openWindowBtn = document.getElementById('openWindowBtn');
         const userName = document.getElementById('userName');
         const userEmail = document.getElementById('userEmail');
         const userAvatar = document.getElementById('userAvatar');
@@ -576,6 +915,38 @@
             return fixedHtml;
         }
 
+        // Função para processar UIDs no conteúdo
+        function processUIDsInContent(htmlContent) {
+            console.log('🔗 Processando UIDs no conteúdo HTML...');
+            
+            // Encontrar links com UIDs e convertê-los para abrir em janelas
+            let processedHtml = htmlContent.replace(
+                /href=["']([^"']*\?uid=[^"']+)["']/gi,
+                (match, href) => {
+                    console.log('🔗 Link UID encontrado:', href);
+                    
+                    // Extrair título do link (buscar texto entre tags <a>)
+                    const linkText = match.match(/<a[^>]*>([^<]*)<\/a>/i);
+                    const title = linkText ? linkText[1] : 'Documento';
+                    
+                    // Converter para função JavaScript que abre em janela
+                    return `href="javascript:void(0)" onclick="if(window.parent&&window.parent.openWZZMWindow){window.parent.openWZZMWindow('${href}','${escapeHTML(title)}');}else{window.open('${href}','_blank');}"`;
+                }
+            );
+            
+            // Também processar formulários com UID
+            processedHtml = processedHtml.replace(
+                /action=["']([^"']*\?uid=[^"']+)["']/gi,
+                (match, action) => {
+                    console.log('🔗 Form action UID encontrado:', action);
+                    return `action="${action}" target="_blank"`;
+                }
+            );
+            
+            console.log('✅ UIDs processados no conteúdo');
+            return processedHtml;
+        }
+
         // Função para injetar script de correção no iframe
         function injectImageFixScript() {
             if (emulatorFrame.contentWindow) {
@@ -704,15 +1075,33 @@
                             
                             console.log(`✅ Importado de: ${source}`);
                             
+                            // PROCESSAR UIDs no conteúdo importado
+                            htmlContent = processUIDsInContent(htmlContent);
+                            
                             // CORREÇÃO IMPORTANTE: Fixar caminhos de imagens
                             htmlContent = fixImagePaths(htmlContent);
                             
                             // Adicionar script de fallback no final do body
                             htmlContent = htmlContent.replace('</body>', `
-                                <!-- Script de fallback de imagens -->
+                                <!-- Script de processamento de UIDs e imagens -->
                                 <script>
-                                    console.log('🖼️ Script de fallback carregado');
+                                    console.log('🔗 Script de UIDs carregado');
+                                    
+                                    // Processar UIDs na inicialização
                                     window.addEventListener('load', function() {
+                                        const urlParams = new URLSearchParams(window.location.search);
+                                        const uid = urlParams.get('uid');
+                                        
+                                        if (uid && window.parent && window.parent.openWZZMWindow) {
+                                            console.log('🔗 UID detectado no iframe:', uid);
+                                            setTimeout(() => {
+                                                window.parent.openWZZMWindow(
+                                                    'https://wazzimagiygg.com/pdf/?uid=' + encodeURIComponent(uid),
+                                                    'Documento: ' + uid
+                                                );
+                                            }, 1000);
+                                        }
+                                        
                                         // Corrigir imagens que podem ter sido carregadas antes do script
                                         setTimeout(() => {
                                             const images = document.querySelectorAll('img');
@@ -724,6 +1113,36 @@
                                             });
                                         }, 100);
                                     });
+                                    
+                                    // Interceptar cliques em links com UID
+                                    document.addEventListener('click', function(e) {
+                                        const link = e.target.closest('a');
+                                        if (link && link.href) {
+                                            const href = link.href;
+                                            
+                                            // Verificar se é um link com UID
+                                            if (href.includes('?uid=') || href.includes('/pdf/') || href.includes('/html/') || 
+                                                href.includes('/central/') || href.includes('/r/?id=')) {
+                                                e.preventDefault();
+                                                console.log('🔗 Link UID clicado:', href);
+                                                
+                                                if (window.parent && window.parent.openWZZMWindow) {
+                                                    window.parent.openWZZMWindow(href, link.textContent || 'Documento');
+                                                } else {
+                                                    window.open(href, '_blank');
+                                                }
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Função global para abrir janelas
+                                    window.openWZZMWindow = function(url, title) {
+                                        if (window.parent && window.parent.openWZZMWindow) {
+                                            window.parent.openWZZMWindow(url, title);
+                                        } else {
+                                            window.open(url, '_blank');
+                                        }
+                                    };
                                 <\/script>
                                 </body>
                             `);
@@ -811,6 +1230,24 @@
             border-radius: 10px;
             margin: 20px 0;
         }
+        .links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .link-btn {
+            background: #0078d7;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .link-btn:hover {
+            background: #005a9e;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
@@ -821,8 +1258,17 @@
         <div class="user-info">
             <p><strong>Usuário:</strong> <span id="currentUser">Carregando...</span></p>
             <p><strong>Status:</strong> <span id="userStatus">Conectado</span></p>
+            <p><strong>UID Atual:</strong> <span id="currentUid">Nenhum</span></p>
         </div>
-        <p>Se você está vendo esta mensagem, o sistema está funcionando corretamente!</p>
+        
+        <div class="links">
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/pdf/?uid=Termos%20de%20Servi%C3%A7o.pdf','Termos')" class="link-btn">📄 Termos de Serviço</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/r/?id=wiki','Wiki')" class="link-btn">📚 Wiki Not Pedia</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/central/','Central')" class="link-btn">⚙️ Central WZZM</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/html/?uid=contato','Contato')" class="link-btn">💬 Contato</a>
+        </div>
+        
+        <p style="margin-top: 20px; font-size: 14px; color: #666;">Para abrir documentos, use: ?uid=nome_do_arquivo</p>
     </div>
     <script>
         window.addEventListener('message', function(event) {
@@ -831,8 +1277,29 @@
                     event.data.user.displayName || event.data.user.email || 'Usuário';
                 document.getElementById('userStatus').textContent = '✅ Conectado';
             }
+            if (event.data.type === 'uidParam') {
+                document.getElementById('currentUid').textContent = event.data.uid || 'Nenhum';
+            }
         });
+        
+        // Solicitar dados do usuário
         window.parent.postMessage({ type: 'requestUserData' }, '*');
+        
+        // Verificar se há UID na URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const uid = urlParams.get('uid');
+        if (uid) {
+            window.parent.postMessage({ type: 'uidParam', uid: uid }, '*');
+        }
+        
+        // Função global para abrir janelas
+        window.openWZZMWindow = function(url, title) {
+            if (window.parent && window.parent.openWZZMWindow) {
+                window.parent.openWZZMWindow(url, title);
+            } else {
+                window.open(url, '_blank');
+            }
+        };
     <\/script>
 </body>
 </html>`;
@@ -868,15 +1335,51 @@
             overflow: auto;
             white-space: pre-wrap;
         }
+        .uid-link {
+            color: #0078d7;
+            text-decoration: none;
+            border-bottom: 1px dashed #0078d7;
+            cursor: pointer;
+        }
+        .uid-link:hover {
+            color: #005a9e;
+        }
     </style>
 </head>
 <body>
     <div class="content">
         <h1>Conteúdo Importado</h1>
         <p>O sistema carregou o seguinte conteúdo:</p>
-        <pre>${escapeHTML(content)}</pre>
+        <div id="processed-content"></div>
     </div>
     <script>
+        // Processar links UID no conteúdo
+        function processContent(content) {
+            // Encontrar links com UID e torná-los clicáveis
+            const processed = content.replace(
+                /(?:href=["'])?([^"'\s]*\?uid=[^"'\s]+)(?:["'])?/gi,
+                function(match, url) {
+                    const title = url.split('?uid=')[1] || 'Documento';
+                    return '<a href="javascript:void(0)" onclick="openWZZMWindow(\\\\'' + url + '\\\\', \\\\'' + title + '\\\\')" class="uid-link">' + url + '</a>';
+                }
+            );
+            
+            document.getElementById('processed-content').innerHTML = '<pre>' + 
+                processed.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+        }
+        
+        processContent(\`${escapeHTML(content)}\`);
+        
+        // Função para abrir janelas
+        window.openWZZMWindow = function(url, title) {
+            if (window.parent && window.parent.openWZZMWindow) {
+                window.parent.openWZZMWindow(url, title);
+            } else {
+                window.open(url, '_blank');
+            }
+        };
+        
+        // Comunicar com o parent
         window.parent.postMessage({ type: 'contentLoaded' }, '*');
     <\/script>
 </body>
@@ -979,7 +1482,28 @@
                 
                 console.log(`👤 Usuário: ${currentUser.email} (UID: ${currentUser.uid})`);
                 
-                // 2. Importar HTML (se necessário)
+                // 2. Verificar se há parâmetro UID na URL
+                const uidParam = urlParamsProcessor.getUidParam();
+                if (uidParam) {
+                    console.log(`🎯 Parâmetro UID detectado: ${uidParam}`);
+                    
+                    // Processar imediatamente para abrir janela
+                    const userData = {
+                        uid: currentUser.uid,
+                        displayName: currentUser.displayName,
+                        email: currentUser.email,
+                        photoURL: currentUser.photoURL
+                    };
+                    
+                    const processed = urlParamsProcessor.processUidParam(uidParam, userData);
+                    
+                    if (processed) {
+                        // Continuar com o carregamento normal, mas já abriu a janela
+                        console.log('✅ UID processado, continuando carregamento normal...');
+                    }
+                }
+                
+                // 3. Importar HTML (se necessário)
                 if (!importedHTML) {
                     console.log('📥 Importando HTML...');
                     importedHTML = await importExternalHTML();
@@ -987,7 +1511,7 @@
                     console.log('📁 Usando HTML em cache');
                 }
                 
-                // 3. Verificar cadastro
+                // 4. Verificar cadastro
                 console.log('🔍 Verificando cadastro...');
                 const registrationCheck = await checkClientRegistration(currentUser.uid);
                 
@@ -1037,6 +1561,9 @@
                 emulatorFrame.onload = function() {
                     console.log('✅ Iframe carregado, enviando dados do usuário...');
                     
+                    // Liberar URL do blob
+                    URL.revokeObjectURL(url);
+                    
                     // Injeta script de correção de imagens
                     setTimeout(() => {
                         injectImageFixScript();
@@ -1053,6 +1580,15 @@
                                 photoURL: currentUser.photoURL
                             }
                         }, '*');
+                        
+                        // Enviar parâmetro UID se houver
+                        const uidParam = urlParamsProcessor.getUidParam();
+                        if (uidParam) {
+                            emulatorFrame.contentWindow.postMessage({
+                                type: 'uidParam',
+                                uid: uidParam
+                            }, '*');
+                        }
                     } catch (error) {
                         console.warn('⚠️ Não foi possível enviar mensagem para iframe:', error.message);
                     }
@@ -1133,11 +1669,8 @@
             console.log('📝 Redirecionando para cadastro...');
             const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
             
-            if (window.parent && window.parent.loadPage) {
-                window.parent.loadPage(registrationUrl, true);
-            } else {
-                window.open(registrationUrl, '_blank');
-            }
+            // Abrir em nova janela
+            window.open(registrationUrl, '_blank', 'noopener,noreferrer');
             
             registrationModal.style.display = 'none';
             showMessage('Redirecionando para cadastro...', 'info');
@@ -1159,6 +1692,9 @@
 
         logoutBtn.addEventListener('click', async () => {
             try {
+                // Fechar todas as janelas abertas
+                windowManager.closeAllWindows();
+                
                 await signOut(auth);
                 showMessage('✅ Logout realizado', 'success');
                 showScreen('login');
@@ -1188,6 +1724,27 @@
 
         fixImagesBtn.addEventListener('click', () => {
             injectImageFixScript();
+        });
+
+        desktopBtn.addEventListener('click', () => {
+            console.log('🖥️ Abrindo sistema desktop...');
+            
+            // URL do sistema desktop original
+            const desktopUrl = `https://wazzimagiygg.com/index.txt?uid=${currentUser.uid}`;
+            
+            // Abrir em nova janela
+            window.open(desktopUrl, '_blank', 'noopener,noreferrer');
+            
+            showMessage('🖥️ Sistema desktop aberto em nova janela', 'info');
+        });
+
+        openWindowBtn.addEventListener('click', () => {
+            const url = prompt('Digite a URL para abrir em nova janela:', 'https://wazzimagiygg.com/');
+            const title = prompt('Digite o título da janela:', 'Nova Janela');
+            
+            if (url && title) {
+                windowManager.createWindow(title, url, 'https://wazzimagiygg.com/iconmagic.png');
+            }
         });
 
         // ============================================
@@ -1239,6 +1796,14 @@
         });
 
         // ============================================
+        // FUNÇÃO GLOBAL PARA ABRIR JANELAS
+        // ============================================
+        window.openWZZMWindow = function(url, title = 'Janela WZZM') {
+            console.log(`🌐 Abrindo janela via função global: ${title} -> ${url}`);
+            windowManager.createWindow(title, url, 'https://wazzimagiygg.com/iconmagic.png');
+        };
+
+        // ============================================
         // PROTEÇÃO E BLOQUEIO DE TECLAS
         // ============================================
         document.addEventListener('keydown', function(e) {
@@ -1253,6 +1818,18 @@
             
             if (e.key === 'Escape') {
                 registrationModal.style.display = 'none';
+            }
+            
+            // Ctrl+W para fechar janela ativa
+            if (e.ctrlKey && e.key === 'w' && windowManager.activeWindow) {
+                e.preventDefault();
+                windowManager.closeWindow(windowManager.activeWindow);
+            }
+            
+            // Ctrl+N para nova janela
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                openWindowBtn.click();
             }
         });
 
