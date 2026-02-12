@@ -1,0 +1,2162 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WazzimaGiygg Core</title>
+    <!-- Múltiplos fallbacks para favicon -->
+    <link rel="icon" href="favicom.png" type="image/x-icon">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="icon" href="https://wazzimagiygg.com/favicom.png" type="image/png">
+    <link rel="apple-touch-icon" href="https://wazzimagiygg.com/favicom.png">
+    <link rel="shortcut icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <style>
+        /* RESET E ESTILOS GERAIS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95));
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* TELA DE CARREGAMENTO */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid #0078d7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* TELA DE LOGIN */
+        #login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #login-screen h2 {
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #0078d7, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        #login-screen p {
+            margin-bottom: 40px;
+            opacity: 0.9;
+            font-size: 1.1em;
+            max-width: 500px;
+            line-height: 1.6;
+        }
+
+        #login-screen button {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #0078d7, #005a9e);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(0, 120, 215, 0.4);
+        }
+
+        #login-screen button:hover {
+            background: linear-gradient(135deg, #005a9e, #0078d7);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 120, 215, 0.5);
+        }
+
+        /* CONTAINER DO EMULADOR */
+        #emulator-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            z-index: 1;
+        }
+
+        /* BARRA DE CONTROLES */
+        .emulator-controls {
+            background: rgba(30, 30, 30, 0.95);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .control-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid #0078d7;
+        }
+
+        /* ÁREA DO EMULADOR */
+        .emulator-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #emulator-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+
+        /* MODAL DE VERIFICAÇÃO DE CADASTRO */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal {
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(40, 40, 40, 0.98));
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .modal h3 {
+            margin-bottom: 15px;
+            color: #0078d7;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        .modal-btn {
+            padding: 10px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            min-width: 120px;
+        }
+
+        .modal-btn.primary {
+            background: linear-gradient(135deg, #0078d7, #005a9e);
+            color: white;
+        }
+
+        .modal-btn.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        /* BOTÃO DE VERIFICAÇÃO */
+        .modal-btn.tertiary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #aaa;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* MENSAGENS */
+        .message {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 999999;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+
+        .message.success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .message.error {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .message.info {
+            background: #2196F3;
+            color: white;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* JANELAS SIMPLES (para UIDs) */
+        .simple-window {
+            position: fixed;
+            top: 50px;
+            left: 50px;
+            width: 800px;
+            height: 600px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            resize: both;
+            overflow: hidden;
+            min-width: 400px;
+            min-height: 300px;
+        }
+
+        .simple-window-header {
+            background: #0078d7;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 10px 10px 0 0;
+            cursor: move;
+            user-select: none;
+        }
+
+        .simple-window-header span {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .simple-window-header button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .simple-window-header button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .simple-window-frame {
+            flex: 1;
+            border: none;
+            border-radius: 0 0 10px 10px;
+        }
+
+        /* NOVO: MODAL DE LOGIN EMBUTIDO */
+        .inline-login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100000;
+            backdrop-filter: blur(10px);
+        }
+
+        .inline-login-box {
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(40, 40, 40, 0.98));
+            border-radius: 16px;
+            padding: 40px;
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .inline-login-box h3 {
+            color: #0078d7;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .inline-login-box p {
+            margin-bottom: 30px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .google-login-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 14px 24px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .google-login-btn:hover {
+            background: #f5f5f5;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .google-login-btn img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .close-login-btn {
+            padding: 10px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .close-login-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* NOVO: IFRAME OCULTO PARA LOGIN */
+        #hidden-login-frame {
+            position: fixed;
+            top: -1000px;
+            left: -1000px;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* RESPONSIVIDADE */
+        @media (max-width: 768px) {
+            .emulator-controls {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+            }
+            
+            .control-left {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .user-info {
+                font-size: 12px;
+            }
+
+            .modal-buttons {
+                flex-direction: column;
+            }
+            
+            .modal-btn {
+                width: 100%;
+            }
+
+            .simple-window {
+                top: 20px;
+                left: 20px;
+                width: calc(100% - 40px);
+                height: calc(100% - 40px);
+            }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <!-- TELA DE CARREGAMENTO -->
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p>Inicializando sistema...</p>
+    </div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" style="display: none;">
+        <h2>WazzimaGiygg Core</h2>
+        <p>Faça login com sua conta Google para acessar a plataforma</p>
+        <button id="loginBtn">🔐 Entrar com Google</button>
+    </div>
+
+    <!-- MODAL DE VERIFICAÇÃO DE CADASTRO -->
+    <div class="modal-overlay" id="registrationModal">
+        <div class="modal">
+            <h3>🎯 Cadastro Necessário</h3>
+            <p>Para acessar a plataforma, você precisa completar seu cadastro com informações pessoais.</p>
+            <p>Este processo é obrigatório e garante acesso total às funcionalidades do sistema.</p>
+            
+            <div id="registrationStatus">
+                <p>Verificando seu cadastro...</p>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" id="logoutBtn">🚪 Sair</button>
+                <button class="modal-btn primary" id="completeRegistrationBtn">📝 Completar Cadastro</button>
+                <button class="modal-btn tertiary" id="recheckBtn">🔄 Verificar Novamente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTAINER DO EMULADOR -->
+    <div id="emulator-container">
+        <div class="emulator-controls">
+            <div class="control-left">
+                <button class="control-btn" id="backBtn">← Voltar</button>
+                <button class="control-btn" id="reloadBtn">↻ Recarregar</button>
+                <button class="control-btn" id="homeBtn">🏠 Início</button>
+                <button class="control-btn" id="clearCacheBtn">🧹 Limpar Cache</button>
+                <button class="control-btn" id="fixImagesBtn">🖼️ Corrigir Imagens</button>
+                <button class="control-btn" id="desktopBtn">🖥️ Sistema Desktop</button>
+                <button class="control-btn" id="openWindowBtn">🪟 Nova Janela</button>
+            </div>
+            
+            <div class="user-info">
+                <img id="userAvatar" class="user-avatar" src="" alt="Avatar">
+                <div>
+                    <div id="userName">Carregando...</div>
+                    <div id="userEmail" style="font-size: 12px; opacity: 0.8;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="emulator-area">
+            <iframe id="emulator-frame" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+        </div>
+    </div>
+
+    <!-- NOVO: MODAL DE LOGIN EMBUTIDO (SEM POPUP) -->
+    <div id="inline-login-modal" class="inline-login-modal">
+        <div class="inline-login-box">
+            <h3>🔐 Login com Google</h3>
+            <p>Clique no botão abaixo para fazer login com sua conta Google. Uma nova janela será aberta e fechada automaticamente após a autenticação.</p>
+            
+            <button id="inline-google-login" class="google-login-btn">
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='24' height='24'><path fill='%23FFC107' d='M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z'/><path fill='%23FF3D00' d='M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z'/><path fill='%234CAF50' d='M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z'/><path fill='%231976D2' d='M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z'/></svg>" 
+                     alt="Google">
+                Entrar com Google
+            </button>
+            
+            <button id="close-inline-login" class="close-login-btn">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- NOVO: IFRAME OCULTO PARA COMUNICAÇÃO -->
+    <iframe id="hidden-login-frame" src="about:blank"></iframe>
+
+    <!-- Import Firebase - VERSÃO HÍBRIDA (usa popup mas parece mesma página) -->
+    <script type="module">
+        // ============================================
+        // CONFIGURAÇÃO DO FIREBASE
+        // ============================================
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithPopup, 
+            GoogleAuthProvider, 
+            onAuthStateChanged, 
+            signOut 
+        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc,
+            collection,
+            query,
+            where,
+            getDocs
+        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+
+        // ============================================
+        // PROCESSADOR DE PARÂMETROS URL
+        // ============================================
+        const urlParamsProcessor = {
+            getUidParam: function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const uid = urlParams.get('uid');
+                console.log(`🔍 UID detectado na URL: ${uid}`);
+                return uid;
+            },
+            
+            processUidParam: function(uidValue, userData) {
+                if (!uidValue || !userData) return false;
+                
+                console.log(`🎯 Processando UID para janela: ${uidValue}`);
+                
+                // Tipos de UID que podemos processar
+                const uidTypes = {
+                    'pdf': uidValue.includes('.pdf') || uidValue.toLowerCase().endsWith('pdf'),
+                    'html': uidValue.includes('.html') || uidValue.toLowerCase().endsWith('html'),
+                    'directUrl': uidValue.startsWith('http'),
+                    'wiki': uidValue.includes('wiki') || uidValue.includes('pedia'),
+                    'central': uidValue.includes('central'),
+                    'plain': !uidValue.includes('.') && !uidValue.startsWith('http')
+                };
+                
+                let finalUrl = '';
+                let windowTitle = 'Janela Externa';
+                
+                // Lógica de processamento do sistema antigo
+                if (uidTypes.directUrl) {
+                    finalUrl = uidValue;
+                    windowTitle = 'Link Externo';
+                } 
+                else if (uidTypes.pdf) {
+                    const filename = uidValue.includes('/') ? uidValue.split('/').pop() : uidValue;
+                    finalUrl = `https://wazzimagiygg.com/pdf/?uid=${encodeURIComponent(filename)}`;
+                    windowTitle = 'Documento PDF';
+                }
+                else if (uidTypes.html) {
+                    const filename = uidValue.includes('/') ? uidValue.split('/').pop() : uidValue;
+                    finalUrl = `https://wazzimagiygg.com/html/?uid=${encodeURIComponent(filename)}`;
+                    windowTitle = 'Página HTML';
+                }
+                else if (uidTypes.central) {
+                    finalUrl = `https://wazzimagiygg.com/central/?uid=${uidValue}`;
+                    windowTitle = 'Central WZZM';
+                }
+                else if (uidTypes.wiki) {
+                    finalUrl = `https://wazzimagiygg.com/r/?id=${uidValue}`;
+                    windowTitle = 'Wiki Not Pedia';
+                }
+                else if (uidTypes.plain) {
+                    // Tentar abrir como arquivo genérico
+                    finalUrl = `https://wazzimagiygg.com/pdf/?uid=${encodeURIComponent(uidValue)}`;
+                    windowTitle = 'Arquivo';
+                }
+                else {
+                    // Fallback geral
+                    finalUrl = `https://wazzimagiygg.com/${uidValue}`;
+                    windowTitle = 'Recurso WZZM';
+                }
+                
+                console.log(`🌐 URL final gerada: ${finalUrl}`);
+                
+                // Abrir em uma nova janela
+                this.openInNewWindow(windowTitle, finalUrl, userData);
+                return true;
+            },
+            
+            openInNewWindow: function(title, url, userData) {
+                console.log(`🪟 Abrindo janela: ${title} -> ${url}`);
+                
+                // Usar nosso sistema de janelas simples
+                try {
+                    const urlWithAuth = this.addAuthParams(url, userData);
+                    windowManager.createWindow(title, urlWithAuth, 'https://wazzimagiygg.com/iconmagic.png');
+                    showMessage(`✅ Janela aberta: ${title}`, 'success');
+                } catch (error) {
+                    console.error('❌ Erro ao abrir janela:', error);
+                    
+                    // Fallback: abrir em nova guia
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                }
+            },
+            
+            addAuthParams: function(url, userData) {
+                if (!userData || !url.includes('wazzimagiygg.com')) return url;
+                
+                try {
+                    const urlObj = new URL(url);
+                    
+                    // Adicionar parâmetros de autenticação se não existirem
+                    if (!urlObj.searchParams.has('uid')) {
+                        urlObj.searchParams.append('user', userData.uid);
+                        urlObj.searchParams.append('email', encodeURIComponent(userData.email));
+                    }
+                    
+                    return urlObj.toString();
+                } catch (error) {
+                    console.warn('⚠️ Não foi possível adicionar parâmetros de auth:', error);
+                    return url;
+                }
+            },
+            
+            extractUidFromUrl: function(url) {
+                if (!url) return null;
+                
+                const patterns = [
+                    /[?&]uid=([^&]+)/i,
+                    /\/pdf\/\?uid=([^&]+)/i,
+                    /\/html\/\?uid=([^&]+)/i,
+                    /\/central\/\?uid=([^&]+)/i,
+                    /\/r\/\?id=([^&]+)/i,
+                    /\/view\/\?id=([^&]+)/i
+                ];
+                
+                for (const pattern of patterns) {
+                    const match = url.match(pattern);
+                    if (match) return decodeURIComponent(match[1]);
+                }
+                
+                // Último segmento da URL
+                const lastSegment = url.split('/').pop();
+                if (lastSegment && lastSegment.includes('?')) {
+                    return lastSegment.split('?')[0];
+                }
+                
+                return lastSegment || null;
+            },
+            
+            normalizeString: function(str) {
+                if (!str) return '';
+                return str.toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^\w\s]/gi, '')
+                    .replace(/\s+/g, '-')
+                    .trim();
+            }
+        };
+
+        // ============================================
+        // GERENCIADOR DE UIDs (EVITA DUPLICAÇÃO)
+        // ============================================
+        const uidManager = {
+            processedUIDs: new Set(),
+            
+            shouldProcessUID: function(uid) {
+                if (!uid) return false;
+                
+                const key = `uid_${uid}_${currentUser?.uid || 'anonymous'}`;
+                
+                // Verificar se já processamos este UID
+                if (this.processedUIDs.has(key)) {
+                    console.log(`⏭️ UID já processado: ${uid}`);
+                    return false;
+                }
+                
+                // Verificar no sessionStorage
+                if (sessionStorage.getItem(key)) {
+                    console.log(`⏭️ UID já processado (session): ${uid}`);
+                    return false;
+                }
+                
+                // Marcar como processado
+                this.processedUIDs.add(key);
+                sessionStorage.setItem(key, 'true');
+                
+                // Limpar após 5 minutos (opcional)
+                setTimeout(() => {
+                    this.processedUIDs.delete(key);
+                    sessionStorage.removeItem(key);
+                }, 5 * 60 * 1000);
+                
+                return true;
+            },
+            
+            clearProcessedUIDs: function() {
+                this.processedUIDs.clear();
+                // Limpar também do sessionStorage
+                Object.keys(sessionStorage).forEach(key => {
+                    if (key.startsWith('uid_')) {
+                        sessionStorage.removeItem(key);
+                    }
+                });
+            }
+        };
+
+        // ============================================
+        // SISTEMA DE JANELAS
+        // ============================================
+        const windowManager = {
+            windows: [],
+            activeWindow: null,
+            windowCounter: 0,
+            
+            createWindow: function(title, url, icon = 'https://wazzimagiygg.com/iconmagic.png') {
+                this.windowCounter++;
+                const windowId = 'win_' + this.windowCounter;
+                
+                const windowElement = document.createElement('div');
+                windowElement.className = 'simple-window';
+                windowElement.id = windowId;
+                windowElement.innerHTML = `
+                    <div class="simple-window-header">
+                        <span>${title}</span>
+                        <button class="close-window">✖</button>
+                    </div>
+                    <iframe src="${url}" class="simple-window-frame"></iframe>
+                `;
+                
+                document.body.appendChild(windowElement);
+                
+                // Configurar drag and drop
+                this.setupWindowDrag(windowElement.querySelector('.simple-window-header'), windowElement);
+                
+                // Configurar botão de fechar
+                windowElement.querySelector('.close-window').onclick = () => {
+                    this.closeWindow(windowId);
+                };
+                
+                // Adicionar à lista de janelas
+                this.windows.push({
+                    id: windowId,
+                    element: windowElement,
+                    title: title,
+                    url: url
+                });
+                
+                // Ativar esta janela
+                this.activateWindow(windowId);
+                
+                return windowId;
+            },
+            
+            setupWindowDrag: function(header, windowElement) {
+                let isDragging = false;
+                let offsetX, offsetY;
+                
+                header.addEventListener('mousedown', (e) => {
+                    if (e.target.classList.contains('close-window')) return;
+                    
+                    isDragging = true;
+                    offsetX = e.clientX - windowElement.offsetLeft;
+                    offsetY = e.clientY - windowElement.offsetTop;
+                    
+                    // Ativar esta janela
+                    const windowId = windowElement.id;
+                    this.activateWindow(windowId);
+                    
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        windowElement.style.left = (e.clientX - offsetX) + 'px';
+                        windowElement.style.top = (e.clientY - offsetY) + 'px';
+                    }
+                });
+                
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+            },
+            
+            activateWindow: function(windowId) {
+                // Remover todas as classes ativas
+                this.windows.forEach(win => {
+                    win.element.style.zIndex = '10000';
+                });
+                
+                // Ativar a janela específica
+                const window = this.windows.find(w => w.id === windowId);
+                if (window) {
+                    window.element.style.zIndex = '10001';
+                    this.activeWindow = windowId;
+                }
+            },
+            
+            closeWindow: function(windowId) {
+                const index = this.windows.findIndex(w => w.id === windowId);
+                if (index !== -1) {
+                    this.windows[index].element.remove();
+                    this.windows.splice(index, 1);
+                    
+                    // Ativar a última janela se houver
+                    if (this.windows.length > 0) {
+                        this.activateWindow(this.windows[this.windows.length - 1].id);
+                    } else {
+                        this.activeWindow = null;
+                    }
+                }
+            },
+            
+            closeAllWindows: function() {
+                this.windows.forEach(win => {
+                    win.element.remove();
+                });
+                this.windows = [];
+                this.activeWindow = null;
+            }
+        };
+
+        // ============================================
+        // ELEMENTOS DO DOM
+        // ============================================
+        const loadingScreen = document.getElementById('loading-screen');
+        const loginScreen = document.getElementById('login-screen');
+        const loginBtn = document.getElementById('loginBtn');
+        const emulatorContainer = document.getElementById('emulator-container');
+        const emulatorFrame = document.getElementById('emulator-frame');
+        const registrationModal = document.getElementById('registrationModal');
+        const registrationStatus = document.getElementById('registrationStatus');
+        const completeRegistrationBtn = document.getElementById('completeRegistrationBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const recheckBtn = document.getElementById('recheckBtn');
+        const backBtn = document.getElementById('backBtn');
+        const reloadBtn = document.getElementById('reloadBtn');
+        const homeBtn = document.getElementById('homeBtn');
+        const clearCacheBtn = document.getElementById('clearCacheBtn');
+        const fixImagesBtn = document.getElementById('fixImagesBtn');
+        const desktopBtn = document.getElementById('desktopBtn');
+        const openWindowBtn = document.getElementById('openWindowBtn');
+        const userName = document.getElementById('userName');
+        const userEmail = document.getElementById('userEmail');
+        const userAvatar = document.getElementById('userAvatar');
+        
+        // NOVOS ELEMENTOS
+        const inlineLoginModal = document.getElementById('inline-login-modal');
+        const inlineGoogleLogin = document.getElementById('inline-google-login');
+        const closeInlineLogin = document.getElementById('close-inline-login');
+
+        // ============================================
+        // VARIÁVEIS GLOBAIS
+        // ============================================
+        let currentUser = null;
+        let importedHTML = '';
+        let isRegistrationComplete = false;
+
+        // ============================================
+        // FUNÇÕES DE UTILIDADE
+        // ============================================
+        function showMessage(message, type = 'info', duration = 3000) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => messageDiv.remove(), 300);
+            }, duration);
+        }
+
+        function showScreen(screen) {
+            loadingScreen.style.display = 'none';
+            loginScreen.style.display = 'none';
+            emulatorContainer.style.display = 'none';
+            registrationModal.style.display = 'none';
+            inlineLoginModal.style.display = 'none';
+            
+            switch(screen) {
+                case 'loading':
+                    loadingScreen.style.display = 'flex';
+                    break;
+                case 'login':
+                    loginScreen.style.display = 'flex';
+                    break;
+                case 'emulator':
+                    emulatorContainer.style.display = 'flex';
+                    break;
+                case 'registration':
+                    registrationModal.style.display = 'flex';
+                    break;
+                case 'inline-login':
+                    inlineLoginModal.style.display = 'flex';
+                    break;
+            }
+        }
+
+        // Função para escapar HTML
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================
+        // FUNÇÕES PARA CORRIGIR IMAGENS
+        // ============================================
+
+        // Função para corrigir caminhos de imagens no HTML
+        function fixImagePaths(html) {
+            console.log('🔧 Corrigindo caminhos de imagens no HTML...');
+            
+            // Substituir todos os src de imagens para URLs absolutas
+            let fixedHtml = html.replace(/src=["']([^"']*\.(png|jpg|jpeg|gif|svg|ico|webp))["']/gi, (match, src, extension) => {
+                console.log('📝 Imagem encontrada:', src);
+                
+                // Se já for URL absoluta, não alterar
+                if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+                    console.log('  ✅ Já é URL absoluta');
+                    return match;
+                }
+                
+                // Se for favicon e existe localmente, manter local
+                if (src.includes('favicom') || src.includes('favicon')) {
+                    console.log('  🔧 Favicon mantido local');
+                    return match;
+                }
+                
+                // Base URL do site
+                const baseUrl = 'https://wazzimagiygg.com/';
+                
+                let fixedSrc = src;
+                
+                // Limpar caminho
+                if (fixedSrc.startsWith('./')) {
+                    fixedSrc = fixedSrc.substring(2);
+                }
+                
+                // Adicionar base URL
+                if (!fixedSrc.startsWith('/')) {
+                    fixedSrc = baseUrl + fixedSrc;
+                } else {
+                    fixedSrc = baseUrl + fixedSrc.substring(1);
+                }
+                
+                console.log('  🔄 Convertido para:', fixedSrc);
+                
+                // Retornar com onerror para fallback
+                return `src="${fixedSrc}" onerror="console.log('❌ Falha ao carregar: \\'' + this.src + '\\''); this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"100\\" height=\\"100\\" viewBox=\\"0 0 100 100\\"><rect width=\\"100\\" height=\\"100\\" fill=\\"%230078d7\\"/><text x=\\"50\\" y=\\"50\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"white\\" text-anchor=\\"middle\\" dy=\\".3em\\">${src.split('/').pop()?.split('.')[0] || 'IMG'}</text></svg>';"`;
+            });
+            
+            // Também corrigir background-image em CSS
+            fixedHtml = fixedHtml.replace(/background-image:\s*url\(['"]?([^'"\)]+)['"]?\)/gi, (match, url) => {
+                console.log('🎨 Background-image encontrado:', url);
+                
+                if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+                    return match;
+                }
+                
+                const baseUrl = 'https://wazzimagiygg.com/';
+                let fixedUrl = url;
+                
+                if (fixedUrl.startsWith('./')) {
+                    fixedUrl = fixedUrl.substring(2);
+                }
+                
+                if (!fixedUrl.startsWith('/')) {
+                    fixedUrl = baseUrl + fixedUrl;
+                } else {
+                    fixedUrl = baseUrl + fixedUrl.substring(1);
+                }
+                
+                console.log('  🔄 Background convertido para:', fixedUrl);
+                return `background-image: url('${fixedUrl}')`;
+            });
+            
+            console.log('✅ Caminhos de imagens corrigidos');
+            return fixedHtml;
+        }
+
+        // Função para processar UIDs no conteúdo
+        function processUIDsInContent(htmlContent) {
+            console.log('🔗 Processando UIDs no conteúdo HTML...');
+            
+            // Encontrar links com UIDs e convertê-los para abrir em janelas
+            let processedHtml = htmlContent.replace(
+                /href=["']([^"']*\?uid=[^"']+)["']/gi,
+                (match, href) => {
+                    console.log('🔗 Link UID encontrado:', href);
+                    
+                    // Extrair título do link (buscar texto entre tags <a>)
+                    const linkText = match.match(/<a[^>]*>([^<]*)<\/a>/i);
+                    const title = linkText ? linkText[1] : 'Documento';
+                    
+                    // Converter para função JavaScript que abre em janela
+                    return `href="javascript:void(0)" onclick="if(window.parent&&window.parent.openWZZMWindow){window.parent.openWZZMWindow('${href}','${escapeHTML(title)}');}else{window.open('${href}','_blank');}"`;
+                }
+            );
+            
+            // Também processar formulários com UID
+            processedHtml = processedHtml.replace(
+                /action=["']([^"']*\?uid=[^"']+)["']/gi,
+                (match, action) => {
+                    console.log('🔗 Form action UID encontrado:', action);
+                    return `action="${action}" target="_blank"`;
+                }
+            );
+            
+            console.log('✅ UIDs processados no conteúdo');
+            return processedHtml;
+        }
+
+        // Função para injetar script de correção no iframe
+        function injectImageFixScript() {
+            if (emulatorFrame.contentWindow) {
+                try {
+                    const script = document.createElement('script');
+                    script.textContent = `
+                        // Script de correção de imagens
+                        console.log('🖼️ Injetando script de correção de imagens...');
+                        
+                        // Mapeamento de imagens conhecidas
+                        const imageMap = {
+                            'logo.png': 'https://wazzimagiygg.com/logo.png',
+                            'bg.png': 'https://wazzimagiygg.com/images/bg.png',
+                            'icon.png': 'https://wazzimagiygg.com/icons/icon.png',
+                            'background.png': 'https://wazzimagiygg.com/background.png',
+                            'hero.png': 'https://wazzimagiygg.com/images/hero.png',
+                            'loading.gif': 'https://wazzimagiygg.com/loading.gif',
+                            'spinner.gif': 'https://wazzimagiygg.com/spinner.gif',
+                            'profile.png': 'https://wazzimagiygg.com/profile.png',
+                            'avatar.png': 'https://wazzimagiygg.com/avatar.png'
+                        };
+                        
+                        // Função para corrigir uma imagem
+                        function fixImage(img) {
+                            const originalSrc = img.src;
+                            const filename = originalSrc.split('/').pop();
+                            
+                            // Se já é uma URL do wazzimagiygg ou data URL, não fazer nada
+                            if (originalSrc.includes('wazzimagiygg.com') || originalSrc.startsWith('data:')) {
+                                return;
+                            }
+                            
+                            // Se temos mapeamento conhecido, usar ele
+                            if (imageMap[filename]) {
+                                img.src = imageMap[filename];
+                                console.log('🔄 Imagem redirecionada:', filename, '->', imageMap[filename]);
+                                return;
+                            }
+                            
+                            // Lista de possíveis locais para tentar
+                            const fallbacks = [
+                                'https://wazzimagiygg.com/' + filename,
+                                'https://wazzimagiygg.com/images/' + filename,
+                                'https://wazzimagiygg.com/img/' + filename,
+                                'https://wazzimagiygg.com/assets/' + filename,
+                                'https://wazzimagiygg.com/icons/' + filename,
+                                'https://wazzimagiygg.com/media/' + filename,
+                                'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0078d7"/><text x="50" y="50" font-family="Arial" font-size="10" fill="white" text-anchor="middle" dy=".3em">' + (filename.split('.')[0] || 'IMG') + '</text></svg>'
+                            ];
+                            
+                            let currentIndex = 0;
+                            const originalErrorHandler = img.onerror;
+                            
+                            img.onerror = function() {
+                                if (currentIndex < fallbacks.length) {
+                                    this.src = fallbacks[currentIndex];
+                                    currentIndex++;
+                                    console.log('🔄 Tentando fallback ' + currentIndex + ':', this.src);
+                                } else if (originalErrorHandler) {
+                                    originalErrorHandler.call(this);
+                                }
+                            };
+                            
+                            // Se a imagem já falhou, disparar o handler de erro
+                            if (img.complete && img.naturalHeight === 0) {
+                                img.onerror();
+                            }
+                        }
+                        
+                        // Aplicar a todas as imagens existentes
+                        document.querySelectorAll('img').forEach(fixImage);
+                        
+                        // Observar novas imagens adicionadas dinamicamente
+                        const observer = new MutationObserver((mutations) => {
+                            mutations.forEach((mutation) => {
+                                mutation.addedNodes.forEach((node) => {
+                                    if (node.tagName === 'IMG') {
+                                        fixImage(node);
+                                    } else if (node.querySelectorAll) {
+                                        node.querySelectorAll('img').forEach(fixImage);
+                                    }
+                                });
+                            });
+                        });
+                        
+                        observer.observe(document.body, { childList: true, subtree: true });
+                        
+                        console.log('✅ Sistema de correção de imagens ativado');
+                    `;
+                    
+                    emulatorFrame.contentDocument.head.appendChild(script);
+                    console.log('✅ Script de correção injetado no iframe');
+                    showMessage('✅ Script de correção de imagens injetado', 'success');
+                } catch (error) {
+                    console.warn('⚠️ Não foi possível injetar script:', error.message);
+                    showMessage('Erro ao corrigir imagens', 'error');
+                }
+            }
+        }
+
+        // ============================================
+        // IMPORTAR HTML EXTERNO
+        // ============================================
+        async function importExternalHTML() {
+            try {
+                const sources = [
+                    'index.txt',
+                    'https://wazzimagiygg.com/index.txt',
+                    'index2.html',
+                    'https://wazzimagiygg.com/index2.html'
+                ];
+                
+                let htmlContent = '';
+                
+                for (const source of sources) {
+                    try {
+                        console.log(`🔍 Tentando importar de: ${source}`);
+                        const response = await fetch(source);
+                        if (response.ok) {
+                            htmlContent = await response.text();
+                            
+                            // Limpar BOM de arquivos .txt
+                            if (source.includes('.txt')) {
+                                htmlContent = htmlContent.replace(/^\uFEFF/, '');
+                            }
+                            
+                            console.log(`✅ Importado de: ${source}`);
+                            
+                            // PROCESSAR UIDs no conteúdo importado
+                            htmlContent = processUIDsInContent(htmlContent);
+                            
+                            // CORREÇÃO IMPORTANTE: Fixar caminhos de imagens
+                            htmlContent = fixImagePaths(htmlContent);
+                            
+                            // Adicionar script de fallback no final do body
+                            htmlContent = htmlContent.replace('</body>', `
+                                <!-- Script de processamento de UIDs e imagens -->
+                                <script>
+                                    console.log('🔗 Script de UIDs carregado');
+                                    
+                                    // Processar UIDs na inicialização
+                                    window.addEventListener('load', function() {
+                                        const urlParams = new URLSearchParams(window.location.search);
+                                        const uid = urlParams.get('uid');
+                                        
+                                        // Verificar se o UID já foi processado pelo sistema pai
+                                        if (uid && window.parent && window.parent.openWZZMWindow) {
+                                            // Verificar com o sistema pai se já processou este UID
+                                            const checkUID = new Promise((resolve) => {
+                                                const handler = (event) => {
+                                                    if (event.data.type === 'uidCheckResponse' && event.data.uid === uid) {
+                                                        window.removeEventListener('message', handler);
+                                                        resolve(event.data.processed);
+                                                    }
+                                                };
+                                                
+                                                window.addEventListener('message', handler);
+                                                
+                                                // Pedir verificação ao parent
+                                                window.parent.postMessage({
+                                                    type: 'uidCheckRequest',
+                                                    uid: uid
+                                                }, '*');
+                                                
+                                                // Timeout de segurança
+                                                setTimeout(() => resolve(true), 1000);
+                                            });
+                                            
+                                            checkUID.then((alreadyProcessed) => {
+                                                if (!alreadyProcessed) {
+                                                    console.log('🔗 UID detectado no iframe (não processado):', uid);
+                                                    setTimeout(() => {
+                                                        window.parent.openWZZMWindow(
+                                                            'https://wazzimagiygg.com/pdf/?uid=' + encodeURIComponent(uid),
+                                                            'Documento: ' + uid
+                                                        );
+                                                    }, 1500);
+                                                } else {
+                                                    console.log('⏭️ UID ignorado no iframe (já processado):', uid);
+                                                }
+                                            });
+                                        }
+                                        
+                                        // Corrigir imagens que podem ter sido carregadas antes do script
+                                        setTimeout(() => {
+                                            const images = document.querySelectorAll('img');
+                                            images.forEach(img => {
+                                                if (!img.src.includes('wazzimagiygg.com') && !img.src.startsWith('data:')) {
+                                                    const filename = img.src.split('/').pop();
+                                                    img.src = 'https://wazzimagiygg.com/' + filename;
+                                                }
+                                            });
+                                        }, 100);
+                                    });
+                                    
+                                    // Interceptar cliques em links com UID
+                                    document.addEventListener('click', function(e) {
+                                        const link = e.target.closest('a');
+                                        if (link && link.href) {
+                                            const href = link.href;
+                                            
+                                            // Verificar se é um link com UID
+                                            if (href.includes('?uid=') || href.includes('/pdf/') || href.includes('/html/') || 
+                                                href.includes('/central/') || href.includes('/r/?id=')) {
+                                                e.preventDefault();
+                                                console.log('🔗 Link UID clicado:', href);
+                                                
+                                                if (window.parent && window.parent.openWZZMWindow) {
+                                                    window.parent.openWZZMWindow(href, link.textContent || 'Documento');
+                                                } else {
+                                                    window.open(href, '_blank');
+                                                }
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Função global para abrir janelas
+                                    window.openWZZMWindow = function(url, title) {
+                                        if (window.parent && window.parent.openWZZMWindow) {
+                                            window.parent.openWZZMWindow(url, title);
+                                        } else {
+                                            window.open(url, '_blank');
+                                        }
+                                    };
+                                <\/script>
+                                </body>
+                            `);
+                            
+                            break;
+                        }
+                    } catch (error) {
+                        console.log(`⚠️ Erro ao carregar ${source}:`, error.message);
+                    }
+                }
+                
+                if (!htmlContent || htmlContent.trim() === '') {
+                    console.log('⚠️ Nenhum conteúdo importado, usando HTML padrão');
+                    htmlContent = createDefaultHTML();
+                }
+                
+                // Verificar se é HTML válido
+                if (!htmlContent.includes('<!DOCTYPE') && !htmlContent.includes('<html')) {
+                    console.log('⚠️ Conteúdo não parece HTML válido, adicionando estrutura');
+                    htmlContent = wrapInHTMLStructure(htmlContent);
+                }
+                
+                // Salvar no localStorage para cache
+                try {
+                    localStorage.setItem('importedHTML', htmlContent);
+                    localStorage.setItem('importedHTMLTimestamp', Date.now());
+                    console.log('💾 HTML salvo no cache do localStorage');
+                } catch (storageError) {
+                    console.warn('⚠️ Não foi possível salvar no localStorage:', storageError.message);
+                }
+                
+                return htmlContent;
+                
+            } catch (error) {
+                console.error('❌ Erro crítico ao importar HTML:', error);
+                showMessage('Erro ao carregar conteúdo do sistema', 'error');
+                return createDefaultHTML();
+            }
+        }
+
+        // Função para criar HTML padrão de fallback
+        function createDefaultHTML() {
+            return `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema WZZM</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 20px 0;
+        }
+        .user-info {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .link-btn {
+            background: #0078d7;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .link-btn:hover {
+            background: #005a9e;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Sistema WZZM</h1>
+        <div class="status">✅ Sistema carregado com sucesso</div>
+        <p>Bem-vindo ao sistema principal.</p>
+        <div class="user-info">
+            <p><strong>Usuário:</strong> <span id="currentUser">Carregando...</span></p>
+            <p><strong>Status:</strong> <span id="userStatus">Conectado</span></p>
+            <p><strong>UID Atual:</strong> <span id="currentUid">Nenhum</span></p>
+        </div>
+        
+        <div class="links">
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/pdf/?uid=Termos%20de%20Servi%C3%A7o.pdf','Termos')" class="link-btn">📄 Termos de Serviço</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/r/?id=wiki','Wiki')" class="link-btn">📚 Wiki Not Pedia</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/central/','Central')" class="link-btn">⚙️ Central WZZM</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/html/?uid=contato','Contato')" class="link-btn">💬 Contato</a>
+        </div>
+        
+        <p style="margin-top: 20px; font-size: 14px; color: #666;">Para abrir documentos, use: ?uid=nome_do_arquivo</p>
+    </div>
+    <script>
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'userData') {
+                document.getElementById('currentUser').textContent = 
+                    event.data.user.displayName || event.data.user.email || 'Usuário';
+                document.getElementById('userStatus').textContent = '✅ Conectado';
+            }
+            if (event.data.type === 'uidParam') {
+                document.getElementById('currentUid').textContent = event.data.uid || 'Nenhum';
+            }
+        });
+        
+        // Solicitar dados do usuário
+        window.parent.postMessage({ type: 'requestUserData' }, '*');
+        
+        // Verificar se há UID na URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const uid = urlParams.get('uid');
+        if (uid) {
+            window.parent.postMessage({ type: 'uidParam', uid: uid }, '*');
+        }
+        
+        // Função global para abrir janelas
+        window.openWZZMWindow = function(url, title) {
+            if (window.parent && window.parent.openWZZMWindow) {
+                window.parent.openWZZMWindow(url, title);
+            } else {
+                window.open(url, '_blank');
+            }
+        };
+    <\/script>
+</body>
+</html>`;
+        }
+
+        // Função para envolver conteúdo simples em estrutura HTML
+        function wrapInHTMLStructure(content) {
+            return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema WZZM</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+        .uid-link {
+            color: #0078d7;
+            text-decoration: none;
+            border-bottom: 1px dashed #0078d7;
+            cursor: pointer;
+        }
+        .uid-link:hover {
+            color: #005a9e;
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Conteúdo Importado</h1>
+        <p>O sistema carregou o seguinte conteúdo:</p>
+        <div id="processed-content"></div>
+    </div>
+    <script>
+        // Processar links UID no conteúdo
+        function processContent(content) {
+            // Encontrar links com UID e torná-los clicáveis
+            const processed = content.replace(
+                /(?:href=["'])?([^"'\s]*\\?uid=[^"'\s]+)(?:["'])?/gi,
+                function(match, url) {
+                    const title = url.split('?uid=')[1] || 'Documento';
+                    return '<a href="javascript:void(0)" onclick="openWZZMWindow(\\\\'' + url + '\\\\', \\\\'' + title + '\\\\')" class="uid-link">' + url + '</a>';
+                }
+            );
+            
+            document.getElementById('processed-content').innerHTML = '<pre>' + 
+                processed.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+        }
+        
+        processContent(\`${escapeHTML(content)}\`);
+        
+        // Função para abrir janelas
+        window.openWZZMWindow = function(url, title) {
+            if (window.parent && window.parent.openWZZMWindow) {
+                window.parent.openWZZMWindow(url, title);
+            } else {
+                window.open(url, '_blank');
+            }
+        };
+        
+        // Comunicar com o parent
+        window.parent.postMessage({ type: 'contentLoaded' }, '*');
+    <\/script>
+</body>
+</html>`;
+        }
+
+        // ============================================
+        // VERIFICAR CADASTRO DO CLIENTE
+        // ============================================
+        async function checkClientRegistration(userId) {
+            try {
+                console.log(`🔍 Verificando cadastro do cliente: ${userId}`);
+                
+                const clientDoc = await getDoc(doc(db, "clients", userId));
+                
+                if (clientDoc.exists()) {
+                    console.log('✅ Cliente encontrado no Firestore');
+                    const data = clientDoc.data();
+                    
+                    // VERIFICAÇÃO SIMPLIFICADA
+                    const hasFullName = data.fullName && data.fullName.trim() !== '';
+                    const hasCPF = data.cpf && data.cpf.trim() !== '';
+                    const hasBirthDate = data.birthDate;
+                    const hasCity = data.city && data.city.trim() !== '';
+                    const hasState = data.state && data.state.trim() !== '';
+                    const hasAddress = data.address && data.address.trim() !== '';
+                    const hasPhoneDDD = data.phoneDDD && data.phoneDDD.trim() !== '';
+                    const hasAcceptedTerms = data.acceptedTerms === true;
+                    const hasAcceptedPrivacy = data.acceptedPrivacyPolicy === true;
+                    
+                    // Requisitos mínimos para cadastro completo
+                    const isComplete = hasFullName && hasCPF && hasBirthDate && 
+                                     hasCity && hasState && hasPhoneDDD &&
+                                     hasAcceptedTerms && hasAcceptedPrivacy;
+                    
+                    console.log(`📊 Cadastro ${isComplete ? 'COMPLETO' : 'INCOMPLETO'}`);
+                    
+                    if (isComplete) {
+                        return {
+                            complete: true,
+                            clientData: data,
+                            message: 'Cadastro completo'
+                        };
+                    } else {
+                        const missingFields = [];
+                        if (!hasFullName) missingFields.push('nome completo');
+                        if (!hasCPF) missingFields.push('CPF');
+                        if (!hasBirthDate) missingFields.push('data de nascimento');
+                        if (!hasCity) missingFields.push('cidade');
+                        if (!hasState) missingFields.push('estado');
+                        if (!hasAddress) missingFields.push('endereço');
+                        if (!hasPhoneDDD) missingFields.push('DDD do telefone');
+                        if (!hasAcceptedTerms) missingFields.push('aceite dos termos');
+                        if (!hasAcceptedPrivacy) missingFields.push('aceite da política de privacidade');
+                        
+                        return {
+                            complete: false,
+                            missingFields: missingFields,
+                            clientData: data,
+                            message: 'Cadastro incompleto'
+                        };
+                    }
+                    
+                } else {
+                    console.log('❌ Cliente não encontrado no Firestore');
+                    return {
+                        complete: false,
+                        missingFields: ['cadastro não existe'],
+                        clientData: null,
+                        message: 'Cadastro não encontrado'
+                    };
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro ao verificar cadastro:', error);
+                return {
+                    complete: false,
+                    missingFields: ['erro na verificação'],
+                    error: error.message,
+                    message: 'Erro ao verificar cadastro'
+                };
+            }
+        }
+
+        // ============================================
+        // CARREGAR E EXIBIR CONTEÚDO
+        // ============================================
+        async function loadContent() {
+            try {
+                showScreen('loading');
+                
+                console.log('🔧 === INICIANDO CARREGAMENTO ===');
+                
+                // 1. Verificar autenticação
+                if (!currentUser) {
+                    console.log('⚠️ Usuário não autenticado');
+                    showScreen('login');
+                    return;
+                }
+                
+                console.log(`👤 Usuário: ${currentUser.email} (UID: ${currentUser.uid})`);
+                
+                // 2. Verificar se há parâmetro UID na URL (EVITAR DUPLICAÇÃO)
+                const uidParam = urlParamsProcessor.getUidParam();
+                if (uidParam && uidManager.shouldProcessUID(uidParam)) {
+                    console.log(`🎯 Parâmetro UID detectado (primeira vez): ${uidParam}`);
+                    
+                    // Processar para abrir janela com pequeno delay
+                    const userData = {
+                        uid: currentUser.uid,
+                        displayName: currentUser.displayName,
+                        email: currentUser.email,
+                        photoURL: currentUser.photoURL
+                    };
+                    
+                    // Pequeno delay para garantir que o sistema está estável
+                    setTimeout(() => {
+                        urlParamsProcessor.processUidParam(uidParam, userData);
+                        console.log(`✅ UID processado após delay: ${uidParam}`);
+                    }, 800); // 0.8 segundos de delay
+                    
+                } else if (uidParam) {
+                    console.log(`⏭️ UID ignorado (já foi processado): ${uidParam}`);
+                }
+                
+                // 3. Importar HTML (se necessário)
+                if (!importedHTML) {
+                    console.log('📥 Importando HTML...');
+                    importedHTML = await importExternalHTML();
+                } else {
+                    console.log('📁 Usando HTML em cache');
+                }
+                
+                // 4. Verificar cadastro
+                console.log('🔍 Verificando cadastro...');
+                const registrationCheck = await checkClientRegistration(currentUser.uid);
+                
+                console.log('📊 Resultado da verificação:', registrationCheck);
+                
+                if (registrationCheck.complete) {
+                    console.log('✅ Cadastro completo, mostrando emulador');
+                    isRegistrationComplete = true;
+                    showEmulator();
+                } else {
+                    console.log('⚠️ Cadastro incompleto, mostrando modal');
+                    showRegistrationModal(registrationCheck);
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro no carregamento:', error);
+                showMessage('Erro: ' + error.message, 'error');
+                showScreen('login');
+            }
+        }
+
+        // ============================================
+        // MOSTRAR EMULADOR
+        // ============================================
+        function showEmulator() {
+            // Atualizar informações do usuário
+            userName.textContent = currentUser.displayName || 'Usuário';
+            userEmail.textContent = currentUser.email || '';
+            
+            // Carregar avatar com fallback
+            const avatarSrc = currentUser.photoURL || 
+                'https://ui-avatars.com/api/?name=' + encodeURIComponent(currentUser.displayName || 'U') + 
+                '&background=0078d7&color=fff&size=32';
+            userAvatar.src = avatarSrc;
+            
+            console.log('🖼️ Carregando conteúdo no iframe...');
+            
+            // Carregar conteúdo no iframe
+            try {
+                const blob = new Blob([importedHTML], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                emulatorFrame.src = url;
+                
+                console.log('✅ Iframe carregado com URL blob');
+                
+                // Quando o iframe carregar, enviar dados do usuário
+                emulatorFrame.onload = function() {
+                    console.log('✅ Iframe carregado, enviando dados do usuário...');
+                    
+                    // Liberar URL do blob
+                    URL.revokeObjectURL(url);
+                    
+                    // Injeta script de correção de imagens
+                    setTimeout(() => {
+                        injectImageFixScript();
+                    }, 500);
+                    
+                    // Enviar dados do usuário
+                    try {
+                        emulatorFrame.contentWindow.postMessage({
+                            type: 'userData',
+                            user: {
+                                uid: currentUser.uid,
+                                displayName: currentUser.displayName,
+                                email: currentUser.email,
+                                photoURL: currentUser.photoURL
+                            }
+                        }, '*');
+                        
+                        // Enviar parâmetro UID se houver
+                        const uidParam = urlParamsProcessor.getUidParam();
+                        if (uidParam) {
+                            emulatorFrame.contentWindow.postMessage({
+                                type: 'uidParam',
+                                uid: uidParam
+                            }, '*');
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ Não foi possível enviar mensagem para iframe:', error.message);
+                    }
+                };
+                
+            } catch (error) {
+                console.error('❌ Erro ao carregar iframe:', error);
+                emulatorFrame.srcdoc = importedHTML; // Fallback
+            }
+            
+            showScreen('emulator');
+            showMessage('✅ Sistema carregado com sucesso!', 'success');
+        }
+
+        // ============================================
+        // MOSTRAR MODAL DE CADASTRO
+        // ============================================
+        function showRegistrationModal(registrationCheck) {
+            let statusHTML = '';
+            
+            if (registrationCheck.missingFields.includes('cadastro não existe')) {
+                statusHTML = `
+                    <p style="color: #ff6b6b;">❌ Você ainda não possui cadastro.</p>
+                    <p style="font-size: 14px; margin-top: 10px;">É necessário criar um cadastro para acessar o sistema.</p>
+                `;
+            } else if (registrationCheck.missingFields.includes('erro na verificação')) {
+                statusHTML = `
+                    <p style="color: #ff6b6b;">⚠️ Erro ao verificar cadastro.</p>
+                    <p style="font-size: 14px; margin-top: 10px;">${registrationCheck.error || 'Tente novamente mais tarde'}</p>
+                `;
+            } else {
+                statusHTML = `
+                    <p style="color: #ffa726;">⚠️ Cadastro incompleto</p>
+                    <p style="font-size: 14px; opacity: 0.8;">Faltam ${registrationCheck.missingFields.length} informação(ões)</p>
+                    <div style="font-size: 13px; opacity: 0.9; margin-top: 15px; max-height: 120px; overflow-y: auto; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px;">
+                        ${registrationCheck.missingFields.map(field => `<div style="padding: 3px 0;">• ${field}</div>`).join('')}
+                    </div>
+                    <p style="font-size: 12px; margin-top: 10px; color: #aaa;">Complete seu cadastro para acessar todas as funcionalidades</p>
+                `;
+            }
+            
+            registrationStatus.innerHTML = statusHTML;
+            showScreen('registration');
+        }
+
+        // ============================================
+        // FUNÇÃO PARA LIMPAR CACHE
+        // ============================================
+        function clearCacheAndReload() {
+            console.log('🧹 Limpando cache...');
+            localStorage.removeItem('importedHTML');
+            localStorage.removeItem('importedHTMLTimestamp');
+            importedHTML = '';
+            showMessage('✅ Cache limpo, recarregando...', 'success');
+            setTimeout(() => loadContent(), 1000);
+        }
+
+        // ============================================
+        // AUTENTICAÇÃO - VERSÃO HÍBRIDA
+        // ============================================
+        
+        // Botão original da tela de login
+        loginBtn.addEventListener('click', () => {
+            // Fechar tela de login e mostrar modal inline
+            showScreen('inline-login');
+        });
+
+        // Botão de login no modal inline
+        inlineGoogleLogin.addEventListener('click', async () => {
+            try {
+                console.log('👤 Iniciando login com Google (popup)...');
+                
+                // Mostrar mensagem de carregamento
+                showMessage('Abrindo janela de autenticação...', 'info', 2000);
+                
+                // Usar signInWithPopup (único método que funciona sem configuração de domínio)
+                const result = await signInWithPopup(auth, provider);
+                
+                console.log('✅ Login bem-sucedido:', result.user.email);
+                currentUser = result.user;
+                
+                // Fechar modal de login
+                showScreen('loading');
+                
+                // Carregar conteúdo
+                await loadContent();
+                
+            } catch (error) {
+                console.error('❌ Erro no login:', error);
+                
+                if (error.code === 'auth/popup-blocked') {
+                    showMessage('Popup bloqueado! Por favor, permita popups para este site.', 'error', 5000);
+                } else {
+                    showMessage(`Erro no login: ${error.message}`, 'error', 5000);
+                }
+                
+                showScreen('login');
+            }
+        });
+
+        // Fechar modal de login
+        closeInlineLogin.addEventListener('click', () => {
+            showScreen('login');
+        });
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        completeRegistrationBtn.addEventListener('click', () => {
+            console.log('📝 Redirecionando para cadastro...');
+            const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
+            
+            // Abrir em nova janela
+            window.open(registrationUrl, '_blank', 'noopener,noreferrer');
+            
+            registrationModal.style.display = 'none';
+            showMessage('Redirecionando para cadastro...', 'info');
+        });
+
+        recheckBtn.addEventListener('click', async () => {
+            if (currentUser) {
+                showMessage('🔍 Verificando cadastro...', 'info');
+                const check = await checkClientRegistration(currentUser.uid);
+                showRegistrationModal(check);
+                
+                if (check.complete) {
+                    setTimeout(() => {
+                        showEmulator();
+                    }, 1000);
+                }
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                // Fechar todas as janelas abertas
+                windowManager.closeAllWindows();
+                
+                await signOut(auth);
+                showMessage('✅ Logout realizado', 'success');
+                showScreen('login');
+            } catch (error) {
+                console.error('❌ Erro no logout:', error);
+                showMessage('Erro ao fazer logout', 'error');
+            }
+        });
+
+        backBtn.addEventListener('click', () => {
+            try {
+                emulatorFrame.contentWindow.history.back();
+            } catch (error) {
+                console.warn('⚠️ Não foi possível voltar:', error.message);
+            }
+        });
+
+        reloadBtn.addEventListener('click', () => {
+            emulatorFrame.contentWindow.location.reload();
+        });
+
+        homeBtn.addEventListener('click', () => {
+            loadContent();
+        });
+
+        clearCacheBtn.addEventListener('click', clearCacheAndReload);
+
+        fixImagesBtn.addEventListener('click', () => {
+            injectImageFixScript();
+        });
+
+        desktopBtn.addEventListener('click', () => {
+            console.log('🖥️ Abrindo sistema desktop...');
+            
+            // URL do sistema desktop original
+            const desktopUrl = `https://wazzimagiygg.com/index.txt?uid=${currentUser.uid}`;
+            
+            // Abrir em nova janela
+            window.open(desktopUrl, '_blank', 'noopener,noreferrer');
+            
+            showMessage('🖥️ Sistema desktop aberto em nova janela', 'info');
+        });
+
+        openWindowBtn.addEventListener('click', () => {
+            const url = prompt('Digite a URL para abrir em nova janela:', 'https://wazzimagiygg.com/');
+            const title = prompt('Digite o título da janela:', 'Nova Janela');
+            
+            if (url && title) {
+                windowManager.createWindow(title, url, 'https://wazzimagiygg.com/iconmagic.png');
+            }
+        });
+
+        // ============================================
+        // LISTENER DE MENSAGENS DO IFRAME
+        // ============================================
+        window.addEventListener('message', (event) => {
+            console.log('📨 Mensagem recebida do iframe:', event.data.type);
+            
+            if (event.data.type === 'registrationCompleted') {
+                console.log('✅ Cadastro completado notificado pelo iframe');
+                showMessage('✅ Cadastro verificado! Recarregando...', 'success');
+                setTimeout(() => loadContent(), 1500);
+            }
+            
+            if (event.data.type === 'requestUserData') {
+                if (currentUser) {
+                    event.source.postMessage({
+                        type: 'userData',
+                        user: {
+                            uid: currentUser.uid,
+                            displayName: currentUser.displayName,
+                            email: currentUser.email,
+                            photoURL: currentUser.photoURL
+                        }
+                    }, event.origin);
+                }
+            }
+            
+            if (event.data.type === 'contentLoaded') {
+                console.log('✅ Conteúdo do iframe carregado com sucesso');
+            }
+            
+            // NOVO: Handler para verificação de UID
+            if (event.data.type === 'uidCheckRequest' && event.data.uid) {
+                const alreadyProcessed = uidManager.processedUIDs.has(
+                    `uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`
+                ) || sessionStorage.getItem(`uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`);
+                
+                // Responder ao iframe
+                event.source.postMessage({
+                    type: 'uidCheckResponse',
+                    uid: event.data.uid,
+                    processed: !!alreadyProcessed
+                }, event.origin);
+            }
+        });
+
+        // ============================================
+        // INICIALIZAÇÃO DO SISTEMA
+        // ============================================
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                console.log('👤 Usuário autenticado detectado:', user.email);
+                
+                await loadContent();
+                
+            } else {
+                console.log('👤 Nenhum usuário autenticado');
+                currentUser = null;
+                showScreen('login');
+            }
+        });
+
+        // ============================================
+        // FUNÇÃO GLOBAL PARA ABRIR JANELAS
+        // ============================================
+        window.openWZZMWindow = function(url, title = 'Janela WZZM') {
+            console.log(`🌐 Abrindo janela via função global: ${title} -> ${url}`);
+            windowManager.createWindow(title, url, 'https://wazzimagiygg.com/iconmagic.png');
+        };
+
+        // ============================================
+        // PROTEÇÃO E BLOQUEIO DE TECLAS
+        // ============================================
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+                (e.ctrlKey && e.shiftKey && e.key === 'J') || 
+                (e.ctrlKey && e.key === 'U')) {
+                e.preventDefault();
+                console.log('🛡️ Tecla de desenvolvedor bloqueada');
+                return false;
+            }
+            
+            if (e.key === 'Escape') {
+                registrationModal.style.display = 'none';
+                inlineLoginModal.style.display = 'none';
+            }
+            
+            // Ctrl+W para fechar janela ativa
+            if (e.ctrlKey && e.key === 'w' && windowManager.activeWindow) {
+                e.preventDefault();
+                windowManager.closeWindow(windowManager.activeWindow);
+            }
+            
+            // Ctrl+N para nova janela
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                openWindowBtn.click();
+            }
+        });
+
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
+        });
+
+        // ============================================
+        // INICIAR SISTEMA
+        // ============================================
+        console.log('🚀 Sistema Emulador WZZM inicializando...');
+        
+        // Verificar se há HTML salvo no localStorage
+        try {
+            const savedHTML = localStorage.getItem('importedHTML');
+            if (savedHTML) {
+                importedHTML = savedHTML;
+                console.log('📁 HTML carregado do cache do localStorage');
+            }
+        } catch (error) {
+            console.warn('⚠️ Não foi possível acessar localStorage:', error.message);
+        }
+        
+        // Aguardar um pouco para mostrar a tela de loading
+        setTimeout(() => {
+            if (auth.currentUser) {
+                currentUser = auth.currentUser;
+                console.log('👤 Usuário já logado detectado');
+                loadContent();
+            } else {
+                console.log('👤 Nenhum usuário logado, mostrando tela de login');
+                showScreen('login');
+            }
+        }, 1000);
+
+    </script>
+    
+    <!-- Script para diagnóstico de imagens -->
+    <script>
+        // Diagnóstico de imagens PNG
+        console.log('🖼️ DIAGNÓSTICO DE IMAGENS PNG');
+        
+        // Lista de imagens que deveriam existir
+        const imagesToCheck = [
+            'favicom.png',
+            'logo.png',
+            'bg.png',
+            'icon.png',
+            'background.png',
+            'hero.png',
+            'loading.gif',
+            'spinner.gif'
+        ];
+        
+        // Função para verificar se uma imagem existe
+        async function checkImage(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ url, status: '✅ OK' });
+                img.onerror = () => resolve({ url, status: '❌ FALHA' });
+                img.src = url + '?t=' + Date.now(); // Evitar cache
+            });
+        }
+        
+        // Verificar todas as imagens
+        async function diagnoseImages() {
+            console.log('🔍 Verificando imagens...');
+            
+            for (const image of imagesToCheck) {
+                const result = await checkImage(image);
+                console.log(`${result.status} ${result.url}`);
+            }
+            
+            // Verificar também caminhos relativos
+            const relativePaths = [
+                './favicom.png',
+                '../favicom.png',
+                'images/favicom.png',
+                'img/favicom.png',
+                'assets/favicom.png'
+            ];
+            
+            console.log('🔍 Verificando caminhos relativos...');
+            for (const path of relativePaths) {
+                const result = await checkImage(path);
+                console.log(`${result.status} ${path}`);
+            }
+        }
+        
+        // Executar diagnóstico após 2 segundos
+        setTimeout(() => {
+            diagnoseImages();
+        }, 2000);
+    </script>
+</body>
+</html>
