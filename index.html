@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="https://wazzimagiygg.com/favicom.png">
     <link rel="shortcut icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     <style>
-        /* RESET E ESTILOS GERAIS */
+        /* RESET E ESTILOS GERAIS - MANTIDO IGUAL */
         * {
             margin: 0;
             padding: 0;
@@ -113,7 +113,7 @@
             box-shadow: 0 6px 25px rgba(0, 120, 215, 0.5);
         }
 
-        /* CONTAINER DO EMULADOR */
+        /* CONTAINER DO EMULADOR - MANTIDO IGUAL */
         #emulator-container {
             position: fixed;
             top: 0;
@@ -125,7 +125,6 @@
             z-index: 1;
         }
 
-        /* BARRA DE CONTROLES */
         .emulator-controls {
             background: rgba(30, 30, 30, 0.95);
             padding: 10px 20px;
@@ -175,7 +174,6 @@
             border: 2px solid #0078d7;
         }
 
-        /* ÁREA DO EMULADOR */
         .emulator-area {
             flex: 1;
             position: relative;
@@ -257,7 +255,6 @@
             transform: translateY(-1px);
         }
 
-        /* BOTÃO DE VERIFICAÇÃO */
         .modal-btn.tertiary {
             background: rgba(255, 255, 255, 0.05);
             color: #aaa;
@@ -302,7 +299,7 @@
             }
         }
 
-        /* JANELAS SIMPLES (para UIDs) */
+        /* JANELAS SIMPLES */
         .simple-window {
             position: fixed;
             top: 50px;
@@ -363,7 +360,50 @@
             border-radius: 0 0 10px 10px;
         }
 
-        /* RESPONSIVIDADE */
+        /* NOVO: CONTAINER DE REDIRECIONAMENTO OAUTH */
+        #oauth-redirect-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            z-index: 100000;
+            background: rgba(0, 0, 0, 0.95);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .oauth-box {
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(40, 40, 40, 0.98));
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .oauth-spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid rgba(255, 255, 255, 0.1);
+            border-top: 6px solid #0078d7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        .oauth-box h3 {
+            color: #0078d7;
+            margin-bottom: 15px;
+        }
+
+        .oauth-frame {
+            display: none;
+        }
+
         @media (max-width: 768px) {
             .emulator-controls {
                 flex-direction: column;
@@ -458,15 +498,27 @@
         </div>
     </div>
 
-    <!-- Import Firebase -->
+    <!-- NOVO: CONTAINER PARA REDIRECIONAMENTO OAUTH (INVISÍVEL) -->
+    <div id="oauth-redirect-container">
+        <div class="oauth-box">
+            <div class="oauth-spinner"></div>
+            <h3>Autenticando com Google</h3>
+            <p>Redirecionando para página de login do Google...</p>
+            <p style="font-size: 12px; opacity: 0.7; margin-top: 20px;">Isso pode levar alguns segundos</p>
+        </div>
+        <iframe id="oauth-redirect-frame" class="oauth-frame"></iframe>
+    </div>
+
+    <!-- Import Firebase - MODIFICADO PARA USAR REDIRECT EM VEZ DE POPUP -->
     <script type="module">
         // ============================================
-        // CONFIGURAÇÃO DO FIREBASE
+        // CONFIGURAÇÃO DO FIREBASE - MODIFICADO PARA REDIRECT
         // ============================================
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { 
             getAuth, 
-            signInWithPopup, 
+            signInWithRedirect, 
+            getRedirectResult,
             GoogleAuthProvider, 
             onAuthStateChanged, 
             signOut 
@@ -513,7 +565,6 @@
                 
                 console.log(`🎯 Processando UID para janela: ${uidValue}`);
                 
-                // Tipos de UID que podemos processar
                 const uidTypes = {
                     'pdf': uidValue.includes('.pdf') || uidValue.toLowerCase().endsWith('pdf'),
                     'html': uidValue.includes('.html') || uidValue.toLowerCase().endsWith('html'),
@@ -526,7 +577,6 @@
                 let finalUrl = '';
                 let windowTitle = 'Janela Externa';
                 
-                // Lógica de processamento do sistema antigo
                 if (uidTypes.directUrl) {
                     finalUrl = uidValue;
                     windowTitle = 'Link Externo';
@@ -550,29 +600,16 @@
                     windowTitle = 'Wiki Not Pedia';
                 }
                 else if (uidTypes.plain) {
-                    // Tentar abrir como arquivo genérico
                     finalUrl = `https://wazzimagiygg.com/pdf/?uid=${encodeURIComponent(uidValue)}`;
                     windowTitle = 'Arquivo';
-                    
-                    // Alternativas para tentar
-                    const alternativeUrls = [
-                        `https://wazzimagiygg.com/html/?uid=${encodeURIComponent(uidValue)}`,
-                        `https://wazzimagiygg.com/central/?uid=${uidValue}`,
-                        `https://wazzimagiygg.com/r/?id=${uidValue}`
-                    ];
-                    
-                    console.log(`🔍 Tentando abrir UID simples: ${uidValue}`);
-                    console.log(`📋 URLs alternativas:`, alternativeUrls);
                 }
                 else {
-                    // Fallback geral
                     finalUrl = `https://wazzimagiygg.com/${uidValue}`;
                     windowTitle = 'Recurso WZZM';
                 }
                 
                 console.log(`🌐 URL final gerada: ${finalUrl}`);
                 
-                // Abrir em uma nova janela
                 this.openInNewWindow(windowTitle, finalUrl, userData);
                 return true;
             },
@@ -580,15 +617,12 @@
             openInNewWindow: function(title, url, userData) {
                 console.log(`🪟 Abrindo janela: ${title} -> ${url}`);
                 
-                // Usar nosso sistema de janelas simples
                 try {
                     const urlWithAuth = this.addAuthParams(url, userData);
                     windowManager.createWindow(title, urlWithAuth, 'https://wazzimagiygg.com/iconmagic.png');
                     showMessage(`✅ Janela aberta: ${title}`, 'success');
                 } catch (error) {
                     console.error('❌ Erro ao abrir janela:', error);
-                    
-                    // Fallback: abrir em nova guia
                     window.open(url, '_blank', 'noopener,noreferrer');
                 }
             },
@@ -599,7 +633,6 @@
                 try {
                     const urlObj = new URL(url);
                     
-                    // Adicionar parâmetros de autenticação se não existirem
                     if (!urlObj.searchParams.has('uid')) {
                         urlObj.searchParams.append('user', userData.uid);
                         urlObj.searchParams.append('email', encodeURIComponent(userData.email));
@@ -612,7 +645,6 @@
                 }
             },
             
-            // Função para extrair UID de vários formatos de URL
             extractUidFromUrl: function(url) {
                 if (!url) return null;
                 
@@ -630,7 +662,6 @@
                     if (match) return decodeURIComponent(match[1]);
                 }
                 
-                // Último segmento da URL
                 const lastSegment = url.split('/').pop();
                 if (lastSegment && lastSegment.includes('?')) {
                     return lastSegment.split('?')[0];
@@ -650,7 +681,7 @@
         };
 
         // ============================================
-        // GERENCIADOR DE UIDs (EVITA DUPLICAÇÃO)
+        // GERENCIADOR DE UIDs
         // ============================================
         const uidManager = {
             processedUIDs: new Set(),
@@ -660,23 +691,19 @@
                 
                 const key = `uid_${uid}_${currentUser?.uid || 'anonymous'}`;
                 
-                // Verificar se já processamos este UID
                 if (this.processedUIDs.has(key)) {
                     console.log(`⏭️ UID já processado: ${uid}`);
                     return false;
                 }
                 
-                // Verificar no sessionStorage
                 if (sessionStorage.getItem(key)) {
                     console.log(`⏭️ UID já processado (session): ${uid}`);
                     return false;
                 }
                 
-                // Marcar como processado
                 this.processedUIDs.add(key);
                 sessionStorage.setItem(key, 'true');
                 
-                // Limpar após 5 minutos (opcional)
                 setTimeout(() => {
                     this.processedUIDs.delete(key);
                     sessionStorage.removeItem(key);
@@ -687,7 +714,6 @@
             
             clearProcessedUIDs: function() {
                 this.processedUIDs.clear();
-                // Limpar também do sessionStorage
                 Object.keys(sessionStorage).forEach(key => {
                     if (key.startsWith('uid_')) {
                         sessionStorage.removeItem(key);
@@ -721,15 +747,12 @@
                 
                 document.body.appendChild(windowElement);
                 
-                // Configurar drag and drop
                 this.setupWindowDrag(windowElement.querySelector('.simple-window-header'), windowElement);
                 
-                // Configurar botão de fechar
                 windowElement.querySelector('.close-window').onclick = () => {
                     this.closeWindow(windowId);
                 };
                 
-                // Adicionar à lista de janelas
                 this.windows.push({
                     id: windowId,
                     element: windowElement,
@@ -737,7 +760,6 @@
                     url: url
                 });
                 
-                // Ativar esta janela
                 this.activateWindow(windowId);
                 
                 return windowId;
@@ -754,7 +776,6 @@
                     offsetX = e.clientX - windowElement.offsetLeft;
                     offsetY = e.clientY - windowElement.offsetTop;
                     
-                    // Ativar esta janela
                     const windowId = windowElement.id;
                     this.activateWindow(windowId);
                     
@@ -774,12 +795,10 @@
             },
             
             activateWindow: function(windowId) {
-                // Remover todas as classes ativas
                 this.windows.forEach(win => {
                     win.element.style.zIndex = '10000';
                 });
                 
-                // Ativar a janela específica
                 const window = this.windows.find(w => w.id === windowId);
                 if (window) {
                     window.element.style.zIndex = '10001';
@@ -793,7 +812,6 @@
                     this.windows[index].element.remove();
                     this.windows.splice(index, 1);
                     
-                    // Ativar a última janela se houver
                     if (this.windows.length > 0) {
                         this.activateWindow(this.windows[this.windows.length - 1].id);
                     } else {
@@ -834,6 +852,8 @@
         const userName = document.getElementById('userName');
         const userEmail = document.getElementById('userEmail');
         const userAvatar = document.getElementById('userAvatar');
+        const oauthContainer = document.getElementById('oauth-redirect-container');
+        const oauthFrame = document.getElementById('oauth-redirect-frame');
 
         // ============================================
         // VARIÁVEIS GLOBAIS
@@ -862,6 +882,7 @@
             loginScreen.style.display = 'none';
             emulatorContainer.style.display = 'none';
             registrationModal.style.display = 'none';
+            oauthContainer.style.display = 'none';
             
             switch(screen) {
                 case 'loading':
@@ -876,10 +897,12 @@
                 case 'registration':
                     registrationModal.style.display = 'flex';
                     break;
+                case 'oauth':
+                    oauthContainer.style.display = 'flex';
+                    break;
             }
         }
 
-        // Função para escapar HTML
         function escapeHTML(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -889,38 +912,30 @@
         // ============================================
         // FUNÇÕES PARA CORRIGIR IMAGENS
         // ============================================
-
-        // Função para corrigir caminhos de imagens no HTML
         function fixImagePaths(html) {
             console.log('🔧 Corrigindo caminhos de imagens no HTML...');
             
-            // Substituir todos os src de imagens para URLs absolutas
             let fixedHtml = html.replace(/src=["']([^"']*\.(png|jpg|jpeg|gif|svg|ico|webp))["']/gi, (match, src, extension) => {
                 console.log('📝 Imagem encontrada:', src);
                 
-                // Se já for URL absoluta, não alterar
                 if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
                     console.log('  ✅ Já é URL absoluta');
                     return match;
                 }
                 
-                // Se for favicon e existe localmente, manter local
                 if (src.includes('favicom') || src.includes('favicon')) {
                     console.log('  🔧 Favicon mantido local');
                     return match;
                 }
                 
-                // Base URL do site
                 const baseUrl = 'https://wazzimagiygg.com/';
                 
                 let fixedSrc = src;
                 
-                // Limpar caminho
                 if (fixedSrc.startsWith('./')) {
                     fixedSrc = fixedSrc.substring(2);
                 }
                 
-                // Adicionar base URL
                 if (!fixedSrc.startsWith('/')) {
                     fixedSrc = baseUrl + fixedSrc;
                 } else {
@@ -929,11 +944,9 @@
                 
                 console.log('  🔄 Convertido para:', fixedSrc);
                 
-                // Retornar com onerror para fallback
                 return `src="${fixedSrc}" onerror="console.log('❌ Falha ao carregar: \\'' + this.src + '\\''); this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"100\\" height=\\"100\\" viewBox=\\"0 0 100 100\\"><rect width=\\"100\\" height=\\"100\\" fill=\\"%230078d7\\"/><text x=\\"50\\" y=\\"50\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"white\\" text-anchor=\\"middle\\" dy=\\".3em\\">${src.split('/').pop()?.split('.')[0] || 'IMG'}</text></svg>';"`;
             });
             
-            // Também corrigir background-image em CSS
             fixedHtml = fixedHtml.replace(/background-image:\s*url\(['"]?([^'"\)]+)['"]?\)/gi, (match, url) => {
                 console.log('🎨 Background-image encontrado:', url);
                 
@@ -962,26 +975,21 @@
             return fixedHtml;
         }
 
-        // Função para processar UIDs no conteúdo
         function processUIDsInContent(htmlContent) {
             console.log('🔗 Processando UIDs no conteúdo HTML...');
             
-            // Encontrar links com UIDs e convertê-los para abrir em janelas
             let processedHtml = htmlContent.replace(
                 /href=["']([^"']*\?uid=[^"']+)["']/gi,
                 (match, href) => {
                     console.log('🔗 Link UID encontrado:', href);
                     
-                    // Extrair título do link (buscar texto entre tags <a>)
                     const linkText = match.match(/<a[^>]*>([^<]*)<\/a>/i);
                     const title = linkText ? linkText[1] : 'Documento';
                     
-                    // Converter para função JavaScript que abre em janela
                     return `href="javascript:void(0)" onclick="if(window.parent&&window.parent.openWZZMWindow){window.parent.openWZZMWindow('${href}','${escapeHTML(title)}');}else{window.open('${href}','_blank');}"`;
                 }
             );
             
-            // Também processar formulários com UID
             processedHtml = processedHtml.replace(
                 /action=["']([^"']*\?uid=[^"']+)["']/gi,
                 (match, action) => {
@@ -994,16 +1002,13 @@
             return processedHtml;
         }
 
-        // Função para injetar script de correção no iframe
         function injectImageFixScript() {
             if (emulatorFrame.contentWindow) {
                 try {
                     const script = document.createElement('script');
                     script.textContent = `
-                        // Script de correção de imagens
                         console.log('🖼️ Injetando script de correção de imagens...');
                         
-                        // Mapeamento de imagens conhecidas
                         const imageMap = {
                             'logo.png': 'https://wazzimagiygg.com/logo.png',
                             'bg.png': 'https://wazzimagiygg.com/images/bg.png',
@@ -1016,24 +1021,20 @@
                             'avatar.png': 'https://wazzimagiygg.com/avatar.png'
                         };
                         
-                        // Função para corrigir uma imagem
                         function fixImage(img) {
                             const originalSrc = img.src;
                             const filename = originalSrc.split('/').pop();
                             
-                            // Se já é uma URL do wazzimagiygg ou data URL, não fazer nada
                             if (originalSrc.includes('wazzimagiygg.com') || originalSrc.startsWith('data:')) {
                                 return;
                             }
                             
-                            // Se temos mapeamento conhecido, usar ele
                             if (imageMap[filename]) {
                                 img.src = imageMap[filename];
                                 console.log('🔄 Imagem redirecionada:', filename, '->', imageMap[filename]);
                                 return;
                             }
                             
-                            // Lista de possíveis locais para tentar
                             const fallbacks = [
                                 'https://wazzimagiygg.com/' + filename,
                                 'https://wazzimagiygg.com/images/' + filename,
@@ -1057,16 +1058,13 @@
                                 }
                             };
                             
-                            // Se a imagem já falhou, disparar o handler de erro
                             if (img.complete && img.naturalHeight === 0) {
                                 img.onerror();
                             }
                         }
                         
-                        // Aplicar a todas as imagens existentes
                         document.querySelectorAll('img').forEach(fixImage);
                         
-                        // Observar novas imagens adicionadas dinamicamente
                         const observer = new MutationObserver((mutations) => {
                             mutations.forEach((mutation) => {
                                 mutation.addedNodes.forEach((node) => {
@@ -1115,33 +1113,25 @@
                         if (response.ok) {
                             htmlContent = await response.text();
                             
-                            // Limpar BOM de arquivos .txt
                             if (source.includes('.txt')) {
                                 htmlContent = htmlContent.replace(/^\uFEFF/, '');
                             }
                             
                             console.log(`✅ Importado de: ${source}`);
                             
-                            // PROCESSAR UIDs no conteúdo importado
                             htmlContent = processUIDsInContent(htmlContent);
-                            
-                            // CORREÇÃO IMPORTANTE: Fixar caminhos de imagens
                             htmlContent = fixImagePaths(htmlContent);
                             
-                            // Adicionar script de fallback no final do body
                             htmlContent = htmlContent.replace('</body>', `
                                 <!-- Script de processamento de UIDs e imagens -->
                                 <script>
                                     console.log('🔗 Script de UIDs carregado');
                                     
-                                    // Processar UIDs na inicialização
                                     window.addEventListener('load', function() {
                                         const urlParams = new URLSearchParams(window.location.search);
                                         const uid = urlParams.get('uid');
                                         
-                                        // Verificar se o UID já foi processado pelo sistema pai
                                         if (uid && window.parent && window.parent.openWZZMWindow) {
-                                            // Verificar com o sistema pai se já processou este UID
                                             const checkUID = new Promise((resolve) => {
                                                 const handler = (event) => {
                                                     if (event.data.type === 'uidCheckResponse' && event.data.uid === uid) {
@@ -1152,13 +1142,11 @@
                                                 
                                                 window.addEventListener('message', handler);
                                                 
-                                                // Pedir verificação ao parent
                                                 window.parent.postMessage({
                                                     type: 'uidCheckRequest',
                                                     uid: uid
                                                 }, '*');
                                                 
-                                                // Timeout de segurança
                                                 setTimeout(() => resolve(true), 1000);
                                             });
                                             
@@ -1177,7 +1165,6 @@
                                             });
                                         }
                                         
-                                        // Corrigir imagens que podem ter sido carregadas antes do script
                                         setTimeout(() => {
                                             const images = document.querySelectorAll('img');
                                             images.forEach(img => {
@@ -1189,13 +1176,11 @@
                                         }, 100);
                                     });
                                     
-                                    // Interceptar cliques em links com UID
                                     document.addEventListener('click', function(e) {
                                         const link = e.target.closest('a');
                                         if (link && link.href) {
                                             const href = link.href;
                                             
-                                            // Verificar se é um link com UID
                                             if (href.includes('?uid=') || href.includes('/pdf/') || href.includes('/html/') || 
                                                 href.includes('/central/') || href.includes('/r/?id=')) {
                                                 e.preventDefault();
@@ -1210,7 +1195,6 @@
                                         }
                                     });
                                     
-                                    // Função global para abrir janelas
                                     window.openWZZMWindow = function(url, title) {
                                         if (window.parent && window.parent.openWZZMWindow) {
                                             window.parent.openWZZMWindow(url, title);
@@ -1234,13 +1218,11 @@
                     htmlContent = createDefaultHTML();
                 }
                 
-                // Verificar se é HTML válido
                 if (!htmlContent.includes('<!DOCTYPE') && !htmlContent.includes('<html')) {
                     console.log('⚠️ Conteúdo não parece HTML válido, adicionando estrutura');
                     htmlContent = wrapInHTMLStructure(htmlContent);
                 }
                 
-                // Salvar no localStorage para cache
                 try {
                     localStorage.setItem('importedHTML', htmlContent);
                     localStorage.setItem('importedHTMLTimestamp', Date.now());
@@ -1258,7 +1240,6 @@
             }
         }
 
-        // Função para criar HTML padrão de fallback
         function createDefaultHTML() {
             return `
 <!DOCTYPE html>
@@ -1357,17 +1338,14 @@
             }
         });
         
-        // Solicitar dados do usuário
         window.parent.postMessage({ type: 'requestUserData' }, '*');
         
-        // Verificar se há UID na URL
         const urlParams = new URLSearchParams(window.location.search);
         const uid = urlParams.get('uid');
         if (uid) {
             window.parent.postMessage({ type: 'uidParam', uid: uid }, '*');
         }
         
-        // Função global para abrir janelas
         window.openWZZMWindow = function(url, title) {
             if (window.parent && window.parent.openWZZMWindow) {
                 window.parent.openWZZMWindow(url, title);
@@ -1380,7 +1358,6 @@
 </html>`;
         }
 
-        // Função para envolver conteúdo simples em estrutura HTML
         function wrapInHTMLStructure(content) {
             return `
 <!DOCTYPE html>
@@ -1428,11 +1405,9 @@
         <div id="processed-content"></div>
     </div>
     <script>
-        // Processar links UID no conteúdo
         function processContent(content) {
-            // Encontrar links com UID e torná-los clicáveis
             const processed = content.replace(
-                /(?:href=["'])?([^"'\s]*\?uid=[^"'\s]+)(?:["'])?/gi,
+                /(?:href=["'])?([^"'\s]*\\?uid=[^"'\s]+)(?:["'])?/gi,
                 function(match, url) {
                     const title = url.split('?uid=')[1] || 'Documento';
                     return '<a href="javascript:void(0)" onclick="openWZZMWindow(\\\\'' + url + '\\\\', \\\\'' + title + '\\\\')" class="uid-link">' + url + '</a>';
@@ -1445,7 +1420,6 @@
         
         processContent(\`${escapeHTML(content)}\`);
         
-        // Função para abrir janelas
         window.openWZZMWindow = function(url, title) {
             if (window.parent && window.parent.openWZZMWindow) {
                 window.parent.openWZZMWindow(url, title);
@@ -1454,7 +1428,6 @@
             }
         };
         
-        // Comunicar com o parent
         window.parent.postMessage({ type: 'contentLoaded' }, '*');
     <\/script>
 </body>
@@ -1474,7 +1447,6 @@
                     console.log('✅ Cliente encontrado no Firestore');
                     const data = clientDoc.data();
                     
-                    // VERIFICAÇÃO SIMPLIFICADA
                     const hasFullName = data.fullName && data.fullName.trim() !== '';
                     const hasCPF = data.cpf && data.cpf.trim() !== '';
                     const hasBirthDate = data.birthDate;
@@ -1485,7 +1457,6 @@
                     const hasAcceptedTerms = data.acceptedTerms === true;
                     const hasAcceptedPrivacy = data.acceptedPrivacyPolicy === true;
                     
-                    // Requisitos mínimos para cadastro completo
                     const isComplete = hasFullName && hasCPF && hasBirthDate && 
                                      hasCity && hasState && hasPhoneDDD &&
                                      hasAcceptedTerms && hasAcceptedPrivacy;
@@ -1548,7 +1519,6 @@
                 
                 console.log('🔧 === INICIANDO CARREGAMENTO ===');
                 
-                // 1. Verificar autenticação
                 if (!currentUser) {
                     console.log('⚠️ Usuário não autenticado');
                     showScreen('login');
@@ -1557,12 +1527,10 @@
                 
                 console.log(`👤 Usuário: ${currentUser.email} (UID: ${currentUser.uid})`);
                 
-                // 2. Verificar se há parâmetro UID na URL (EVITAR DUPLICAÇÃO)
                 const uidParam = urlParamsProcessor.getUidParam();
                 if (uidParam && uidManager.shouldProcessUID(uidParam)) {
                     console.log(`🎯 Parâmetro UID detectado (primeira vez): ${uidParam}`);
                     
-                    // Processar para abrir janela com pequeno delay
                     const userData = {
                         uid: currentUser.uid,
                         displayName: currentUser.displayName,
@@ -1570,17 +1538,15 @@
                         photoURL: currentUser.photoURL
                     };
                     
-                    // Pequeno delay para garantir que o sistema está estável
                     setTimeout(() => {
                         urlParamsProcessor.processUidParam(uidParam, userData);
                         console.log(`✅ UID processado após delay: ${uidParam}`);
-                    }, 800); // 0.8 segundos de delay
+                    }, 800);
                     
                 } else if (uidParam) {
                     console.log(`⏭️ UID ignorado (já foi processado): ${uidParam}`);
                 }
                 
-                // 3. Importar HTML (se necessário)
                 if (!importedHTML) {
                     console.log('📥 Importando HTML...');
                     importedHTML = await importExternalHTML();
@@ -1588,7 +1554,6 @@
                     console.log('📁 Usando HTML em cache');
                 }
                 
-                // 4. Verificar cadastro
                 console.log('🔍 Verificando cadastro...');
                 const registrationCheck = await checkClientRegistration(currentUser.uid);
                 
@@ -1614,11 +1579,9 @@
         // MOSTRAR EMULADOR
         // ============================================
         function showEmulator() {
-            // Atualizar informações do usuário
             userName.textContent = currentUser.displayName || 'Usuário';
             userEmail.textContent = currentUser.email || '';
             
-            // Carregar avatar com fallback
             const avatarSrc = currentUser.photoURL || 
                 'https://ui-avatars.com/api/?name=' + encodeURIComponent(currentUser.displayName || 'U') + 
                 '&background=0078d7&color=fff&size=32';
@@ -1626,7 +1589,6 @@
             
             console.log('🖼️ Carregando conteúdo no iframe...');
             
-            // Carregar conteúdo no iframe
             try {
                 const blob = new Blob([importedHTML], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
@@ -1634,19 +1596,15 @@
                 
                 console.log('✅ Iframe carregado com URL blob');
                 
-                // Quando o iframe carregar, enviar dados do usuário
                 emulatorFrame.onload = function() {
                     console.log('✅ Iframe carregado, enviando dados do usuário...');
                     
-                    // Liberar URL do blob
                     URL.revokeObjectURL(url);
                     
-                    // Injeta script de correção de imagens
                     setTimeout(() => {
                         injectImageFixScript();
                     }, 500);
                     
-                    // Enviar dados do usuário
                     try {
                         emulatorFrame.contentWindow.postMessage({
                             type: 'userData',
@@ -1658,7 +1616,6 @@
                             }
                         }, '*');
                         
-                        // Enviar parâmetro UID se houver
                         const uidParam = urlParamsProcessor.getUidParam();
                         if (uidParam) {
                             emulatorFrame.contentWindow.postMessage({
@@ -1673,7 +1630,7 @@
                 
             } catch (error) {
                 console.error('❌ Erro ao carregar iframe:', error);
-                emulatorFrame.srcdoc = importedHTML; // Fallback
+                emulatorFrame.srcdoc = importedHTML;
             }
             
             showScreen('emulator');
@@ -1724,20 +1681,65 @@
         }
 
         // ============================================
-        // AUTENTICAÇÃO
+        // AUTENTICAÇÃO - MODIFICADO PARA REDIRECT
         // ============================================
         loginBtn.addEventListener('click', async () => {
             try {
-                console.log('👤 Iniciando login com Google...');
-                const result = await signInWithPopup(auth, provider);
-                console.log('✅ Login bem-sucedido:', result.user.email);
-                currentUser = result.user;
-                await loadContent();
+                console.log('👤 Iniciando login com Google (redirect)...');
+                
+                // Mostrar tela de redirecionamento
+                showScreen('oauth');
+                
+                // Iniciar o processo de login com redirect
+                await signInWithRedirect(auth, provider);
+                
+                // Nota: O código NÃO continua daqui. A página será redirecionada para o Google
+                // e depois redirecionada de volta para esta página
+                
             } catch (error) {
                 console.error('❌ Erro no login:', error);
                 showMessage(`Erro no login: ${error.message}`, 'error');
+                showScreen('login');
             }
         });
+
+        // NOVO: Processar o resultado do redirect quando a página carregar
+        async function handleRedirectResult() {
+            try {
+                showScreen('loading');
+                
+                console.log('🔄 Verificando resultado de redirect...');
+                
+                const result = await getRedirectResult(auth);
+                
+                if (result) {
+                    // Login bem-sucedido após redirect
+                    console.log('✅ Login via redirect bem-sucedido:', result.user.email);
+                    currentUser = result.user;
+                    
+                    // Esconder tela de OAuth
+                    showScreen('loading');
+                    
+                    // Carregar conteúdo
+                    await loadContent();
+                } else {
+                    // Nenhum resultado de redirect (primeiro carregamento)
+                    console.log('ℹ️ Nenhum resultado de redirect pendente');
+                    
+                    // Verificar se já está autenticado
+                    if (auth.currentUser) {
+                        currentUser = auth.currentUser;
+                        await loadContent();
+                    } else {
+                        showScreen('login');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Erro ao processar redirect:', error);
+                showMessage(`Erro na autenticação: ${error.message}`, 'error');
+                showScreen('login');
+            }
+        }
 
         // ============================================
         // EVENT LISTENERS
@@ -1746,7 +1748,6 @@
             console.log('📝 Redirecionando para cadastro...');
             const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
             
-            // Abrir em nova janela
             window.open(registrationUrl, '_blank', 'noopener,noreferrer');
             
             registrationModal.style.display = 'none';
@@ -1769,7 +1770,6 @@
 
         logoutBtn.addEventListener('click', async () => {
             try {
-                // Fechar todas as janelas abertas
                 windowManager.closeAllWindows();
                 
                 await signOut(auth);
@@ -1806,10 +1806,8 @@
         desktopBtn.addEventListener('click', () => {
             console.log('🖥️ Abrindo sistema desktop...');
             
-            // URL do sistema desktop original
             const desktopUrl = `https://wazzimagiygg.com/index.txt?uid=${currentUser.uid}`;
             
-            // Abrir em nova janela
             window.open(desktopUrl, '_blank', 'noopener,noreferrer');
             
             showMessage('🖥️ Sistema desktop aberto em nova janela', 'info');
@@ -1854,13 +1852,11 @@
                 console.log('✅ Conteúdo do iframe carregado com sucesso');
             }
             
-            // NOVO: Handler para verificação de UID
             if (event.data.type === 'uidCheckRequest' && event.data.uid) {
                 const alreadyProcessed = uidManager.processedUIDs.has(
                     `uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`
                 ) || sessionStorage.getItem(`uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`);
                 
-                // Responder ao iframe
                 event.source.postMessage({
                     type: 'uidCheckResponse',
                     uid: event.data.uid,
@@ -1872,19 +1868,39 @@
         // ============================================
         // INICIALIZAÇÃO DO SISTEMA
         // ============================================
+        
+        // NOVO: Primeiro verificar resultado de redirect
+        // Isso deve ser feito ANTES de configurar onAuthStateChanged
+        console.log('🚀 Sistema Emulador WZZM inicializando...');
+        
+        // Verificar se há HTML salvo no localStorage
+        try {
+            const savedHTML = localStorage.getItem('importedHTML');
+            if (savedHTML) {
+                importedHTML = savedHTML;
+                console.log('📁 HTML carregado do cache do localStorage');
+            }
+        } catch (error) {
+            console.warn('⚠️ Não foi possível acessar localStorage:', error.message);
+        }
+
+        // NOVO: Configurar listener de autenticação DEPOIS de processar redirect
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 console.log('👤 Usuário autenticado detectado:', user.email);
                 
+                // Se já está autenticado, carregar conteúdo
                 await loadContent();
-                
             } else {
                 console.log('👤 Nenhum usuário autenticado');
                 currentUser = null;
                 showScreen('login');
             }
         });
+
+        // Processar o resultado do redirect PRIMEIRO
+        handleRedirectResult();
 
         // ============================================
         // FUNÇÃO GLOBAL PARA ABRIR JANELAS
@@ -1911,13 +1927,11 @@
                 registrationModal.style.display = 'none';
             }
             
-            // Ctrl+W para fechar janela ativa
             if (e.ctrlKey && e.key === 'w' && windowManager.activeWindow) {
                 e.preventDefault();
                 windowManager.closeWindow(windowManager.activeWindow);
             }
             
-            // Ctrl+N para nova janela
             if (e.ctrlKey && e.key === 'n') {
                 e.preventDefault();
                 openWindowBtn.click();
@@ -1930,91 +1944,57 @@
         });
 
         // ============================================
-        // INICIAR SISTEMA
+        // SCRIPT DE DIAGNÓSTICO
         // ============================================
-        console.log('🚀 Sistema Emulador WZZM inicializando...');
-        
-        // Verificar se há HTML salvo no localStorage
-        try {
-            const savedHTML = localStorage.getItem('importedHTML');
-            if (savedHTML) {
-                importedHTML = savedHTML;
-                console.log('📁 HTML carregado do cache do localStorage');
-            }
-        } catch (error) {
-            console.warn('⚠️ Não foi possível acessar localStorage:', error.message);
-        }
-        
-        // Aguardar um pouco para mostrar a tela de loading
         setTimeout(() => {
-            if (auth.currentUser) {
-                currentUser = auth.currentUser;
-                console.log('👤 Usuário já logado detectado');
-                loadContent();
-            } else {
-                console.log('👤 Nenhum usuário logado, mostrando tela de login');
-                showScreen('login');
-            }
-        }, 1000);
-
-    </script>
-    
-    <!-- Script para diagnóstico de imagens -->
-    <script>
-        // Diagnóstico de imagens PNG
-        console.log('🖼️ DIAGNÓSTICO DE IMAGENS PNG');
-        
-        // Lista de imagens que deveriam existir
-        const imagesToCheck = [
-            'favicom.png',
-            'logo.png',
-            'bg.png',
-            'icon.png',
-            'background.png',
-            'hero.png',
-            'loading.gif',
-            'spinner.gif'
-        ];
-        
-        // Função para verificar se uma imagem existe
-        async function checkImage(url) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve({ url, status: '✅ OK' });
-                img.onerror = () => resolve({ url, status: '❌ FALHA' });
-                img.src = url + '?t=' + Date.now(); // Evitar cache
-            });
-        }
-        
-        // Verificar todas as imagens
-        async function diagnoseImages() {
-            console.log('🔍 Verificando imagens...');
+            console.log('🖼️ DIAGNÓSTICO DE IMAGENS PNG');
             
-            for (const image of imagesToCheck) {
-                const result = await checkImage(image);
-                console.log(`${result.status} ${result.url}`);
-            }
-            
-            // Verificar também caminhos relativos
-            const relativePaths = [
-                './favicom.png',
-                '../favicom.png',
-                'images/favicom.png',
-                'img/favicom.png',
-                'assets/favicom.png'
+            const imagesToCheck = [
+                'favicom.png',
+                'logo.png',
+                'bg.png',
+                'icon.png',
+                'background.png',
+                'hero.png',
+                'loading.gif',
+                'spinner.gif'
             ];
             
-            console.log('🔍 Verificando caminhos relativos...');
-            for (const path of relativePaths) {
-                const result = await checkImage(path);
-                console.log(`${result.status} ${path}`);
+            async function checkImage(url) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve({ url, status: '✅ OK' });
+                    img.onerror = () => resolve({ url, status: '❌ FALHA' });
+                    img.src = url + '?t=' + Date.now();
+                });
             }
-        }
-        
-        // Executar diagnóstico após 2 segundos
-        setTimeout(() => {
+            
+            async function diagnoseImages() {
+                console.log('🔍 Verificando imagens...');
+                
+                for (const image of imagesToCheck) {
+                    const result = await checkImage(image);
+                    console.log(`${result.status} ${result.url}`);
+                }
+                
+                const relativePaths = [
+                    './favicom.png',
+                    '../favicom.png',
+                    'images/favicom.png',
+                    'img/favicom.png',
+                    'assets/favicom.png'
+                ];
+                
+                console.log('🔍 Verificando caminhos relativos...');
+                for (const path of relativePaths) {
+                    const result = await checkImage(path);
+                    console.log(`${result.status} ${path}`);
+                }
+            }
+            
             diagnoseImages();
         }, 2000);
+
     </script>
 </body>
 </html>
