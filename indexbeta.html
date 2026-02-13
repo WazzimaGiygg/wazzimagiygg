@@ -456,6 +456,7 @@
         <h2>WazzimaGiygg Core</h2>
         <p>Faça login com sua conta Google para acessar a plataforma</p>
         <button id="loginBtn">🔐 Entrar com Google</button>
+        <button id="forceLoginBtn" style="margin-top: 10px; background: linear-gradient(135deg, #ff6b6b, #ff4757);">⚠️ Forçar Login (se o popup não abrir)</button>
     </div>
 
     <!-- MODAL DE VERIFICAÇÃO DE CADASTRO -->
@@ -521,6 +522,8 @@
         import { 
             getAuth, 
             signInWithPopup, 
+            signInWithRedirect,
+            getRedirectResult,
             GoogleAuthProvider, 
             onAuthStateChanged, 
             signOut 
@@ -809,6 +812,7 @@
         const loadingScreen = document.getElementById('loading-screen');
         const loginScreen = document.getElementById('login-screen');
         const loginBtn = document.getElementById('loginBtn');
+        const forceLoginBtn = document.getElementById('forceLoginBtn');
         const emulatorContainer = document.getElementById('emulator-container');
         const emulatorFrame = document.getElementById('emulator-frame');
         const registrationModal = document.getElementById('registrationModal');
@@ -1715,7 +1719,16 @@
             localStorage.removeItem('importedHTMLTimestamp');
             importedHTML = '';
             showMessage('✅ Cache limpo, recarregando...', 'success');
-            setTimeout(() => loadContent(), 1000);
+            
+            // Forçar logout e voltar para tela de login
+            if (currentUser) {
+                signOut(auth).then(() => {
+                    currentUser = null;
+                    showScreen('login');
+                });
+            } else {
+                showScreen('login');
+            }
         }
 
         // ============================================
@@ -1828,22 +1841,57 @@
         }
 
         // ============================================
-        // VERIFICAR SE OS BOTÕES EXISTEM ANTES DE ADICIONAR EVENTOS
+        // FUNÇÃO DE LOGIN MELHORADA
         // ============================================
-        function addEventListeners() {
-            // Botões de autenticação
-            if (loginBtn) loginBtn.addEventListener('click', async () => {
-                try {
-                    console.log('👤 Iniciando login com Google...');
+        async function handleLogin(useRedirect = false) {
+            try {
+                console.log('👤 Iniciando login com Google...');
+                showMessage('Abrindo popup de login...', 'info');
+                
+                if (useRedirect) {
+                    // Usar redirect como fallback
+                    await signInWithRedirect(auth, provider);
+                } else {
+                    // Tentar popup primeiro
                     const result = await signInWithPopup(auth, provider);
                     console.log('✅ Login bem-sucedido:', result.user.email);
                     currentUser = result.user;
                     await loadContent();
-                } catch (error) {
-                    console.error('❌ Erro no login:', error);
+                }
+            } catch (error) {
+                console.error('❌ Erro no login:', error);
+                
+                if (error.code === 'auth/popup-blocked') {
+                    showMessage('Popup bloqueado! Tente usar o botão "Forçar Login"', 'error');
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    showMessage('Popup fechado antes de completar o login', 'warning');
+                } else {
                     showMessage(`Erro no login: ${error.message}`, 'error');
                 }
-            });
+            }
+        }
+
+        // Processar resultado de redirect (se houver)
+        async function handleRedirectResult() {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result) {
+                    console.log('✅ Login via redirect bem-sucedido:', result.user.email);
+                    currentUser = result.user;
+                    await loadContent();
+                }
+            } catch (error) {
+                console.error('❌ Erro no redirect:', error);
+            }
+        }
+
+        // ============================================
+        // VERIFICAR SE OS BOTÕES EXISTEM ANTES DE ADICIONAR EVENTOS
+        // ============================================
+        function addEventListeners() {
+            // Botões de autenticação
+            if (loginBtn) loginBtn.addEventListener('click', () => handleLogin(false));
+            if (forceLoginBtn) forceLoginBtn.addEventListener('click', () => handleLogin(true));
 
             if (completeRegistrationBtn) completeRegistrationBtn.addEventListener('click', () => {
                 const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
@@ -2054,6 +2102,9 @@
         console.log('📄 Documento: uidindex');
         console.log('📝 Campo: codigo');
         console.log('💡 Pressione Ctrl+Shift+D para debug');
+        
+        // Processar resultado de redirect (se houver)
+        handleRedirectResult();
         
         // Adicionar event listeners após verificar que os elementos existem
         addEventListeners();
