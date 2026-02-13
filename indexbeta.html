@@ -816,6 +816,8 @@
         const completeRegistrationBtn = document.getElementById('completeRegistrationBtn');
         const logoutBtn = document.getElementById('logoutBtn');
         const recheckBtn = document.getElementById('recheckBtn');
+        
+        // Botões da barra de controles
         const backBtn = document.getElementById('backBtn');
         const reloadBtn = document.getElementById('reloadBtn');
         const homeBtn = document.getElementById('homeBtn');
@@ -825,6 +827,7 @@
         const openWindowBtn = document.getElementById('openWindowBtn');
         const inspectFirestoreBtn = document.getElementById('inspectFirestoreBtn');
         const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        
         const userName = document.getElementById('userName');
         const userEmail = document.getElementById('userEmail');
         const userAvatar = document.getElementById('userAvatar');
@@ -1231,7 +1234,7 @@
             // Corrigir link tags
             fixed = fixed.replace(/<link([^>]*)\/>/gi, '<link$1>');
             
-            // Corrigir style tags - VERSÃO CORRIGIDA
+            // Corrigir style tags
             fixed = fixed.replace(/style="([^"]*)"/g, (match, content) => {
                 if (content && content.includes('RESET')) {
                     return '<style>/* RESET E ESTILOS GERAIS */</style>';
@@ -1239,20 +1242,18 @@
                 return match;
             });
             
-            // Fechar tags img - VERSÃO CORRIGIDA (sem lookbehind)
+            // Fechar tags img - VERSÃO CORRIGIDA
             fixed = fixed.replace(/<img([^>]*)(?:\s*)\/?>/gi, (match, attributes) => {
-                // Se já estiver fechada, mantém
                 if (match.trim().endsWith('/>')) {
                     return match;
                 }
-                // Se não estiver fechada, fecha
                 return `<img${attributes} />`;
             });
             
-            // Corrigir tags sem fechamento
+            // Corrigir tags sem fechamento - VERSÃO CORRIGIDA
             const selfClosingTags = ['img', 'br', 'hr', 'input', 'meta', 'link'];
             selfClosingTags.forEach(tag => {
-                const regex = new RegExp(`<${tag}([^>]*)(?<!/)>`, 'gi');
+                const regex = new RegExp(`<${tag}([^>]*)>`, 'gi');
                 fixed = fixed.replace(regex, `<${tag}$1 />`);
             });
             
@@ -1727,7 +1728,7 @@
             }
             
             // Verificar se é admin (ajuste os emails conforme necessário)
-            const adminEmails = ['admin@wazzimagiygg.com', currentUser.email]; // Adicione seus emails admin
+            const adminEmails = ['admin@wazzimagiygg.com', currentUser.email]; 
             if (!adminEmails.includes(currentUser.email)) {
                 showMessage('Apenas administradores podem fazer upload', 'error');
                 return;
@@ -1783,7 +1784,7 @@
                     return false;
                 }
                 
-                // Comparar com o HTML atual (aproximadamente)
+                // Comparar com o HTML atual
                 const currentHTML = importedHTML;
                 
                 if (currentHTML && freshHTML !== currentHTML) {
@@ -1810,7 +1811,6 @@
         // ADICIONAR BOTÃO DE UPLOAD (se for admin)
         // ============================================
         function addAdminUploadButton() {
-            // Verificar se o botão já existe
             if (document.getElementById('uploadHTMLBtn')) return;
             
             const controlLeft = document.querySelector('.control-left');
@@ -1828,98 +1828,102 @@
         }
 
         // ============================================
-        // EVENT LISTENERS
+        // VERIFICAR SE OS BOTÕES EXISTEM ANTES DE ADICIONAR EVENTOS
         // ============================================
-        loginBtn.addEventListener('click', async () => {
-            try {
-                console.log('👤 Iniciando login com Google...');
-                const result = await signInWithPopup(auth, provider);
-                console.log('✅ Login bem-sucedido:', result.user.email);
-                currentUser = result.user;
-                await loadContent();
-            } catch (error) {
-                console.error('❌ Erro no login:', error);
-                showMessage(`Erro no login: ${error.message}`, 'error');
-            }
-        });
-
-        completeRegistrationBtn.addEventListener('click', () => {
-            const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
-            window.open(registrationUrl, '_blank', 'noopener,noreferrer');
-            registrationModal.style.display = 'none';
-            showMessage('Redirecionando para cadastro...', 'info');
-        });
-
-        recheckBtn.addEventListener('click', async () => {
-            if (currentUser) {
-                showMessage('🔍 Verificando cadastro...', 'info');
-                const check = await checkClientRegistration(currentUser.uid);
-                showRegistrationModal(check);
-                
-                if (check.complete) {
-                    setTimeout(() => {
-                        showEmulator();
-                    }, 1000);
+        function addEventListeners() {
+            // Botões de autenticação
+            if (loginBtn) loginBtn.addEventListener('click', async () => {
+                try {
+                    console.log('👤 Iniciando login com Google...');
+                    const result = await signInWithPopup(auth, provider);
+                    console.log('✅ Login bem-sucedido:', result.user.email);
+                    currentUser = result.user;
+                    await loadContent();
+                } catch (error) {
+                    console.error('❌ Erro no login:', error);
+                    showMessage(`Erro no login: ${error.message}`, 'error');
                 }
-            }
-        });
+            });
 
-        logoutBtn.addEventListener('click', async () => {
-            try {
-                windowManager.closeAllWindows();
-                await signOut(auth);
-                showMessage('✅ Logout realizado', 'success');
-                showScreen('login');
-            } catch (error) {
-                console.error('❌ Erro no logout:', error);
-                showMessage('Erro ao fazer logout', 'error');
-            }
-        });
+            if (completeRegistrationBtn) completeRegistrationBtn.addEventListener('click', () => {
+                const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
+                window.open(registrationUrl, '_blank', 'noopener,noreferrer');
+                registrationModal.style.display = 'none';
+                showMessage('Redirecionando para cadastro...', 'info');
+            });
 
-        backBtn.addEventListener('click', () => {
-            try {
-                emulatorFrame.contentWindow.history.back();
-            } catch (error) {
-                console.warn('⚠️ Não foi possível voltar:', error.message);
-            }
-        });
+            if (recheckBtn) recheckBtn.addEventListener('click', async () => {
+                if (currentUser) {
+                    showMessage('🔍 Verificando cadastro...', 'info');
+                    const check = await checkClientRegistration(currentUser.uid);
+                    showRegistrationModal(check);
+                    
+                    if (check.complete) {
+                        setTimeout(() => {
+                            showEmulator();
+                        }, 1000);
+                    }
+                }
+            });
 
-        reloadBtn.addEventListener('click', () => {
-            emulatorFrame.contentWindow.location.reload();
-        });
+            if (logoutBtn) logoutBtn.addEventListener('click', async () => {
+                try {
+                    windowManager.closeAllWindows();
+                    await signOut(auth);
+                    showMessage('✅ Logout realizado', 'success');
+                    showScreen('login');
+                } catch (error) {
+                    console.error('❌ Erro no logout:', error);
+                    showMessage('Erro ao fazer logout', 'error');
+                }
+            });
 
-        homeBtn.addEventListener('click', () => {
-            loadContent();
-        });
+            // Botões da barra de controles
+            if (backBtn) backBtn.addEventListener('click', () => {
+                try {
+                    emulatorFrame.contentWindow.history.back();
+                } catch (error) {
+                    console.warn('⚠️ Não foi possível voltar:', error.message);
+                }
+            });
 
-        clearCacheBtn.addEventListener('click', clearCacheAndReload);
+            if (reloadBtn) reloadBtn.addEventListener('click', () => {
+                emulatorFrame.contentWindow.location.reload();
+            });
 
-        fixImagesBtn.addEventListener('click', () => {
-            injectImageFixScript();
-        });
+            if (homeBtn) homeBtn.addEventListener('click', () => {
+                loadContent();
+            });
 
-        desktopBtn.addEventListener('click', () => {
-            const desktopUrl = `https://wazzimagiygg.com/index.txt?uid=${currentUser.uid}`;
-            window.open(desktopUrl, '_blank', 'noopener,noreferrer');
-            showMessage('🖥️ Sistema desktop aberto em nova janela', 'info');
-        });
+            if (clearCacheBtn) clearCacheBtn.addEventListener('click', clearCacheAndReload);
 
-        openWindowBtn.addEventListener('click', () => {
-            const url = prompt('Digite a URL para abrir em nova janela:', 'https://wazzimagiygg.com/');
-            const title = prompt('Digite o título da janela:', 'Nova Janela');
-            
-            if (url && title) {
-                windowManager.createWindow(title, url, 'https://wazzimagiygg.com/iconmagic.png');
-            }
-        });
+            if (fixImagesBtn) fixImagesBtn.addEventListener('click', () => {
+                injectImageFixScript();
+            });
 
-        inspectFirestoreBtn.addEventListener('click', async () => {
-            await inspectFirestoreDocument();
-        });
+            if (desktopBtn) desktopBtn.addEventListener('click', () => {
+                const desktopUrl = `https://wazzimagiygg.com/index.txt?uid=${currentUser.uid}`;
+                window.open(desktopUrl, '_blank', 'noopener,noreferrer');
+                showMessage('🖥️ Sistema desktop aberto em nova janela', 'info');
+            });
 
-        checkUpdatesBtn.addEventListener('click', async () => {
-            await checkForUpdates();
-        });
+            if (openWindowBtn) openWindowBtn.addEventListener('click', () => {
+                const url = prompt('Digite a URL para abrir em nova janela:', 'https://wazzimagiygg.com/');
+                const title = prompt('Digite o título da janela:', 'Nova Janela');
+                
+                if (url && title) {
+                    windowManager.createWindow(title, url, 'https://wazzimagiygg.com/iconmagic.png');
+                }
+            });
+
+            if (inspectFirestoreBtn) inspectFirestoreBtn.addEventListener('click', async () => {
+                await inspectFirestoreDocument();
+            });
+
+            if (checkUpdatesBtn) checkUpdatesBtn.addEventListener('click', async () => {
+                await checkForUpdates();
+            });
+        }
 
         // ============================================
         // LISTENER DE MENSAGENS DO IFRAME
@@ -1976,7 +1980,7 @@
                 console.log('👤 Usuário autenticado:', user.email);
                 
                 // Verificar se é admin e adicionar botão de upload
-                const adminEmails = ['admin@wazzimagiygg.com', 'seuemail@gmail.com']; // Adicione seus emails admin
+                const adminEmails = ['admin@wazzimagiygg.com', 'seuemail@gmail.com'];
                 if (adminEmails.includes(user.email)) {
                     console.log('👑 Admin detectado');
                     addAdminUploadButton();
@@ -2024,7 +2028,7 @@
             
             if (e.ctrlKey && e.key === 'n') {
                 e.preventDefault();
-                openWindowBtn.click();
+                if (openWindowBtn) openWindowBtn.click();
             }
             
             // Ctrl+Shift+D para debug
@@ -2050,6 +2054,9 @@
         console.log('📄 Documento: uidindex');
         console.log('📝 Campo: codigo');
         console.log('💡 Pressione Ctrl+Shift+D para debug');
+        
+        // Adicionar event listeners após verificar que os elementos existem
+        addEventListeners();
         
         // Carregar do cache local se disponível
         try {
