@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WazzimaGiygg Core</title>
+    <title>WazzimaGiygg Core - Firebase</title>
     <!-- Múltiplos fallbacks para favicon -->
     <link rel="icon" href="favicom.png" type="image/x-icon">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -134,12 +134,15 @@
             align-items: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .control-left {
             display: flex;
             align-items: center;
             gap: 15px;
+            flex-wrap: wrap;
         }
 
         .control-btn {
@@ -231,6 +234,7 @@
             gap: 10px;
             justify-content: center;
             margin-top: 25px;
+            flex-wrap: wrap;
         }
 
         .modal-btn {
@@ -253,15 +257,14 @@
             color: white;
         }
 
-        .modal-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        /* BOTÃO DE VERIFICAÇÃO */
         .modal-btn.tertiary {
             background: rgba(255, 255, 255, 0.05);
             color: #aaa;
             border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-1px);
         }
 
         /* MENSAGENS */
@@ -363,6 +366,33 @@
             border-radius: 0 0 10px 10px;
         }
 
+        /* DEBUG PANEL */
+        .debug-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #0078d7;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow: auto;
+            z-index: 99999;
+            display: none;
+        }
+
+        .debug-panel.visible {
+            display: block;
+        }
+
+        .debug-panel pre {
+            color: #0f0;
+            margin: 5px 0;
+            white-space: pre-wrap;
+        }
+
         /* RESPONSIVIDADE */
         @media (max-width: 768px) {
             .emulator-controls {
@@ -373,7 +403,7 @@
             
             .control-left {
                 width: 100%;
-                justify-content: space-between;
+                justify-content: center;
             }
             
             .user-info {
@@ -442,6 +472,8 @@
                 <button class="control-btn" id="fixImagesBtn">🖼️ Corrigir Imagens</button>
                 <button class="control-btn" id="desktopBtn">🖥️ Sistema Desktop</button>
                 <button class="control-btn" id="openWindowBtn">🪟 Nova Janela</button>
+                <button class="control-btn" id="inspectFirestoreBtn">🔍 Inspecionar Firebase</button>
+                <button class="control-btn" id="checkUpdatesBtn">🔄 Verificar Atualizações</button>
             </div>
             
             <div class="user-info">
@@ -456,6 +488,12 @@
         <div class="emulator-area">
             <iframe id="emulator-frame" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
         </div>
+    </div>
+
+    <!-- DEBUG PANEL -->
+    <div id="debugPanel" class="debug-panel">
+        <div style="color:#0078d7; font-weight:bold; margin-bottom:5px;">🔍 Firebase Debug</div>
+        <pre id="debugContent">Aguardando inspeção...</pre>
     </div>
 
     <!-- Import Firebase -->
@@ -475,6 +513,7 @@
             getFirestore, 
             doc, 
             getDoc,
+            setDoc,
             collection,
             query,
             where,
@@ -513,7 +552,6 @@
                 
                 console.log(`🎯 Processando UID para janela: ${uidValue}`);
                 
-                // Tipos de UID que podemos processar
                 const uidTypes = {
                     'pdf': uidValue.includes('.pdf') || uidValue.toLowerCase().endsWith('pdf'),
                     'html': uidValue.includes('.html') || uidValue.toLowerCase().endsWith('html'),
@@ -526,7 +564,6 @@
                 let finalUrl = '';
                 let windowTitle = 'Janela Externa';
                 
-                // Lógica de processamento do sistema antigo
                 if (uidTypes.directUrl) {
                     finalUrl = uidValue;
                     windowTitle = 'Link Externo';
@@ -550,72 +587,47 @@
                     windowTitle = 'Wiki Not Pedia';
                 }
                 else if (uidTypes.plain) {
-                    // Tentar abrir como arquivo genérico
                     finalUrl = `https://wazzimagiygg.com/pdf/?uid=${encodeURIComponent(uidValue)}`;
                     windowTitle = 'Arquivo';
-                    
-                    // Alternativas para tentar
-                    const alternativeUrls = [
-                        `https://wazzimagiygg.com/html/?uid=${encodeURIComponent(uidValue)}`,
-                        `https://wazzimagiygg.com/central/?uid=${uidValue}`,
-                        `https://wazzimagiygg.com/r/?id=${uidValue}`
-                    ];
-                    
-                    console.log(`🔍 Tentando abrir UID simples: ${uidValue}`);
-                    console.log(`📋 URLs alternativas:`, alternativeUrls);
                 }
                 else {
-                    // Fallback geral
                     finalUrl = `https://wazzimagiygg.com/${uidValue}`;
                     windowTitle = 'Recurso WZZM';
                 }
                 
                 console.log(`🌐 URL final gerada: ${finalUrl}`);
-                
-                // Abrir em uma nova janela
                 this.openInNewWindow(windowTitle, finalUrl, userData);
                 return true;
             },
             
             openInNewWindow: function(title, url, userData) {
                 console.log(`🪟 Abrindo janela: ${title} -> ${url}`);
-                
-                // Usar nosso sistema de janelas simples
                 try {
                     const urlWithAuth = this.addAuthParams(url, userData);
                     windowManager.createWindow(title, urlWithAuth, 'https://wazzimagiygg.com/iconmagic.png');
                     showMessage(`✅ Janela aberta: ${title}`, 'success');
                 } catch (error) {
                     console.error('❌ Erro ao abrir janela:', error);
-                    
-                    // Fallback: abrir em nova guia
                     window.open(url, '_blank', 'noopener,noreferrer');
                 }
             },
             
             addAuthParams: function(url, userData) {
                 if (!userData || !url.includes('wazzimagiygg.com')) return url;
-                
                 try {
                     const urlObj = new URL(url);
-                    
-                    // Adicionar parâmetros de autenticação se não existirem
                     if (!urlObj.searchParams.has('uid')) {
                         urlObj.searchParams.append('user', userData.uid);
                         urlObj.searchParams.append('email', encodeURIComponent(userData.email));
                     }
-                    
                     return urlObj.toString();
                 } catch (error) {
-                    console.warn('⚠️ Não foi possível adicionar parâmetros de auth:', error);
                     return url;
                 }
             },
             
-            // Função para extrair UID de vários formatos de URL
             extractUidFromUrl: function(url) {
                 if (!url) return null;
-                
                 const patterns = [
                     /[?&]uid=([^&]+)/i,
                     /\/pdf\/\?uid=([^&]+)/i,
@@ -624,18 +636,14 @@
                     /\/r\/\?id=([^&]+)/i,
                     /\/view\/\?id=([^&]+)/i
                 ];
-                
                 for (const pattern of patterns) {
                     const match = url.match(pattern);
                     if (match) return decodeURIComponent(match[1]);
                 }
-                
-                // Último segmento da URL
                 const lastSegment = url.split('/').pop();
                 if (lastSegment && lastSegment.includes('?')) {
                     return lastSegment.split('?')[0];
                 }
-                
                 return lastSegment || null;
             },
             
@@ -657,37 +665,20 @@
             
             shouldProcessUID: function(uid) {
                 if (!uid) return false;
-                
                 const key = `uid_${uid}_${currentUser?.uid || 'anonymous'}`;
-                
-                // Verificar se já processamos este UID
-                if (this.processedUIDs.has(key)) {
-                    console.log(`⏭️ UID já processado: ${uid}`);
-                    return false;
-                }
-                
-                // Verificar no sessionStorage
-                if (sessionStorage.getItem(key)) {
-                    console.log(`⏭️ UID já processado (session): ${uid}`);
-                    return false;
-                }
-                
-                // Marcar como processado
+                if (this.processedUIDs.has(key)) return false;
+                if (sessionStorage.getItem(key)) return false;
                 this.processedUIDs.add(key);
                 sessionStorage.setItem(key, 'true');
-                
-                // Limpar após 5 minutos (opcional)
                 setTimeout(() => {
                     this.processedUIDs.delete(key);
                     sessionStorage.removeItem(key);
                 }, 5 * 60 * 1000);
-                
                 return true;
             },
             
             clearProcessedUIDs: function() {
                 this.processedUIDs.clear();
-                // Limpar também do sessionStorage
                 Object.keys(sessionStorage).forEach(key => {
                     if (key.startsWith('uid_')) {
                         sessionStorage.removeItem(key);
@@ -720,16 +711,12 @@
                 `;
                 
                 document.body.appendChild(windowElement);
-                
-                // Configurar drag and drop
                 this.setupWindowDrag(windowElement.querySelector('.simple-window-header'), windowElement);
                 
-                // Configurar botão de fechar
                 windowElement.querySelector('.close-window').onclick = () => {
                     this.closeWindow(windowId);
                 };
                 
-                // Adicionar à lista de janelas
                 this.windows.push({
                     id: windowId,
                     element: windowElement,
@@ -737,9 +724,7 @@
                     url: url
                 });
                 
-                // Ativar esta janela
                 this.activateWindow(windowId);
-                
                 return windowId;
             },
             
@@ -749,15 +734,10 @@
                 
                 header.addEventListener('mousedown', (e) => {
                     if (e.target.classList.contains('close-window')) return;
-                    
                     isDragging = true;
                     offsetX = e.clientX - windowElement.offsetLeft;
                     offsetY = e.clientY - windowElement.offsetTop;
-                    
-                    // Ativar esta janela
-                    const windowId = windowElement.id;
-                    this.activateWindow(windowId);
-                    
+                    this.activateWindow(windowElement.id);
                     e.preventDefault();
                 });
                 
@@ -774,12 +754,9 @@
             },
             
             activateWindow: function(windowId) {
-                // Remover todas as classes ativas
                 this.windows.forEach(win => {
                     win.element.style.zIndex = '10000';
                 });
-                
-                // Ativar a janela específica
                 const window = this.windows.find(w => w.id === windowId);
                 if (window) {
                     window.element.style.zIndex = '10001';
@@ -792,8 +769,6 @@
                 if (index !== -1) {
                     this.windows[index].element.remove();
                     this.windows.splice(index, 1);
-                    
-                    // Ativar a última janela se houver
                     if (this.windows.length > 0) {
                         this.activateWindow(this.windows[this.windows.length - 1].id);
                     } else {
@@ -831,9 +806,13 @@
         const fixImagesBtn = document.getElementById('fixImagesBtn');
         const desktopBtn = document.getElementById('desktopBtn');
         const openWindowBtn = document.getElementById('openWindowBtn');
+        const inspectFirestoreBtn = document.getElementById('inspectFirestoreBtn');
+        const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
         const userName = document.getElementById('userName');
         const userEmail = document.getElementById('userEmail');
         const userAvatar = document.getElementById('userAvatar');
+        const debugPanel = document.getElementById('debugPanel');
+        const debugContent = document.getElementById('debugContent');
 
         // ============================================
         // VARIÁVEIS GLOBAIS
@@ -879,131 +858,98 @@
             }
         }
 
-        // Função para escapar HTML
         function escapeHTML(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
+        function showDebug(content) {
+            debugPanel.classList.add('visible');
+            if (typeof content === 'object') {
+                debugContent.textContent = JSON.stringify(content, null, 2);
+            } else {
+                debugContent.textContent = content;
+            }
+            
+            // Auto-hide após 10 segundos
+            setTimeout(() => {
+                debugPanel.classList.remove('visible');
+            }, 10000);
+        }
+
         // ============================================
         // FUNÇÕES PARA CORRIGIR IMAGENS
         // ============================================
-
-        // Função para corrigir caminhos de imagens no HTML
         function fixImagePaths(html) {
             console.log('🔧 Corrigindo caminhos de imagens no HTML...');
             
-            // Substituir todos os src de imagens para URLs absolutas
             let fixedHtml = html.replace(/src=["']([^"']*\.(png|jpg|jpeg|gif|svg|ico|webp))["']/gi, (match, src, extension) => {
-                console.log('📝 Imagem encontrada:', src);
-                
-                // Se já for URL absoluta, não alterar
                 if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
-                    console.log('  ✅ Já é URL absoluta');
                     return match;
                 }
-                
-                // Se for favicon e existe localmente, manter local
                 if (src.includes('favicom') || src.includes('favicon')) {
-                    console.log('  🔧 Favicon mantido local');
                     return match;
                 }
-                
-                // Base URL do site
                 const baseUrl = 'https://wazzimagiygg.com/';
-                
                 let fixedSrc = src;
-                
-                // Limpar caminho
                 if (fixedSrc.startsWith('./')) {
                     fixedSrc = fixedSrc.substring(2);
                 }
-                
-                // Adicionar base URL
                 if (!fixedSrc.startsWith('/')) {
                     fixedSrc = baseUrl + fixedSrc;
                 } else {
                     fixedSrc = baseUrl + fixedSrc.substring(1);
                 }
-                
-                console.log('  🔄 Convertido para:', fixedSrc);
-                
-                // Retornar com onerror para fallback
-                return `src="${fixedSrc}" onerror="console.log('❌ Falha ao carregar: \\'' + this.src + '\\''); this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"100\\" height=\\"100\\" viewBox=\\"0 0 100 100\\"><rect width=\\"100\\" height=\\"100\\" fill=\\"%230078d7\\"/><text x=\\"50\\" y=\\"50\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"white\\" text-anchor=\\"middle\\" dy=\\".3em\\">${src.split('/').pop()?.split('.')[0] || 'IMG'}</text></svg>';"`;
+                return `src="${fixedSrc}" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"100\\" height=\\"100\\" viewBox=\\"0 0 100 100\\"><rect width=\\"100\\" height=\\"100\\" fill=\\"%230078d7\\"/><text x=\\"50\\" y=\\"50\\" font-family=\\"Arial\\" font-size=\\"12\\" fill=\\"white\\" text-anchor=\\"middle\\" dy=\\".3em\\">${src.split('/').pop()?.split('.')[0] || 'IMG'}</text></svg>';"`;
             });
             
-            // Também corrigir background-image em CSS
             fixedHtml = fixedHtml.replace(/background-image:\s*url\(['"]?([^'"\)]+)['"]?\)/gi, (match, url) => {
-                console.log('🎨 Background-image encontrado:', url);
-                
                 if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
                     return match;
                 }
-                
                 const baseUrl = 'https://wazzimagiygg.com/';
                 let fixedUrl = url;
-                
                 if (fixedUrl.startsWith('./')) {
                     fixedUrl = fixedUrl.substring(2);
                 }
-                
                 if (!fixedUrl.startsWith('/')) {
                     fixedUrl = baseUrl + fixedUrl;
                 } else {
                     fixedUrl = baseUrl + fixedUrl.substring(1);
                 }
-                
-                console.log('  🔄 Background convertido para:', fixedUrl);
                 return `background-image: url('${fixedUrl}')`;
             });
             
-            console.log('✅ Caminhos de imagens corrigidos');
             return fixedHtml;
         }
 
-        // Função para processar UIDs no conteúdo
         function processUIDsInContent(htmlContent) {
-            console.log('🔗 Processando UIDs no conteúdo HTML...');
-            
-            // Encontrar links com UIDs e convertê-los para abrir em janelas
             let processedHtml = htmlContent.replace(
                 /href=["']([^"']*\?uid=[^"']+)["']/gi,
                 (match, href) => {
-                    console.log('🔗 Link UID encontrado:', href);
-                    
-                    // Extrair título do link (buscar texto entre tags <a>)
                     const linkText = match.match(/<a[^>]*>([^<]*)<\/a>/i);
                     const title = linkText ? linkText[1] : 'Documento';
-                    
-                    // Converter para função JavaScript que abre em janela
                     return `href="javascript:void(0)" onclick="if(window.parent&&window.parent.openWZZMWindow){window.parent.openWZZMWindow('${href}','${escapeHTML(title)}');}else{window.open('${href}','_blank');}"`;
                 }
             );
             
-            // Também processar formulários com UID
             processedHtml = processedHtml.replace(
                 /action=["']([^"']*\?uid=[^"']+)["']/gi,
                 (match, action) => {
-                    console.log('🔗 Form action UID encontrado:', action);
                     return `action="${action}" target="_blank"`;
                 }
             );
             
-            console.log('✅ UIDs processados no conteúdo');
             return processedHtml;
         }
 
-        // Função para injetar script de correção no iframe
         function injectImageFixScript() {
             if (emulatorFrame.contentWindow) {
                 try {
                     const script = document.createElement('script');
                     script.textContent = `
-                        // Script de correção de imagens
-                        console.log('🖼️ Injetando script de correção de imagens...');
-                        
-                        // Mapeamento de imagens conhecidas
+                        console.log('🖼️ Script de correção de imagens ativado');
                         const imageMap = {
                             'logo.png': 'https://wazzimagiygg.com/logo.png',
                             'bg.png': 'https://wazzimagiygg.com/images/bg.png',
@@ -1016,24 +962,14 @@
                             'avatar.png': 'https://wazzimagiygg.com/avatar.png'
                         };
                         
-                        // Função para corrigir uma imagem
                         function fixImage(img) {
                             const originalSrc = img.src;
                             const filename = originalSrc.split('/').pop();
-                            
-                            // Se já é uma URL do wazzimagiygg ou data URL, não fazer nada
-                            if (originalSrc.includes('wazzimagiygg.com') || originalSrc.startsWith('data:')) {
-                                return;
-                            }
-                            
-                            // Se temos mapeamento conhecido, usar ele
+                            if (originalSrc.includes('wazzimagiygg.com') || originalSrc.startsWith('data:')) return;
                             if (imageMap[filename]) {
                                 img.src = imageMap[filename];
-                                console.log('🔄 Imagem redirecionada:', filename, '->', imageMap[filename]);
                                 return;
                             }
-                            
-                            // Lista de possíveis locais para tentar
                             const fallbacks = [
                                 'https://wazzimagiygg.com/' + filename,
                                 'https://wazzimagiygg.com/images/' + filename,
@@ -1051,22 +987,18 @@
                                 if (currentIndex < fallbacks.length) {
                                     this.src = fallbacks[currentIndex];
                                     currentIndex++;
-                                    console.log('🔄 Tentando fallback ' + currentIndex + ':', this.src);
                                 } else if (originalErrorHandler) {
                                     originalErrorHandler.call(this);
                                 }
                             };
                             
-                            // Se a imagem já falhou, disparar o handler de erro
                             if (img.complete && img.naturalHeight === 0) {
                                 img.onerror();
                             }
                         }
                         
-                        // Aplicar a todas as imagens existentes
                         document.querySelectorAll('img').forEach(fixImage);
                         
-                        // Observar novas imagens adicionadas dinamicamente
                         const observer = new MutationObserver((mutations) => {
                             mutations.forEach((mutation) => {
                                 mutation.addedNodes.forEach((node) => {
@@ -1080,193 +1012,263 @@
                         });
                         
                         observer.observe(document.body, { childList: true, subtree: true });
-                        
-                        console.log('✅ Sistema de correção de imagens ativado');
                     `;
                     
                     emulatorFrame.contentDocument.head.appendChild(script);
-                    console.log('✅ Script de correção injetado no iframe');
                     showMessage('✅ Script de correção de imagens injetado', 'success');
                 } catch (error) {
                     console.warn('⚠️ Não foi possível injetar script:', error.message);
-                    showMessage('Erro ao corrigir imagens', 'error');
                 }
             }
         }
 
         // ============================================
-        // IMPORTAR HTML EXTERNO
+        // FUNÇÕES FIREBASE - COLEÇÃO INDEX
         // ============================================
-        async function importExternalHTML() {
+        
+        // Função para carregar HTML do Firestore (coleção "index", documento "uidindex", campo "codigo")
+        async function loadHTMLFromFirestore() {
             try {
-                const sources = [
-                    'index.txt',
-                    'https://wazzimagiygg.com/index.txt',
-                    'index2.html',
-                    'https://wazzimagiygg.com/index2.html'
-                ];
+                console.log('🔍 Tentando carregar HTML de: index/uidindex');
+                showMessage('📥 Carregando HTML do Firebase...', 'info');
                 
-                let htmlContent = '';
+                const docRef = doc(db, "index", "uidindex");
+                const docSnap = await getDoc(docRef);
                 
-                for (const source of sources) {
-                    try {
-                        console.log(`🔍 Tentando importar de: ${source}`);
-                        const response = await fetch(source);
-                        if (response.ok) {
-                            htmlContent = await response.text();
-                            
-                            // Limpar BOM de arquivos .txt
-                            if (source.includes('.txt')) {
-                                htmlContent = htmlContent.replace(/^\uFEFF/, '');
-                            }
-                            
-                            console.log(`✅ Importado de: ${source}`);
-                            
-                            // PROCESSAR UIDs no conteúdo importado
-                            htmlContent = processUIDsInContent(htmlContent);
-                            
-                            // CORREÇÃO IMPORTANTE: Fixar caminhos de imagens
-                            htmlContent = fixImagePaths(htmlContent);
-                            
-                            // Adicionar script de fallback no final do body
-                            htmlContent = htmlContent.replace('</body>', `
-                                <!-- Script de processamento de UIDs e imagens -->
-                                <script>
-                                    console.log('🔗 Script de UIDs carregado');
-                                    
-                                    // Processar UIDs na inicialização
-                                    window.addEventListener('load', function() {
-                                        const urlParams = new URLSearchParams(window.location.search);
-                                        const uid = urlParams.get('uid');
-                                        
-                                        // Verificar se o UID já foi processado pelo sistema pai
-                                        if (uid && window.parent && window.parent.openWZZMWindow) {
-                                            // Verificar com o sistema pai se já processou este UID
-                                            const checkUID = new Promise((resolve) => {
-                                                const handler = (event) => {
-                                                    if (event.data.type === 'uidCheckResponse' && event.data.uid === uid) {
-                                                        window.removeEventListener('message', handler);
-                                                        resolve(event.data.processed);
-                                                    }
-                                                };
-                                                
-                                                window.addEventListener('message', handler);
-                                                
-                                                // Pedir verificação ao parent
-                                                window.parent.postMessage({
-                                                    type: 'uidCheckRequest',
-                                                    uid: uid
-                                                }, '*');
-                                                
-                                                // Timeout de segurança
-                                                setTimeout(() => resolve(true), 1000);
-                                            });
-                                            
-                                            checkUID.then((alreadyProcessed) => {
-                                                if (!alreadyProcessed) {
-                                                    console.log('🔗 UID detectado no iframe (não processado):', uid);
-                                                    setTimeout(() => {
-                                                        window.parent.openWZZMWindow(
-                                                            'https://wazzimagiygg.com/pdf/?uid=' + encodeURIComponent(uid),
-                                                            'Documento: ' + uid
-                                                        );
-                                                    }, 1500);
-                                                } else {
-                                                    console.log('⏭️ UID ignorado no iframe (já processado):', uid);
-                                                }
-                                            });
-                                        }
-                                        
-                                        // Corrigir imagens que podem ter sido carregadas antes do script
-                                        setTimeout(() => {
-                                            const images = document.querySelectorAll('img');
-                                            images.forEach(img => {
-                                                if (!img.src.includes('wazzimagiygg.com') && !img.src.startsWith('data:')) {
-                                                    const filename = img.src.split('/').pop();
-                                                    img.src = 'https://wazzimagiygg.com/' + filename;
-                                                }
-                                            });
-                                        }, 100);
-                                    });
-                                    
-                                    // Interceptar cliques em links com UID
-                                    document.addEventListener('click', function(e) {
-                                        const link = e.target.closest('a');
-                                        if (link && link.href) {
-                                            const href = link.href;
-                                            
-                                            // Verificar se é um link com UID
-                                            if (href.includes('?uid=') || href.includes('/pdf/') || href.includes('/html/') || 
-                                                href.includes('/central/') || href.includes('/r/?id=')) {
-                                                e.preventDefault();
-                                                console.log('🔗 Link UID clicado:', href);
-                                                
-                                                if (window.parent && window.parent.openWZZMWindow) {
-                                                    window.parent.openWZZMWindow(href, link.textContent || 'Documento');
-                                                } else {
-                                                    window.open(href, '_blank');
-                                                }
-                                            }
-                                        }
-                                    });
-                                    
-                                    // Função global para abrir janelas
-                                    window.openWZZMWindow = function(url, title) {
-                                        if (window.parent && window.parent.openWZZMWindow) {
-                                            window.parent.openWZZMWindow(url, title);
-                                        } else {
-                                            window.open(url, '_blank');
-                                        }
-                                    };
-                                <\/script>
-                                </body>
-                            `);
-                            
-                            break;
-                        }
-                    } catch (error) {
-                        console.log(`⚠️ Erro ao carregar ${source}:`, error.message);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log('✅ Documento encontrado!');
+                    console.log('📦 Campos disponíveis:', Object.keys(data));
+                    
+                    showDebug({
+                        status: 'Documento encontrado',
+                        campos: Object.keys(data),
+                        tamanho_codigo: data.codigo ? data.codigo.length : 0,
+                        ultima_atualizacao: data.ultimaAtualizacao || 'N/A'
+                    });
+                    
+                    // Campo "codigo" conforme sua imagem
+                    if (data.codigo) {
+                        console.log(`📝 Campo "codigo" carregado (${data.codigo.length} caracteres)`);
+                        
+                        // Verificar se precisa corrigir o HTML mal formatado
+                        let htmlContent = data.codigo;
+                        
+                        // Corrigir problemas comuns de formatação
+                        htmlContent = fixMalformedHTML(htmlContent);
+                        
+                        return htmlContent;
+                    } else {
+                        console.log('❌ Campo "codigo" não encontrado no documento');
+                        console.log('Campos disponíveis:', Object.keys(data));
+                        showMessage('Campo "codigo" não encontrado no Firebase', 'error');
+                        return null;
                     }
+                } else {
+                    console.log('❌ Documento uidindex não encontrado na coleção index');
+                    showMessage('Documento não encontrado no Firebase', 'error');
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ Erro ao carregar HTML do Firestore:', error);
+                showMessage('Erro ao carregar do Firebase: ' + error.message, 'error');
+                return null;
+            }
+        }
+
+        // Função para salvar HTML no Firestore (coleção "index", documento "uidindex", campo "codigo")
+        async function saveHTMLToFirestore(htmlContent) {
+            try {
+                console.log('💾 Salvando HTML em: index/uidindex (campo: codigo)');
+                showMessage('📤 Salvando HTML no Firebase...', 'info');
+                
+                const docRef = doc(db, "index", "uidindex");
+                
+                // Verificar documento existente
+                const docSnap = await getDoc(docRef);
+                const existingData = docSnap.exists() ? docSnap.data() : {};
+                
+                // Preparar dados
+                const data = {
+                    codigo: htmlContent,
+                    ultimaAtualizacao: new Date(),
+                    atualizadoPor: currentUser?.email || 'sistema',
+                    atualizadoPorUID: currentUser?.uid || 'sistema',
+                    versao: (existingData.versao || 0) + 1,
+                    timestamp: Date.now()
+                };
+                
+                // Manter campos existentes se houver
+                if (docSnap.exists()) {
+                    console.log('📝 Atualizando documento existente');
+                    // Merge para não perder outros campos
+                    await setDoc(docRef, data, { merge: true });
+                } else {
+                    console.log('🆕 Criando novo documento');
+                    await setDoc(docRef, data);
                 }
                 
-                if (!htmlContent || htmlContent.trim() === '') {
-                    console.log('⚠️ Nenhum conteúdo importado, usando HTML padrão');
-                    htmlContent = createDefaultHTML();
+                console.log('✅ HTML salvo com sucesso!');
+                console.log(`   Tamanho: ${htmlContent.length} caracteres`);
+                console.log(`   Versão: ${data.versao}`);
+                
+                showMessage('✅ HTML salvo no Firebase!', 'success');
+                
+                showDebug({
+                    status: 'Salvo com sucesso',
+                    documento: 'index/uidindex',
+                    campo: 'codigo',
+                    tamanho: htmlContent.length,
+                    versao: data.versao
+                });
+                
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao salvar HTML:', error);
+                showMessage('Erro ao salvar: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // Função para inspecionar documento
+        async function inspectFirestoreDocument() {
+            try {
+                console.log('🔍 INSPECIONANDO DOCUMENTO index/uidindex');
+                showMessage('🔍 Inspecionando Firebase...', 'info');
+                
+                const docRef = doc(db, "index", "uidindex");
+                const docSnap = await getDoc(docRef);
+                
+                let debugInfo = {
+                    colecao: 'index',
+                    documento: 'uidindex',
+                    existe: docSnap.exists()
+                };
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    debugInfo.campos = Object.keys(data);
+                    debugInfo.tipos = {};
+                    
+                    Object.keys(data).forEach(key => {
+                        debugInfo.tipos[key] = typeof data[key];
+                        if (key === 'codigo' && typeof data[key] === 'string') {
+                            debugInfo.tamanho_codigo = data[key].length;
+                            debugInfo.codigo_preview = data[key].substring(0, 100) + '...';
+                            
+                            // Verificar se parece HTML
+                            const pareceHTML = data[key].includes('<html') || 
+                                              data[key].includes('<!DOCTYPE') ||
+                                              data[key].includes('<body');
+                            debugInfo.eh_html = pareceHTML;
+                        }
+                    });
+                    
+                    debugInfo.ultima_atualizacao = data.ultimaAtualizacao || 'N/A';
+                    debugInfo.versao = data.versao || 1;
+                    
+                    console.log('✅ Documento encontrado:');
+                    console.log('   Campos:', Object.keys(data));
+                    console.log('   Versão:', data.versao);
+                    console.log('   Última atualização:', data.ultimaAtualizacao);
+                    
+                    if (data.codigo) {
+                        console.log(`   Tamanho do código: ${data.codigo.length} caracteres`);
+                    }
+                } else {
+                    console.log('❌ Documento NÃO encontrado');
+                    debugInfo.erro = 'Documento não existe';
                 }
                 
-                // Verificar se é HTML válido
-                if (!htmlContent.includes('<!DOCTYPE') && !htmlContent.includes('<html')) {
-                    console.log('⚠️ Conteúdo não parece HTML válido, adicionando estrutura');
-                    htmlContent = wrapInHTMLStructure(htmlContent);
-                }
-                
-                // Salvar no localStorage para cache
-                try {
-                    localStorage.setItem('importedHTML', htmlContent);
-                    localStorage.setItem('importedHTMLTimestamp', Date.now());
-                    console.log('💾 HTML salvo no cache do localStorage');
-                } catch (storageError) {
-                    console.warn('⚠️ Não foi possível salvar no localStorage:', storageError.message);
-                }
-                
-                return htmlContent;
+                showDebug(debugInfo);
+                return debugInfo;
                 
             } catch (error) {
-                console.error('❌ Erro crítico ao importar HTML:', error);
-                showMessage('Erro ao carregar conteúdo do sistema', 'error');
-                return createDefaultHTML();
+                console.error('❌ Erro na inspeção:', error);
+                showMessage('Erro na inspeção: ' + error.message, 'error');
+                showDebug({ erro: error.message });
+                return null;
             }
         }
 
-        // Função para criar HTML padrão de fallback
+        // Função para corrigir HTML mal formatado
+        function fixMalformedHTML(html) {
+            if (!html) return html;
+            
+            console.log('🔧 Corrigindo HTML mal formatado...');
+            let fixed = html;
+            
+            // Corrigir doctype
+            fixed = fixed.replace(/<IDOCTYPE/i, '<!DOCTYPE');
+            fixed = fixed.replace(/<\!DOCTYPE/g, '<!DOCTYPE');
+            
+            // Corrigir tags de fechamento
+            fixed = fixed.replace(/<\/title>/g, '</title>');
+            fixed = fixed.replace(/<title([^>]*)>/g, '<title$1>');
+            
+            // Corrigir meta tags
+            fixed = fixed.replace(/<\/meta/g, '<meta');
+            fixed = fixed.replace(/<meta([^>]*)\/>/g, '<meta$1>');
+            
+            // Corrigir link tags
+            fixed = fixed.replace(/<link([^>]*)\/>/g, '<link$1>');
+            
+            // Corrigir style tags
+            fixed = fixed.replace(/style="([^"]*)"/g, (match, content) => {
+                if (content.includes('RESET')) {
+                    return '<style>/* RESET E ESTILOS GERAIS */</style>';
+                }
+                return match;
+            });
+            
+            // Fechar tags img
+            fixed = fixed.replace(/<img([^>]*)(?<!/)>/g, '<img$1 />');
+            
+            // Remover espaços extras
+            fixed = fixed.replace(/\s+/g, ' ').replace(/> </g, '>\n<');
+            
+            console.log('✅ HTML corrigido');
+            return fixed;
+        }
+
+        // ============================================
+        // FUNÇÕES DE FALLBACK (fontes legadas)
+        // ============================================
+        async function loadFromLegacySources() {
+            const sources = [
+                'index.txt',
+                'https://wazzimagiygg.com/index.txt',
+                'index2.html',
+                'https://wazzimagiygg.com/index2.html'
+            ];
+            
+            for (const source of sources) {
+                try {
+                    console.log(`📥 Tentando fallback: ${source}`);
+                    const response = await fetch(source);
+                    if (response.ok) {
+                        let htmlContent = await response.text();
+                        if (source.includes('.txt')) {
+                            htmlContent = htmlContent.replace(/^\uFEFF/, '');
+                        }
+                        console.log(`✅ Carregado de: ${source}`);
+                        return htmlContent;
+                    }
+                } catch (error) {
+                    console.log(`⚠️ Erro ao carregar ${source}:`, error.message);
+                }
+            }
+            
+            return null;
+        }
+
         function createDefaultHTML() {
-            return `
-<!DOCTYPE html>
+            return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema WZZM</title>
+    <title>Sistema WZZM - Fallback</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -1299,11 +1301,12 @@
             display: inline-block;
             margin: 20px 0;
         }
-        .user-info {
+        .info {
             background: #f5f5f5;
             padding: 15px;
             border-radius: 10px;
             margin: 20px 0;
+            text-align: left;
         }
         .links {
             display: grid;
@@ -1328,46 +1331,19 @@
 <body>
     <div class="container">
         <h1>🚀 Sistema WZZM</h1>
-        <div class="status">✅ Sistema carregado com sucesso</div>
-        <p>Bem-vindo ao sistema principal.</p>
-        <div class="user-info">
-            <p><strong>Usuário:</strong> <span id="currentUser">Carregando...</span></p>
-            <p><strong>Status:</strong> <span id="userStatus">Conectado</span></p>
-            <p><strong>UID Atual:</strong> <span id="currentUid">Nenhum</span></p>
+        <div class="status">✅ Sistema carregado (modo fallback)</div>
+        <div class="info">
+            <p><strong>Status:</strong> Conectado ao Firebase</p>
+            <p><strong>Documento:</strong> index/uidindex</p>
+            <p><strong>Campo:</strong> codigo</p>
+            <p><strong>Mensagem:</strong> Nenhum HTML encontrado no Firebase. Use o botão "Upload HTML" para enviar.</p>
         </div>
-        
         <div class="links">
-            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/pdf/?uid=Termos%20de%20Servi%C3%A7o.pdf','Termos')" class="link-btn">📄 Termos de Serviço</a>
-            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/r/?id=wiki','Wiki')" class="link-btn">📚 Wiki Not Pedia</a>
-            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/central/','Central')" class="link-btn">⚙️ Central WZZM</a>
-            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/html/?uid=contato','Contato')" class="link-btn">💬 Contato</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/pdf/?uid=documento.pdf','Documento')" class="link-btn">📄 Documento</a>
+            <a href="javascript:void(0)" onclick="window.parent.openWZZMWindow('https://wazzimagiygg.com/central/','Central')" class="link-btn">⚙️ Central</a>
         </div>
-        
-        <p style="margin-top: 20px; font-size: 14px; color: #666;">Para abrir documentos, use: ?uid=nome_do_arquivo</p>
     </div>
     <script>
-        window.addEventListener('message', function(event) {
-            if (event.data.type === 'userData') {
-                document.getElementById('currentUser').textContent = 
-                    event.data.user.displayName || event.data.user.email || 'Usuário';
-                document.getElementById('userStatus').textContent = '✅ Conectado';
-            }
-            if (event.data.type === 'uidParam') {
-                document.getElementById('currentUid').textContent = event.data.uid || 'Nenhum';
-            }
-        });
-        
-        // Solicitar dados do usuário
-        window.parent.postMessage({ type: 'requestUserData' }, '*');
-        
-        // Verificar se há UID na URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const uid = urlParams.get('uid');
-        if (uid) {
-            window.parent.postMessage({ type: 'uidParam', uid: uid }, '*');
-        }
-        
-        // Função global para abrir janelas
         window.openWZZMWindow = function(url, title) {
             if (window.parent && window.parent.openWZZMWindow) {
                 window.parent.openWZZMWindow(url, title);
@@ -1375,20 +1351,19 @@
                 window.open(url, '_blank');
             }
         };
+        window.parent.postMessage({ type: 'fallbackLoaded' }, '*');
     <\/script>
 </body>
 </html>`;
         }
 
-        // Função para envolver conteúdo simples em estrutura HTML
         function wrapInHTMLStructure(content) {
-            return `
-<!DOCTYPE html>
+            return `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema WZZM</title>
+    <title>Conteúdo Importado</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -1410,55 +1385,86 @@
             overflow: auto;
             white-space: pre-wrap;
         }
-        .uid-link {
-            color: #0078d7;
-            text-decoration: none;
-            border-bottom: 1px dashed #0078d7;
-            cursor: pointer;
-        }
-        .uid-link:hover {
-            color: #005a9e;
-        }
     </style>
 </head>
 <body>
     <div class="content">
-        <h1>Conteúdo Importado</h1>
-        <p>O sistema carregou o seguinte conteúdo:</p>
-        <div id="processed-content"></div>
+        <h1>Conteúdo do Firebase</h1>
+        <p>Documento: index/uidindex (campo: codigo)</p>
+        <div>${content}</div>
     </div>
-    <script>
-        // Processar links UID no conteúdo
-        function processContent(content) {
-            // Encontrar links com UID e torná-los clicáveis
-            const processed = content.replace(
-                /(?:href=["'])?([^"'\s]*\?uid=[^"'\s]+)(?:["'])?/gi,
-                function(match, url) {
-                    const title = url.split('?uid=')[1] || 'Documento';
-                    return '<a href="javascript:void(0)" onclick="openWZZMWindow(\\\\'' + url + '\\\\', \\\\'' + title + '\\\\')" class="uid-link">' + url + '</a>';
-                }
-            );
-            
-            document.getElementById('processed-content').innerHTML = '<pre>' + 
-                processed.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
-        }
-        
-        processContent(\`${escapeHTML(content)}\`);
-        
-        // Função para abrir janelas
-        window.openWZZMWindow = function(url, title) {
-            if (window.parent && window.parent.openWZZMWindow) {
-                window.parent.openWZZMWindow(url, title);
-            } else {
-                window.open(url, '_blank');
-            }
-        };
-        
-        // Comunicar com o parent
-        window.parent.postMessage({ type: 'contentLoaded' }, '*');
-    <\/script>
 </body>
 </html>`;
+        }
+
+        // ============================================
+        // FUNÇÃO PRINCIPAL DE IMPORTAÇÃO
+        // ============================================
+        async function importExternalHTML() {
+            try {
+                console.log('🔧 === INICIANDO CARREGAMENTO DO HTML ===');
+                
+                // 1. TENTAR FIREBASE PRIMEIRO (coleção index, documento uidindex)
+                console.log('📥 Tentando carregar do Firebase (index/uidindex)...');
+                let htmlContent = await loadHTMLFromFirestore();
+                
+                // 2. Se não encontrar no Firebase, tentar fontes legadas
+                if (!htmlContent) {
+                    console.log('⚠️ Firebase: HTML não encontrado, tentando fontes legadas...');
+                    htmlContent = await loadFromLegacySources();
+                    
+                    // Se conseguiu carregar das fontes legadas, salvar no Firebase
+                    if (htmlContent) {
+                        console.log('💾 Salvando HTML das fontes legadas no Firebase...');
+                        await saveHTMLToFirestore(htmlContent);
+                    }
+                }
+                
+                // 3. Se ainda não tem, criar HTML padrão
+                if (!htmlContent || htmlContent.trim() === '') {
+                    console.log('⚠️ Nenhuma fonte encontrada, usando HTML padrão');
+                    htmlContent = createDefaultHTML();
+                    
+                    // Salvar o HTML padrão no Firebase
+                    console.log('💾 Salvando HTML padrão no Firebase...');
+                    await saveHTMLToFirestore(htmlContent);
+                }
+                
+                // 4. PROCESSAR O HTML
+                console.log('🔧 Processando HTML...');
+                
+                // Corrigir HTML mal formatado
+                htmlContent = fixMalformedHTML(htmlContent);
+                
+                // Processar UIDs
+                htmlContent = processUIDsInContent(htmlContent);
+                
+                // Corrigir caminhos de imagens
+                htmlContent = fixImagePaths(htmlContent);
+                
+                // Verificar se é HTML válido
+                if (!htmlContent.includes('<!DOCTYPE') && !htmlContent.includes('<html')) {
+                    console.log('⚠️ Conteúdo não parece HTML válido, adicionando estrutura');
+                    htmlContent = wrapInHTMLStructure(htmlContent);
+                }
+                
+                // Salvar no localStorage para cache
+                try {
+                    localStorage.setItem('importedHTML', htmlContent);
+                    localStorage.setItem('importedHTMLTimestamp', Date.now());
+                    console.log('💾 HTML salvo no cache local');
+                } catch (storageError) {
+                    console.warn('⚠️ Não foi possível salvar no localStorage:', storageError.message);
+                }
+                
+                console.log('✅ HTML carregado com sucesso!');
+                return htmlContent;
+                
+            } catch (error) {
+                console.error('❌ Erro crítico ao importar HTML:', error);
+                showMessage('Erro ao carregar conteúdo: ' + error.message, 'error');
+                return createDefaultHTML();
+            }
         }
 
         // ============================================
@@ -1474,7 +1480,6 @@
                     console.log('✅ Cliente encontrado no Firestore');
                     const data = clientDoc.data();
                     
-                    // VERIFICAÇÃO SIMPLIFICADA
                     const hasFullName = data.fullName && data.fullName.trim() !== '';
                     const hasCPF = data.cpf && data.cpf.trim() !== '';
                     const hasBirthDate = data.birthDate;
@@ -1485,12 +1490,9 @@
                     const hasAcceptedTerms = data.acceptedTerms === true;
                     const hasAcceptedPrivacy = data.acceptedPrivacyPolicy === true;
                     
-                    // Requisitos mínimos para cadastro completo
                     const isComplete = hasFullName && hasCPF && hasBirthDate && 
                                      hasCity && hasState && hasPhoneDDD &&
                                      hasAcceptedTerms && hasAcceptedPrivacy;
-                    
-                    console.log(`📊 Cadastro ${isComplete ? 'COMPLETO' : 'INCOMPLETO'}`);
                     
                     if (isComplete) {
                         return {
@@ -1519,7 +1521,6 @@
                     }
                     
                 } else {
-                    console.log('❌ Cliente não encontrado no Firestore');
                     return {
                         complete: false,
                         missingFields: ['cadastro não existe'],
@@ -1546,60 +1547,35 @@
             try {
                 showScreen('loading');
                 
-                console.log('🔧 === INICIANDO CARREGAMENTO ===');
-                
-                // 1. Verificar autenticação
                 if (!currentUser) {
-                    console.log('⚠️ Usuário não autenticado');
                     showScreen('login');
                     return;
                 }
                 
-                console.log(`👤 Usuário: ${currentUser.email} (UID: ${currentUser.uid})`);
-                
-                // 2. Verificar se há parâmetro UID na URL (EVITAR DUPLICAÇÃO)
+                // 1. Verificar parâmetro UID
                 const uidParam = urlParamsProcessor.getUidParam();
                 if (uidParam && uidManager.shouldProcessUID(uidParam)) {
-                    console.log(`🎯 Parâmetro UID detectado (primeira vez): ${uidParam}`);
-                    
-                    // Processar para abrir janela com pequeno delay
-                    const userData = {
-                        uid: currentUser.uid,
-                        displayName: currentUser.displayName,
-                        email: currentUser.email,
-                        photoURL: currentUser.photoURL
-                    };
-                    
-                    // Pequeno delay para garantir que o sistema está estável
                     setTimeout(() => {
-                        urlParamsProcessor.processUidParam(uidParam, userData);
-                        console.log(`✅ UID processado após delay: ${uidParam}`);
-                    }, 800); // 0.8 segundos de delay
-                    
-                } else if (uidParam) {
-                    console.log(`⏭️ UID ignorado (já foi processado): ${uidParam}`);
+                        urlParamsProcessor.processUidParam(uidParam, {
+                            uid: currentUser.uid,
+                            displayName: currentUser.displayName,
+                            email: currentUser.email
+                        });
+                    }, 800);
                 }
                 
-                // 3. Importar HTML (se necessário)
+                // 2. Carregar HTML do Firebase
                 if (!importedHTML) {
-                    console.log('📥 Importando HTML...');
                     importedHTML = await importExternalHTML();
-                } else {
-                    console.log('📁 Usando HTML em cache');
                 }
                 
-                // 4. Verificar cadastro
-                console.log('🔍 Verificando cadastro...');
+                // 3. Verificar cadastro
                 const registrationCheck = await checkClientRegistration(currentUser.uid);
                 
-                console.log('📊 Resultado da verificação:', registrationCheck);
-                
                 if (registrationCheck.complete) {
-                    console.log('✅ Cadastro completo, mostrando emulador');
                     isRegistrationComplete = true;
                     showEmulator();
                 } else {
-                    console.log('⚠️ Cadastro incompleto, mostrando modal');
                     showRegistrationModal(registrationCheck);
                 }
                 
@@ -1614,39 +1590,26 @@
         // MOSTRAR EMULADOR
         // ============================================
         function showEmulator() {
-            // Atualizar informações do usuário
             userName.textContent = currentUser.displayName || 'Usuário';
             userEmail.textContent = currentUser.email || '';
             
-            // Carregar avatar com fallback
             const avatarSrc = currentUser.photoURL || 
                 'https://ui-avatars.com/api/?name=' + encodeURIComponent(currentUser.displayName || 'U') + 
                 '&background=0078d7&color=fff&size=32';
             userAvatar.src = avatarSrc;
             
-            console.log('🖼️ Carregando conteúdo no iframe...');
-            
-            // Carregar conteúdo no iframe
             try {
                 const blob = new Blob([importedHTML], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 emulatorFrame.src = url;
                 
-                console.log('✅ Iframe carregado com URL blob');
-                
-                // Quando o iframe carregar, enviar dados do usuário
                 emulatorFrame.onload = function() {
-                    console.log('✅ Iframe carregado, enviando dados do usuário...');
-                    
-                    // Liberar URL do blob
                     URL.revokeObjectURL(url);
                     
-                    // Injeta script de correção de imagens
                     setTimeout(() => {
                         injectImageFixScript();
                     }, 500);
                     
-                    // Enviar dados do usuário
                     try {
                         emulatorFrame.contentWindow.postMessage({
                             type: 'userData',
@@ -1658,7 +1621,6 @@
                             }
                         }, '*');
                         
-                        // Enviar parâmetro UID se houver
                         const uidParam = urlParamsProcessor.getUidParam();
                         if (uidParam) {
                             emulatorFrame.contentWindow.postMessage({
@@ -1673,11 +1635,11 @@
                 
             } catch (error) {
                 console.error('❌ Erro ao carregar iframe:', error);
-                emulatorFrame.srcdoc = importedHTML; // Fallback
+                emulatorFrame.srcdoc = importedHTML;
             }
             
             showScreen('emulator');
-            showMessage('✅ Sistema carregado com sucesso!', 'success');
+            showMessage('✅ Sistema carregado do Firebase!', 'success');
         }
 
         // ============================================
@@ -1724,7 +1686,117 @@
         }
 
         // ============================================
-        // AUTENTICAÇÃO
+        // FUNÇÃO PARA ADMIN - UPLOAD DE HTML
+        // ============================================
+        async function uploadHTMLFile() {
+            if (!currentUser) {
+                showMessage('Faça login primeiro', 'error');
+                return;
+            }
+            
+            // Verificar se é admin (ajuste os emails conforme necessário)
+            const adminEmails = ['admin@wazzimagiygg.com', currentUser.email]; // Adicione seus emails admin
+            if (!adminEmails.includes(currentUser.email)) {
+                showMessage('Apenas administradores podem fazer upload', 'error');
+                return;
+            }
+            
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.html,.txt,text/html';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    let htmlContent = event.target.result;
+                    
+                    // Mostrar preview
+                    if (confirm(`Upload do arquivo ${file.name} (${(file.size/1024).toFixed(2)} KB) para o Firebase?\n\nPreview:\n${htmlContent.substring(0, 200)}...`)) {
+                        showMessage('📤 Enviando para Firebase...', 'info');
+                        
+                        // Corrigir HTML antes de salvar
+                        htmlContent = fixMalformedHTML(htmlContent);
+                        
+                        const success = await saveHTMLToFirestore(htmlContent);
+                        
+                        if (success) {
+                            if (confirm('HTML atualizado! Recarregar o sistema agora?')) {
+                                importedHTML = htmlContent;
+                                showEmulator();
+                            }
+                        }
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+
+        // ============================================
+        // VERIFICAR ATUALIZAÇÕES
+        // ============================================
+        async function checkForUpdates() {
+            try {
+                showMessage('🔍 Verificando atualizações...', 'info');
+                
+                const freshHTML = await loadHTMLFromFirestore();
+                
+                if (!freshHTML) {
+                    showMessage('⚠️ Não foi possível verificar atualizações', 'error');
+                    return false;
+                }
+                
+                // Comparar com o HTML atual (aproximadamente)
+                const currentHTML = importedHTML;
+                
+                if (currentHTML && freshHTML !== currentHTML) {
+                    console.log('📦 Nova versão detectada!');
+                    
+                    if (confirm('Uma nova versão do sistema está disponível. Recarregar agora?')) {
+                        importedHTML = freshHTML;
+                        showEmulator();
+                    }
+                    return true;
+                } else {
+                    showMessage('✅ Você já está na versão mais recente', 'success');
+                    return false;
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro ao verificar atualizações:', error);
+                showMessage('Erro ao verificar: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // ============================================
+        // ADICIONAR BOTÃO DE UPLOAD (se for admin)
+        // ============================================
+        function addAdminUploadButton() {
+            // Verificar se o botão já existe
+            if (document.getElementById('uploadHTMLBtn')) return;
+            
+            const controlLeft = document.querySelector('.control-left');
+            if (!controlLeft) return;
+            
+            const uploadBtn = document.createElement('button');
+            uploadBtn.className = 'control-btn';
+            uploadBtn.id = 'uploadHTMLBtn';
+            uploadBtn.innerHTML = '📤 Upload HTML';
+            uploadBtn.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+            
+            uploadBtn.addEventListener('click', uploadHTMLFile);
+            
+            controlLeft.appendChild(uploadBtn);
+        }
+
+        // ============================================
+        // EVENT LISTENERS
         // ============================================
         loginBtn.addEventListener('click', async () => {
             try {
@@ -1739,16 +1811,9 @@
             }
         });
 
-        // ============================================
-        // EVENT LISTENERS
-        // ============================================
         completeRegistrationBtn.addEventListener('click', () => {
-            console.log('📝 Redirecionando para cadastro...');
             const registrationUrl = `https://wazzimagiygg.com/cadastro_cliente/editar_cliente/?uid=${currentUser.uid}`;
-            
-            // Abrir em nova janela
             window.open(registrationUrl, '_blank', 'noopener,noreferrer');
-            
             registrationModal.style.display = 'none';
             showMessage('Redirecionando para cadastro...', 'info');
         });
@@ -1769,9 +1834,7 @@
 
         logoutBtn.addEventListener('click', async () => {
             try {
-                // Fechar todas as janelas abertas
                 windowManager.closeAllWindows();
-                
                 await signOut(auth);
                 showMessage('✅ Logout realizado', 'success');
                 showScreen('login');
@@ -1804,14 +1867,8 @@
         });
 
         desktopBtn.addEventListener('click', () => {
-            console.log('🖥️ Abrindo sistema desktop...');
-            
-            // URL do sistema desktop original
             const desktopUrl = `https://wazzimagiygg.com/index.txt?uid=${currentUser.uid}`;
-            
-            // Abrir em nova janela
             window.open(desktopUrl, '_blank', 'noopener,noreferrer');
-            
             showMessage('🖥️ Sistema desktop aberto em nova janela', 'info');
         });
 
@@ -1824,14 +1881,21 @@
             }
         });
 
+        inspectFirestoreBtn.addEventListener('click', async () => {
+            await inspectFirestoreDocument();
+        });
+
+        checkUpdatesBtn.addEventListener('click', async () => {
+            await checkForUpdates();
+        });
+
         // ============================================
         // LISTENER DE MENSAGENS DO IFRAME
         // ============================================
         window.addEventListener('message', (event) => {
-            console.log('📨 Mensagem recebida do iframe:', event.data.type);
+            console.log('📨 Mensagem recebida:', event.data.type);
             
             if (event.data.type === 'registrationCompleted') {
-                console.log('✅ Cadastro completado notificado pelo iframe');
                 showMessage('✅ Cadastro verificado! Recarregando...', 'success');
                 setTimeout(() => loadContent(), 1500);
             }
@@ -1851,16 +1915,18 @@
             }
             
             if (event.data.type === 'contentLoaded') {
-                console.log('✅ Conteúdo do iframe carregado com sucesso');
+                console.log('✅ Conteúdo do iframe carregado');
             }
             
-            // NOVO: Handler para verificação de UID
+            if (event.data.type === 'fallbackLoaded') {
+                console.log('⚠️ Modo fallback ativo no iframe');
+            }
+            
             if (event.data.type === 'uidCheckRequest' && event.data.uid) {
                 const alreadyProcessed = uidManager.processedUIDs.has(
                     `uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`
                 ) || sessionStorage.getItem(`uid_${event.data.uid}_${currentUser?.uid || 'anonymous'}`);
                 
-                // Responder ao iframe
                 event.source.postMessage({
                     type: 'uidCheckResponse',
                     uid: event.data.uid,
@@ -1875,14 +1941,24 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                console.log('👤 Usuário autenticado detectado:', user.email);
+                console.log('👤 Usuário autenticado:', user.email);
+                
+                // Verificar se é admin e adicionar botão de upload
+                const adminEmails = ['admin@wazzimagiygg.com', user.email]; // Adicione seus emails admin
+                if (adminEmails.includes(user.email)) {
+                    console.log('👑 Admin detectado');
+                    addAdminUploadButton();
+                }
                 
                 await loadContent();
                 
             } else {
-                console.log('👤 Nenhum usuário autenticado');
                 currentUser = null;
                 showScreen('login');
+                
+                // Remover botão de admin se existir
+                const uploadBtn = document.getElementById('uploadHTMLBtn');
+                if (uploadBtn) uploadBtn.remove();
             }
         });
 
@@ -1890,7 +1966,6 @@
         // FUNÇÃO GLOBAL PARA ABRIR JANELAS
         // ============================================
         window.openWZZMWindow = function(url, title = 'Janela WZZM') {
-            console.log(`🌐 Abrindo janela via função global: ${title} -> ${url}`);
             windowManager.createWindow(title, url, 'https://wazzimagiygg.com/iconmagic.png');
         };
 
@@ -1903,7 +1978,6 @@
                 (e.ctrlKey && e.shiftKey && e.key === 'J') || 
                 (e.ctrlKey && e.key === 'U')) {
                 e.preventDefault();
-                console.log('🛡️ Tecla de desenvolvedor bloqueada');
                 return false;
             }
             
@@ -1911,16 +1985,23 @@
                 registrationModal.style.display = 'none';
             }
             
-            // Ctrl+W para fechar janela ativa
             if (e.ctrlKey && e.key === 'w' && windowManager.activeWindow) {
                 e.preventDefault();
                 windowManager.closeWindow(windowManager.activeWindow);
             }
             
-            // Ctrl+N para nova janela
             if (e.ctrlKey && e.key === 'n') {
                 e.preventDefault();
                 openWindowBtn.click();
+            }
+            
+            // Ctrl+Shift+D para debug
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                debugPanel.classList.toggle('visible');
+                if (debugPanel.classList.contains('visible')) {
+                    inspectFirestoreDocument();
+                }
             }
         });
 
@@ -1932,89 +2013,38 @@
         // ============================================
         // INICIAR SISTEMA
         // ============================================
-        console.log('🚀 Sistema Emulador WZZM inicializando...');
+        console.log('🚀 Sistema WZZM Firebase iniciando...');
+        console.log('📂 Coleção: index');
+        console.log('📄 Documento: uidindex');
+        console.log('📝 Campo: codigo');
         
-        // Verificar se há HTML salvo no localStorage
+        // Carregar do cache local se disponível
         try {
             const savedHTML = localStorage.getItem('importedHTML');
             if (savedHTML) {
                 importedHTML = savedHTML;
-                console.log('📁 HTML carregado do cache do localStorage');
+                console.log('📁 HTML carregado do cache local');
             }
         } catch (error) {
             console.warn('⚠️ Não foi possível acessar localStorage:', error.message);
         }
         
-        // Aguardar um pouco para mostrar a tela de loading
         setTimeout(() => {
             if (auth.currentUser) {
                 currentUser = auth.currentUser;
-                console.log('👤 Usuário já logado detectado');
                 loadContent();
             } else {
-                console.log('👤 Nenhum usuário logado, mostrando tela de login');
                 showScreen('login');
             }
         }, 1000);
 
     </script>
     
-    <!-- Script para diagnóstico de imagens -->
+    <!-- Script de diagnóstico -->
     <script>
-        // Diagnóstico de imagens PNG
-        console.log('🖼️ DIAGNÓSTICO DE IMAGENS PNG');
-        
-        // Lista de imagens que deveriam existir
-        const imagesToCheck = [
-            'favicom.png',
-            'logo.png',
-            'bg.png',
-            'icon.png',
-            'background.png',
-            'hero.png',
-            'loading.gif',
-            'spinner.gif'
-        ];
-        
-        // Função para verificar se uma imagem existe
-        async function checkImage(url) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve({ url, status: '✅ OK' });
-                img.onerror = () => resolve({ url, status: '❌ FALHA' });
-                img.src = url + '?t=' + Date.now(); // Evitar cache
-            });
-        }
-        
-        // Verificar todas as imagens
-        async function diagnoseImages() {
-            console.log('🔍 Verificando imagens...');
-            
-            for (const image of imagesToCheck) {
-                const result = await checkImage(image);
-                console.log(`${result.status} ${result.url}`);
-            }
-            
-            // Verificar também caminhos relativos
-            const relativePaths = [
-                './favicom.png',
-                '../favicom.png',
-                'images/favicom.png',
-                'img/favicom.png',
-                'assets/favicom.png'
-            ];
-            
-            console.log('🔍 Verificando caminhos relativos...');
-            for (const path of relativePaths) {
-                const result = await checkImage(path);
-                console.log(`${result.status} ${path}`);
-            }
-        }
-        
-        // Executar diagnóstico após 2 segundos
-        setTimeout(() => {
-            diagnoseImages();
-        }, 2000);
+        console.log('🚀 Diagnóstico do sistema:');
+        console.log('   Firebase: index/uidindex (campo: codigo)');
+        console.log('   Pressione Ctrl+Shift+D para abrir painel de debug');
     </script>
 </body>
 </html>
