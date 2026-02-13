@@ -491,6 +491,7 @@
                 <button class="control-btn" id="openWindowBtn">🪟 Nova Janela</button>
                 <button class="control-btn" id="inspectFirestoreBtn">🔍 Inspecionar Firebase</button>
                 <button class="control-btn" id="checkUpdatesBtn">🔄 Verificar Atualizações</button>
+                <button class="control-btn" id="fixHtmlBtn" style="background: linear-gradient(135deg, #ffa500, #ff8c00);">🔧 Corrigir HTML</button>
             </div>
             
             <div class="user-info">
@@ -831,6 +832,7 @@
         const openWindowBtn = document.getElementById('openWindowBtn');
         const inspectFirestoreBtn = document.getElementById('inspectFirestoreBtn');
         const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        const fixHtmlBtn = document.getElementById('fixHtmlBtn');
         
         const userName = document.getElementById('userName');
         const userEmail = document.getElementById('userEmail');
@@ -1184,6 +1186,15 @@
                                               data[key].includes('<!DOCTYPE') ||
                                               data[key].includes('<body');
                             debugInfo.eh_html = pareceHTML;
+                            
+                            // Verificar se há erro de sintaxe
+                            try {
+                                new DOMParser().parseFromString(data[key], 'text/html');
+                                debugInfo.html_valido = true;
+                            } catch (e) {
+                                debugInfo.html_valido = false;
+                                debugInfo.erro_html = e.message;
+                            }
                         }
                     });
                     
@@ -1199,6 +1210,7 @@
                     
                     if (data.codigo) {
                         console.log(`   Tamanho do código: ${data.codigo.length} caracteres`);
+                        console.log(`   HTML válido: ${debugInfo.html_valido ? 'Sim' : 'Não'}`);
                     }
                 } else {
                     console.log('❌ Documento NÃO encontrado');
@@ -1216,16 +1228,35 @@
             }
         }
 
-        // Função para corrigir HTML mal formatado (CORRIGIDA)
+        // Função para corrigir HTML mal formatado (VERSÃO MELHORADA)
         function fixMalformedHTML(html) {
             if (!html) return html;
             
             console.log('🔧 Corrigindo HTML mal formatado...');
             let fixed = html;
             
-            // Corrigir doctype
+            // Remover caracteres inválidos no início
+            fixed = fixed.replace(/^\s+/, '');
+            
+            // Garantir que comece com <!DOCTYPE
+            if (!fixed.toLowerCase().startsWith('<!doctype')) {
+                fixed = '<!DOCTYPE html>\n' + fixed;
+            }
+            
+            // Corrigir doctype mal formatado
             fixed = fixed.replace(/<IDOCTYPE/gi, '<!DOCTYPE');
             fixed = fixed.replace(/<\!DOCTYPE/gi, '<!DOCTYPE');
+            fixed = fixed.replace(/<!DOCTYPE[^>]*>/i, '<!DOCTYPE html>');
+            
+            // Garantir tags html
+            if (!fixed.includes('<html')) {
+                fixed = fixed.replace('<!DOCTYPE html>', '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<title>Sistema WZZM</title>\n</head>\n<body>\n') + '\n</body>\n</html>';
+            }
+            
+            // Garantir head
+            if (!fixed.includes('</head>')) {
+                fixed = fixed.replace('<html>', '<html>\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>Sistema WZZM</title>\n</head>');
+            }
             
             // Corrigir tags de fechamento
             fixed = fixed.replace(/<\/title>/gi, '</title>');
@@ -1234,28 +1265,17 @@
             // Corrigir meta tags
             fixed = fixed.replace(/<\/meta/gi, '<meta');
             fixed = fixed.replace(/<meta([^>]*)\/>/gi, '<meta$1>');
+            fixed = fixed.replace(/<meta([^>]*)>/gi, '<meta$1>');
             
             // Corrigir link tags
             fixed = fixed.replace(/<link([^>]*)\/>/gi, '<link$1>');
+            fixed = fixed.replace(/<link([^>]*)>/gi, '<link$1>');
             
-            // Corrigir style tags
-            fixed = fixed.replace(/style="([^"]*)"/g, (match, content) => {
-                if (content && content.includes('RESET')) {
-                    return '<style>/* RESET E ESTILOS GERAIS */</style>';
-                }
-                return match;
-            });
+            // Fechar tags img
+            fixed = fixed.replace(/<img([^>]*)(?:\s*)>/gi, '<img$1 />');
             
-            // Fechar tags img - VERSÃO CORRIGIDA
-            fixed = fixed.replace(/<img([^>]*)(?:\s*)\/?>/gi, (match, attributes) => {
-                if (match.trim().endsWith('/>')) {
-                    return match;
-                }
-                return `<img${attributes} />`;
-            });
-            
-            // Corrigir tags sem fechamento - VERSÃO CORRIGIDA
-            const selfClosingTags = ['img', 'br', 'hr', 'input', 'meta', 'link'];
+            // Corrigir tags sem fechamento
+            const selfClosingTags = ['img', 'br', 'hr', 'input'];
             selfClosingTags.forEach(tag => {
                 const regex = new RegExp(`<${tag}([^>]*)>`, 'gi');
                 fixed = fixed.replace(regex, `<${tag}$1 />`);
@@ -1263,6 +1283,20 @@
             
             // Remover espaços extras
             fixed = fixed.replace(/\s+/g, ' ').replace(/> </g, '>\n<');
+            
+            // Validar o HTML corrigido
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(fixed, 'text/html');
+                const parseError = doc.querySelector('parsererror');
+                if (parseError) {
+                    console.warn('⚠️ HTML ainda contém erros após correção');
+                } else {
+                    console.log('✅ HTML válido após correção');
+                }
+            } catch (e) {
+                console.warn('⚠️ Erro na validação do HTML:', e.message);
+            }
             
             console.log('✅ HTML corrigido');
             return fixed;
@@ -1636,6 +1670,20 @@
             userAvatar.src = avatarSrc;
             
             try {
+                // Validar HTML antes de carregar
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(importedHTML, 'text/html');
+                    const parseError = doc.querySelector('parsererror');
+                    if (parseError) {
+                        console.warn('⚠️ HTML com erros, aplicando correções adicionais');
+                        importedHTML = fixMalformedHTML(importedHTML);
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Erro ao validar HTML:', e);
+                    importedHTML = fixMalformedHTML(importedHTML);
+                }
+                
                 const blob = new Blob([importedHTML], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 emulatorFrame.src = url;
@@ -1668,6 +1716,11 @@
                     } catch (error) {
                         console.warn('⚠️ Não foi possível enviar mensagem para iframe:', error.message);
                     }
+                };
+                
+                emulatorFrame.onerror = function() {
+                    console.error('❌ Erro ao carregar iframe, tentando srcdoc');
+                    emulatorFrame.srcdoc = importedHTML;
                 };
                 
             } catch (error) {
@@ -1817,6 +1870,44 @@
                 console.error('❌ Erro ao verificar atualizações:', error);
                 showMessage('Erro ao verificar: ' + error.message, 'error');
                 return false;
+            }
+        }
+
+        // ============================================
+        // FUNÇÃO PARA CORRIGIR HTML MANUALMENTE
+        // ============================================
+        async function fixHtmlManually() {
+            if (!importedHTML) {
+                showMessage('Nenhum HTML carregado para corrigir', 'error');
+                return;
+            }
+            
+            showMessage('🔧 Corrigindo HTML...', 'info');
+            
+            // Mostrar preview do HTML antes
+            const preview = importedHTML.substring(0, 500) + '...';
+            
+            if (confirm(`HTML atual (preview):\n\n${preview}\n\nDeseja aplicar correções avançadas?`)) {
+                const fixed = fixMalformedHTML(importedHTML);
+                
+                // Mostrar diferença
+                if (fixed !== importedHTML) {
+                    console.log('✅ HTML corrigido');
+                    console.log('Antes:', importedHTML.length, 'caracteres');
+                    console.log('Depois:', fixed.length, 'caracteres');
+                    
+                    importedHTML = fixed;
+                    
+                    // Salvar no localStorage
+                    localStorage.setItem('importedHTML', importedHTML);
+                    
+                    showMessage('✅ HTML corrigido! Recarregando...', 'success');
+                    setTimeout(() => {
+                        showEmulator();
+                    }, 1000);
+                } else {
+                    showMessage('Nenhuma correção necessária', 'info');
+                }
             }
         }
 
@@ -1971,6 +2062,8 @@
             if (checkUpdatesBtn) checkUpdatesBtn.addEventListener('click', async () => {
                 await checkForUpdates();
             });
+
+            if (fixHtmlBtn) fixHtmlBtn.addEventListener('click', fixHtmlManually);
         }
 
         // ============================================
@@ -2136,6 +2229,7 @@
         console.log('🚀 Diagnóstico do sistema:');
         console.log('   Firebase: index/uidindex (campo: codigo)');
         console.log('   Pressione Ctrl+Shift+D para abrir painel de debug');
+        console.log('   Use o botão "🔧 Corrigir HTML" se o conteúdo não carregar');
     </script>
 </body>
 </html>
