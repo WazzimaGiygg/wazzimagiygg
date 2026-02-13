@@ -26,6 +26,18 @@
             color: white;
         }
 
+        /* BLOQUEIO INICIAL */
+        #initial-block {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            z-index: 100001;
+            display: none;
+        }
+
         /* AVISO DE COOKIES */
         .cookie-overlay {
             position: fixed;
@@ -33,10 +45,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            display: flex;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: none;
             align-items: center;
             justify-content: center;
             z-index: 100000;
@@ -176,7 +188,7 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .cookie-button.primary:hover:not(:disabled) {
+        .cookie-button.primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 120, 215, 0.4);
             background: linear-gradient(135deg, #005a9e, #0078d7);
@@ -184,22 +196,13 @@
 
         .cookie-button.secondary {
             background: transparent;
-            color: rgba(255, 255, 255, 0.7);
+            color: rgba(255, 255, 255, 0.5);
             border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .cookie-button.secondary:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .cookie-button:disabled {
-            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
+            opacity: 0.7;
         }
 
-        /* TELA DE LOGIN (modificada para aparecer após cookies) */
+        /* TELA DE LOGIN */
         #login-screen {
             position: fixed;
             top: 0;
@@ -961,6 +964,11 @@
             to { opacity: 1; }
         }
 
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
         @keyframes slideIn {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -998,9 +1006,16 @@
         .idle {
             opacity: 0.7;
         }
+
+        .desktop-icon {
+            animation: fadeIn 0.3s ease;
+        }
     </style>
 </head>
 <body oncontextmenu="return false;">
+
+    <!-- BLOQUEIO INICIAL -->
+    <div id="initial-block" style="display: none;"></div>
 
     <!-- AVISO DE COOKIES OBRIGATÓRIOS -->
     <div id="cookieOverlay" class="cookie-overlay">
@@ -1089,109 +1104,83 @@
 
     <script type="module">
         // ============================================
-        // SISTEMA DE COOKIES OBRIGATÓRIOS
+        // SISTEMA DE COOKIES OBRIGATÓRIOS - VERSÃO CORRIGIDA
         // ============================================
         const cookieOverlay = document.getElementById('cookieOverlay');
         const acceptCookiesBtn = document.getElementById('acceptCookies');
-        const rejectCookiesBtn = document.getElementById('rejectCookies');
+        const loginScreen = document.getElementById("login-screen");
+        const desktop = document.getElementById("desktop");
+        
+        // Estado do consentimento
+        let cookiesAccepted = false;
+        let firebaseInitialized = false;
 
-        // Verificar se o usuário já aceitou os cookies
+        // Verificar se já aceitou cookies
         function hasAcceptedCookies() {
-            return localStorage.getItem('cookiesAccepted') === 'true' || 
-                   sessionStorage.getItem('cookiesAccepted') === 'true';
+            return localStorage.getItem('cookiesAccepted') === 'true';
         }
 
-        // Aceitar cookies e continuar
-        function acceptCookies() {
-            // Armazenar consentimento (em localStorage e sessionStorage para redundância)
-            localStorage.setItem('cookiesAccepted', 'true');
-            sessionStorage.setItem('cookiesAccepted', 'true');
-            
-            // Ocultar o aviso com animação
-            cookieOverlay.style.animation = 'fadeOut 0.3s ease';
-            setTimeout(() => {
-                cookieOverlay.style.display = 'none';
-                
-                // Mostrar tela de login
-                document.getElementById('login-screen').style.display = 'flex';
-            }, 300);
-            
-            console.log('🍪 Cookies aceitos pelo usuário');
+        // Aguardar consentimento antes de qualquer ação
+        function waitForConsent() {
+            return new Promise((resolve) => {
+                if (hasAcceptedCookies()) {
+                    cookiesAccepted = true;
+                    cookieOverlay.style.display = 'none';
+                    console.log('🍪 Consentimento já existente');
+                    resolve();
+                } else {
+                    // Mostrar aviso e aguardar clique
+                    cookieOverlay.style.display = 'flex';
+                    loginScreen.style.display = 'none';
+                    desktop.style.display = 'none';
+                    
+                    console.log('🍪 Aguardando consentimento de cookies');
+                    
+                    acceptCookiesBtn.onclick = () => {
+                        localStorage.setItem('cookiesAccepted', 'true');
+                        cookiesAccepted = true;
+                        cookieOverlay.style.animation = 'fadeOut 0.3s ease';
+                        setTimeout(() => {
+                            cookieOverlay.style.display = 'none';
+                            console.log('🍪 Cookies aceitos pelo usuário');
+                            resolve();
+                        }, 300);
+                    };
+                }
+            });
         }
-
-        // Inicializar verificação de cookies
-        function initializeCookieCheck() {
-            // Se já aceitou, ocultar aviso e mostrar login diretamente
-            if (hasAcceptedCookies()) {
-                cookieOverlay.style.display = 'none';
-                document.getElementById('login-screen').style.display = 'flex';
-                console.log('🍪 Consentimento de cookies já existente');
-            } else {
-                // Mostrar aviso de cookies
-                cookieOverlay.style.display = 'flex';
-                document.getElementById('login-screen').style.display = 'none';
-                console.log('🍪 Aguardando consentimento de cookies');
-            }
-        }
-
-        // Event listeners para botões de cookies
-        acceptCookiesBtn.addEventListener('click', acceptCookies);
-
-        // Botão de rejeitar permanece desabilitado visualmente
-        rejectCookiesBtn.addEventListener('click', () => {
-            alert('⚠️ Os cookies são obrigatórios para o funcionamento do sistema. Por favor, clique em "Entendi e Continuar" para prosseguir.');
-        });
-
-        // Bloquear interação com o resto da página até aceitar cookies
-        document.addEventListener('click', function(e) {
-            if (!hasAcceptedCookies() && !e.target.closest('.cookie-notice')) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-        }, true);
 
         // ============================================
-        // CONFIGURAÇÃO DO FIREBASE (mantido igual)
+        // VARIÁVEIS GLOBAIS
         // ============================================
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { 
-            getAuth, 
-            signInWithPopup, 
-            GoogleAuthProvider, 
-            onAuthStateChanged, 
-            signOut 
-        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            getDoc,
-            setDoc,
-            updateDoc
-        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
+        let currentUser = null;
+        let desktopIcons = [];
+        let draggedIconId = null;
+        let saveTimeout = null;
+        let hasUnsavedChanges = false;
+        let dynamicLinks = {
+            all: [],
+            iniciar: [],
+            admin: [],
+            ferramentas: []
         };
-
-        try {
-            const app = initializeApp(firebaseConfig);
-            console.log("✅ Firebase inicializado com sucesso");
-        } catch (error) {
-            console.error("❌ Erro ao inicializar Firebase:", error);
-        }
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
+        
+        // Elementos do DOM
+        const desktopArea = document.getElementById("desktop-area");
+        const startMenu = document.getElementById("startMenu");
+        const adminMenu = document.getElementById("adminMenu");
+        const toolsMenu = document.getElementById("toolsMenu");
+        const userMenu = document.getElementById("userMenu");
+        const notificationIcon = document.getElementById("notificationIcon");
+        const notificationPopup = document.getElementById("notificationPopup");
+        const menuOverlay = document.getElementById("menuOverlay");
+        const taskbarIcons = document.getElementById("taskbarIcons");
+        const showAllBtn = document.getElementById("showAllBtn");
+        const clockElement = document.getElementById("clock");
+        const startBtn = document.getElementById("startBtn");
+        const adminBtn = document.getElementById("adminBtn");
+        const toolsBtn = document.getElementById("toolsBtn");
+        const loginBtn = document.getElementById("loginBtn");
 
         // ============================================
         // CONSTANTES E CONFIGURAÇÕES
@@ -1319,46 +1308,6 @@
                 menu_target: 'wiki_pedia' 
             }
         ];
-
-        // ============================================
-        // ELEMENTOS DO DOM
-        // ============================================
-        const loginScreen = document.getElementById("login-screen");
-        const loginBtn = document.getElementById("loginBtn");
-        const desktop = document.getElementById("desktop");
-        const desktopArea = document.getElementById("desktop-area");
-        
-        // Menus e taskbar
-        const startMenu = document.getElementById("startMenu");
-        const adminMenu = document.getElementById("adminMenu");
-        const toolsMenu = document.getElementById("toolsMenu");
-        const userMenu = document.getElementById("userMenu");
-        const notificationIcon = document.getElementById("notificationIcon");
-        const notificationPopup = document.getElementById("notificationPopup");
-        const menuOverlay = document.getElementById("menuOverlay");
-        const taskbarIcons = document.getElementById("taskbarIcons");
-        const showAllBtn = document.getElementById("showAllBtn");
-        const clockElement = document.getElementById("clock");
-        
-        // Botões da taskbar
-        const startBtn = document.getElementById("startBtn");
-        const adminBtn = document.getElementById("adminBtn");
-        const toolsBtn = document.getElementById("toolsBtn");
-
-        // ============================================
-        // VARIÁVEIS GLOBAIS
-        // ============================================
-        let currentUser = null;
-        let desktopIcons = [];
-        let draggedIconId = null;
-        let saveTimeout = null;
-        let hasUnsavedChanges = false;
-        let dynamicLinks = {
-            all: [],
-            iniciar: [],
-            admin: [],
-            ferramentas: []
-        };
 
         // ============================================
         // GESTOR DE CARREGAMENTO ASSÍNCRONO
@@ -1590,7 +1539,7 @@
         }
 
         // ============================================
-        // GERENCIADOR DE DESKTOP (mantido igual)
+        // GERENCIADOR DE DESKTOP
         // ============================================
         const desktopManager = {
             loadIcons: async function(userId) {
@@ -2119,7 +2068,7 @@
         });
 
         // ============================================
-        // GERENCIADOR DE JANELAS (mantido igual)
+        // GERENCIADOR DE JANELAS
         // ============================================
         const windowManager = {
             windows: [],
@@ -2405,128 +2354,6 @@
         }
 
         // ============================================
-        // AUTENTICAÇÃO E LOGIN (modificado para verificar cookies)
-        // ============================================
-        loginBtn.addEventListener("click", async () => {
-            // Verificar se já aceitou os cookies
-            if (!hasAcceptedCookies()) {
-                alert('⚠️ Você precisa aceitar o aviso de cookies para continuar.');
-                return;
-            }
-            
-            try {
-                provider.setCustomParameters({ prompt: 'select_account' });
-                const result = await signInWithPopup(auth, provider);
-                console.log("✅ Login bem-sucedido:", result.user.email);
-            } catch (error) {
-                console.error("❌ Erro no login:", error);
-                alert(`Erro no login: ${error.message}`);
-            }
-        });
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                console.log("👤 Usuário autenticado:", user.email);
-                
-                loginScreen.style.display = "none";
-                desktop.style.display = "block";
-                
-                await desktopManager.loadIcons(user.uid);
-                
-                updateClock();
-                await loadDynamicLinks(user.uid);
-                populateUserMenu(user.displayName, user.email, user.photoURL);
-                
-                await checkNotifications();
-                
-                desktopManager.saveIcons();
-                
-            } else {
-                currentUser = null;
-                // Só mostrar login se já aceitou cookies
-                if (hasAcceptedCookies()) {
-                    loginScreen.style.display = "flex";
-                } else {
-                    loginScreen.style.display = "none";
-                }
-                desktop.style.display = "none";
-                desktopIcons = [];
-                notificationPopup.innerHTML = '';
-                notificationIcon.style.color = 'white';
-                closeAllMenus();
-                windowManager.closeAllWindows();
-                hasUnsavedChanges = false;
-            }
-        });
-
-        async function handleLogout() {
-            try {
-                if (hasUnsavedChanges) {
-                    await desktopManager.forceSave();
-                }
-                await signOut(auth);
-                console.log("✅ Logout realizado");
-            } catch (error) {
-                console.error("❌ Erro no logout:", error);
-            }
-        }
-
-        async function handleSwitchAccount() {
-            try {
-                if (hasUnsavedChanges) {
-                    await desktopManager.forceSave();
-                }
-                await signOut(auth);
-                provider.setCustomParameters({ prompt: 'select_account' });
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                console.error("❌ Erro ao trocar conta:", error);
-            }
-        }
-
-        // ============================================
-        // INTERFACE DO USUÁRIO
-        // ============================================
-        function populateUserMenu(userName, userEmail, photoURL) {
-            userMenu.innerHTML = '';
-            
-            const userHeader = document.createElement('div');
-            userHeader.className = 'user-info-header';
-            userHeader.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
-                    ${photoURL 
-                        ? `<img src="${photoURL}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1);">` 
-                        : '<div style="width: 40px; height: 40px; background: linear-gradient(135deg, #0078d7, #00b4d8); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">' + (userName?.charAt(0) || 'U') + '</div>'}
-                    <div>
-                        <div class="user-name">${userName || 'Usuário'}</div>
-                        <div class="user-email">${userEmail || ''}</div>
-                    </div>
-                </div>
-                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                    ${hasUnsavedChanges ? '⚠️ Alterações não salvas' : '✓ Tudo salvo'}
-                </div>
-            `;
-            userMenu.appendChild(userHeader);
-            
-            const separator = document.createElement('hr');
-            separator.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;';
-            userMenu.appendChild(separator);
-            
-            const switchAccountItem = document.createElement('div');
-            switchAccountItem.className = 'menu-item';
-            switchAccountItem.innerHTML = `<img src="https://wazzimagiygg.com/iconmagic.png" alt="icon"> 🔄 Trocar de Conta`;
-            switchAccountItem.onclick = handleSwitchAccount;
-            userMenu.appendChild(switchAccountItem);
-            
-            const logoutItem = document.createElement('div');
-            logoutItem.className = 'menu-item';
-            logoutItem.innerHTML = `<img src="https://wazzimagiygg.com/iconmagic.png" alt="icon"> 🚪 Sair`;
-            logoutItem.onclick = handleLogout;
-            userMenu.appendChild(logoutItem);
-        }
-
-        // ============================================
         // FUNÇÕES DE MENU E LINKS DINÂMICOS
         // ============================================
         async function loadDynamicLinks(userId) {
@@ -2724,6 +2551,168 @@
         }
 
         // ============================================
+        // CONFIGURAÇÃO DO FIREBASE (SÓ INICIA APÓS CONSENTIMENTO)
+        // ============================================
+        async function initializeFirebase() {
+            // Aguardar consentimento de cookies primeiro
+            await waitForConsent();
+            
+            // Agora sim, inicializar Firebase
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+            import { 
+                getAuth, 
+                signInWithPopup, 
+                GoogleAuthProvider, 
+                onAuthStateChanged, 
+                signOut 
+            } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+            import { 
+                getFirestore, 
+                doc, 
+                getDoc,
+                setDoc,
+                updateDoc
+            } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+            const firebaseConfig = {
+                apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+                authDomain: "wzzm-ce3fc.firebaseapp.com",
+                projectId: "wzzm-ce3fc",
+                storageBucket: "wzzm-ce3fc.appspot.com",
+                messagingSenderId: "249427877153",
+                appId: "1:249427877153:web:0e4297294794a5aadeb260",
+                measurementId: "G-PLKNZNFCQ8"
+            };
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                console.log("✅ Firebase inicializado com sucesso");
+                
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+                const provider = new GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+
+                // Agora mostrar tela de login
+                loginScreen.style.display = 'flex';
+                
+                // Configurar listener de autenticação
+                setupAuthListener(auth, db, provider);
+                
+            } catch (error) {
+                console.error("❌ Erro ao inicializar Firebase:", error);
+            }
+        }
+
+        // Listener de autenticação separado
+        function setupAuthListener(auth, db, provider) {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUser = user;
+                    console.log("👤 Usuário autenticado:", user.email);
+                    
+                    loginScreen.style.display = "none";
+                    desktop.style.display = "block";
+                    
+                    await desktopManager.loadIcons(user.uid);
+                    updateClock();
+                    await loadDynamicLinks(user.uid);
+                    populateUserMenu(user.displayName, user.email, user.photoURL);
+                    await checkNotifications();
+                    
+                } else {
+                    currentUser = null;
+                    loginScreen.style.display = "flex";
+                    desktop.style.display = "none";
+                    desktopIcons = [];
+                    notificationPopup.innerHTML = '';
+                    notificationIcon.style.color = 'white';
+                    closeAllMenus();
+                    windowManager.closeAllWindows();
+                    hasUnsavedChanges = false;
+                }
+            });
+
+            // Login button
+            loginBtn.addEventListener("click", async () => {
+                try {
+                    provider.setCustomParameters({ prompt: 'select_account' });
+                    const result = await signInWithPopup(auth, provider);
+                    console.log("✅ Login bem-sucedido:", result.user.email);
+                } catch (error) {
+                    console.error("❌ Erro no login:", error);
+                    alert(`Erro no login: ${error.message}`);
+                }
+            });
+        }
+
+        // ============================================
+        // INTERFACE DO USUÁRIO
+        // ============================================
+        function populateUserMenu(userName, userEmail, photoURL) {
+            userMenu.innerHTML = '';
+            
+            const userHeader = document.createElement('div');
+            userHeader.className = 'user-info-header';
+            userHeader.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                    ${photoURL 
+                        ? `<img src="${photoURL}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1);">` 
+                        : '<div style="width: 40px; height: 40px; background: linear-gradient(135deg, #0078d7, #00b4d8); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">' + (userName?.charAt(0) || 'U') + '</div>'}
+                    <div>
+                        <div class="user-name">${userName || 'Usuário'}</div>
+                        <div class="user-email">${userEmail || ''}</div>
+                    </div>
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    ${hasUnsavedChanges ? '⚠️ Alterações não salvas' : '✓ Tudo salvo'}
+                </div>
+            `;
+            userMenu.appendChild(userHeader);
+            
+            const separator = document.createElement('hr');
+            separator.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;';
+            userMenu.appendChild(separator);
+            
+            const switchAccountItem = document.createElement('div');
+            switchAccountItem.className = 'menu-item';
+            switchAccountItem.innerHTML = `<img src="https://wazzimagiygg.com/iconmagic.png" alt="icon"> 🔄 Trocar de Conta`;
+            switchAccountItem.onclick = handleSwitchAccount;
+            userMenu.appendChild(switchAccountItem);
+            
+            const logoutItem = document.createElement('div');
+            logoutItem.className = 'menu-item';
+            logoutItem.innerHTML = `<img src="https://wazzimagiygg.com/iconmagic.png" alt="icon"> 🚪 Sair`;
+            logoutItem.onclick = handleLogout;
+            userMenu.appendChild(logoutItem);
+        }
+
+        async function handleLogout() {
+            try {
+                if (hasUnsavedChanges) {
+                    await desktopManager.forceSave();
+                }
+                await signOut(auth);
+                console.log("✅ Logout realizado");
+            } catch (error) {
+                console.error("❌ Erro no logout:", error);
+            }
+        }
+
+        async function handleSwitchAccount() {
+            try {
+                if (hasUnsavedChanges) {
+                    await desktopManager.forceSave();
+                }
+                await signOut(auth);
+                provider.setCustomParameters({ prompt: 'select_account' });
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("❌ Erro ao trocar conta:", error);
+            }
+        }
+
+        // ============================================
         // EVENT LISTENERS E INICIALIZAÇÃO
         // ============================================
         [startMenu, adminMenu, toolsMenu, notificationPopup, userMenu].forEach(setupMenuClickOutside);
@@ -2899,28 +2888,12 @@
         // ============================================
         // INICIALIZAÇÃO DO SISTEMA
         // ============================================
-        console.log("🚀 Sistema Wiki Not Pedia WZZM com Desktop Dinâmico inicializado");
-
-        const animationsStyle = document.createElement('style');
-        animationsStyle.textContent = `
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            
-            @keyframes fadeOut {
-                from { opacity: 1; }
-                to { opacity: 0; }
-            }
-            
-            .desktop-icon {
-                animation: fadeIn 0.3s ease;
-            }
-        `;
-        document.head.appendChild(animationsStyle);
-
-        // Inicializar verificação de cookies
-        initializeCookieCheck();
+        console.log("🚀 Sistema iniciando...");
+        
+        // Iniciar com verificação de cookies
+        initializeFirebase().catch(error => {
+            console.error("Erro na inicialização:", error);
+        });
 
         // Função para detectar se é um dispositivo móvel (incluindo tablets)
         function isMobileDevice() {
