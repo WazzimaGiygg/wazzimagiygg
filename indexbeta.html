@@ -371,16 +371,18 @@
             position: fixed;
             bottom: 20px;
             left: 20px;
-            background: rgba(0,0,0,0.8);
-            border: 1px solid #0078d7;
+            background: rgba(0,0,0,0.9);
+            border: 2px solid #0078d7;
             border-radius: 8px;
-            padding: 10px;
+            padding: 15px;
             font-size: 12px;
-            max-width: 300px;
-            max-height: 200px;
+            max-width: 400px;
+            max-height: 300px;
             overflow: auto;
             z-index: 99999;
             display: none;
+            color: #0f0;
+            font-family: monospace;
         }
 
         .debug-panel.visible {
@@ -391,6 +393,14 @@
             color: #0f0;
             margin: 5px 0;
             white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .debug-panel .title {
+            color: #0078d7;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
         }
 
         /* RESPONSIVIDADE */
@@ -423,6 +433,12 @@
                 left: 20px;
                 width: calc(100% - 40px);
                 height: calc(100% - 40px);
+            }
+
+            .debug-panel {
+                max-width: 90%;
+                left: 5%;
+                right: 5%;
             }
         }
     </style>
@@ -486,13 +502,13 @@
         </div>
         
         <div class="emulator-area">
-            <iframe id="emulator-frame" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+            <iframe id="emulator-frame" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-presentation"></iframe>
         </div>
     </div>
 
     <!-- DEBUG PANEL -->
     <div id="debugPanel" class="debug-panel">
-        <div style="color:#0078d7; font-weight:bold; margin-bottom:5px;">🔍 Firebase Debug</div>
+        <div class="title">🔍 Firebase Debug (Ctrl+Shift+D)</div>
         <pre id="debugContent">Aguardando inspeção...</pre>
     </div>
 
@@ -517,7 +533,8 @@
             collection,
             query,
             where,
-            getDocs
+            getDocs,
+            updateDoc
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -707,7 +724,7 @@
                         <span>${title}</span>
                         <button class="close-window">✖</button>
                     </div>
-                    <iframe src="${url}" class="simple-window-frame"></iframe>
+                    <iframe src="${url}" class="simple-window-frame" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-presentation"></iframe>
                 `;
                 
                 document.body.appendChild(windowElement);
@@ -831,8 +848,7 @@
             document.body.appendChild(messageDiv);
             
             setTimeout(() => {
-                messageDiv.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => messageDiv.remove(), 300);
+                messageDiv.remove();
             }, duration);
         }
 
@@ -872,10 +888,10 @@
                 debugContent.textContent = content;
             }
             
-            // Auto-hide após 10 segundos
+            // Auto-hide após 30 segundos
             setTimeout(() => {
                 debugPanel.classList.remove('visible');
-            }, 10000);
+            }, 30000);
         }
 
         // ============================================
@@ -930,7 +946,7 @@
                 (match, href) => {
                     const linkText = match.match(/<a[^>]*>([^<]*)<\/a>/i);
                     const title = linkText ? linkText[1] : 'Documento';
-                    return `href="javascript:void(0)" onclick="if(window.parent&&window.parent.openWZZMWindow){window.parent.openWZZMWindow('${href}','${escapeHTML(title)}');}else{window.open('${href}','_blank');}"`;
+                    return `href="javascript:void(0)" onclick="if(window.parent&&window.parent.openWZZMWindow){window.parent.openWZZMWindow('${href.replace(/'/g, "\\'")}','${escapeHTML(title).replace(/'/g, "\\'")}');}else{window.open('${href.replace(/'/g, "\\'")}','_blank');}"`;
                 }
             );
             
@@ -1044,7 +1060,8 @@
                         status: 'Documento encontrado',
                         campos: Object.keys(data),
                         tamanho_codigo: data.codigo ? data.codigo.length : 0,
-                        ultima_atualizacao: data.ultimaAtualizacao || 'N/A'
+                        ultima_atualizacao: data.ultimaAtualizacao ? new Date(data.ultimaAtualizacao.seconds * 1000).toLocaleString() : 'N/A',
+                        versao: data.versao || 1
                     });
                     
                     // Campo "codigo" conforme sua imagem
@@ -1101,7 +1118,6 @@
                 // Manter campos existentes se houver
                 if (docSnap.exists()) {
                     console.log('📝 Atualizando documento existente');
-                    // Merge para não perder outros campos
                     await setDoc(docRef, data, { merge: true });
                 } else {
                     console.log('🆕 Criando novo documento');
@@ -1164,13 +1180,15 @@
                         }
                     });
                     
-                    debugInfo.ultima_atualizacao = data.ultimaAtualizacao || 'N/A';
+                    debugInfo.ultima_atualizacao = data.ultimaAtualizacao ? 
+                        (data.ultimaAtualizacao.toDate ? data.ultimaAtualizacao.toDate().toLocaleString() : 'N/A') : 'N/A';
                     debugInfo.versao = data.versao || 1;
+                    debugInfo.atualizadoPor = data.atualizadoPor || 'N/A';
                     
                     console.log('✅ Documento encontrado:');
                     console.log('   Campos:', Object.keys(data));
                     console.log('   Versão:', data.versao);
-                    console.log('   Última atualização:', data.ultimaAtualizacao);
+                    console.log('   Última atualização:', debugInfo.ultima_atualizacao);
                     
                     if (data.codigo) {
                         console.log(`   Tamanho do código: ${data.codigo.length} caracteres`);
@@ -1191,7 +1209,7 @@
             }
         }
 
-        // Função para corrigir HTML mal formatado
+        // Função para corrigir HTML mal formatado (CORRIGIDA)
         function fixMalformedHTML(html) {
             if (!html) return html;
             
@@ -1199,30 +1217,44 @@
             let fixed = html;
             
             // Corrigir doctype
-            fixed = fixed.replace(/<IDOCTYPE/i, '<!DOCTYPE');
-            fixed = fixed.replace(/<\!DOCTYPE/g, '<!DOCTYPE');
+            fixed = fixed.replace(/<IDOCTYPE/gi, '<!DOCTYPE');
+            fixed = fixed.replace(/<\!DOCTYPE/gi, '<!DOCTYPE');
             
             // Corrigir tags de fechamento
-            fixed = fixed.replace(/<\/title>/g, '</title>');
-            fixed = fixed.replace(/<title([^>]*)>/g, '<title$1>');
+            fixed = fixed.replace(/<\/title>/gi, '</title>');
+            fixed = fixed.replace(/<title([^>]*)>/gi, '<title$1>');
             
             // Corrigir meta tags
-            fixed = fixed.replace(/<\/meta/g, '<meta');
-            fixed = fixed.replace(/<meta([^>]*)\/>/g, '<meta$1>');
+            fixed = fixed.replace(/<\/meta/gi, '<meta');
+            fixed = fixed.replace(/<meta([^>]*)\/>/gi, '<meta$1>');
             
             // Corrigir link tags
-            fixed = fixed.replace(/<link([^>]*)\/>/g, '<link$1>');
+            fixed = fixed.replace(/<link([^>]*)\/>/gi, '<link$1>');
             
-            // Corrigir style tags
+            // Corrigir style tags - VERSÃO CORRIGIDA
             fixed = fixed.replace(/style="([^"]*)"/g, (match, content) => {
-                if (content.includes('RESET')) {
+                if (content && content.includes('RESET')) {
                     return '<style>/* RESET E ESTILOS GERAIS */</style>';
                 }
                 return match;
             });
             
-            // Fechar tags img
-            fixed = fixed.replace(/<img([^>]*)(?<!/)>/g, '<img$1 />');
+            // Fechar tags img - VERSÃO CORRIGIDA (sem lookbehind)
+            fixed = fixed.replace(/<img([^>]*)(?:\s*)\/?>/gi, (match, attributes) => {
+                // Se já estiver fechada, mantém
+                if (match.trim().endsWith('/>')) {
+                    return match;
+                }
+                // Se não estiver fechada, fecha
+                return `<img${attributes} />`;
+            });
+            
+            // Corrigir tags sem fechamento
+            const selfClosingTags = ['img', 'br', 'hr', 'input', 'meta', 'link'];
+            selfClosingTags.forEach(tag => {
+                const regex = new RegExp(`<${tag}([^>]*)(?<!/)>`, 'gi');
+                fixed = fixed.replace(regex, `<${tag}$1 />`);
+            });
             
             // Remover espaços extras
             fixed = fixed.replace(/\s+/g, ' ').replace(/> </g, '>\n<');
@@ -1944,7 +1976,7 @@
                 console.log('👤 Usuário autenticado:', user.email);
                 
                 // Verificar se é admin e adicionar botão de upload
-                const adminEmails = ['admin@wazzimagiygg.com', user.email]; // Adicione seus emails admin
+                const adminEmails = ['admin@wazzimagiygg.com', 'seuemail@gmail.com']; // Adicione seus emails admin
                 if (adminEmails.includes(user.email)) {
                     console.log('👑 Admin detectado');
                     addAdminUploadButton();
@@ -2017,6 +2049,7 @@
         console.log('📂 Coleção: index');
         console.log('📄 Documento: uidindex');
         console.log('📝 Campo: codigo');
+        console.log('💡 Pressione Ctrl+Shift+D para debug');
         
         // Carregar do cache local se disponível
         try {
