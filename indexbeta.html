@@ -518,22 +518,47 @@
             }
             
             renderContent(content) {
-                this.emulatedContent.innerHTML = content;
+                // Cria um container temporário
+                const tempContainer = document.createElement('div');
+                tempContainer.innerHTML = content;
                 
-                const scripts = this.emulatedContent.getElementsByTagName('script');
-                for (let script of scripts) {
-                    try {
-                        const newScript = document.createElement('script');
-                        if (script.src) {
-                            newScript.src = script.src;
-                        } else {
-                            newScript.textContent = script.textContent;
-                        }
-                        script.parentNode.replaceChild(newScript, script);
-                    } catch (e) {
-                        console.log('Script execution error:', e);
-                    }
+                // Limpa o conteúdo atual
+                while (this.emulatedContent.firstChild) {
+                    this.emulatedContent.removeChild(this.emulatedContent.firstChild);
                 }
+                
+                // Move os nós do container temporário para o conteúdo emulado
+                while (tempContainer.firstChild) {
+                    this.emulatedContent.appendChild(tempContainer.firstChild);
+                }
+                
+                // Executa scripts de forma segura
+                setTimeout(() => {
+                    const scripts = this.emulatedContent.getElementsByTagName('script');
+                    for (let script of scripts) {
+                        try {
+                            if (script.src) {
+                                // Carrega script externo
+                                const newScript = document.createElement('script');
+                                newScript.src = script.src;
+                                newScript.async = false;
+                                document.head.appendChild(newScript);
+                            } else {
+                                // Executa script inline em um contexto seguro
+                                const scriptContent = script.textContent;
+                                if (scriptContent && !scriptContent.includes('import') && !scriptContent.includes('export')) {
+                                    try {
+                                        new Function(scriptContent).call(window);
+                                    } catch (e) {
+                                        console.log('Erro ao executar script inline:', e);
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.log('Erro ao processar script:', e);
+                        }
+                    }
+                }, 0);
             }
             
             extractTitle(content) {
@@ -556,10 +581,13 @@
                 for (let i = 0; i < this.memory.length; i++) {
                     const item = this.memory[i];
                     const activeClass = i === this.currentIndex ? 'active' : '';
+                    const safeTitle = this.escapeHtml(item.title);
+                    const safePreview = this.escapeHtml(item.preview);
+                    
                     html += `
                         <div class="memory-item ${activeClass}" onclick="emulator.loadFromMemory(${i})">
-                            <div class="memory-item-title">${this.escapeHtml(item.title)}</div>
-                            <div class="memory-item-preview">${this.escapeHtml(item.preview)}</div>
+                            <div class="memory-item-title">${safeTitle}</div>
+                            <div class="memory-item-preview">${safePreview}</div>
                             <div class="memory-item-time">⏰ ${item.timestamp}</div>
                         </div>
                     `;
@@ -568,9 +596,13 @@
             }
             
             escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
+                if (!text) return '';
+                return text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
             }
             
             loadFromMemory(index) {
