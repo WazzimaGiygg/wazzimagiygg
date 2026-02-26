@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emulador de HTML - Auto Iframe</title>
+    <title>Emulador HTML - Tela Cheia</title>
     <style>
         * {
             margin: 0;
@@ -13,217 +13,296 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            background: #000;
+            height: 100vh;
             overflow: hidden;
         }
 
-        .header {
-            background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
-            color: white;
-            padding: 20px 30px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .header h1 {
-            font-size: 24px;
-            font-weight: 400;
+        .emulator {
+            width: 100vw;
+            height: 100vh;
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            background: #1a1a1a;
         }
 
-        .header h1 i {
-            font-style: normal;
+        .status-bar {
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            padding: 8px 20px;
+            font-family: 'Courier New', monospace;
             font-size: 14px;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 5px 10px;
-            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            backdrop-filter: blur(10px);
+            z-index: 1000;
         }
 
-        .stats {
+        .status-left {
             display: flex;
             gap: 30px;
-            margin-top: 10px;
-            font-size: 14px;
-            opacity: 0.9;
+            align-items: center;
+        }
+
+        .status-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .indicator {
+            width: 10px;
+            height: 10px;
+            background: #00ff00;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 1.5s infinite;
+        }
+
+        .file-info {
+            color: #888;
+        }
+
+        .file-info span {
+            color: #00ff00;
+            margin-right: 5px;
+        }
+
+        .memory-badge {
+            background: #333;
+            padding: 4px 12px;
+            border-radius: 20px;
+            color: #00ff00;
+            font-size: 12px;
+            border: 1px solid #00ff00;
+        }
+
+        .version-indicator {
+            color: #00ff00;
+            font-weight: bold;
         }
 
         .main-content {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            height: 800px;
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
         }
 
+        /* Área de emulação - OCUPA TODO O ESPAÇO */
+        .emulation-area {
+            flex: 1;
+            background: white;
+            overflow: auto;
+            position: relative;
+        }
+
+        #emulatedContent {
+            min-height: 100%;
+            width: 100%;
+            padding: 20px;
+        }
+
+        /* Painel de memória - flutuante e transparente */
         .memory-panel {
-            background: #1a1f2e;
+            position: fixed;
+            right: 20px;
+            top: 70px;
+            width: 280px;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             color: #fff;
-            border-right: 1px solid #2d3345;
+            transition: transform 0.3s ease;
+            z-index: 1001;
+            max-height: calc(100vh - 100px);
             display: flex;
             flex-direction: column;
         }
 
+        .memory-panel.minimized {
+            transform: translateX(calc(100% + 20px));
+        }
+
         .memory-header {
             padding: 15px;
-            background: #0f1322;
-            border-bottom: 1px solid #2d3345;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 12px 12px 0 0;
         }
 
         .memory-header h3 {
-            font-weight: 400;
-            font-size: 16px;
+            font-size: 14px;
+            font-weight: normal;
             display: flex;
             align-items: center;
             gap: 8px;
+            color: #00ff00;
         }
 
-        .memory-header h3 span {
-            background: #5e72e4;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
+        .memory-header h3::before {
+            content: '🧠';
+            filter: grayscale(0.5);
+        }
+
+        .memory-toggle {
+            background: none;
+            border: none;
+            color: #00ff00;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 5px;
         }
 
         .memory-list {
             flex: 1;
             overflow-y: auto;
             padding: 10px;
+            max-height: 400px;
         }
 
         .memory-item {
-            background: #262b3d;
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
             padding: 12px;
             margin-bottom: 8px;
             cursor: pointer;
-            transition: all 0.3s;
-            border: 1px solid #363b4f;
+            transition: all 0.2s;
+            border: 1px solid transparent;
         }
 
         .memory-item:hover {
-            background: #2f3549;
-            transform: translateX(5px);
+            background: rgba(0, 255, 0, 0.1);
+            border-color: #00ff00;
         }
 
         .memory-item.active {
-            background: #5e72e4;
-            border-color: #7b8cff;
+            background: rgba(0, 255, 0, 0.15);
+            border-color: #00ff00;
         }
 
         .memory-item-title {
-            font-size: 13px;
-            font-weight: 500;
+            font-size: 12px;
+            font-weight: bold;
             margin-bottom: 5px;
-            color: #a0a8c0;
-        }
-
-        .memory-item.active .memory-item-title {
-            color: white;
+            color: #00ff00;
         }
 
         .memory-item-preview {
             font-size: 11px;
-            color: #6b7280;
+            color: #888;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
-        .memory-item.active .memory-item-preview {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .memory-time {
+        .memory-item-time {
             font-size: 10px;
-            color: #4a4f62;
+            color: #444;
             margin-top: 5px;
+            text-align: right;
         }
 
-        .iframe-container {
-            background: #f8faff;
-            position: relative;
-        }
-
-        .iframe-header {
-            background: #fff;
-            padding: 15px 20px;
-            border-bottom: 1px solid #eef2f7;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .iframe-indicator {
-            width: 12px;
-            height: 12px;
-            background: #22c55e;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        .iframe-url {
+        .memory-footer {
+            padding: 10px;
+            border-top: 1px solid #333;
+            font-size: 11px;
             color: #666;
-            font-size: 14px;
-            font-family: monospace;
-            background: #f1f5f9;
-            padding: 5px 10px;
-            border-radius: 6px;
+            text-align: center;
         }
 
-        .iframe-wrapper {
-            height: calc(100% - 73px);
-            padding: 20px;
-            background: #fff;
+        .empty-memory {
+            padding: 30px;
+            text-align: center;
+            color: #444;
+            font-size: 12px;
         }
 
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: 1px solid #eef2f7;
-            border-radius: 8px;
-            background: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        }
-
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px 30px;
-            border-radius: 40px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
             display: none;
+            justify-content: center;
             align-items: center;
-            gap: 10px;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
         }
 
-        .loading.active {
+        .loading-overlay.active {
             display: flex;
         }
 
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #5e72e4;
+        .loading-content {
+            background: #1a1a1a;
+            padding: 30px 50px;
+            border-radius: 12px;
+            border: 1px solid #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top: 3px solid #00ff00;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        .loading-text {
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .loading-text::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+            width: 20px;
+            display: inline-block;
+            text-align: left;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border-left: 3px solid #00ff00;
+            padding: 12px 20px;
+            border-radius: 6px;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1002;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
         }
 
         @keyframes pulse {
             0% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.3; }
             100% { opacity: 1; }
         }
 
@@ -232,235 +311,339 @@
             100% { transform: rotate(360deg); }
         }
 
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #94a3b8;
-            gap: 10px;
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
         }
 
-        .empty-state i {
-            font-size: 48px;
-            opacity: 0.3;
+        /* Estilos para o conteúdo emulado */
+        .emulation-area :global(*) {
+            max-width: 100%;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>
-                📄 Emulador de HTML
-                <i>auto-iframe</i>
-            </h1>
-            <div class="stats">
-                <span>📊 Iframes na memória: <span id="memoryCount">0</span></span>
-                <span>🔄 Auto-atualização: 5s</span>
-                <span>💾 Fonte: index.txt</span>
+    <div class="emulator">
+        <!-- Barra de status minimalista -->
+        <div class="status-bar">
+            <div class="status-left">
+                <div>
+                    <span class="indicator"></span>
+                    <span class="version-indicator" id="versionIndicator">EMULATOR ACTIVE</span>
+                </div>
+                <div class="file-info">
+                    <span>📄</span> index.txt
+                </div>
+                <div>
+                    <span>🔄</span> <span id="updateTimer">5s</span>
+                </div>
+            </div>
+            <div class="status-right">
+                <div class="memory-badge" id="memoryBadge">
+                    <span id="memoryCount">0</span> versões
+                </div>
+                <div>
+                    <span>💾</span> <span id="lastUpdate">-</span>
+                </div>
             </div>
         </div>
-        
+
+        <!-- Área principal - TODO O RESTO DA TELA -->
         <div class="main-content">
-            <div class="memory-panel">
-                <div class="memory-header">
-                    <h3>
-                        🧠 Memória Temporária
-                        <span id="memoryBadge">0</span>
-                    </h3>
-                </div>
-                <div class="memory-list" id="memoryList">
-                    <div class="empty-state">
-                        <i>📭</i>
-                        <p>Aguardando index.txt...</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="iframe-container">
-                <div class="iframe-header">
-                    <div class="iframe-indicator"></div>
-                    <span class="iframe-url" id="currentUrl">index.txt</span>
-                </div>
-                <div class="iframe-wrapper">
-                    <iframe id="mainIframe" sandbox="allow-same-origin allow-scripts allow-popups allow-forms" title="Emulador HTML"></iframe>
-                </div>
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <span>Carregando index.txt...</span>
-                </div>
+            <div class="emulation-area" id="emulationArea">
+                <div id="emulatedContent"></div>
             </div>
         </div>
+
+        <!-- Painel de memória flutuante -->
+        <div class="memory-panel" id="memoryPanel">
+            <div class="memory-header" id="toggleMemory">
+                <h3>MEMÓRIA TEMPORÁRIA</h3>
+                <button class="memory-toggle" id="memoryToggleBtn">◀</button>
+            </div>
+            <div class="memory-list" id="memoryList">
+                <div class="empty-memory">
+                    🕒 Aguardando index.txt...
+                </div>
+            </div>
+            <div class="memory-footer">
+                Auto-save • Últimas 20 versões
+            </div>
+        </div>
+
+        <!-- Loading overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">CARREGANDO</div>
+            </div>
+        </div>
+
+        <!-- Toast notifications -->
+        <div class="toast" id="toast"></div>
     </div>
 
     <script>
-        class HTMLEmulator {
+        class FullscreenEmulator {
             constructor() {
                 this.memory = [];
                 this.currentIndex = -1;
                 this.checkInterval = 5000; // 5 segundos
                 this.lastContent = '';
+                this.timerInterval = null;
+                this.secondsLeft = 5;
+                this.panelMinimized = false;
                 
-                this.iframe = document.getElementById('mainIframe');
+                // Elementos DOM
+                this.emulatedContent = document.getElementById('emulatedContent');
                 this.memoryList = document.getElementById('memoryList');
                 this.memoryCount = document.getElementById('memoryCount');
                 this.memoryBadge = document.getElementById('memoryBadge');
-                this.loading = document.getElementById('loading');
-                this.currentUrl = document.getElementById('currentUrl');
+                this.loadingOverlay = document.getElementById('loadingOverlay');
+                this.lastUpdate = document.getElementById('lastUpdate');
+                this.updateTimer = document.getElementById('updateTimer');
+                this.toast = document.getElementById('toast');
+                this.versionIndicator = document.getElementById('versionIndicator');
+                this.memoryPanel = document.getElementById('memoryPanel');
                 
                 this.init();
             }
             
-            async init() {
+            init() {
                 // Carrega o conteúdo inicial
-                await this.loadIndexFile();
+                this.loadIndexFile();
                 
-                // Inicia o monitoramento periódico
-                setInterval(() => this.checkForUpdates(), this.checkInterval);
+                // Inicia o monitoramento
+                this.startMonitoring();
                 
-                // Adiciona listener para mensagens dos iframes
-                window.addEventListener('message', (e) => this.handleIframeMessage(e));
+                // Configura eventos
+                document.getElementById('toggleMemory').addEventListener('click', () => this.toggleMemoryPanel());
+                
+                // Atualiza o timer a cada segundo
+                setInterval(() => this.updateTimerDisplay(), 1000);
+                
+                // Mostra boas-vindas
+                this.showToast('Emulador iniciado • Monitorando index.txt');
             }
             
             async loadIndexFile() {
                 this.showLoading(true);
                 
                 try {
-                    // Simula a leitura do arquivo index.txt
-                    // Na prática, você precisaria de um servidor para servir o arquivo
-                    const response = await fetch('index.txt');
+                    // Tenta buscar o arquivo index.txt
+                    const response = await fetch('index.txt?' + Date.now());
                     
                     if (!response.ok) {
-                        throw new Error('Arquivo index.txt não encontrado');
+                        throw new Error('Arquivo não encontrado');
                     }
                     
                     const content = await response.text();
                     
-                    // Verifica se o conteúdo mudou
-                    if (content !== this.lastContent) {
+                    if (content !== this.lastContent || this.memory.length === 0) {
                         this.lastContent = content;
                         await this.processHTML(content);
+                        this.showToast('📄 index.txt carregado');
                     }
                     
                 } catch (error) {
-                    console.error('Erro ao carregar index.txt:', error);
+                    console.log('Usando HTML de demonstração');
                     
-                    // Se não encontrar o arquivo, usa um HTML padrão para demonstração
+                    // Usa um HTML de exemplo se não encontrar o arquivo
                     const demoContent = this.getDemoHTML();
-                    this.lastContent = demoContent;
-                    await this.processHTML(demoContent);
+                    
+                    if (demoContent !== this.lastContent || this.memory.length === 0) {
+                        this.lastContent = demoContent;
+                        await this.processHTML(demoContent);
+                        this.showToast('⚡ Modo demonstração ativo');
+                    }
                 }
                 
                 this.showLoading(false);
             }
             
             getDemoHTML() {
-                return `<!DOCTYPE html>
+                const demos = [
+                    // Demo 1 - Moderno
+                    `<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 { font-size: 2.5em; margin-bottom: 20px; }
+        p { opacity: 0.9; line-height: 1.6; }
+        .badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>✨ Emulador HTML</h1>
+        <p>Este conteúdo está sendo emulado diretamente na página principal, sem iframes.</p>
+        <p>Ocupando 100% do espaço disponível!</p>
+        <div class="badge">index.txt • Auto-atualização</div>
+    </div>
+</body>
+</html>`,
+
+                    // Demo 2 - Retrô
+                    `<!DOCTYPE html>
 <html>
 <head>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: 100vh;
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
             margin: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: center;
         }
-        .container {
-            background: rgba(255, 255, 255, 0.1);
+        .terminal {
+            border: 2px solid #0f0;
             padding: 40px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
         }
-        h1 { margin-bottom: 20px; }
-        p { opacity: 0.8; }
+        .cursor {
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>✨ Emulador HTML</h1>
-        <p>Arquivo index.txt carregado com sucesso!</p>
-        <p>Este é um HTML de exemplo. Para usar seu próprio HTML,</p>
-        <p>crie um arquivo index.txt no mesmo diretório.</p>
-        <small>Atualizações serão detectadas automaticamente a cada 5 segundos</small>
+    <div class="terminal">
+        <p>$ Emulador iniciado<span class="cursor">_</span></p>
+        <p>$ Carregando index.txt...</p>
+        <p>$ Modo tela cheia ativo</p>
+        <p>$ Memória: <span id="memory">0</span> versões</p>
     </div>
+    <script>
+        let count = 0;
+        setInterval(() => {
+            document.getElementById('memory').textContent = Math.floor(Math.random() * 10);
+        }, 1000);
+    </script>
 </body>
-</html>`;
+</html>`
+                ];
+                
+                // Alterna entre os demos
+                return demos[Math.floor(Math.random() * demos.length)];
             }
             
             async processHTML(content) {
-                // Cria um novo iframe na memória
+                // Extrai o título
+                const title = this.extractTitle(content);
+                
+                // Cria item na memória
                 const memoryItem = {
                     id: Date.now(),
                     timestamp: new Date().toLocaleTimeString('pt-BR'),
+                    datetime: new Date().toLocaleString(),
                     content: content,
-                    title: this.extractTitle(content),
-                    preview: content.substring(0, 100) + '...'
+                    title: title,
+                    preview: content.replace(/<[^>]*>/g, '').substring(0, 100) + '...'
                 };
                 
                 // Adiciona à memória
                 this.memory.push(memoryItem);
                 this.currentIndex = this.memory.length - 1;
                 
-                // Atualiza a interface
-                this.updateMemoryList();
-                this.renderIframe(content);
+                // Renderiza o conteúdo
+                this.renderContent(content);
                 
-                // Mantém apenas os últimos 10 itens na memória
-                if (this.memory.length > 10) {
-                    this.memory = this.memory.slice(-10);
+                // Mantém apenas as últimas 20 versões
+                if (this.memory.length > 20) {
+                    this.memory = this.memory.slice(-20);
                     this.currentIndex = this.memory.length - 1;
                 }
                 
+                // Atualiza interface
+                this.updateMemoryList();
                 this.updateStats();
+                
+                // Atualiza o indicador de versão
+                this.versionIndicator.textContent = `v${this.memory.length}`;
+                
+                // Atualiza timestamp
+                this.lastUpdate.textContent = new Date().toLocaleTimeString('pt-BR');
+            }
+            
+            renderContent(content) {
+                // Injeta o HTML diretamente no DOM
+                this.emulatedContent.innerHTML = content;
+                
+                // Executa scripts se houver
+                const scripts = this.emulatedContent.getElementsByTagName('script');
+                for (let script of scripts) {
+                    try {
+                        const newScript = document.createElement('script');
+                        if (script.src) {
+                            newScript.src = script.src;
+                        } else {
+                            newScript.textContent = script.textContent;
+                        }
+                        script.parentNode.replaceChild(newScript, script);
+                    } catch (e) {
+                        console.log('Script execution error:', e);
+                    }
+                }
             }
             
             extractTitle(content) {
                 const match = content.match(/<title>(.*?)<\/title>/i);
-                return match ? match[1] : 'Sem título';
-            }
-            
-            renderIframe(content) {
-                // Cria um blob com o conteúdo HTML
-                const blob = new Blob([content], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
+                if (match) return match[1];
                 
-                // Atualiza o iframe
-                this.iframe.src = url;
+                // Tenta extrair um h1 como fallback
+                const h1Match = content.match(/<h1[^>]*>(.*?)<\/h1>/i);
+                if (h1Match) return h1Match[1].replace(/<[^>]*>/g, '');
                 
-                // Atualiza a URL atual
-                this.currentUrl.textContent = `index.txt (${new Date().toLocaleTimeString('pt-BR')})`;
-                
-                // Limpa a URL do objeto após o carregamento
-                this.iframe.onload = () => {
-                    URL.revokeObjectURL(url);
-                };
+                return 'Sem título';
             }
             
             updateMemoryList() {
                 if (this.memory.length === 0) {
-                    this.memoryList.innerHTML = `
-                        <div class="empty-state">
-                            <i>📭</i>
-                            <p>Nenhum iframe na memória</p>
-                        </div>
-                    `;
+                    this.memoryList.innerHTML = '<div class="empty-memory">📭 Nenhuma versão na memória</div>';
                     return;
                 }
                 
                 this.memoryList.innerHTML = this.memory.map((item, index) => `
                     <div class="memory-item ${index === this.currentIndex ? 'active' : ''}" 
                          onclick="emulator.loadFromMemory(${index})">
-                        <div class="memory-item-title">📄 ${item.title}</div>
+                        <div class="memory-item-title">${item.title}</div>
                         <div class="memory-item-preview">${item.preview}</div>
-                        <div class="memory-time">⏰ ${item.timestamp}</div>
+                        <div class="memory-item-time">⏰ ${item.timestamp}</div>
                     </div>
                 `).join('');
             }
@@ -468,102 +651,85 @@
             loadFromMemory(index) {
                 if (index >= 0 && index < this.memory.length) {
                     this.currentIndex = index;
-                    this.renderIframe(this.memory[index].content);
+                    this.renderContent(this.memory[index].content);
                     this.updateMemoryList();
+                    this.showToast(`📋 Carregada versão ${index + 1} de ${this.memory.length}`);
+                    
+                    // Pisca o indicador
+                    this.versionIndicator.style.opacity = '0.5';
+                    setTimeout(() => {
+                        this.versionIndicator.style.opacity = '1';
+                    }, 200);
                 }
             }
             
             async checkForUpdates() {
+                this.secondsLeft = 5;
+                
                 try {
-                    const response = await fetch('index.txt?t=' + Date.now());
+                    const response = await fetch('index.txt?' + Date.now());
                     
                     if (!response.ok) return;
                     
                     const content = await response.text();
                     
                     if (content !== this.lastContent) {
-                        console.log('📝 index.txt atualizado, recarregando...');
                         this.lastContent = content;
                         await this.processHTML(content);
+                        this.showToast('🔄 index.txt atualizado');
                     }
                 } catch (error) {
-                    // Ignora erros de atualização
+                    // Silently fail - usa o conteúdo atual
                 }
             }
             
-            handleIframeMessage(e) {
-                console.log('📨 Mensagem do iframe:', e.data);
+            startMonitoring() {
+                setInterval(() => this.checkForUpdates(), this.checkInterval);
+            }
+            
+            updateTimerDisplay() {
+                if (this.secondsLeft > 0) {
+                    this.secondsLeft--;
+                } else {
+                    this.secondsLeft = 5;
+                }
+                this.updateTimer.textContent = `${this.secondsLeft}s`;
+            }
+            
+            toggleMemoryPanel() {
+                this.panelMinimized = !this.panelMinimized;
+                this.memoryPanel.classList.toggle('minimized', this.panelMinimized);
+                document.getElementById('memoryToggleBtn').textContent = this.panelMinimized ? '▶' : '◀';
             }
             
             showLoading(show) {
-                this.loading.classList.toggle('active', show);
+                this.loadingOverlay.classList.toggle('active', show);
+            }
+            
+            showToast(message) {
+                this.toast.textContent = message;
+                this.toast.classList.add('show');
+                
+                setTimeout(() => {
+                    this.toast.classList.remove('show');
+                }, 3000);
             }
             
             updateStats() {
                 this.memoryCount.textContent = this.memory.length;
-                this.memoryBadge.textContent = this.memory.length;
             }
         }
         
         // Inicializa o emulador
-        const emulator = new HTMLEmulator();
-        
-        // Torna acessível globalmente para os cliques
+        const emulator = new FullscreenEmulator();
         window.emulator = emulator;
         
-        // Simula a criação de um arquivo index.txt para demonstração
-        // Isso é apenas para fins de demonstração no navegador
-        window.addEventListener('load', () => {
-            // Cria um arquivo index.txt de exemplo no localStorage para demonstração
-            const demoFile = `<!DOCTYPE html>
-<html>
-<head>
-    <title>Demo HTML</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f0f4ff;
-        }
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        h1 { color: #5e72e4; }
-        .tag {
-            background: #5e72e4;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            display: inline-block;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>🚀 Emulador de HTML</h1>
-        <p>Este é um arquivo index.txt sendo emulado em tempo real!</p>
-        <p>O conteúdo é atualizado automaticamente a cada 5 segundos.</p>
-        <p>📁 Iframes anteriores são salvos na memória temporária.</p>
-        <div class="tag">Auto-atualização ativa</div>
-    </div>
-</body>
-</html>`;
-            
-            // Tenta salvar no localStorage para demonstração
-            try {
-                localStorage.setItem('index_demo', demoFile);
-            } catch (e) {
-                console.log('Não foi possível salvar no localStorage');
+        // Simula atualizações periódicas para demonstração
+        setInterval(() => {
+            if (Math.random() > 0.7) { // 30% de chance de "atualizar"
+                emulator.showToast('📝 Alteração detectada em index.txt');
             }
-        });
+        }, 15000);
     </script>
 </body>
 </html>
