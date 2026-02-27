@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Emulador HTML com Login - WazzimaGiygg</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="credentialless">
     <style>
         * {
             margin: 0;
@@ -494,9 +496,41 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(52, 152, 219, 0.7);
         }
+
+        /* Loading state for login */
+        .login-loading {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 10002;
+        }
+
+        .login-loading.active {
+            display: flex;
+        }
+
+        .login-loading .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #fff;
+            border-top: 3px solid #4dabf7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
     </style>
 </head>
 <body>
+    <!-- Loading state for login -->
+    <div class="login-loading" id="loginLoading">
+        <div class="spinner"></div>
+    </div>
+
     <!-- Tela de Login -->
     <div id="login-screen">
         <div class="login-box">
@@ -616,7 +650,12 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        
+        // Configure provider with additional settings
         const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+            prompt: 'select_account'
+        });
 
         // UIDs de administradores
         const adminUIDs = [
@@ -635,6 +674,8 @@
         const modalLogoutBtn = document.getElementById('modalLogoutBtn');
         const logoutBtn = document.getElementById('logoutBtn');
         const userEmail = document.getElementById('userEmail');
+        const loginLoading = document.getElementById('loginLoading');
+        const toast = document.getElementById('toast');
 
         // Estado da aplicação
         let isLoggedIn = false;
@@ -642,6 +683,15 @@
         let isInactivityModalActive = false;
         let countdownTimer = null;
         let countdownSeconds = 10;
+        let loginInProgress = false;
+
+        function showToast(message, type = 'info') {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
 
         // 🔹 Controle de inatividade
         function setupInactivityDetection() {
@@ -753,8 +803,10 @@
         function handleLogout() {
             signOut(auth).then(() => {
                 console.log("Usuário deslogado");
+                showToast('👋 Logout realizado com sucesso');
             }).catch((error) => {
                 console.error("Erro ao sair:", error);
+                showToast('❌ Erro ao fazer logout');
             });
         }
 
@@ -764,6 +816,7 @@
             isInactivityModalActive = false;
             clearCountdown();
             resetActivityTimer();
+            showToast('✅ Sessão mantida');
         });
 
         modalLogoutBtn.addEventListener('click', () => {
@@ -775,12 +828,40 @@
 
         logoutBtn.addEventListener('click', handleLogout);
 
-        // Login com Google
-        loginBtn.addEventListener("click", () => {
-            signInWithPopup(auth, provider).catch((error) => {
+        // Login com Google com tratamento de erro melhorado
+        loginBtn.addEventListener("click", async () => {
+            if (loginInProgress) return;
+            
+            loginInProgress = true;
+            loginLoading.classList.add('active');
+            loginBtn.disabled = true;
+            
+            try {
+                // Tentativa de login com popup
+                const result = await signInWithPopup(auth, provider);
+                console.log("Login successful:", result.user.email);
+                showToast(`✅ Bem-vindo, ${result.user.email}`);
+            } catch (error) {
                 console.error("Erro de autenticação:", error);
-                alert("Erro ao fazer login. Verifique o console para mais detalhes.");
-            });
+                
+                let errorMessage = "Erro ao fazer login. ";
+                if (error.code === 'auth/popup-blocked') {
+                    errorMessage += "O popup foi bloqueado. Permita popups para este site.";
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage += "Popup fechado antes de completar o login.";
+                } else if (error.code === 'auth/cancelled-popup-request') {
+                    errorMessage += "Login cancelado.";
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                alert(errorMessage);
+                showToast('❌ ' + errorMessage);
+            } finally {
+                loginInProgress = false;
+                loginLoading.classList.remove('active');
+                loginBtn.disabled = false;
+            }
         });
 
         // Monitorar estado de autenticação
@@ -800,10 +881,12 @@
                 startActivityTimer();
                 
                 console.log("Usuário logado com UID:", user.uid);
+                showToast(`👤 Logado como: ${user.email}`);
             } else if (user) {
                 alert("Acesso negado. Somente administradores podem entrar.");
                 signOut(auth);
                 isLoggedIn = false;
+                showToast('❌ Acesso negado');
             } else {
                 isLoggedIn = false;
                 loginScreen.style.display = "flex";
@@ -865,7 +948,7 @@
                 this.showLoading(true);
                 
                 try {
-                    const response = await fetch('admin/index.txt?' + Date.now());
+                    const response = await fetch('index.txt?' + Date.now());
                     
                     if (!response.ok) {
                         throw new Error('Arquivo não encontrado');
@@ -1070,7 +1153,7 @@
                 this.secondsLeft = 5;
                 
                 try {
-                    const response = await fetch('admin/index.txt?' + Date.now());
+                    const response = await fetch('index.txt?' + Date.now());
                     
                     if (!response.ok) return;
                     
