@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador JSON com Criptografia</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #jsonInput, #jsonOutput {
+            width: 100%;
+            height: 200px;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+        button {
+            margin: 5px;
+        }
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Visualizador JSON com Criptografia</h1>
+    <textarea id="jsonInput" placeholder="Cole seu JSON aqui..."></textarea>
+    <textarea id="jsonOutput" placeholder="JSON criptografado/descriptografado..."></textarea>
+    <br>
+    <button onclick="document.getElementById('fileInput').click()">Importar JSON</button>
+    <input type="file" id="fileInput" accept=".json" onchange="handleFile()">
+    <button onclick="saveJSON()">Salvar JSON</button>
+    <button onclick="encryptJSON()">Criptografar JSON</button>
+    <button onclick="decryptJSON()">Descriptografar JSON</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        function promptPassword() {
+            return prompt("Digite a senha:");
+        }
+
+        function handleFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const fileContent = event.target.result;
+                    const password = prompt("Digite a senha para descriptografar o JSON (deixe em branco se não estiver criptografado):");
+                    if (password) {
+                        try {
+                            const bytes = CryptoJS.AES.decrypt(fileContent, password);
+                            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                            document.getElementById('jsonInput').value = JSON.stringify(JSON.parse(decrypted), null, 2);
+                        } catch (error) {
+                            alert("Senha incorreta ou o conteúdo não é um JSON válido.");
+                        }
+                    } else {
+                        try {
+                            document.getElementById('jsonInput').value = JSON.stringify(JSON.parse(fileContent), null, 2);
+                        } catch (error) {
+                            alert("O conteúdo do arquivo não é um JSON válido.");
+                        }
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function saveJSON() {
+            const json = document.getElementById('jsonOutput').value;
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'output.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function encryptJSON() {
+            const password = promptPassword();
+            const json = document.getElementById('jsonInput').value;
+            if (password && json) {
+                try {
+                    const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+                    document.getElementById('jsonOutput').value = encrypted;
+                } catch (error) {
+                    alert("Erro ao criptografar JSON.");
+                }
+            }
+        }
+
+        function decryptJSON() {
+            const password = promptPassword();
+            const encrypted = document.getElementById('jsonInput').value;
+            if (password && encrypted) {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(encrypted, password);
+                    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                    document.getElementById('jsonOutput').value = decrypted;
+                } catch (error) {
+                    alert("Senha incorreta ou JSON inválido.");
+                }
+            }
+        }
+    </script>
+</body>
+</html>
