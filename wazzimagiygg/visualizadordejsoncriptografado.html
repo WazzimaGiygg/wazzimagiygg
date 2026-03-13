@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importar e Exportar JSON Criptografado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        pre { background-color: #f4f4f4; padding: 10px; border: 1px solid #ddd; }
+        .container { max-width: 600px; margin: auto; }
+        .input-group { margin-bottom: 15px; }
+        .section { margin-bottom: 20px; }
+        .section h3 { margin: 0; }
+        .section p { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Importar e Exportar JSON Criptografado</h1>
+
+        <div class="input-group">
+            <label for="password">Senha:</label>
+            <input type="password" id="password" placeholder="Digite a senha">
+        </div>
+
+        <div class="input-group">
+            <label for="file-input">Importar JSON:</label>
+            <input type="file" id="file-input">
+        </div>
+
+        <button onclick="handleImport()">Importar JSON</button>
+        <button onclick="handleExport()">Exportar JSON</button>
+        <button onclick="printJson()">Imprimir JSON</button>
+
+        <h2>Conteúdo JSON Descriptografado</h2>
+        <div id="json-output"></div>
+    </div>
+
+    <script>
+        let jsonData = null;
+
+        // Função para descriptografar o JSON
+        function decryptData(encryptedText, key) {
+            const bytes = CryptoJS.AES.decrypt(encryptedText, key);
+            const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+            return JSON.parse(decryptedText);
+        }
+
+        // Função para formatar e exibir o JSON
+        function displayJson(data) {
+            const container = document.getElementById('json-output');
+            container.innerHTML = ''; // Limpa o conteúdo anterior
+
+            for (const key in data) {
+                if (data.hasOwnProperty(key)) {
+                    const section = document.createElement('div');
+                    section.className = 'section';
+
+                    const heading = document.createElement('h3');
+                    heading.textContent = `Abas ${key}`; // Subtítulo com o número da aba
+                    section.appendChild(heading);
+
+                    const paragraphs = data[key];
+                    paragraphs.forEach(paragraph => {
+                        const p = document.createElement('p');
+                        p.textContent = paragraph;
+                        section.appendChild(p);
+                    });
+
+                    container.appendChild(section);
+                }
+            }
+        }
+
+        // Função para importar o JSON
+        function handleImport() {
+            const fileInput = document.getElementById('file-input');
+            const password = document.getElementById('password').value;
+
+            if (!fileInput.files.length) {
+                alert("Por favor, selecione um arquivo.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                try {
+                    const encryptedData = event.target.result;
+                    jsonData = decryptData(encryptedData, password);
+                    displayJson(jsonData);
+                } catch (error) {
+                    alert("Erro ao descriptografar o arquivo. Verifique a senha e o formato do arquivo.");
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        // Função para exportar o JSON
+        function handleExport() {
+            if (!jsonData) {
+                alert("Não há dados para exportar.");
+                return;
+            }
+
+            const password = document.getElementById('password').value;
+            const formattedJson = JSON.stringify(jsonData, null, 2); // Formatação com quebras de linha
+            const encryptedData = CryptoJS.AES.encrypt(formattedJson, password).toString();
+
+            const blob = new Blob([encryptedData], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'encrypted-data.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Função para imprimir o JSON
+        function printJson() {
+            const originalContent = document.body.innerHTML; // Armazena o conteúdo original
+            const printContent = document.getElementById('json-output').innerHTML; // Conteúdo a ser impresso
+
+            document.body.innerHTML = `
+                <html>
+                    <head>
+                        <title>Imprimir JSON</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; }
+                            .section { margin-bottom: 20px; }
+                            .section h3 { margin: 0; }
+                            .section p { margin: 5px 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <div id="print-content">${printContent}</div>
+                    </body>
+                </html>
+            `;
+
+            window.print(); // Aciona o diálogo de impressão
+
+
+
+            document.body.innerHTML = originalContent; // Restaura o conteúdo original
+        }
+    </script>
+</body>
+</html>
