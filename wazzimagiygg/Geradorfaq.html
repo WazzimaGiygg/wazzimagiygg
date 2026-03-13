@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de FAQ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+        }
+        label {
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .add-btn { background: green; color: white; }
+        .export-btn { background: blue; color: white; }
+        .import-btn { background: orange; color: white; }
+        .remove-btn { background: red; color: white; }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            background: #e9e9e9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Gerador de FAQ</h2>
+    <label for="title">Título:</label>
+    <input type="text" id="title">
+    
+    <label for="description">Descrição:</label>
+    <textarea id="description"></textarea>
+    
+    <label for="link">Link (opcional):</label>
+    <input type="text" id="link">
+    
+    <button class="add-btn" onclick="addFAQ()">Adicionar</button>
+    <button class="export-btn" onclick="exportJSON()">Exportar JSON</button>
+    <button class="import-btn" onclick="importJSON()">Importar JSON</button>
+
+    <ul id="faq-list"></ul>
+
+    <h3>Prévia do HTML gerado:</h3>
+    <textarea id="faq-html-preview" rows="6" readonly></textarea>
+    <button class="export-btn" onclick="exportHTML()">Exportar HTML</button>
+
+    <input type="file" id="file-input" style="display:none;" onchange="handleFileImport()">
+</div>
+
+<script>
+    let faqs = [];
+
+    function addFAQ() {
+        const title = document.getElementById("title").value.trim();
+        const description = document.getElementById("description").value.trim();
+        const link = document.getElementById("link").value.trim();
+
+        if (!title || !description) {
+            alert("Título e descrição são obrigatórios!");
+            return;
+        }
+
+        const faq = { title, description, link };
+        faqs.push(faq);
+        updateFAQList();
+        updateHTMLPreview();
+        document.getElementById("title").value = "";
+        document.getElementById("description").value = "";
+        document.getElementById("link").value = "";
+    }
+
+    function removeFAQ(index) {
+        faqs.splice(index, 1);
+        updateFAQList();
+        updateHTMLPreview();
+    }
+
+    function updateFAQList() {
+        const list = document.getElementById("faq-list");
+        list.innerHTML = "";
+        faqs.forEach((faq, index) => {
+            const li = document.createElement("li");
+            li.innerHTML = `<strong>${faq.title}</strong> - ${faq.description} 
+                            <button class="remove-btn" onclick="removeFAQ(${index})">Remover</button>`;
+            list.appendChild(li);
+        });
+    }
+
+    function updateHTMLPreview() {
+        let html = "<h2>FAQ</h2><ul>";
+        faqs.forEach(faq => {
+            html += `<li><strong>${faq.title}</strong>: ${faq.description}`;
+            if (faq.link) {
+                html += ` (<a href="${faq.link}" target="_blank">Saiba mais</a>)`;
+            }
+            html += "</li>";
+        });
+        html += "</ul>";
+
+        document.getElementById("faq-html-preview").value = html;
+    }
+
+    function exportJSON() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(faqs, null, 4));
+        const downloadAnchor = document.createElement("a");
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "faq.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        document.body.removeChild(downloadAnchor);
+    }
+
+    function importJSON() {
+        document.getElementById("file-input").click();
+    }
+
+    function handleFileImport() {
+        const file = document.getElementById("file-input").files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                faqs = JSON.parse(event.target.result);
+                updateFAQList();
+                updateHTMLPreview();
+            } catch (e) {
+                alert("Erro ao importar JSON!");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function exportHTML() {
+        const htmlContent = document.getElementById("faq-html-preview").value;
+        const blob = new Blob([htmlContent], { type: "text/html" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "faq.html";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+</body>
+</html>
