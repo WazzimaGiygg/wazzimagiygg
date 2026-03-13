@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Texto com Abas</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #tabs { display: flex; margin-bottom: 10px; align-items: center; }
+        .tab { padding: 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; margin-right: 5px; }
+        .tab-active { background-color: #ddd; }
+        #editor-container { margin-top: 10px; }
+        #list { margin-bottom: 10px; }
+        #new-item-container { margin-bottom: 10px; }
+        .item { display: flex; align-items: center; margin-bottom: 5px; }
+        .item textarea { width: 300px; margin-right: 10px; }
+        .item button { margin-left: 5px; }
+        #buttons { margin-top: 20px; }
+        #password { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div id="tabs">
+        <button onclick="addTab()">Adicionar Aba</button>
+    </div>
+    <div id="editor-container">
+        <div id="new-item-container">
+            <input type="text" id="new-item" placeholder="Digite novo item">
+            <button onclick="addNewItem()">Adicionar Item</button>
+        </div>
+        <div id="list"></div>
+    </div>
+    <div id="buttons">
+        <button onclick="save()">Salvar</button>
+        <button onclick="saveEncrypted()">Salvar com Criptografia</button>
+        <button onclick="load()">Carregar</button>
+        <button onclick="loadEncrypted()">Carregar com Criptografia</button>
+    </div>
+    <input type="password" id="password" placeholder="Senha (se necessário)">
+    
+    <script src="https://uwg.wdfiles.com/local--files/ferramentauniversal/crypto-js.min.js"></script>
+    <script>
+        let tabs = {};
+        let activeTab = 1;
+        let nextTabNumber = 1;
+
+        function renderTabs() {
+            const tabContainer = document.getElementById('tabs');
+            tabContainer.innerHTML = '<button onclick="addTab()">Adicionar Aba</button>';
+            
+            Object.keys(tabs).forEach(tabNumber => {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (tabNumber == activeTab ? ' tab-active' : '');
+                tab.setAttribute('data-tab', tabNumber);
+                tab.textContent = `Aba ${tabNumber}`;
+                tab.addEventListener('click', () => {
+                    document.querySelector('.tab-active').classList.remove('tab-active');
+                    tab.classList.add('tab-active');
+                    activeTab = tabNumber;
+                    renderList();
+                });
+                tabContainer.appendChild(tab);
+            });
+
+            // Ensure only one tab is at the beginning of the tabs list
+            tabContainer.appendChild(document.querySelector('button'));
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('list');
+            listContainer.innerHTML = '';
+
+            if (tabs[activeTab]) {
+                tabs[activeTab].forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'item';
+
+                    const textarea = document.createElement('textarea');
+                    textarea.value = item;
+                    textarea.oninput = () => {
+                        tabs[activeTab][index] = textarea.value;
+                    };
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remover';
+                    removeButton.onclick = () => {
+                        tabs[activeTab].splice(index, 1);
+                        renderList();
+                    };
+
+                    itemDiv.appendChild(textarea);
+                    itemDiv.appendChild(removeButton);
+                    listContainer.appendChild(itemDiv);
+                });
+            }
+        }
+
+        function addTab() {
+            tabs[nextTabNumber] = [];
+            activeTab = nextTabNumber;
+            nextTabNumber++;
+            renderTabs();
+            renderList();
+        }
+
+        function addNewItem() {
+            const newItemInput = document.getElementById('new-item');
+            const newItemText = newItemInput.value.trim();
+            if (newItemText) {
+                tabs[activeTab].push(newItemText);
+                newItemInput.value = '';
+                renderList();
+            }
+        }
+
+        function save() {
+            const json = JSON.stringify(tabs);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tabs.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function saveEncrypted() {
+            const json = JSON.stringify(tabs);
+            const password = document.getElementById('password').value;
+            const encrypted = CryptoJS.AES.encrypt(json, password).toString();
+            const blob = new Blob([encrypted], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tabs.encrypted.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function load() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    tabs = JSON.parse(event.target.result);
+                    nextTabNumber = Math.max(...Object.keys(tabs).map(Number)) + 1;
+                    activeTab = Object.keys(tabs)[0];
+                    renderTabs();
+                    renderList();
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function loadEncrypted() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    const encrypted = event.target.result;
+                    const password = document.getElementById('password').value;
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(encrypted, password);
+                        const json = bytes.toString(CryptoJS.enc.Utf8);
+                        tabs = JSON.parse(json);
+                        nextTabNumber = Math.max(...Object.keys(tabs).map(Number)) + 1;
+                        activeTab = Object.keys(tabs)[0];
+                        renderTabs();
+                        renderList();
+                    } catch (e) {
+                        alert('Senha incorreta ou arquivo corrompido.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // Initialize with one tab
+        addTab();
+    </script>
+</body>
+</html>
