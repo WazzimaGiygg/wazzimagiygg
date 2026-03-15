@@ -98,13 +98,50 @@
             color: #666;
             font-style: italic;
         }
+        #authSection {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        #userInfo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #userAvatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+        #loginBtn, #logoutBtn {
+            background: #28a745;
+        }
+        #logoutBtn {
+            background: #6c757d;
+        }
     </style>
 </head>
 <body>
     <h1>Relatórios de Links e Descrições</h1>
 
-    <!-- Create Report Section -->
-    <div id="createSection" class="section">
+    <!-- Auth Section -->
+    <div id="authSection" class="section">
+        <div id="userInfo" style="display: none;">
+            <img id="userAvatar" src="" alt="avatar">
+            <span id="userName"></span>
+            <button id="logoutBtn">Sair</button>
+        </div>
+        <div id="loginContainer">
+            <button id="loginBtn">Entrar com Google</button>
+        </div>
+    </div>
+
+    <!-- Create Report Section (visible only when logged in) -->
+    <div id="createSection" class="section" style="display: none;">
         <h2>Criar Novo Relatório</h2>
         <div id="pairsContainer"></div>
         <button id="addPairBtn">+ Adicionar Link e Descrição</button>
@@ -112,7 +149,7 @@
         <p id="saveMessage" style="color: green;"></p>
     </div>
 
-    <!-- All Reports Section -->
+    <!-- All Reports Section (always visible) -->
     <div id="listSection" class="section">
         <h2>Todos os Relatórios</h2>
         <div id="reportsList"></div>
@@ -125,13 +162,13 @@
         <div id="singleReportContent"></div>
     </div>
 
-    <!-- Firebase SDK (compat version for simplicity) -->
+    <!-- Firebase SDK (compat version) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
     <script>
         // ===== CONFIGURE FIREBASE =====
-        // Substitua pelas suas credenciais do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -144,6 +181,8 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
 
         // ===== GLOBAL ELEMENTS =====
         const pairsContainer = document.getElementById('pairsContainer');
@@ -156,11 +195,47 @@
         const singleReportSection = document.getElementById('singleReportSection');
         const singleReportContent = document.getElementById('singleReportContent');
         const backToListLink = document.getElementById('backToListLink');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userInfoDiv = document.getElementById('userInfo');
+        const loginContainer = document.getElementById('loginContainer');
+        const userAvatar = document.getElementById('userAvatar');
+        const userNameSpan = document.getElementById('userName');
 
         let pairCount = 0;
+        let currentUser = null;
+
+        // ===== AUTH STATE OBSERVER =====
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            if (user) {
+                // Usuário logado: mostra informações e seção de criação
+                userInfoDiv.style.display = 'flex';
+                loginContainer.style.display = 'none';
+                userAvatar.src = user.photoURL || '';
+                userNameSpan.textContent = user.displayName || 'Usuário';
+                createSection.style.display = 'block';
+            } else {
+                // Usuário não logado: esconde seção de criação
+                userInfoDiv.style.display = 'none';
+                loginContainer.style.display = 'block';
+                createSection.style.display = 'none';
+            }
+        });
+
+        // ===== LOGIN / LOGOUT =====
+        loginBtn.addEventListener('click', () => {
+            auth.signInWithPopup(googleProvider).catch(error => {
+                console.error('Erro no login:', error);
+                alert('Falha no login. Veja o console.');
+            });
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
 
         // ===== FUNCTIONS =====
-        // Adiciona um novo par de campos (link + descrição)
         function addPair(linkValue = '', descValue = '') {
             pairCount++;
             const pairDiv = document.createElement('div');
@@ -192,20 +267,23 @@
             pairsContainer.appendChild(pairDiv);
         }
 
-        // Limpa todos os pares e adiciona um vazio inicial
         function resetPairs() {
             pairsContainer.innerHTML = '';
-            addPair(); // começa com um par vazio
+            addPair();
         }
 
-        // Salvar relatório no Firestore
         async function saveReport() {
+            if (!currentUser) {
+                alert('Você precisa estar logado para salvar um relatório.');
+                return;
+            }
+
             const pairs = document.querySelectorAll('.pair');
             const items = [];
             for (let pair of pairs) {
                 const link = pair.querySelector('.link-input').value.trim();
                 const desc = pair.querySelector('.desc-input').value.trim();
-                if (link && desc) { // só inclui se ambos estiverem preenchidos
+                if (link && desc) {
                     items.push({ link, description: desc });
                 }
             }
@@ -218,6 +296,7 @@
             try {
                 await db.collection('Actions').add({
                     items: items,
+                    criadorId: currentUser.uid,  // UID do criador
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 saveMessage.textContent = 'Relatório salvo com sucesso!';
@@ -229,7 +308,6 @@
             }
         }
 
-        // Carregar todos os relatórios e exibir na lista
         async function loadAllReports() {
             reportsListDiv.innerHTML = '<p class="loading">Carregando...</p>';
             try {
@@ -245,6 +323,7 @@
                     const items = data.items || [];
                     const date = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : 'Data desconhecida';
                     const reportId = doc.id;
+                    const criadorId = data.criadorId || 'desconhecido';
 
                     // Prévia dos itens (mostra até 3)
                     const preview = items.slice(0, 3).map(item => 
@@ -257,6 +336,7 @@
                     html += `
                         <div class="report-card">
                             <div><strong>Relatório ID:</strong> ${reportId}</div>
+                            <div><small>Criado por: ${criadorId}</small></div>
                             <div><small>Criado em: ${date}</small></div>
                             <div class="items">
                                 ${preview}
@@ -275,7 +355,6 @@
             }
         }
 
-        // Carregar um único relatório pelo ID
         async function loadSingleReport(reportId) {
             singleReportContent.innerHTML = '<p class="loading">Carregando...</p>';
             try {
@@ -306,48 +385,39 @@
             }
         }
 
-        // Mostrar/esconder seções baseado na presença de ?id
         function handleView() {
             const urlParams = new URLSearchParams(window.location.search);
             const reportId = urlParams.get('id');
 
             if (reportId) {
-                // Modo de visualização única
                 createSection.style.display = 'none';
                 listSection.style.display = 'none';
                 singleReportSection.style.display = 'block';
                 loadSingleReport(reportId);
             } else {
-                // Modo de criação e lista
-                createSection.style.display = 'block';
+                createSection.style.display = currentUser ? 'block' : 'none';
                 listSection.style.display = 'block';
                 singleReportSection.style.display = 'none';
                 loadAllReports();
             }
         }
 
-        // Evento para voltar à lista (remove o parâmetro id da URL)
         backToListLink.addEventListener('click', (e) => {
             e.preventDefault();
             const url = new URL(window.location);
             url.searchParams.delete('id');
             window.history.pushState({}, '', url);
-            handleView(); // recarrega a visualização correta
+            handleView();
         });
 
-        // Inicialização
         window.addEventListener('load', () => {
-            resetPairs(); // começa com um par vazio
+            resetPairs();
             handleView();
 
-            // Adicionar novo par
             addPairBtn.addEventListener('click', () => addPair());
-
-            // Salvar relatório
             saveReportBtn.addEventListener('click', saveReport);
         });
 
-        // Opcional: atualiza a lista quando usar o botão "voltar" do navegador
         window.addEventListener('popstate', handleView);
     </script>
 </body>
