@@ -1,0 +1,82 @@
+Desvendando o WazzimaGiygg Core: A Anatomia de uma Wiki Personalizada
+
+II. BRIEFING DOCUMENT: SÍNTESE TÉCNICA (WZZM)
+
+1. Sumário Executivo
+
+O sistema WazzimaGiygg Core (WZZM) é uma plataforma CMS dinâmica baseada numa arquitetura Single Page Application (SPA). A infraestrutura assenta nos serviços Google Cloud/Firebase para base de dados em tempo real (Firestore) e gestão de identidades. A interface utiliza o framework Material Design Lite (MDL), otimizado para uma visualização clara e produtividade administrativa.
+
+2. Análise de Temas Principais
+
+* Segurança e Proteção de Dados:
+  * Camada de Higienização: O sistema integra a biblioteca DOMPurify, garantindo que qualquer conteúdo inserido pelos utilizadores seja limpo de scripts maliciosos, prevenindo ataques de XSS (Cross-Site Scripting).
+  * Autenticação: Suporte para Google Login (OAuth) e Email/Senha. O acesso é segmentado pelos cargos de admin, user e guest.
+  * Auditoria: Implementação do "Universal Checkuser", um sistema de log recorder (via iframe) posicionado na base da aplicação para monitorização de acessos e ações administrativas.
+* Funcionalidades de Gestão de Conteúdo:
+  * CRUD e Histórico: Capacidade total para Criar, Ler, Atualizar e Eliminar artigos. O sistema de histórico permite a comparação de versões e a reversão imediata de alterações indesejadas.
+  * Exportação e Layout: Suporte para formatação académica ABNT e integração com html2canvas, sugerindo funcionalidades de captura de ecrã ou exportação de documentos para formatos de imagem/PDF.
+* Performance e Escalabilidade de Busca:
+  * Limitação de Dados: Para otimizar a performance e o consumo de recursos, o sistema aplica limites estritos de carregamento: 50 resultados na interface de busca de artigos e até 200 resultados na listagem de artigos recentes.
+  * Paginação: Implementação de uma navegação "estilo Google", permitindo ao utilizador percorrer grandes volumes de dados de forma paginada (5 itens por página).
+  * Índices do Firestore: Consultas complexas que combinam filtros de data e ordenação por título exigem a criação de índices compostos na consola do Firebase, caso contrário, o sistema retorna um erro de failed-precondition.
+
+3. Evidências Técnicas
+
+As análises efetuadas por diversas IAs (Gemini, Grok, ChatGPT) confirmam que o domínio é estritamente privado. A renderização dos dados ocorre apenas no lado do cliente (Client-Side Rendering) após a validação bem-sucedida do Token de Acesso, impossibilitando a extração de conteúdo por crawlers não autenticados.
+
+
+--------------------------------------------------------------------------------
+
+
+III. GUIA DE ESTUDO E QUIZ
+
+1. Questionário de Compreensão
+
+1. Qual é a função da biblioteca DOMPurify no ecossistema WazzimaGiygg?
+2. Como o sistema se comporta quando nenhum UID é fornecido na URL de acesso?
+3. Quais são os métodos de autenticação suportados pela plataforma Wiki Zero?
+4. O que faz a função highlightDifferences no módulo de histórico?
+5. Existe alguma restrição para a funcionalidade de "Remover Artigo" na interface?
+6. Para que serve o parâmetro collection presente na URL de visualização?
+7. Por que motivo os motores de busca não conseguem indexar o conteúdo dos artigos?
+8. Qual é o procedimento técnico necessário quando o Firestore reporta um erro de "índice necessário"?
+9. Que idiomas podem ser selecionados durante a criação de um novo documento?
+10. Como o sistema processa um UID que é inserido acidentalmente como uma URL completa?
+
+2. Chave de Respostas
+
+1. A biblioteca DOMPurify é utilizada para higienizar o código HTML inserido nas descrições dos artigos, removendo scripts maliciosos que poderiam comprometer a segurança. Esta medida protege o utilizador contra ataques de Cross-Site Scripting (XSS) durante a visualização de conteúdos dinâmicos. É uma camada essencial de segurança numa aplicação que permite a edição de texto rico por múltiplos colaboradores.
+2. Na ausência de um UID, a plataforma exibe um Estado Vazio (Empty State) que serve como um guia de instruções para o utilizador. Esta interface explica como utilizar os parâmetros ?uid= e ?collection= para carregar um documento específico da base de dados. Além disso, apresenta uma lista das coleções disponíveis, como materiadeensaio e wikicodigo, para orientar a navegação inicial.
+3. O sistema suporta dois métodos principais: o Google Login, que utiliza o provedor OAuth para uma entrada rápida, e a autenticação tradicional por Email e Senha. Ambas as opções estão integradas no serviço Firebase Auth para garantir a proteção das credenciais. Estas opções asseguram que apenas utilizadores registados na base de dados possam aceder às coleções restritas.
+4. A função highlightDifferences realiza uma comparação entre duas versões de texto para identificar alterações, adições e remoções de caracteres. Ela utiliza tags HTML específicas, como <ins> para conteúdo novo e <del> para texto removido, criando uma visualização clara das modificações. Este processo é fundamental para o sistema de auditoria da wiki, permitindo que os editores verifiquem a evolução de cada artigo.
+5. Sim, a funcionalidade de remoção está protegida por uma verificação de cargo, estando disponível apenas para utilizadores com o nível de admin. Se o utilizador logado não possuir as permissões necessárias, o botão de eliminar não será renderizado ou a operação será rejeitada pelas regras de segurança do Firestore. Esta restrição evita a perda acidental ou maliciosa de dados por parte de utilizadores comuns ou convidados.
+6. O parâmetro collection determina em que contentor de dados do Firestore o sistema deve realizar a busca do documento solicitado pelo UID. Caso o utilizador não especifique este parâmetro, a aplicação assume por predefinição a coleção materiadeensaio. Esta flexibilidade permite que o mesmo visualizador aceda a diferentes categorias de informação, desde rascunhos até artigos académicos.
+7. A indexação é impedida porque o conteúdo não reside no HTML estático do site, sendo carregado apenas via JavaScript após a autenticação do utilizador. Os robôs de busca não possuem os tokens de acesso necessários para disparar as funções de consulta ao Firebase. Desta forma, a plataforma garante que a base de conhecimento permaneça privada e protegida contra a raspagem de dados automática.
+8. Quando este erro ocorre, o administrador deve aceder à consola do Firebase e criar manualmente um índice composto para os campos envolvidos na consulta. O sistema geralmente fornece um log com o link direto que facilita a configuração desta indexação no banco de dados. Sem este índice, o Firestore não consegue processar filtros avançados que combinam, por exemplo, a ordenação de títulos com intervalos de datas.
+9. Durante o processo de criação de um artigo, o sistema permite escolher entre Português, Inglês e Espanhol através do campo "armario". Esta seleção define o idioma oficial do documento e ajuda na organização e filtragem dos conteúdos na central de artigos. A informação de idioma é guardada como um metadado essencial em cada registro do Firestore.
+10. O sistema utiliza a função extractArticleParams para realizar o parsing da URL, extraindo o identificador final a partir do caminho ou da query string da URL aninhada. Ela é capaz de identificar se o UID faz parte de uma estrutura de diretórios ou se está declarado como um parâmetro dentro de outro link. Esta engenharia de extração garante que o artigo correto seja carregado, independentemente da complexidade da origem do link.
+
+3. Temas para Ensaio
+
+1. A soberania de dados e o papel das wikis privadas na proteção da propriedade intelectual.
+2. Vantagens e limitações da arquitetura NoSQL (Firestore) na gestão de versões de documentos extensos.
+3. O impacto do Material Design Lite na experiência do utilizador em ferramentas de administração técnica.
+4. Estratégias de mitigação de vulnerabilidades XSS em plataformas CMS baseadas em JavaScript.
+5. A importância dos sistemas de auditoria (Checkuser e Diff) para a manutenção da integridade em bases de conhecimento colaborativas.
+
+
+--------------------------------------------------------------------------------
+
+
+IV. GLOSSÁRIO DE TERMOS CHAVE
+
+* UID (Unique Identifier): Chave alfanumérica única que identifica um documento específico dentro de uma coleção no Firestore.
+* Firebase: Plataforma da Google que fornece serviços de backend, como base de dados em tempo real, autenticação e alojamento de ficheiros.
+* Firestore: Banco de dados NoSQL orientado a documentos, utilizado pela WZZM para armazenar artigos, históricos e perfis de utilizador.
+* Endpoint: Um ponto de extremidade de uma API ou URL que responde a pedidos específicos de dados ou funcionalidades do sistema.
+* Material Design Lite (MDL): Biblioteca de componentes visuais que aplica os princípios de design da Google para criar interfaces limpas e responsivas.
+* Token de Acesso: Uma credencial digital temporária que prova a identidade do utilizador e autoriza o acesso a recursos protegidos do Firebase.
+* CRUD: Acrónimo para Criar (Create), Ler (Read), Atualizar (Update) e Eliminar (Delete), representando as operações básicas de gestão de dados.
+* Diferenciação de Versões (Diff): Técnica de comparação de ficheiros ou textos para destacar visualmente as discrepâncias entre duas instâncias de um documento.
+* DOMPurify: Biblioteca de segurança utilizada para neutralizar código malicioso em strings HTML, essencial para prevenir ataques de injeção.
+* Checkuser: Sistema de monitorização e registo de logs que permite rastrear a atividade dos utilizadores para fins de auditoria e segurança.
