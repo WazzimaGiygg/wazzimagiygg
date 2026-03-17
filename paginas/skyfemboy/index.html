@@ -189,15 +189,6 @@
             line-height: 1.5;
         }
 
-        .project-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
-            color: #718096;
-            margin-bottom: 10px;
-        }
-
         .share-section {
             background: #f7fafc;
             border-radius: 8px;
@@ -491,8 +482,7 @@
         // Estado da aplicação
         let currentUser = null;
         let activeReplyProject = null;
-        let currentView = 'all'; // 'all' ou 'my'
-        let currentProjectId = null;
+        let currentView = 'all';
 
         // URL base para compartilhamento
         const BASE_SHARE_URL = 'https://wazzimagiygg.com/?uid=';
@@ -500,7 +490,7 @@
         // Verificar se há um projeto específico na URL
         function checkUrlForProject() {
             const urlParams = new URLSearchParams(window.location.search);
-            const projectId = urlParams.get('uid') || urlParams.get('project'); // Aceita ambos os formatos
+            const projectId = urlParams.get('uid') || urlParams.get('project');
             if (projectId) {
                 loadSingleProject(projectId);
                 return true;
@@ -585,7 +575,7 @@
         // Logout
         window.logout = function() {
             auth.signOut();
-            window.location.href = window.location.pathname; // Remove parâmetros da URL
+            window.location.href = window.location.pathname;
         };
 
         // Mostrar mensagem
@@ -635,7 +625,6 @@
                 projectForm.reset();
                 messageCounter.textContent = '0/127';
                 
-                // Redirecionar para o projeto recém-criado com o formato de URL personalizado
                 window.location.href = `?uid=${projectRef.id}`;
                 
             } catch (error) {
@@ -728,19 +717,18 @@
             }
         }
 
-        // Gerar card do projeto
+        // Gerar card do projeto - VERSÃO CORRIGIDA
         async function generateProjectCard(project, projectId, showAllReplies = false) {
             try {
-                // Contar o número real de respostas
-                const repliesCountSnapshot = await db.collection('skyfemboy')
+                // Contar o número real de respostas usando .size
+                const allRepliesSnapshot = await db.collection('skyfemboy')
                     .doc(projectId)
                     .collection('replies')
-                    .count()
                     .get();
                 
-                const actualReplyCount = repliesCountSnapshot.data().count;
+                const actualReplyCount = allRepliesSnapshot.size;
                 
-                // Carregar respostas
+                // Carregar respostas para exibição
                 let repliesQuery = db.collection('skyfemboy')
                     .doc(projectId)
                     .collection('replies')
@@ -750,10 +738,10 @@
                     repliesQuery = repliesQuery.limit(3);
                 }
                 
-                const repliesSnapshot = await repliesQuery.get();
+                const repliesForDisplay = await repliesQuery.get();
 
                 let repliesHtml = '';
-                repliesSnapshot.forEach(replyDoc => {
+                repliesForDisplay.forEach(replyDoc => {
                     const reply = replyDoc.data();
                     const date = reply.createdAt ? reply.createdAt.toDate().toLocaleString() : 'Data desconhecida';
                     repliesHtml += `
@@ -768,7 +756,6 @@
                 });
 
                 const createdDate = project.createdAt ? project.createdAt.toDate().toLocaleString() : 'Data desconhecida';
-                // Usar o formato de URL personalizado
                 const shareUrl = `${BASE_SHARE_URL}${projectId}`;
                 
                 return `
@@ -822,7 +809,7 @@
                 `;
             } catch (error) {
                 console.error('Erro ao gerar card:', error);
-                return `<div class="error-message">Erro ao carregar projeto</div>`;
+                return `<div class="error-message">Erro ao carregar projeto: ${error.message}</div>`;
             }
         }
 
@@ -887,7 +874,7 @@
             }
         };
 
-        // Enviar resposta (versão corrigida - sem atualizar o projeto)
+        // Enviar resposta
         window.sendReply = async function(projectId) {
             if (!currentUser) {
                 showMessage('Você precisa estar logado para responder.', 'error');
@@ -913,7 +900,6 @@
             }
 
             try {
-                // Adicionar a resposta - sem tentar atualizar o projeto
                 await db.collection('skyfemboy').doc(projectId).collection('replies').add({
                     content: content,
                     authorId: currentUser.uid,
@@ -924,7 +910,6 @@
                 showMessage('Resposta enviada com sucesso!', 'success');
                 hideReplyForm(projectId);
                 
-                // Recarregar a visualização atual
                 if (window.location.search.includes('uid')) {
                     loadSingleProject(projectId);
                 } else {
@@ -961,7 +946,6 @@
             navigator.clipboard.writeText(text).then(() => {
                 showMessage('Link copiado!', 'success');
             }).catch(() => {
-                // Fallback para navegadores mais antigos
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
                 document.body.appendChild(textarea);
