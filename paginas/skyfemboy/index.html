@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat de Projeto Contínuo</title>
+    <title>SkyFemboy - Chat de Projeto Contínuo</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -298,7 +298,7 @@
         }
 
         .success-message {
-            background: #c6f6d5;
+            background: #c6f5d5;
             color: #22543d;
             padding: 10px;
             border-radius: 5px;
@@ -399,7 +399,7 @@
         <!-- Header com Autenticação -->
         <div class="header">
             <div class="auth-section">
-                <h1><i class="fas fa-comments"></i>Chat de Projeto Contínuo</h1>
+                <h1><i class="fas fa-comments"></i> SkyFemboy - Chat de Projeto Contínuo</h1>
                 <div id="authDisplay">
                     <!-- Será preenchido pelo JavaScript -->
                 </div>
@@ -454,22 +454,21 @@
                     </button>
                 </div>
                 <p style="margin-top: 10px; font-size: 12px; color: #718096;">
-                    Qualquer pessoa com o link pode visualizar e responder (se estiver logada)
+                    Link formatado: https://wazzimagiygg.com/?uid=ID_DO_PROJETO
                 </p>
             </div>
         </div>
     </div>
 
     <script>
-        // Configuração do Firebase
+        // Configuração do Firebase - SUBSTITUA COM SUAS CREDENCIAIS
         const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
+            apiKey: "SEU_API_KEY",
+            authDomain: "SEU_AUTH_DOMAIN",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_STORAGE_BUCKET",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
         };
 
         // Inicializar Firebase
@@ -494,10 +493,13 @@
         let currentView = 'all'; // 'all' ou 'my'
         let currentProjectId = null;
 
+        // URL base para compartilhamento
+        const BASE_SHARE_URL = 'https://wazzimagiygg.com/?uid=';
+
         // Verificar se há um projeto específico na URL
         function checkUrlForProject() {
             const urlParams = new URLSearchParams(window.location.search);
-            const projectId = urlParams.get('project');
+            const projectId = urlParams.get('uid') || urlParams.get('project'); // Aceita ambos os formatos
             if (projectId) {
                 loadSingleProject(projectId);
                 return true;
@@ -618,8 +620,7 @@
                     description: projectDescription,
                     authorId: currentUser.uid,
                     authorEmail: currentUser.email,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    replyCount: 0
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
                 await db.collection('skyfemboy').doc(projectRef.id).collection('replies').add({
@@ -629,16 +630,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                await projectRef.update({
-                    replyCount: firebase.firestore.FieldValue.increment(1)
-                });
-
                 showMessage('Projeto criado com sucesso!', 'success');
                 projectForm.reset();
                 messageCounter.textContent = '0/127';
                 
-                // Redirecionar para o projeto recém-criado
-                window.location.href = `?project=${projectRef.id}`;
+                // Redirecionar para o projeto recém-criado com o formato de URL personalizado
+                window.location.href = `?uid=${projectRef.id}`;
                 
             } catch (error) {
                 showMessage('Erro ao criar projeto: ' + error.message, 'error');
@@ -732,85 +729,100 @@
 
         // Gerar card do projeto
         async function generateProjectCard(project, projectId, showAllReplies = false) {
-            // Carregar respostas
-            let repliesQuery = db.collection('skyfemboy')
-                .doc(projectId)
-                .collection('replies')
-                .orderBy('createdAt', 'desc');
-            
-            if (!showAllReplies) {
-                repliesQuery = repliesQuery.limit(3);
-            }
-            
-            const repliesSnapshot = await repliesQuery.get();
+            try {
+                // Contar o número real de respostas
+                const repliesCountSnapshot = await db.collection('skyfemboy')
+                    .doc(projectId)
+                    .collection('replies')
+                    .count()
+                    .get();
+                
+                const actualReplyCount = repliesCountSnapshot.data().count;
+                
+                // Carregar respostas
+                let repliesQuery = db.collection('skyfemboy')
+                    .doc(projectId)
+                    .collection('replies')
+                    .orderBy('createdAt', 'desc');
+                
+                if (!showAllReplies) {
+                    repliesQuery = repliesQuery.limit(3);
+                }
+                
+                const repliesSnapshot = await repliesQuery.get();
 
-            let repliesHtml = '';
-            repliesSnapshot.forEach(replyDoc => {
-                const reply = replyDoc.data();
-                const date = reply.createdAt ? reply.createdAt.toDate().toLocaleString() : 'Data desconhecida';
-                repliesHtml += `
-                    <div class="reply-card">
-                        <div class="reply-header">
-                            <span class="reply-author">${reply.authorEmail}</span>
-                            <span class="reply-date">${date}</span>
+                let repliesHtml = '';
+                repliesSnapshot.forEach(replyDoc => {
+                    const reply = replyDoc.data();
+                    const date = reply.createdAt ? reply.createdAt.toDate().toLocaleString() : 'Data desconhecida';
+                    repliesHtml += `
+                        <div class="reply-card">
+                            <div class="reply-header">
+                                <span class="reply-author">${reply.authorEmail}</span>
+                                <span class="reply-date">${date}</span>
+                            </div>
+                            <div class="reply-content">${reply.content}</div>
                         </div>
-                        <div class="reply-content">${reply.content}</div>
+                    `;
+                });
+
+                const createdDate = project.createdAt ? project.createdAt.toDate().toLocaleString() : 'Data desconhecida';
+                // Usar o formato de URL personalizado
+                const shareUrl = `${BASE_SHARE_URL}${projectId}`;
+                
+                return `
+                    <div class="project-card" data-project-id="${projectId}">
+                        <div class="project-header">
+                            <h3 class="project-title">${project.name}</h3>
+                            <span class="reply-count"><i class="fas fa-comment"></i> ${actualReplyCount}</span>
+                        </div>
+                        <div class="project-author">
+                            <i class="fas fa-user"></i> ${project.authorEmail} - ${createdDate}
+                        </div>
+                        <div class="project-description">
+                            ${project.description}
+                        </div>
+                        
+                        <div class="share-section">
+                            <div class="share-link">
+                                <input type="text" value="${shareUrl}" readonly onclick="this.select()">
+                                <button class="btn btn-info btn-sm" onclick="copyText('${shareUrl}')">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="showShareModal('${shareUrl}')">
+                                    <i class="fas fa-share-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="replies-section">
+                            <h4><i class="fas fa-history"></i> ${showAllReplies ? 'Todas as respostas' : 'Últimas respostas'}</h4>
+                            <div class="replies-container">
+                                ${repliesHtml || '<p>Nenhuma resposta ainda.</p>'}
+                            </div>
+                            ${!showAllReplies && actualReplyCount > 3 ? `
+                                <a href="?uid=${projectId}" class="btn btn-info" style="display: inline-block; margin-bottom: 10px;">
+                                    Ver todas as ${actualReplyCount} respostas
+                                </a>
+                            ` : ''}
+                            ${currentUser ? `
+                                <button class="btn btn-primary reply-btn" onclick="showReplyForm('${projectId}')">
+                                    <i class="fas fa-reply"></i> Responder
+                                </button>
+                                <div id="reply-form-${projectId}" class="reply-form hidden">
+                                    <input type="text" id="reply-input-${projectId}" maxlength="127" placeholder="Sua resposta (máx. 127 caracteres)">
+                                    <div class="char-counter" id="reply-counter-${projectId}">0/127</div>
+                                    <button class="btn btn-success" onclick="sendReply('${projectId}')">Enviar</button>
+                                    <button class="btn btn-danger" onclick="hideReplyForm('${projectId}')">Cancelar</button>
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
                 `;
-            });
-
-            const createdDate = project.createdAt ? project.createdAt.toDate().toLocaleString() : 'Data desconhecida';
-            const shareUrl = `${window.location.origin}${window.location.pathname}?project=${projectId}`;
-            
-            return `
-                <div class="project-card" data-project-id="${projectId}">
-                    <div class="project-header">
-                        <h3 class="project-title">${project.name}</h3>
-                        <span class="reply-count"><i class="fas fa-comment"></i> ${project.replyCount || 0}</span>
-                    </div>
-                    <div class="project-author">
-                        <i class="fas fa-user"></i> ${project.authorEmail} - ${createdDate}
-                    </div>
-                    <div class="project-description">
-                        ${project.description}
-                    </div>
-                    
-                    <div class="share-section">
-                        <div class="share-link">
-                            <input type="text" value="${shareUrl}" readonly onclick="this.select()">
-                            <button class="btn btn-info btn-sm" onclick="copyText('${shareUrl}')">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                            <button class="btn btn-primary btn-sm" onclick="showShareModal('${shareUrl}')">
-                                <i class="fas fa-share-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="replies-section">
-                        <h4><i class="fas fa-history"></i> ${showAllReplies ? 'Todas as respostas' : 'Últimas respostas'}</h4>
-                        <div class="replies-container">
-                            ${repliesHtml || '<p>Nenhuma resposta ainda.</p>'}
-                        </div>
-                        ${!showAllReplies && project.replyCount > 3 ? `
-                            <a href="?project=${projectId}" class="btn btn-info" style="display: inline-block; margin-bottom: 10px;">
-                                Ver todas as ${project.replyCount} respostas
-                            </a>
-                        ` : ''}
-                        ${currentUser ? `
-                            <button class="btn btn-primary reply-btn" onclick="showReplyForm('${projectId}')">
-                                <i class="fas fa-reply"></i> Responder
-                            </button>
-                            <div id="reply-form-${projectId}" class="reply-form hidden">
-                                <input type="text" id="reply-input-${projectId}" maxlength="127" placeholder="Sua resposta (máx. 127 caracteres)">
-                                <div class="char-counter" id="reply-counter-${projectId}">0/127</div>
-                                <button class="btn btn-success" onclick="sendReply('${projectId}')">Enviar</button>
-                                <button class="btn btn-danger" onclick="hideReplyForm('${projectId}')">Cancelar</button>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
+            } catch (error) {
+                console.error('Erro ao gerar card:', error);
+                return `<div class="error-message">Erro ao carregar projeto</div>`;
+            }
         }
 
         // Configurar listeners para inputs de resposta
@@ -819,10 +831,15 @@
                 const projectId = input.id.replace('reply-input-', '');
                 input.addEventListener('input', function() {
                     const length = this.value.length;
-                    document.getElementById(`reply-counter-${projectId}`).textContent = `${length}/127`;
+                    const counter = document.getElementById(`reply-counter-${projectId}`);
+                    if (counter) {
+                        counter.textContent = `${length}/127`;
+                    }
                     if (length > 127) {
                         this.value = this.value.substring(0, 127);
-                        document.getElementById(`reply-counter-${projectId}`).textContent = '127/127';
+                        if (counter) {
+                            counter.textContent = '127/127';
+                        }
                     }
                 });
             });
@@ -836,24 +853,40 @@
             }
             
             if (activeReplyProject) {
-                document.getElementById(`reply-form-${activeReplyProject}`).classList.add('hidden');
+                const previousForm = document.getElementById(`reply-form-${activeReplyProject}`);
+                if (previousForm) {
+                    previousForm.classList.add('hidden');
+                }
             }
             
-            document.getElementById(`reply-form-${projectId}`).classList.remove('hidden');
-            activeReplyProject = projectId;
+            const replyForm = document.getElementById(`reply-form-${projectId}`);
+            if (replyForm) {
+                replyForm.classList.remove('hidden');
+                activeReplyProject = projectId;
+            }
         };
 
         // Esconder formulário de resposta
         window.hideReplyForm = function(projectId) {
-            document.getElementById(`reply-form-${projectId}`).classList.add('hidden');
-            document.getElementById(`reply-input-${projectId}`).value = '';
-            document.getElementById(`reply-counter-${projectId}`).textContent = '0/127';
+            const replyForm = document.getElementById(`reply-form-${projectId}`);
+            const replyInput = document.getElementById(`reply-input-${projectId}`);
+            const replyCounter = document.getElementById(`reply-counter-${projectId}`);
+            
+            if (replyForm) {
+                replyForm.classList.add('hidden');
+            }
+            if (replyInput) {
+                replyInput.value = '';
+            }
+            if (replyCounter) {
+                replyCounter.textContent = '0/127';
+            }
             if (activeReplyProject === projectId) {
                 activeReplyProject = null;
             }
         };
 
-        // Enviar resposta
+        // Enviar resposta (versão corrigida - sem atualizar o projeto)
         window.sendReply = async function(projectId) {
             if (!currentUser) {
                 showMessage('Você precisa estar logado para responder.', 'error');
@@ -861,6 +894,11 @@
             }
 
             const replyInput = document.getElementById(`reply-input-${projectId}`);
+            if (!replyInput) {
+                showMessage('Erro: Campo de resposta não encontrado.', 'error');
+                return;
+            }
+
             const content = replyInput.value.trim();
 
             if (!content) {
@@ -874,6 +912,7 @@
             }
 
             try {
+                // Adicionar a resposta - sem tentar atualizar o projeto
                 await db.collection('skyfemboy').doc(projectId).collection('replies').add({
                     content: content,
                     authorId: currentUser.uid,
@@ -881,29 +920,28 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                await db.collection('skyfemboy').doc(projectId).update({
-                    replyCount: firebase.firestore.FieldValue.increment(1)
-                });
-
                 showMessage('Resposta enviada com sucesso!', 'success');
                 hideReplyForm(projectId);
                 
                 // Recarregar a visualização atual
-                if (window.location.search.includes('project')) {
+                if (window.location.search.includes('uid')) {
                     loadSingleProject(projectId);
                 } else {
                     loadProjects();
                 }
                 
             } catch (error) {
+                console.error('Erro detalhado:', error);
                 showMessage('Erro ao enviar resposta: ' + error.message, 'error');
             }
         };
 
         // Funções de compartilhamento
         window.showShareModal = function(url) {
-            shareLinkInput.value = url;
-            shareModal.style.display = 'block';
+            if (shareLinkInput) {
+                shareLinkInput.value = url;
+                shareModal.style.display = 'block';
+            }
         };
 
         window.closeShareModal = function() {
@@ -911,13 +949,24 @@
         };
 
         window.copyShareLink = function() {
-            shareLinkInput.select();
-            document.execCommand('copy');
-            showMessage('Link copiado para a área de transferência!', 'success');
+            if (shareLinkInput) {
+                shareLinkInput.select();
+                document.execCommand('copy');
+                showMessage('Link copiado para a área de transferência!', 'success');
+            }
         };
 
         window.copyText = function(text) {
             navigator.clipboard.writeText(text).then(() => {
+                showMessage('Link copiado!', 'success');
+            }).catch(() => {
+                // Fallback para navegadores mais antigos
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
                 showMessage('Link copiado!', 'success');
             });
         };
