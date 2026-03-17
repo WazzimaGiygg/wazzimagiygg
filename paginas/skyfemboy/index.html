@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkyFemboy - Chat de Projeto Contínuo</title>
+    <title>Chat de Projeto Contínuo</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -89,6 +89,15 @@
             background: #38a169;
         }
 
+        .btn-info {
+            background: #4299e1;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #3182ce;
+        }
+
         /* Formulários */
         .form-container {
             background: white;
@@ -138,7 +147,7 @@
         /* Projetos */
         .projects-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 20px;
             margin-bottom: 20px;
         }
@@ -186,6 +195,28 @@
             align-items: center;
             font-size: 12px;
             color: #718096;
+            margin-bottom: 10px;
+        }
+
+        .share-section {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .share-link {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .share-link input {
+            flex: 1;
+            padding: 8px;
+            font-size: 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
         }
 
         .reply-btn {
@@ -206,6 +237,12 @@
             background: #f7fafc;
             border-radius: 10px;
             padding: 20px;
+        }
+
+        .replies-container {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
         }
 
         .reply-card {
@@ -278,6 +315,83 @@
             color: #4a5568;
             font-weight: 600;
         }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 10px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        /* Navegação */
+        .navigation {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .nav-btn {
+            background: white;
+            color: #4a5568;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: #f7fafc;
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        /* Chat único */
+        .single-chat-view {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chat-header {
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -285,11 +399,17 @@
         <!-- Header com Autenticação -->
         <div class="header">
             <div class="auth-section">
-                <h1><i class="fas fa-comments"></i> SkyFemboy - Chat de Projeto Contínuo</h1>
+                <h1><i class="fas fa-comments"></i>Chat de Projeto Contínuo</h1>
                 <div id="authDisplay">
                     <!-- Será preenchido pelo JavaScript -->
                 </div>
             </div>
+        </div>
+
+        <!-- Navegação -->
+        <div class="navigation">
+            <a href="#" class="nav-btn active" onclick="showAllProjects(); return false;">Todos os Projetos</a>
+            <a href="#" class="nav-btn" onclick="showMyProjects(); return false;">Meus Projetos</a>
         </div>
 
         <!-- Mensagens de Feedback -->
@@ -320,18 +440,35 @@
         <div id="projectsContainer">
             <div class="loading">Carregando projetos...</div>
         </div>
+
+        <!-- Modal de Compartilhamento -->
+        <div id="shareModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeShareModal()">&times;</span>
+                <h3><i class="fas fa-share-alt"></i> Compartilhar Chat</h3>
+                <p>Compartilhe este link para convidar pessoas para este chat:</p>
+                <div class="share-link">
+                    <input type="text" id="shareLinkInput" readonly>
+                    <button class="btn btn-info" onclick="copyShareLink()">
+                        <i class="fas fa-copy"></i> Copiar
+                    </button>
+                </div>
+                <p style="margin-top: 10px; font-size: 12px; color: #718096;">
+                    Qualquer pessoa com o link pode visualizar e responder (se estiver logada)
+                </p>
+            </div>
+        </div>
     </div>
 
     <script>
         // Configuração do Firebase
         const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
+            apiKey: "SEU_API_KEY",
+            authDomain: "SEU_AUTH_DOMAIN",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_STORAGE_BUCKET",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
         };
 
         // Inicializar Firebase
@@ -347,10 +484,25 @@
         const projectForm = document.getElementById('projectForm');
         const firstMessage = document.getElementById('firstMessage');
         const messageCounter = document.getElementById('messageCounter');
+        const shareModal = document.getElementById('shareModal');
+        const shareLinkInput = document.getElementById('shareLinkInput');
 
         // Estado da aplicação
         let currentUser = null;
         let activeReplyProject = null;
+        let currentView = 'all'; // 'all' ou 'my'
+        let currentProjectId = null;
+
+        // Verificar se há um projeto específico na URL
+        function checkUrlForProject() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('project');
+            if (projectId) {
+                loadSingleProject(projectId);
+                return true;
+            }
+            return false;
+        }
 
         // Contador de caracteres
         firstMessage.addEventListener('input', function() {
@@ -366,7 +518,10 @@
         auth.onAuthStateChanged((user) => {
             currentUser = user;
             updateAuthUI();
-            loadProjects();
+            
+            if (!checkUrlForProject()) {
+                loadProjects();
+            }
             
             if (user) {
                 newProjectForm.classList.remove('hidden');
@@ -411,7 +566,6 @@
                     auth.signInWithEmailAndPassword(email, password)
                         .catch(error => {
                             if (error.code === 'auth/user-not-found') {
-                                // Criar novo usuário
                                 auth.createUserWithEmailAndPassword(email, password)
                                     .catch(error => {
                                         showMessage('Erro ao criar usuário: ' + error.message, 'error');
@@ -427,6 +581,7 @@
         // Logout
         window.logout = function() {
             auth.signOut();
+            window.location.href = window.location.pathname; // Remove parâmetros da URL
         };
 
         // Mostrar mensagem
@@ -457,7 +612,6 @@
             }
 
             try {
-                // Criar o documento do projeto
                 const projectRef = await db.collection('skyfemboy').add({
                     name: projectName,
                     description: projectDescription,
@@ -467,7 +621,6 @@
                     replyCount: 0
                 });
 
-                // Adicionar a primeira mensagem como uma resposta
                 await db.collection('skyfemboy').doc(projectRef.id).collection('replies').add({
                     content: firstMessageText,
                     authorId: currentUser.uid,
@@ -475,7 +628,6 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Atualizar contador de respostas
                 await projectRef.update({
                     replyCount: firebase.firestore.FieldValue.increment(1)
                 });
@@ -484,17 +636,44 @@
                 projectForm.reset();
                 messageCounter.textContent = '0/127';
                 
+                // Redirecionar para o projeto recém-criado
+                window.location.href = `?project=${projectRef.id}`;
+                
             } catch (error) {
                 showMessage('Erro ao criar projeto: ' + error.message, 'error');
             }
         });
 
+        // Mostrar todos os projetos
+        window.showAllProjects = function() {
+            currentView = 'all';
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.nav-btn').classList.add('active');
+            loadProjects();
+        };
+
+        // Mostrar meus projetos
+        window.showMyProjects = function() {
+            if (!currentUser) {
+                showMessage('Faça login para ver seus projetos', 'error');
+                return;
+            }
+            currentView = 'my';
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.nav-btn')[1].classList.add('active');
+            loadProjects();
+        };
+
         // Carregar projetos
         async function loadProjects() {
             try {
-                const snapshot = await db.collection('skyfemboy')
-                    .orderBy('createdAt', 'desc')
-                    .get();
+                let query = db.collection('skyfemboy').orderBy('createdAt', 'desc');
+                
+                if (currentView === 'my' && currentUser) {
+                    query = query.where('authorId', '==', currentUser.uid);
+                }
+
+                const snapshot = await query.get();
 
                 if (snapshot.empty) {
                     projectsContainer.innerHTML = '<div class="form-container">Nenhum projeto encontrado. Seja o primeiro a criar um!</div>';
@@ -507,81 +686,145 @@
                     const project = doc.data();
                     const projectId = doc.id;
                     
-                    // Carregar últimas respostas
-                    const repliesSnapshot = await db.collection('skyfemboy')
-                        .doc(projectId)
-                        .collection('replies')
-                        .orderBy('createdAt', 'desc')
-                        .limit(3)
-                        .get();
-
-                    let repliesHtml = '';
-                    repliesSnapshot.forEach(replyDoc => {
-                        const reply = replyDoc.data();
-                        const date = reply.createdAt ? reply.createdAt.toDate().toLocaleString() : 'Data desconhecida';
-                        repliesHtml += `
-                            <div class="reply-card">
-                                <div class="reply-header">
-                                    <span class="reply-author">${reply.authorEmail}</span>
-                                    <span class="reply-date">${date}</span>
-                                </div>
-                                <div class="reply-content">${reply.content}</div>
-                            </div>
-                        `;
-                    });
-
-                    const createdDate = project.createdAt ? project.createdAt.toDate().toLocaleString() : 'Data desconhecida';
-                    
-                    html += `
-                        <div class="project-card" data-project-id="${projectId}">
-                            <div class="project-header">
-                                <h3 class="project-title">${project.name}</h3>
-                                <span class="reply-count"><i class="fas fa-comment"></i> ${project.replyCount || 0}</span>
-                            </div>
-                            <div class="project-author">
-                                <i class="fas fa-user"></i> ${project.authorEmail} - ${createdDate}
-                            </div>
-                            <div class="project-description">
-                                ${project.description}
-                            </div>
-                            <div class="replies-section">
-                                <h4><i class="fas fa-history"></i> Últimas respostas</h4>
-                                ${repliesHtml || '<p>Nenhuma resposta ainda.</p>'}
-                                ${currentUser ? `
-                                    <button class="btn btn-primary reply-btn" onclick="showReplyForm('${projectId}')">
-                                        <i class="fas fa-reply"></i> Responder
-                                    </button>
-                                    <div id="reply-form-${projectId}" class="reply-form hidden">
-                                        <input type="text" id="reply-input-${projectId}" maxlength="127" placeholder="Sua resposta (máx. 127 caracteres)">
-                                        <div class="char-counter" id="reply-counter-${projectId}">0/127</div>
-                                        <button class="btn btn-success" onclick="sendReply('${projectId}')">Enviar</button>
-                                        <button class="btn btn-danger" onclick="hideReplyForm('${projectId}')">Cancelar</button>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    `;
+                    html += await generateProjectCard(project, projectId);
                 }
 
                 html += '</div>';
                 projectsContainer.innerHTML = html;
-
-                // Adicionar contadores para os formulários de resposta
-                document.querySelectorAll('input[id^="reply-input-"]').forEach(input => {
-                    const projectId = input.id.replace('reply-input-', '');
-                    input.addEventListener('input', function() {
-                        const length = this.value.length;
-                        document.getElementById(`reply-counter-${projectId}`).textContent = `${length}/127`;
-                        if (length > 127) {
-                            this.value = this.value.substring(0, 127);
-                            document.getElementById(`reply-counter-${projectId}`).textContent = '127/127';
-                        }
-                    });
-                });
-
+                
+                setupReplyInputListeners();
+                
             } catch (error) {
                 projectsContainer.innerHTML = `<div class="error-message">Erro ao carregar projetos: ${error.message}</div>`;
             }
+        }
+
+        // Carregar um projeto específico
+        async function loadSingleProject(projectId) {
+            try {
+                const doc = await db.collection('skyfemboy').doc(projectId).get();
+                
+                if (!doc.exists) {
+                    projectsContainer.innerHTML = '<div class="error-message">Projeto não encontrado!</div>';
+                    return;
+                }
+
+                const project = doc.data();
+                const html = await generateProjectCard(project, projectId, true);
+                projectsContainer.innerHTML = `
+                    <div class="single-chat-view">
+                        <div class="chat-header">
+                            <button class="btn btn-info" onclick="window.location.href=window.location.pathname">
+                                <i class="fas fa-arrow-left"></i> Voltar para todos os projetos
+                            </button>
+                        </div>
+                        ${html}
+                    </div>
+                `;
+                
+                setupReplyInputListeners();
+                
+            } catch (error) {
+                projectsContainer.innerHTML = `<div class="error-message">Erro ao carregar projeto: ${error.message}</div>`;
+            }
+        }
+
+        // Gerar card do projeto
+        async function generateProjectCard(project, projectId, showAllReplies = false) {
+            // Carregar respostas
+            let repliesQuery = db.collection('skyfemboy')
+                .doc(projectId)
+                .collection('replies')
+                .orderBy('createdAt', 'desc');
+            
+            if (!showAllReplies) {
+                repliesQuery = repliesQuery.limit(3);
+            }
+            
+            const repliesSnapshot = await repliesQuery.get();
+
+            let repliesHtml = '';
+            repliesSnapshot.forEach(replyDoc => {
+                const reply = replyDoc.data();
+                const date = reply.createdAt ? reply.createdAt.toDate().toLocaleString() : 'Data desconhecida';
+                repliesHtml += `
+                    <div class="reply-card">
+                        <div class="reply-header">
+                            <span class="reply-author">${reply.authorEmail}</span>
+                            <span class="reply-date">${date}</span>
+                        </div>
+                        <div class="reply-content">${reply.content}</div>
+                    </div>
+                `;
+            });
+
+            const createdDate = project.createdAt ? project.createdAt.toDate().toLocaleString() : 'Data desconhecida';
+            const shareUrl = `${window.location.origin}${window.location.pathname}?project=${projectId}`;
+            
+            return `
+                <div class="project-card" data-project-id="${projectId}">
+                    <div class="project-header">
+                        <h3 class="project-title">${project.name}</h3>
+                        <span class="reply-count"><i class="fas fa-comment"></i> ${project.replyCount || 0}</span>
+                    </div>
+                    <div class="project-author">
+                        <i class="fas fa-user"></i> ${project.authorEmail} - ${createdDate}
+                    </div>
+                    <div class="project-description">
+                        ${project.description}
+                    </div>
+                    
+                    <div class="share-section">
+                        <div class="share-link">
+                            <input type="text" value="${shareUrl}" readonly onclick="this.select()">
+                            <button class="btn btn-info btn-sm" onclick="copyText('${shareUrl}')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="showShareModal('${shareUrl}')">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="replies-section">
+                        <h4><i class="fas fa-history"></i> ${showAllReplies ? 'Todas as respostas' : 'Últimas respostas'}</h4>
+                        <div class="replies-container">
+                            ${repliesHtml || '<p>Nenhuma resposta ainda.</p>'}
+                        </div>
+                        ${!showAllReplies && project.replyCount > 3 ? `
+                            <a href="?project=${projectId}" class="btn btn-info" style="display: inline-block; margin-bottom: 10px;">
+                                Ver todas as ${project.replyCount} respostas
+                            </a>
+                        ` : ''}
+                        ${currentUser ? `
+                            <button class="btn btn-primary reply-btn" onclick="showReplyForm('${projectId}')">
+                                <i class="fas fa-reply"></i> Responder
+                            </button>
+                            <div id="reply-form-${projectId}" class="reply-form hidden">
+                                <input type="text" id="reply-input-${projectId}" maxlength="127" placeholder="Sua resposta (máx. 127 caracteres)">
+                                <div class="char-counter" id="reply-counter-${projectId}">0/127</div>
+                                <button class="btn btn-success" onclick="sendReply('${projectId}')">Enviar</button>
+                                <button class="btn btn-danger" onclick="hideReplyForm('${projectId}')">Cancelar</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Configurar listeners para inputs de resposta
+        function setupReplyInputListeners() {
+            document.querySelectorAll('input[id^="reply-input-"]').forEach(input => {
+                const projectId = input.id.replace('reply-input-', '');
+                input.addEventListener('input', function() {
+                    const length = this.value.length;
+                    document.getElementById(`reply-counter-${projectId}`).textContent = `${length}/127`;
+                    if (length > 127) {
+                        this.value = this.value.substring(0, 127);
+                        document.getElementById(`reply-counter-${projectId}`).textContent = '127/127';
+                    }
+                });
+            });
         }
 
         // Mostrar formulário de resposta
@@ -591,7 +834,6 @@
                 return;
             }
             
-            // Esconder outros formulários abertos
             if (activeReplyProject) {
                 document.getElementById(`reply-form-${activeReplyProject}`).classList.add('hidden');
             }
@@ -631,7 +873,6 @@
             }
 
             try {
-                // Adicionar resposta
                 await db.collection('skyfemboy').doc(projectId).collection('replies').add({
                     content: content,
                     authorId: currentUser.uid,
@@ -639,17 +880,51 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Atualizar contador de respostas do projeto
                 await db.collection('skyfemboy').doc(projectId).update({
                     replyCount: firebase.firestore.FieldValue.increment(1)
                 });
 
                 showMessage('Resposta enviada com sucesso!', 'success');
                 hideReplyForm(projectId);
-                loadProjects(); // Recarregar para mostrar a nova resposta
+                
+                // Recarregar a visualização atual
+                if (window.location.search.includes('project')) {
+                    loadSingleProject(projectId);
+                } else {
+                    loadProjects();
+                }
                 
             } catch (error) {
                 showMessage('Erro ao enviar resposta: ' + error.message, 'error');
+            }
+        };
+
+        // Funções de compartilhamento
+        window.showShareModal = function(url) {
+            shareLinkInput.value = url;
+            shareModal.style.display = 'block';
+        };
+
+        window.closeShareModal = function() {
+            shareModal.style.display = 'none';
+        };
+
+        window.copyShareLink = function() {
+            shareLinkInput.select();
+            document.execCommand('copy');
+            showMessage('Link copiado para a área de transferência!', 'success');
+        };
+
+        window.copyText = function(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showMessage('Link copiado!', 'success');
+            });
+        };
+
+        // Fechar modal ao clicar fora
+        window.onclick = function(event) {
+            if (event.target === shareModal) {
+                closeShareModal();
             }
         };
     </script>
