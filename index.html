@@ -199,7 +199,7 @@
             transform: none;
         }
 
-        /* TELA DE LOGIN (modificada para aparecer após cookies) */
+        /* TELA DE LOGIN */
         #login-screen {
             position: fixed;
             top: 0;
@@ -216,6 +216,37 @@
             backdrop-filter: blur(10px);
             text-align: center;
             padding: 20px;
+        }
+
+        /* LOADING OVERLAY PARA REDIRECT */
+        .loading-redirect {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95));
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000000;
+            backdrop-filter: blur(10px);
+            color: white;
+            flex-direction: column;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top-color: #0078d7;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* ÁREA DO DESKTOP */
@@ -1051,6 +1082,13 @@
         <button id="loginBtn">🔐 Entrar com Google</button>
     </div>
 
+    <!-- LOADING PARA REDIRECT -->
+    <div id="loadingRedirect" class="loading-redirect" style="display: none;">
+        <div class="loading-spinner"></div>
+        <h3>Redirecionando para o Google...</h3>
+        <p style="opacity: 0.7; margin-top: 10px;">Aguarde um momento</p>
+    </div>
+
     <!-- OVERLAY PARA FECHAR MENUS -->
     <div class="menu-overlay" id="menuOverlay"></div>
 
@@ -1094,6 +1132,9 @@
         const cookieOverlay = document.getElementById('cookieOverlay');
         const acceptCookiesBtn = document.getElementById('acceptCookies');
         const rejectCookiesBtn = document.getElementById('rejectCookies');
+        const loginScreen = document.getElementById('login-screen');
+        const loginBtn = document.getElementById('loginBtn');
+        const loadingRedirect = document.getElementById('loadingRedirect');
 
         // Verificar se o usuário já aceitou os cookies
         function hasAcceptedCookies() {
@@ -1103,17 +1144,13 @@
 
         // Aceitar cookies e continuar
         function acceptCookies() {
-            // Armazenar consentimento (em localStorage e sessionStorage para redundância)
             localStorage.setItem('cookiesAccepted', 'true');
             sessionStorage.setItem('cookiesAccepted', 'true');
             
-            // Ocultar o aviso com animação
             cookieOverlay.style.animation = 'fadeOut 0.3s ease';
             setTimeout(() => {
                 cookieOverlay.style.display = 'none';
-                
-                // Mostrar tela de login
-                document.getElementById('login-screen').style.display = 'flex';
+                loginScreen.style.display = 'flex';
             }, 300);
             
             console.log('🍪 Cookies aceitos pelo usuário');
@@ -1121,28 +1158,23 @@
 
         // Inicializar verificação de cookies
         function initializeCookieCheck() {
-            // Se já aceitou, ocultar aviso e mostrar login diretamente
             if (hasAcceptedCookies()) {
                 cookieOverlay.style.display = 'none';
-                document.getElementById('login-screen').style.display = 'flex';
+                loginScreen.style.display = 'flex';
                 console.log('🍪 Consentimento de cookies já existente');
             } else {
-                // Mostrar aviso de cookies
                 cookieOverlay.style.display = 'flex';
-                document.getElementById('login-screen').style.display = 'none';
+                loginScreen.style.display = 'none';
                 console.log('🍪 Aguardando consentimento de cookies');
             }
         }
 
-        // Event listeners para botões de cookies
         acceptCookiesBtn.addEventListener('click', acceptCookies);
 
-        // Botão de rejeitar permanece desabilitado visualmente
         rejectCookiesBtn.addEventListener('click', () => {
             alert('⚠️ Os cookies são obrigatórios para o funcionamento do sistema. Por favor, clique em "Entendi e Continuar" para prosseguir.');
         });
 
-        // Bloquear interação com o resto da página até aceitar cookies
         document.addEventListener('click', function(e) {
             if (!hasAcceptedCookies() && !e.target.closest('.cookie-notice')) {
                 e.preventDefault();
@@ -1152,15 +1184,16 @@
         }, true);
 
         // ============================================
-        // CONFIGURAÇÃO DO FIREBASE (mantido igual)
+        // CONFIGURAÇÃO DO FIREBASE
         // ============================================
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { 
             getAuth, 
-            signInWithPopup, 
+            signInWithRedirect,
             GoogleAuthProvider, 
             onAuthStateChanged, 
-            signOut 
+            signOut,
+            getRedirectResult
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { 
             getFirestore, 
@@ -1180,18 +1213,17 @@
             measurementId: "G-PLKNZNFCQ8"
         };
 
-        try {
-            const app = initializeApp(firebaseConfig);
-            console.log("✅ Firebase inicializado com sucesso");
-        } catch (error) {
-            console.error("❌ Erro ao inicializar Firebase:", error);
-        }
-
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
+
+        provider.setCustomParameters({ 
+            prompt: 'select_account',
+            access_type: 'offline'
+        });
+
+        console.log("✅ Firebase inicializado com sucesso");
 
         // ============================================
         // CONSTANTES E CONFIGURAÇÕES
@@ -1323,12 +1355,9 @@
         // ============================================
         // ELEMENTOS DO DOM
         // ============================================
-        const loginScreen = document.getElementById("login-screen");
-        const loginBtn = document.getElementById("loginBtn");
         const desktop = document.getElementById("desktop");
         const desktopArea = document.getElementById("desktop-area");
         
-        // Menus e taskbar
         const startMenu = document.getElementById("startMenu");
         const adminMenu = document.getElementById("adminMenu");
         const toolsMenu = document.getElementById("toolsMenu");
@@ -1340,7 +1369,6 @@
         const showAllBtn = document.getElementById("showAllBtn");
         const clockElement = document.getElementById("clock");
         
-        // Botões da taskbar
         const startBtn = document.getElementById("startBtn");
         const adminBtn = document.getElementById("adminBtn");
         const toolsBtn = document.getElementById("toolsBtn");
@@ -1590,7 +1618,7 @@
         }
 
         // ============================================
-        // GERENCIADOR DE DESKTOP (mantido igual)
+        // GERENCIADOR DE DESKTOP
         // ============================================
         const desktopManager = {
             loadIcons: async function(userId) {
@@ -2119,7 +2147,7 @@
         });
 
         // ============================================
-        // GERENCIADOR DE JANELAS (mantido igual)
+        // GERENCIADOR DE JANELAS
         // ============================================
         const windowManager = {
             windows: [],
@@ -2405,20 +2433,26 @@
         }
 
         // ============================================
-        // AUTENTICAÇÃO E LOGIN (modificado para verificar cookies)
+        // AUTENTICAÇÃO E LOGIN
         // ============================================
         loginBtn.addEventListener("click", async () => {
-            // Verificar se já aceitou os cookies
             if (!hasAcceptedCookies()) {
                 alert('⚠️ Você precisa aceitar o aviso de cookies para continuar.');
                 return;
             }
             
+            loadingRedirect.style.display = 'flex';
+            loginScreen.style.opacity = '0.5';
+            loginBtn.disabled = true;
+            
             try {
-                provider.setCustomParameters({ prompt: 'select_account' });
-                const result = await signInWithPopup(auth, provider);
-                console.log("✅ Login bem-sucedido:", result.user.email);
+                console.log("🔄 Redirecionando para login Google...");
+                await signInWithRedirect(auth, provider);
             } catch (error) {
+                loadingRedirect.style.display = 'none';
+                loginScreen.style.opacity = '1';
+                loginBtn.disabled = false;
+                
                 console.error("❌ Erro no login:", error);
                 alert(`Erro no login: ${error.message}`);
             }
@@ -2444,7 +2478,6 @@
                 
             } else {
                 currentUser = null;
-                // Só mostrar login se já aceitou cookies
                 if (hasAcceptedCookies()) {
                     loginScreen.style.display = "flex";
                 } else {
@@ -2460,6 +2493,33 @@
             }
         });
 
+        async function handleRedirectResult() {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result) {
+                    console.log("✅ Login via redirect bem-sucedido:", result.user.email);
+                    
+                    if (currentUser) {
+                        desktopManager.showSaveNotification(`Bem-vindo, ${result.user.displayName || 'usuário'}!`);
+                    }
+                }
+            } catch (error) {
+                console.error("❌ Erro no redirect result:", error);
+                
+                if (error.code === 'auth/redirect-cancelled') {
+                    console.log("🚫 Redirect cancelado pelo usuário");
+                } else if (error.code === 'auth/redirect-operation-pending') {
+                    console.log("⏳ Redirect em andamento...");
+                } else {
+                    alert(`Erro no login: ${error.message}`);
+                }
+            } finally {
+                loadingRedirect.style.display = 'none';
+                loginScreen.style.opacity = '1';
+                loginBtn.disabled = false;
+            }
+        }
+        
         async function handleLogout() {
             try {
                 if (hasUnsavedChanges) {
@@ -2478,10 +2538,10 @@
                     await desktopManager.forceSave();
                 }
                 await signOut(auth);
-                provider.setCustomParameters({ prompt: 'select_account' });
-                await signInWithPopup(auth, provider);
+                await signInWithRedirect(auth, provider);
             } catch (error) {
                 console.error("❌ Erro ao trocar conta:", error);
+                alert(`Erro ao trocar conta: ${error.message}`);
             }
         }
 
@@ -2919,40 +2979,40 @@
         `;
         document.head.appendChild(animationsStyle);
 
-        // Inicializar verificação de cookies
         initializeCookieCheck();
 
-        // Função para detectar se é um dispositivo móvel (incluindo tablets)
+        setTimeout(() => {
+            handleRedirectResult();
+        }, 500);
+
         function isMobileDevice() {
             return (typeof window.orientation !== "undefined") || (window.innerWidth <= 800) ||
                 (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
         }
 
-        // Se for um dispositivo móvel e não estiver já na pasta mobile, redireciona
         if (isMobileDevice() && !window.location.pathname.includes('/mobile/')) {
             window.location.href = "/mobile/";
         }
 
     </script>
     <script type="application/ld+json">
-{
-  "@context": "https://wazzimagiygg.com",
-  "@type": "Wiki World Web, WazzimaGiygg Core",
-  "name": "Wiki World Web & WazzimaGiygg Core",
-  "description": "Saiba a verdade sobre WazzimaGiygg, onde o site é para ser um legado e refutar as mentiras de Chronus, Conde Edmond Dantès e seu exército sombrio da mentira. WazzimaGiygg não é vândalo, nem mesmo ameaça por e-mail. E onde o rei é um mentiroso, o rebelde é a verdade.",
-  "url": "https://wazzimagiygg.com"
-}
-</script>
+    {
+      "@context": "https://wazzimagiygg.com",
+      "@type": "Wiki World Web, WazzimaGiygg Core",
+      "name": "Wiki World Web & WazzimaGiygg Core",
+      "description": "Saiba a verdade sobre WazzimaGiygg, onde o site é para ser um legado e refutar as mentiras de Chronus, Conde Edmond Dantès e seu exército sombrio da mentira. WazzimaGiygg não é vândalo, nem mesmo ameaça por e-mail. E onde o rei é um mentiroso, o rebelde é a verdade.",
+      "url": "https://wazzimagiygg.com"
+    }
+    </script>
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XL6G0MJ1C9"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-XL6G0MJ1C9');
-</script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XL6G0MJ1C9"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XL6G0MJ1C9');
+    </script>
     
 </body>
 </html>
