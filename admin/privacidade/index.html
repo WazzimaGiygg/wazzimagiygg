@@ -1,1 +1,537 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>WazzaMagiyGG - Meus Dados (LGPD)</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <!-- jsPDF + html2canvas para PDF robusto -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        body {
+            background: #f1f5f9;
+            padding: 24px 16px;
+            color: #0f172a;
+        }
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        /* Card de login / status */
+        .card {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            padding: 24px 28px;
+            margin-bottom: 28px;
+            transition: all 0.2s;
+        }
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e293b, #3b82f6);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .badge {
+            background: #eef2ff;
+            padding: 8px 16px;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #1e40af;
+        }
+        .btn {
+            border: none;
+            background: #3b82f6;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .btn-outline:hover {
+            background: #eff6ff;
+        }
+        .btn-danger {
+            background: #ef4444;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #475569;
+        }
+        .spinner {
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .colecao-group {
+            margin-bottom: 32px;
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid #eef2ff;
+        }
+        .colecao-header {
+            background: #f8fafc;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 700;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .colecao-name {
+            background: #e6f0ff;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #075985;
+        }
+        .dados-lista {
+            padding: 8px 16px 16px 24px;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .item-dado {
+            background: #ffffff;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 12px 12px 12px 0;
+            font-size: 0.85rem;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .item-dado:last-child {
+            border-bottom: none;
+        }
+        .empty-msg {
+            color: #94a3b8;
+            font-style: italic;
+            padding: 16px;
+            text-align: center;
+        }
+        .footer-actions {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        .user-info {
+            background: #eef2ff;
+            border-radius: 60px;
+            padding: 6px 18px;
+            font-size: 0.8rem;
+        }
+        @media (max-width: 700px) {
+            .card { padding: 18px; }
+            .colecao-header { flex-direction: column; align-items: flex-start; }
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .alert {
+            background: #fef9c3;
+            border-left: 6px solid #eab308;
+            padding: 14px 18px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+        }
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card" id="authCard">
+        <div class="header">
+            <h1>📄 Meus Dados · WazzaMagiyGG</h1>
+            <div class="badge">Lei Geral de Proteção de Dados (LGPD) | Transparência</div>
+        </div>
+        <div id="authArea">
+            <!-- Estado de login será injetado -->
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Conectando ao Firebase e verificando autenticação...</p>
+            </div>
+        </div>
+    </div>
 
+    <div id="dataExportPanel" style="display: none;">
+        <div class="card">
+            <div class="header" style="margin-bottom: 12px;">
+                <span>📁 <strong>Coleções indexadas</strong> · Dados vinculados à sua UID (Google)</span>
+                <button id="refreshDataBtn" class="btn btn-outline" style="padding: 6px 18px;">🔄 Atualizar</button>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.85rem; color: #334155;">Listagem de todas as suas informações armazenadas nas coleções do Firebase. Os dados exibidos são exclusivamente aqueles onde o campo <code>userId</code>, <code>uid</code> ou <code>userUID</code> corresponde ao seu identificador do Google (UID).</p>
+            <div id="colecoesContainer">
+                <div class="loading"><div class="spinner"></div><p>Carregando seus dados pessoais...</p></div>
+            </div>
+            <div class="footer-actions">
+                <div class="user-info" id="userEmailDisplay"></div>
+                <div class="btn-group">
+                    <button id="downloadAllPdfBtn" class="btn">📑 Baixar TODOS os dados em PDF (Relatório completo)</button>
+                    <button id="logoutBtn" class="btn btn-outline">🚪 Sair / Trocar conta</button>
+                </div>
+            </div>
+            <p style="margin-top: 20px; font-size: 0.7rem; color: #6c757d; text-align: center;">✔️ O PDF gerado conterá todos os seus registros listados abaixo, incluindo metadados e carimbo de data. Nenhum dado de outros usuários é exibido.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ------------------ CONFIGURAÇÃO FIREBASE (wazzimagiygg.com) ------------------
+    // ATENÇÃO: Substitua pelos dados reais do seu projeto Firebase.
+    // Para funcionamento correto, utilize as credenciais do ambiente de produção.
+    // Estas são variáveis de exemplo - você deve inserir as configurações corretas do Firebase Console.
+    const firebaseConfig = {
+        apiKey: "AIzaSyBExemploWazzaMagiyGGKeyNaoReal",    // 🔁 SUBSTITUA PELA SUA API KEY
+        authDomain: "wazzimagiygg.firebaseapp.com",        // 🔁 Ajuste conforme dominio
+        projectId: "wazzimagiygg",                         // 🔁 projectId real
+        storageBucket: "wazzimagiygg.appspot.com",
+        messagingSenderId: "123456789012",
+        appId: "1:123456789012:web:abcdef123456"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Lista completa de coleções fornecidas (todas as pastas do sistema que contêm dados dos usuários)
+    const ALL_COLLECTIONS = [
+        "Bemtevi", "HTML2W", "Kilometrosz", "WZPZM", "academico", "admin", "admins", "admiticket", "albumimagens",
+        "ambulatorio", "aplicativo", "articles", "articlesdoc", "associations", "blocodenotas", "buscadelistadepaginas",
+        "calculadordinamica", "checkuser", "cidadessancionadas", "client", "clientEmails", "clientPhones", "cliente",
+        "clientepaciente", "clients", "configuracoes", "contatowazzimagiysgg", "criptografar", "dados_do_rodape",
+        "denuncias", "desktop", "docoffice", "documentdata", "documentuniversal", "email", "emails", "errorlog",
+        "espacowazzimagiysgg", "financialData", "forum", "forumapplication", "forumwzzm", "gemini_api_keys",
+        "gespai", "histórico", "históricoEdicoes", "historicodecontribuicoes", "historicogeral", "imagenscode",
+        "index", "keymenulista", "listasecundariah", "logeral", "manageruid", "materia", "materiadeensaiol",
+        "materials", "materias", "menuconfig", "news", "officewzzm", "paginasUsuario", "pdfcode", "planilhadianamica",
+        "profissional", "prontuarioDinamico", "prontuarioMultifuncionalformatado", "prontuarioUniversal", "redirecionamento",
+        "relatoriosadmin", "reports", "rodapes_registrados", "securityuid", "skyfemboy", "social", "testedearitgocientifico",
+        "userEmails", "user_desktop", "userpage", "users", "usertetacher", "uwgbooks", "wazzimagiyggfemboyverse69",
+        "wikicodigo", "wiki notpedia", "wiki worldweb", "wikizero", "wnpx", "webmodmail"
+    ];
+
+    // Estado global
+    let currentUser = null;          // objeto user do Firebase
+    let currentUID = null;
+    let userDataCache = new Map();    // collectionName -> array de documentos do usuário
+    let isLoadingData = false;
+
+    // Helper: verifica se um documento pertence ao usuário logado (UID Google)
+    // Regras: campos comuns: uid, userId, userUID, user_id, owner, autorUID, criadoPor, googleUID, etc.
+    function documentBelongsToUser(docData, uid) {
+        if (!uid) return false;
+        const fieldsToCheck = ['uid', 'userId', 'userUID', 'user_id', 'owner', 'autorUID', 'criadoPor', 'googleUID', 'UID', 'userGoogleId'];
+        for (let field of fieldsToCheck) {
+            if (docData[field] && docData[field] === uid) return true;
+        }
+        // caso o documento tenha campo 'email' e seja igual ao email do user, também pode ser considerado (opcional)
+        if (currentUser && docData.email && docData.email === currentUser.email) return true;
+        // para coleções que salvam o ID do documento igual a UID (ex: users/{uid})
+        return false;
+    }
+
+    // Busca dados em todas as coleções filtrando apenas docs do usuário
+    async function fetchAllUserData(uid) {
+        if (!uid) throw new Error("UID não encontrado");
+        const results = new Map(); // nomeColecao -> array de objetos {id, data}
+        // Processar coleções em lotes para não sobrecarregar, mas faremos Promise.allSettled com limite suave
+        const BATCH_SIZE = 8;
+        const collectionBatches = [];
+        for (let i = 0; i < ALL_COLLECTIONS.length; i += BATCH_SIZE) {
+            collectionBatches.push(ALL_COLLECTIONS.slice(i, i + BATCH_SIZE));
+        }
+        for (const batch of collectionBatches) {
+            const promises = batch.map(async (colName) => {
+                try {
+                    const snapshot = await db.collection(colName).get();
+                    const userDocs = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (documentBelongsToUser(data, uid)) {
+                            userDocs.push({ id: doc.id, data: data });
+                        }
+                    });
+                    if (userDocs.length > 0) {
+                        results.set(colName, userDocs);
+                    }
+                } catch (err) {
+                    console.warn(`Erro ao acessar coleção ${colName}:`, err);
+                    // Falha silenciosa para não travar a visualização
+                }
+            });
+            await Promise.all(promises);
+        }
+        return results;
+    }
+
+    // Renderiza a interface com os dados do usuário
+    function renderDataPanel(dataMap) {
+        const container = document.getElementById('colecoesContainer');
+        if (!container) return;
+        if (!dataMap || dataMap.size === 0) {
+            container.innerHTML = `<div class="alert">🔍 Nenhum dado encontrado associado à sua UID. As coleções existem mas você não possui registros vinculados ou elas estão vazias.</div>`;
+            return;
+        }
+        let html = '';
+        for (let [colName, docs] of dataMap.entries()) {
+            html += `<div class="colecao-group">
+                        <div class="colecao-header">
+                            <span><span class="colecao-name">📂 ${colName}</span> · ${docs.length} registro(s)</span>
+                            <button class="btn-outline download-collection-pdf" data-collection="${colName.replace(/"/g, '&quot;')}" style="padding: 4px 12px; font-size:0.75rem;">📄 Baixar PDF desta coleção</button>
+                        </div>
+                        <div class="dados-lista">`;
+            docs.forEach(doc => {
+                let pretty = JSON.stringify(doc.data, null, 2);
+                if (pretty.length > 800) pretty = pretty.substring(0, 800) + '… (truncado)';
+                html += `<div class="item-dado"><strong>🆔 doc:</strong> ${escapeHtml(doc.id)}<br><pre style="margin-top:6px;background:#f8fafc;padding:8px;border-radius:12px;overflow-x:auto;">${escapeHtml(pretty)}</pre></div>`;
+            });
+            html += `</div></div>`;
+        }
+        container.innerHTML = html;
+        // Anexar eventos para cada botão de download de coleção específica
+        document.querySelectorAll('.download-collection-pdf').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const col = btn.getAttribute('data-collection');
+                const docsForCol = dataMap.get(col);
+                if (docsForCol) generatePDFForCollections(new Map([[col, docsForCol]]), `dados_${col}_${currentUID}.pdf`);
+            });
+        });
+    }
+
+    // Função utilitária de escape
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // Gerar PDF completo a partir de dataMap (todas coleções)
+    async function generatePDFForCollections(dataMap, filename = `meus_dados_wazzamagiygg_${currentUID}.pdf`) {
+        if (!dataMap || dataMap.size === 0) {
+            alert("Nenhum dado carregado para gerar PDF.");
+            return;
+        }
+        // Criar um elemento div temporário para renderizar o conteúdo formatado
+        const printDiv = document.createElement('div');
+        printDiv.style.padding = '24px';
+        printDiv.style.fontFamily = 'system-ui, sans-serif';
+        printDiv.style.backgroundColor = 'white';
+        printDiv.style.color = '#0f172a';
+        printDiv.style.maxWidth = '1200px';
+        const dataAtual = new Date().toLocaleString('pt-BR');
+        printDiv.innerHTML = `
+            <div style="text-align:center; margin-bottom:32px;">
+                <h1 style="color:#1e293b;">📄 Relatório de Dados Pessoais</h1>
+                <p style="color:#475569;">WazzaMagiyGG · Lei de Privacidade (LGPD)</p>
+                <p><strong>Usuário:</strong> ${escapeHtml(currentUser?.email || currentUID)} <br> <strong>UID Google:</strong> ${currentUID}<br><strong>Data da exportação:</strong> ${dataAtual}</p>
+                <hr style="margin:20px 0;" />
+            </div>
+        `;
+        for (let [colName, docs] of dataMap.entries()) {
+            const section = document.createElement('div');
+            section.style.marginBottom = '30px';
+            section.style.pageBreakInside = 'avoid';
+            section.style.border = '1px solid #e2e8f0';
+            section.style.borderRadius = '16px';
+            section.style.padding = '16px';
+            section.style.marginTop = '16px';
+            section.innerHTML = `<h2 style="background:#f1f5f9; padding:10px; border-radius:12px;">📁 ${escapeHtml(colName)} &nbsp; (${docs.length} itens)</h2>`;
+            docs.forEach((doc, idx) => {
+                const docBlock = document.createElement('div');
+                docBlock.style.margin = '12px 0';
+                docBlock.style.borderLeft = '4px solid #3b82f6';
+                docBlock.style.paddingLeft = '12px';
+                const jsonPretty = JSON.stringify(doc.data, null, 2);
+                docBlock.innerHTML = `<strong>Documento ID:</strong> ${escapeHtml(doc.id)}<br><pre style="background:#f8fafc; padding:12px; border-radius:12px; overflow-x:auto; font-size:10pt;">${escapeHtml(jsonPretty)}</pre>`;
+                section.appendChild(docBlock);
+            });
+            printDiv.appendChild(section);
+        }
+        printDiv.appendChild(document.createElement('hr'));
+        printDiv.innerHTML += `<p style="text-align:center; font-size:9pt; color:#64748b; margin-top:32px;">Documento gerado em conformidade com a Lei Geral de Proteção de Dados (LGPD) - Art. 18 e 19. Exportação completa dos dados vinculados à UID ${currentUID}.</p>`;
+        document.body.appendChild(printDiv);
+        try {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+            await html2canvas(printDiv, { scale: 2, logging: false, backgroundColor: '#ffffff' }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 595.28; // A4 largura em pt
+                const pageHeight = 841.89;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let y = 0;
+                let position = 0;
+                pdf.addImage(imgData, 'PNG', 0, y, imgWidth, imgHeight);
+                y = imgHeight - pageHeight;
+                if (y > 0) {
+                    while (y > 0) {
+                        position = y - imgHeight;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        y -= pageHeight;
+                    }
+                }
+                pdf.save(filename);
+            });
+        } catch (err) {
+            console.error("Erro no PDF", err);
+            alert("Erro ao gerar PDF: " + err.message);
+        } finally {
+            document.body.removeChild(printDiv);
+        }
+    }
+
+    // Atualiza UI com spinner e carrega dados
+    async function refreshUserData() {
+        if (!currentUID) return;
+        const containerDiv = document.getElementById('colecoesContainer');
+        containerDiv.innerHTML = `<div class="loading"><div class="spinner"></div><p>Coletando seus registros em ${ALL_COLLECTIONS.length} coleções... (respeitamos sua privacidade)</p></div>`;
+        try {
+            const dataMap = await fetchAllUserData(currentUID);
+            userDataCache = dataMap;
+            renderDataPanel(dataMap);
+        } catch (err) {
+            console.error(err);
+            containerDiv.innerHTML = `<div class="alert">❌ Erro ao buscar dados: ${err.message}. Verifique permissões do Firestore.</div>`;
+        }
+    }
+
+    // Evento download de todos os dados em PDF
+    function downloadAllPDF() {
+        if (userDataCache.size === 0) {
+            alert("Nenhum dado disponível para exportar. Realize uma busca primeiro.");
+            return;
+        }
+        generatePDFForCollections(userDataCache, `todos_meus_dados_wazzamagiygg_${currentUID}.pdf`);
+    }
+
+    // Gerenciamento de login/autenticação Google
+    function initAuth() {
+        const authArea = document.getElementById('authArea');
+        const dataPanel = document.getElementById('dataExportPanel');
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                currentUID = user.uid;
+                // exibe informações
+                document.getElementById('userEmailDisplay').innerHTML = `👤 ${user.email} (UID: ${currentUID.substring(0,8)}…)`;
+                authArea.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap;">
+                        <div>✅ Conectado como <strong>${user.email}</strong> via Google.</div>
+                        <button id="manualFetchBtn" class="btn" style="background:#10b981;">🔍 Buscar meus dados</button>
+                    </div>
+                    <p style="margin-top: 12px; font-size:0.85rem;">✔️ Seus dados serão coletados apenas das coleções onde sua UID é referenciada. Clique em "Buscar meus dados" para iniciar.</p>
+                `;
+                dataPanel.style.display = 'block';
+                const fetchBtn = document.getElementById('manualFetchBtn');
+                if (fetchBtn) fetchBtn.onclick = () => refreshUserData();
+                // automaticamente ao logar não faz fetch pesado, aguarda clique para evitar custos excessivos; mas opcional
+                // para transparência, exibe vazio
+                document.getElementById('colecoesContainer').innerHTML = `<div class="alert">🔐 Pressione "Buscar meus dados" para visualizar todas as informações vinculadas à sua conta.</div>`;
+                userDataCache.clear();
+                renderDataPanel(new Map());
+            } else {
+                // Não logado: exibe botão login Google
+                currentUser = null;
+                currentUID = null;
+                dataPanel.style.display = 'none';
+                authArea.innerHTML = `
+                    <div class="alert">
+                        ⚖️ <strong>Privacidade e Transparência</strong><br>
+                        Para exercer seu direito de acesso e portabilidade (LGPD), faça login com sua conta Google utilizada no site wazzimagiygg.com.
+                    </div>
+                    <button id="googleLoginBtn" class="btn" style="background:#1a73e8; width:100%; justify-content:center;">🔑 Entrar com Google (acesso seus dados)</button>
+                `;
+                const loginBtn = document.getElementById('googleLoginBtn');
+                if (loginBtn) {
+                    loginBtn.onclick = () => {
+                        const provider = new firebase.auth.GoogleAuthProvider();
+                        provider.setCustomParameters({ prompt: 'select_account' });
+                        auth.signInWithPopup(provider).catch(err => alert("Erro login: "+err.message));
+                    };
+                }
+            }
+        });
+    }
+
+    // Logout
+    document.getElementById('logoutBtn') && document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await auth.signOut();
+        location.reload(); // limpa estado
+    });
+    // configura eventos globais após carregamento
+    window.addEventListener('DOMContentLoaded', () => {
+        initAuth();
+        // Delegar botão de download all (será ativado quando o elemento existir)
+        const downloadAllBtn = document.getElementById('downloadAllPdfBtn');
+        if (downloadAllBtn) downloadAllBtn.addEventListener('click', () => downloadAllPDF());
+        const refreshBtn = document.getElementById('refreshDataBtn');
+        if (refreshBtn) refreshBtn.addEventListener('click', () => { if(currentUID) refreshUserData(); });
+    });
+</script>
+</body>
+</html>
