@@ -1,0 +1,625 @@
+Esta é uma aplicação web completa para gestão de relatórios internos com Firebase. Ela permite criar relatórios com assunto, corpo, relevância e lista de UIDs associadas, além de exibir todos os registros em uma lista rolante.
+```html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Admin Core - Gestão de Relatórios Internos</title>
+    <!-- Firebase SDKs (modular, versão 9 compatível) -->
+    <script type="module">
+        // Importar Firebase modular
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        
+        // Configuração do Firebase (SUBSTITUA PELOS SEUS DADOS REAIS)
+        // ATENÇÃO: Para funcionamento, cole aqui as credenciais do seu projeto Firebase.
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummyExampleKeyReplaceWithYourOwn",  // <--- SUBSTITUA
+            authDomain: "seu-projeto.firebaseapp.com",          // <--- SUBSTITUA
+            projectId: "seu-projeto-id",                        // <--- SUBSTITUA
+            storageBucket: "seu-projeto.appspot.com",           // <--- SUBSTITUA
+            messagingSenderId: "123456789012",                  // <--- SUBSTITUA
+            appId: "1:123456789012:web:abc123def456"            // <--- SUBSTITUA
+        };
+        
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const COLLECTION_NAME = "admincorewnpx";
+        
+        // Elementos DOM
+        const reportForm = document.getElementById("reportForm");
+        const assuntoInput = document.getElementById("assunto");
+        const corpoInput = document.getElementById("corpo");
+        const relevanciaSelect = document.getElementById("relevancia");
+        const uidsInput = document.getElementById("uids");
+        const submitBtn = document.getElementById("submitBtn");
+        const reportsList = document.getElementById("reportsList");
+        const loadingDiv = document.getElementById("loading");
+        const emptyMessage = document.getElementById("emptyMessage");
+        
+        // Estado de edição
+        let editingId = null;
+        
+        // Função para carregar todos os relatórios (ordem decrescente por timestamp)
+        async function loadReports() {
+            loadingDiv.classList.remove("hidden");
+            emptyMessage.classList.add("hidden");
+            try {
+                const q = query(collection(db, COLLECTION_NAME), orderBy("createdAt", "desc"));
+                const querySnapshot = await getDocs(q);
+                const reports = [];
+                querySnapshot.forEach((docSnap) => {
+                    reports.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                renderReports(reports);
+                if(reports.length === 0) emptyMessage.classList.remove("hidden");
+            } catch (error) {
+                console.error("Erro ao carregar relatórios:", error);
+                reportsList.innerHTML = `<div class="error-message">❌ Erro ao carregar dados: ${error.message}. Verifique suas regras de segurança e configuração do Firebase.</div>`;
+            } finally {
+                loadingDiv.classList.add("hidden");
+            }
+        }
+        
+        // Renderizar lista contínua rolante
+        function renderReports(reports) {
+            if(reports.length === 0) {
+                reportsList.innerHTML = '';
+                emptyMessage.classList.remove("hidden");
+                return;
+            }
+            emptyMessage.classList.add("hidden");
+            reportsList.innerHTML = reports.map(report => {
+                // Formatar relevância com cores
+                let relevancyClass = "";
+                let relevancyLabel = report.relevancia || "Baixa";
+                switch(relevancyLabel) {
+                    case "Baixa": relevancyClass = "relev-baixa"; break;
+                    case "Média": relevancyClass = "relev-media"; break;
+                    case "Grave": relevancyClass = "relev-grave"; break;
+                    case "Gravíssima": relevancyClass = "relev-gravissima"; break;
+                    default: relevancyClass = "relev-baixa";
+                }
+                
+                // Formatar UIDs (se for array ou string)
+                let uidsDisplay = "";
+                if(report.uidsList) {
+                    if(Array.isArray(report.uidsList)) {
+                        uidsDisplay = report.uidsList.map(uid => `<span class="uid-badge">${escapeHtml(uid)}</span>`).join('');
+                    } else if(typeof report.uidsList === 'string') {
+                        // se veio como string separada por vírgulas (fallback)
+                        const uidsArray = report.uidsList.split(',').map(u => u.trim()).filter(u => u);
+                        uidsDisplay = uidsArray.map(uid => `<span class="uid-badge">${escapeHtml(uid)}</span>`).join('');
+                    }
+                } else {
+                    uidsDisplay = '<span class="uid-badge empty">Nenhum UID</span>';
+                }
+                
+                // Data formatada
+                let dateStr = "Data não disponível";
+                if(report.createdAt && report.createdAt.toDate) {
+                    dateStr = report.createdAt.toDate().toLocaleString("pt-BR");
+                } else if(report.createdAt) {
+                    dateStr = new Date(report.createdAt).toLocaleString("pt-BR");
+                }
+                
+                return `
+                    <div class="report-card" data-id="${report.id}">
+                        <div class="report-header">
+                            <h3 class="report-assunto">${escapeHtml(report.assunto || "Sem assunto")}</h3>
+                            <span class="relevancy-badge ${relevancyClass}">${escapeHtml(relevancyLabel)}</span>
+                        </div>
+                        <div class="report-corpo">${escapeHtml(report.corpo || "Sem conteúdo")}</div>
+                        <div class="report-uids">
+                            <strong>📌 UIDs vinculados:</strong>
+                            <div class="uid-list">${uidsDisplay}</div>
+                        </div>
+                        <div class="report-footer">
+                            <span class="report-date">📅 ${dateStr}</span>
+                            <div class="report-actions">
+                                <button class="edit-btn" data-id="${report.id}" data-assunto="${escapeAttr(report.assunto)}" data-corpo="${escapeAttr(report.corpo)}" data-relevancia="${escapeAttr(report.relevancia)}" data-uids="${escapeAttr(Array.isArray(report.uidsList) ? report.uidsList.join(', ') : (report.uidsList || ''))}">✏️ Editar</button>
+                                <button class="delete-btn" data-id="${report.id}">🗑️ Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Adicionar eventos aos botões de editar e excluir
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = btn.getAttribute('data-id');
+                    const assunto = btn.getAttribute('data-assunto');
+                    const corpo = btn.getAttribute('data-corpo');
+                    const relevancia = btn.getAttribute('data-relevancia');
+                    const uidsRaw = btn.getAttribute('data-uids');
+                    // Preencher formulário para edição
+                    assuntoInput.value = assunto || '';
+                    corpoInput.value = corpo || '';
+                    relevanciaSelect.value = relevancia || "Baixa";
+                    uidsInput.value = uidsRaw || '';
+                    editingId = id;
+                    submitBtn.textContent = "✏️ Atualizar Relatório";
+                    submitBtn.classList.add("edit-mode");
+                    // Rolar suavemente até o formulário
+                    document.getElementById("form-section").scrollIntoView({ behavior: "smooth" });
+                });
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const id = btn.getAttribute('data-id');
+                    if(confirm("Tem certeza que deseja excluir este relatório permanentemente?")) {
+                        try {
+                            await deleteDoc(doc(db, COLLECTION_NAME, id));
+                            // Se estivermos editando o mesmo relatório, limpar modo edição
+                            if(editingId === id) {
+                                resetFormToCreate();
+                            }
+                            await loadReports();
+                        } catch (error) {
+                            console.error("Erro ao excluir:", error);
+                            alert("Falha ao excluir: " + error.message);
+                        }
+                    }
+                });
+            });
+        }
+        
+        // Função para resetar formulário para modo criação
+        function resetFormToCreate() {
+            editingId = null;
+            submitBtn.textContent = "➕ Criar Relatório";
+            submitBtn.classList.remove("edit-mode");
+            reportForm.reset();
+            // valores padrão limpos, mas deixar relevância como "Baixa" padrão
+            relevanciaSelect.value = "Baixa";
+            uidsInput.value = "";
+        }
+        
+        // Salvar (criar novo ou atualizar)
+        async function saveReport(event) {
+            event.preventDefault();
+            
+            const assunto = assuntoInput.value.trim();
+            const corpo = corpoInput.value.trim();
+            const relevancia = relevanciaSelect.value;
+            const uidsRaw = uidsInput.value.trim();
+            
+            if(!assunto) {
+                alert("O campo ASSUNTO é obrigatório.");
+                return;
+            }
+            if(!corpo) {
+                alert("O campo CORPO DO TEXTO é obrigatório.");
+                return;
+            }
+            
+            // Processar lista de UIDs: suporta vírgulas, espaços, múltiplas linhas, transformar em array limpo
+            let uidsArray = [];
+            if(uidsRaw !== "") {
+                // separar por vírgulas, quebras de linha, espaços consecutivos
+                uidsArray = uidsRaw.split(/[,\n]+/).map(uid => uid.trim()).filter(uid => uid !== "");
+            }
+            
+            const reportData = {
+                assunto: assunto,
+                corpo: corpo,
+                relevancia: relevancia,
+                uidsList: uidsArray,
+                updatedAt: serverTimestamp()
+            };
+            
+            try {
+                if(editingId) {
+                    // Atualizar documento existente (não modificar createdAt)
+                    await updateDoc(doc(db, COLLECTION_NAME, editingId), reportData);
+                    alert("Relatório atualizado com sucesso!");
+                    resetFormToCreate();
+                } else {
+                    // Adicionar com timestamp de criação
+                    reportData.createdAt = serverTimestamp();
+                    await addDoc(collection(db, COLLECTION_NAME), reportData);
+                    alert("Relatório criado com sucesso!");
+                    reportForm.reset();
+                    relevanciaSelect.value = "Baixa";
+                    uidsInput.value = "";
+                }
+                await loadReports();
+            } catch (error) {
+                console.error("Erro ao salvar:", error);
+                alert("Erro ao salvar relatório: " + error.message + "\nVerifique suas configurações de Firebase e permissões.");
+            }
+        }
+        
+        // Utilitários de escape para prevenir XSS
+        function escapeHtml(str) {
+            if(!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if(m === '&') return '&amp;';
+                if(m === '<') return '&lt;';
+                if(m === '>') return '&gt;';
+                return m;
+            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+                return c;
+            });
+        }
+        
+        function escapeAttr(str) {
+            if(!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        
+        // Cancelar edição com botão extra (opção)
+        window.cancelEdit = function() {
+            if(editingId) {
+                if(confirm("Cancelar edição? Os dados não salvos serão perdidos.")) {
+                    resetFormToCreate();
+                    reportForm.reset();
+                    relevanciaSelect.value = "Baixa";
+                }
+            } else {
+                reportForm.reset();
+                relevanciaSelect.value = "Baixa";
+            }
+        };
+        
+        // Inicializar eventos e carregar dados
+        reportForm.addEventListener("submit", saveReport);
+        document.getElementById("cancelBtn").addEventListener("click", () => window.cancelEdit());
+        
+        // Carregar relatórios ao iniciar
+        loadReports();
+        
+        // Expor aviso caso configuração não tenha sido alterada (detectar dummy)
+        if(firebaseConfig.apiKey === "AIzaSyDummyExampleKeyReplaceWithYourOwn") {
+            const warningDiv = document.createElement("div");
+            warningDiv.style.backgroundColor = "#ffdddd";
+            warningDiv.style.borderLeft = "6px solid #f44336";
+            warningDiv.style.padding = "12px";
+            warningDiv.style.margin = "15px 0";
+            warningDiv.style.borderRadius = "8px";
+            warningDiv.innerHTML = "<strong>⚠️ ATENÇÃO:</strong> Configure as credenciais do Firebase no código (firebaseConfig). A aplicação não conseguirá gravar dados em 'admincorewnpx' sem configurar corretamente.";
+            document.querySelector(".container").prepend(warningDiv);
+        }
+        
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background: #f0f2f5;
+            padding: 2rem 1rem;
+        }
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.9rem;
+            color: #1e2a3e;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid #0f67ff;
+            padding-left: 20px;
+            margin-bottom: 28px;
+        }
+        h1 small {
+            font-size: 0.8rem;
+            background: #e9ecef;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-weight: normal;
+            color: #2c3e50;
+        }
+        .two-columns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 28px;
+        }
+        .form-panel {
+            flex: 1.2;
+            min-width: 320px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            padding: 1.6rem;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        .list-panel {
+            flex: 2.5;
+            min-width: 360px;
+        }
+        .form-group {
+            margin-bottom: 1.4rem;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+            color: #1f2d3d;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #cfdee9;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            transition: 0.2s;
+            background: #fff;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #0f67ff;
+            box-shadow: 0 0 0 3px rgba(15,103,255,0.2);
+        }
+        textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #0f67ff;
+            border: none;
+            padding: 12px 22px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        button:hover {
+            background: #0051cc;
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .edit-mode {
+            background: #f4a100;
+        }
+        .edit-mode:hover {
+            background: #da8c00;
+        }
+        .reports-scroll {
+            max-height: 75vh;
+            overflow-y: auto;
+            padding-right: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .report-card {
+            background: white;
+            border-radius: 24px;
+            padding: 1.2rem 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            transition: all 0.2s;
+            border: 1px solid #eef2f8;
+        }
+        .report-card:hover {
+            box-shadow: 0 10px 22px rgba(0,0,0,0.08);
+        }
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+        .report-assunto {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0b2b42;
+            word-break: break-word;
+        }
+        .relevancy-badge {
+            padding: 4px 14px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .relev-baixa { background: #d1fae5; color: #065f46; }
+        .relev-media { background: #fed7aa; color: #9b4a0b; }
+        .relev-grave { background: #fecaca; color: #b91c1c; }
+        .relev-gravissima { background: #7f1a1a; color: #ffe4e4; border: 1px solid #ffb3b3; }
+        .report-corpo {
+            background: #f8fafc;
+            padding: 12px 16px;
+            border-radius: 20px;
+            margin: 12px 0;
+            line-height: 1.45;
+            color: #1f2a40;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 0.95rem;
+        }
+        .report-uids {
+            margin: 12px 0 8px;
+            font-size: 0.85rem;
+        }
+        .uid-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .uid-badge {
+            background: #e9ecf3;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #1e3a8a;
+        }
+        .uid-badge.empty {
+            background: #f1f3f5;
+            color: #5f6c80;
+            font-style: italic;
+        }
+        .report-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: #5b6e8c;
+            border-top: 1px solid #edf2f7;
+            padding-top: 12px;
+        }
+        .report-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .report-actions button {
+            background: none;
+            border: none;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .edit-btn {
+            color: #0f67ff;
+            background: #eef4ff;
+        }
+        .edit-btn:hover {
+            background: #d9e9ff;
+            transform: none;
+        }
+        .delete-btn {
+            color: #dc2626;
+            background: #fee2e2;
+        }
+        .delete-btn:hover {
+            background: #ffcccc;
+            transform: none;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 32px;
+            color: #2c3e66;
+        }
+        .hidden {
+            display: none;
+        }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 28px;
+            margin-top: 15px;
+        }
+        .empty-message {
+            text-align: center;
+            background: #fef9e3;
+            padding: 40px;
+            border-radius: 32px;
+            color: #b45309;
+        }
+        hr {
+            margin: 10px 0;
+        }
+        @media (max-width: 780px) {
+            .two-columns {
+                flex-direction: column;
+            }
+            .form-panel {
+                position: static;
+            }
+            .reports-scroll {
+                max-height: 60vh;
+            }
+        }
+        .info-tip {
+            font-size: 0.7rem;
+            color: #6c86a3;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📋 Admin Core | Relatórios Internos <small>Coleção: admincorewnpx</small></h1>
+    <div class="two-columns">
+        <!-- Painel de formulário (criação/edição) -->
+        <div class="form-panel" id="form-section">
+            <h2 style="font-size: 1.4rem; margin-bottom: 1rem;">✍️ Novo / Editar Relatório</h2>
+            <form id="reportForm">
+                <div class="form-group">
+                    <label>📌 Assunto *</label>
+                    <input type="text" id="assunto" placeholder="Ex: Falha crítica no módulo de acesso" required>
+                </div>
+                <div class="form-group">
+                    <label>📄 Corpo do texto *</label>
+                    <textarea id="corpo" placeholder="Descreva detalhadamente o relatório interno, ações tomadas, etc..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>⚠️ Relevância</label>
+                    <select id="relevancia">
+                        <option value="Baixa">Baixa</option>
+                        <option value="Média">Média</option>
+                        <option value="Grave">Grave</option>
+                        <option value="Gravíssima">Gravíssima</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>👥 Lista de UIDs (Google IDs cadastrados)</label>
+                    <input type="text" id="uids" placeholder="Ex: uid12345, uid67890, uidABCDE&#10;Separar por vírgula ou quebra de linha">
+                    <div class="info-tip">Digite um ou mais UIDs separados por vírgula. Cada UID representa um usuário Google vinculado.</div>
+                </div>
+                <div class="button-group">
+                    <button type="submit" id="submitBtn">➕ Criar Relatório</button>
+                    <button type="button" class="btn-secondary" id="cancelBtn">❌ Cancelar Edição</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Painel de listagem rolante contínua -->
+        <div class="list-panel">
+            <h2 style="font-size: 1.3rem; margin-bottom: 1rem;">📑 Relatórios internos <span style="font-weight:normal;">(rolagem contínua)</span></h2>
+            <div class="reports-scroll" id="reportsScrollArea">
+                <div id="loading" class="loading">🔄 Carregando relatórios do Firebase...</div>
+                <div id="emptyMessage" class="empty-message hidden">📭 Nenhum relatório encontrado. Crie o primeiro usando o formulário ao lado.</div>
+                <div id="reportsList"></div>
+            </div>
+        </div>
+    </div>
+    <div style="margin-top: 20px; font-size: 12px; text-align: center; color: #6b7c93; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+        🔐 Firestore • Coleção "admincorewnpx" • Registros com assunto, corpo, relevância e múltiplos UIDs • Dados em tempo real
+    </div>
+</div>
+</body>
+</html>
+```
