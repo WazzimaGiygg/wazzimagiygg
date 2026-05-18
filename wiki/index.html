@@ -395,6 +395,64 @@
             font-size: 0.85em;
         }
 
+        /* Iframe overlay para o painel */
+        .iframe-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .iframe-container {
+            width: 95%;
+            height: 95%;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .iframe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #343a40;
+            color: white;
+        }
+
+        .iframe-header h3 {
+            margin: 0;
+            font-size: 1em;
+        }
+
+        .close-iframe {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0 10px;
+        }
+
+        .close-iframe:hover {
+            color: #ff4444;
+        }
+
+        iframe {
+            width: 100%;
+            flex: 1;
+            border: none;
+        }
+
         /* Footer */
         .footer {
             background-color: #f8f9fa;
@@ -417,6 +475,27 @@
             .search-input {
                 width: 100%;
             }
+            .iframe-container {
+                width: 98%;
+                height: 98%;
+            }
+        }
+
+        .btn-abrir-painel {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #36c;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            cursor: pointer;
+            border: none;
+            font-size: 14px;
+        }
+
+        .btn-abrir-painel:hover {
+            background-color: #2a5a9e;
         }
     </style>
 </head>
@@ -537,6 +616,17 @@
     <p>WikiZero - A enciclopédia livre que todos podem editar. Conteúdo disponível sob licença livre.</p>
 </div>
 
+<!-- Iframe Overlay para o Painel -->
+<div id="iframe-overlay" class="iframe-overlay">
+    <div class="iframe-container">
+        <div class="iframe-header">
+            <h3>📝 Painel Administrativo</h3>
+            <button class="close-iframe" onclick="closeIframe()">✕</button>
+        </div>
+        <iframe id="painel-iframe" src="about:blank"></iframe>
+    </div>
+</div>
+
 <!-- Modal -->
 <div id="modal" class="modal">
     <div class="modal-content">
@@ -578,11 +668,11 @@
 
     // Verificar se há um UID na URL para abrir diretamente
     const urlUid = getUrlParameter('uid');
-    if (urlUid) {
+    if (urlUid && urlUid !== 'null') {
         // Aguarda um pouco para o Firebase carregar e depois abre a subcoleção
         setTimeout(() => {
             if (typeof openSubcollection === 'function') {
-                openSubcollection(urlUid);
+                openSubcollection(decodeURIComponent(urlUid));
             }
         }, 1000);
     }
@@ -616,6 +706,29 @@
             userInfo.style.display = 'none';
         }
     }
+
+    // Função para abrir o painel dentro do iframe
+    function openPainelInIframe(uid) {
+        const iframeOverlay = document.getElementById('iframe-overlay');
+        const iframe = document.getElementById('painel-iframe');
+        
+        // Caminho correto para o painel (páginas/painel.html)
+        const painelUrl = `/wiki/painel.html?uid=${encodeURIComponent(uid)}`;
+        iframe.src = painelUrl;
+        iframeOverlay.style.display = 'flex';
+        
+        // Impedir scroll do body
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Função para fechar o iframe
+    window.closeIframe = function() {
+        const iframeOverlay = document.getElementById('iframe-overlay');
+        const iframe = document.getElementById('painel-iframe');
+        iframeOverlay.style.display = 'none';
+        iframe.src = 'about:blank';
+        document.body.style.overflow = 'auto';
+    };
 
     // Carregar todas as subcoleções
     async function loadSubcollections() {
@@ -763,7 +876,7 @@
                     <div class="article-meta">
                         <p><strong>UID:</strong> ${uid}</p>
                         <p><strong>Criado em:</strong> ${dataCriacao}</p>
-                        <p><strong>Criado por:</strong> ${data.criadoPor || 'Anônimo'}</p>
+                        <p><strong>Criado por:</strong> ${escapeHtml(data.criadoPor || 'Anônimo')}</p>
                         <p><strong>Categoria:</strong> ${escapeHtml(data.categoria || 'Geral')}</p>
                         <p><strong>Total de artigos:</strong> ${articles.length}</p>
                     </div>
@@ -795,21 +908,12 @@
                         </div>
                     `}
                     
-                    ${currentUser ? `
-                        <div style="margin-top: 30px; padding: 20px; background-color: #eaf3ff; border-radius: 8px; text-align: center;">
-                            <p>✏️ Quer contribuir com esta subcoleção?</p>
-                            <a href="painel.html?uid=${uid}" target="_blank" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #36c; color: white; text-decoration: none; border-radius: 4px;">
-                                Acessar painel administrativo
-                            </a>
-                        </div>
-                    ` : `
-                        <div style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px; text-align: center;">
-                            <p>🔐 Faça login para contribuir com esta subcoleção</p>
-                            <button onclick="document.getElementById('login-btn').click()" style="margin-top: 10px; padding: 8px 16px; background-color: #36c; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Entrar com Google
-                            </button>
-                        </div>
-                    `}
+                    <div style="margin-top: 30px; padding: 20px; background-color: #eaf3ff; border-radius: 8px; text-align: center;">
+                        <p>✏️ Quer contribuir com esta subcoleção?</p>
+                        <button onclick="openPainelInIframe('${uid}')" class="btn-abrir-painel">
+                            📝 Acessar Painel Administrativo
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -853,9 +957,9 @@
                         ${escapeHtml(data.descricao || 'Sem conteúdo.')}
                     </div>
                     <div style="margin-top: 20px;">
-                        <a href="painel.html?uid=${collectionUid}" target="_blank" style="display: inline-block; padding: 8px 16px; background-color: #36c; color: white; text-decoration: none; border-radius: 4px;">
+                        <button onclick="closeModal(); openPainelInIframe('${collectionUid}')" class="btn-abrir-painel">
                             ✏️ Editar este artigo
-                        </a>
+                        </button>
                     </div>
                 </div>
             `;
@@ -915,6 +1019,11 @@
             loadSubcollections();
             showListView();
             
+            // Abrir a subcoleção recém-criada
+            setTimeout(() => {
+                openSubcollection(uid);
+            }, 500);
+            
         } catch (error) {
             console.error("Erro ao criar subcoleção:", error);
             showModal('Erro', `Não foi possível criar a subcoleção: ${error.message}`);
@@ -972,7 +1081,7 @@
         displaySubcollections(filtered);
     });
     
-    // Subcoleção aleatória - FUNÇÃO CORRIGIDA
+    // Subcoleção aleatória
     window.showRandomCollection = function() {
         if (allSubcollections.length === 0) {
             showModal('Aviso', 'Nenhuma subcoleção disponível.');
@@ -1002,6 +1111,16 @@
             openSubcollection(uid);
         } else {
             showListView();
+        }
+    });
+    
+    // Fechar iframe com ESC
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const iframeOverlay = document.getElementById('iframe-overlay');
+            if (iframeOverlay.style.display === 'flex') {
+                closeIframe();
+            }
         }
     });
     
