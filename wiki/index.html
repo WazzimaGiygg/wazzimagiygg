@@ -294,7 +294,7 @@
         .modal-content {
             background-color: white;
             width: 90%;
-            max-width: 600px;
+            max-width: 800px;
             max-height: 80vh;
             overflow-y: auto;
             border-radius: 8px;
@@ -394,6 +394,30 @@
             border: 1px solid #eaecf0;
             margin: 15px 0;
             font-size: 0.85em;
+        }
+
+        /* Estilos para conteúdo HTML renderizado */
+        .html-content {
+            line-height: 1.6;
+        }
+        .html-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        .html-content iframe {
+            max-width: 100%;
+        }
+        .html-content pre {
+            background: #f5f5f5;
+            padding: 15px;
+            overflow-x: auto;
+            border-radius: 4px;
+        }
+        .html-content code {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
         }
 
         /* Iframe overlay para o painel */
@@ -539,12 +563,12 @@
     <div class="content-area">
         <!-- Lista de subcoleções -->
         <div id="list-view" class="article-view active">
-            <h1 class="page-title">Subcoleções(Páginas Wiki)</h1>
+            <h1 class="page-title">Subcoleções (Páginas Wiki)</h1>
             <p style="color: #54595d; margin-bottom: 20px;">
                 Explore as coleções criadas pelos usuários. Cada página funciona como uma página de artigo.
             </p>
             <div id="subcollections-container">
-                <div class="loading">Carregando subcoleções(Páginas)...</div>
+                <div class="loading">Carregando subcoleções (Páginas)...</div>
             </div>
         </div>
 
@@ -584,7 +608,7 @@
         <div class="sidebar-section">
             <h3>📊 Estatísticas</h3>
             <ul>
-                <li>📚 Total de subcoleções(Páginas): <strong id="total-count">0</strong></li>
+                <li>📚 Total de páginas: <strong id="total-count">0</strong></li>
                 <li>📄 Total de artigos: <strong id="total-articles">0</strong></li>
                 <li>👥 Usuários ativos: <strong id="active-users">-</strong></li>
             </ul>
@@ -598,7 +622,7 @@
             </ul>
         </div>
         <div class="sidebar-section">
-            <h3>📌 Subcoleções em destaque</h3>
+            <h3>📌 Páginas em destaque</h3>
             <ul id="featured-list">
                 <li>Carregando...</li>
             </ul>
@@ -607,7 +631,7 @@
             <h3>📖 Sobre</h3>
             <p style="font-size: 0.85em; line-height: 1.5;">
                 WikiZero é uma enciclopédia colaborativa onde cada usuário pode criar sua própria página de artigos.
-                Cada subcoleção funciona como uma mini-wiki independente.
+                Cada página funciona como uma mini-wiki independente.
             </p>
         </div>
     </div>
@@ -670,7 +694,6 @@
     // Verificar se há um UID na URL para abrir diretamente
     const urlUid = getUrlParameter('uid');
     if (urlUid && urlUid !== 'null') {
-        // Aguarda um pouco para o Firebase carregar e depois abre a subcoleção
         setTimeout(() => {
             if (typeof openSubcollection === 'function') {
                 openSubcollection(decodeURIComponent(urlUid));
@@ -708,21 +731,15 @@
         }
     }
 
-    // Função para abrir o painel dentro do iframe
     function openPainelInIframe(uid) {
         const iframeOverlay = document.getElementById('iframe-overlay');
         const iframe = document.getElementById('painel-iframe');
-        
-        // Caminho correto para o painel (páginas/painel.html)
-        const painelUrl = `/wiki/pages/?uid=${encodeURIComponent(uid)}`;
+        const painelUrl = `/wiki/painel.html?uid=${encodeURIComponent(uid)}`;
         iframe.src = painelUrl;
         iframeOverlay.style.display = 'flex';
-        
-        // Impedir scroll do body
         document.body.style.overflow = 'hidden';
     }
 
-    // Função para fechar o iframe
     window.closeIframe = function() {
         const iframeOverlay = document.getElementById('iframe-overlay');
         const iframe = document.getElementById('painel-iframe');
@@ -731,10 +748,9 @@
         document.body.style.overflow = 'auto';
     };
 
-    // Carregar todas as subcoleções
     async function loadSubcollections() {
         const container = document.getElementById('subcollections-container');
-        container.innerHTML = '<div class="loading">📚 Carregando subcoleções...</div>';
+        container.innerHTML = '<div class="loading">📚 Carregando páginas...</div>';
         
         try {
             const snapshot = await db.collection('documentos').get();
@@ -761,16 +777,14 @@
             }
             
             allSubcollections = subcollections;
-            
             document.getElementById('total-count').textContent = subcollections.length;
             document.getElementById('total-articles').textContent = totalArticles;
-            
             displaySubcollections(subcollections);
             updateFeaturedList(subcollections);
             
         } catch (error) {
-            console.error("Erro ao carregar subcoleções:", error);
-            container.innerHTML = `<div class="loading" style="color: #d33;">❌ Erro ao carregar: ${error.message}</div>`;
+            console.error("Erro:", error);
+            container.innerHTML = `<div class="loading" style="color: #d33;">❌ Erro: ${error.message}</div>`;
         }
     }
 
@@ -780,8 +794,8 @@
         if (subcollections.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
-                    <p style="font-size: 1.2em; margin-bottom: 20px;">📭 Nenhuma subcoleção encontrada</p>
-                    <p>Seja o primeiro a criar uma subcoleção! Clique em "Criar subcoleção" no menu acima.</p>
+                    <p style="font-size: 1.2em; margin-bottom: 20px;">📭 Nenhuma página encontrada</p>
+                    <p>Seja o primeiro a criar uma página! Clique em "Criar Página" no menu acima.</p>
                 </div>
             `;
             return;
@@ -815,7 +829,7 @@
         const featured = subcollections.slice(0, 5);
         const list = document.getElementById('featured-list');
         if (featured.length === 0) {
-            list.innerHTML = '<li>Nenhuma subcoleção em destaque</li>';
+            list.innerHTML = '<li>Nenhuma página em destaque</li>';
         } else {
             list.innerHTML = featured.map(sub => `
                 <li><a href="#" onclick="openSubcollection('${sub.uid}'); return false;">${escapeHtml(sub.titulo || sub.name)}</a></li>
@@ -823,7 +837,6 @@
         }
     }
 
-    // Abrir uma subcoleção
     window.openSubcollection = async function(uid) {
         const articleView = document.getElementById('article-view');
         const listView = document.getElementById('list-view');
@@ -834,7 +847,6 @@
         listView.classList.remove('active');
         articleView.classList.add('active');
         
-        // Atualizar a URL sem recarregar a página
         const newUrl = `${window.location.pathname}?uid=${encodeURIComponent(uid)}`;
         window.history.pushState({ uid: uid }, '', newUrl);
         
@@ -843,7 +855,7 @@
             const doc = await docRef.get();
             
             if (!doc.exists) {
-                articleContent.innerHTML = '<div class="loading" style="color: #d33;">❌ Subcoleção não encontrada</div>';
+                articleContent.innerHTML = '<div class="loading" style="color: #d33;">❌ Página não encontrada</div>';
                 return;
             }
             
@@ -883,11 +895,11 @@
                     </div>
                     
                     <div style="margin-bottom: 30px;">
-                        <h2>📖 Sobre esta subcoleção</h2>
+                        <h2>📖 Sobre esta página</h2>
                         <p>${escapeHtml(data.descricao || 'Sem descrição disponível.')}</p>
                     </div>
                     
-                    <h2>📄 Artigos nesta subcoleção</h2>
+                    <h2>📄 Artigos nesta página</h2>
                     ${articles.length === 0 ? `
                         <p style="text-align: center; padding: 30px; color: #666;">
                             Nenhum artigo ainda. Seja o primeiro a contribuir!
@@ -910,7 +922,7 @@
                     `}
                     
                     <div style="margin-top: 30px; padding: 20px; background-color: #eaf3ff; border-radius: 8px; text-align: center;">
-                        <p>✏️ Quer contribuir com esta subcoleção?</p>
+                        <p>✏️ Quer contribuir com esta página?</p>
                         <button onclick="openPainelInIframe('${uid}')" class="btn-abrir-painel">
                             📝 Acessar Painel Administrativo
                         </button>
@@ -919,12 +931,12 @@
             `;
             
         } catch (error) {
-            console.error("Erro ao abrir subcoleção:", error);
-            articleContent.innerHTML = `<div class="loading" style="color: #d33;">❌ Erro ao carregar: ${error.message}</div>`;
+            console.error("Erro:", error);
+            articleContent.innerHTML = `<div class="loading" style="color: #d33;">❌ Erro: ${error.message}</div>`;
         }
     };
     
-    // Abrir um artigo específico
+    // CORREÇÃO PRINCIPAL: Agora renderiza HTML corretamente
     window.openArticle = async function(collectionUid, articleId) {
         try {
             const articleRef = db.collection('documentos').doc(collectionUid).collection('inevitavel').doc(articleId);
@@ -944,6 +956,8 @@
             const modalBody = document.getElementById('modal-body');
             
             modalTitle.textContent = data.titulo || 'Artigo';
+            
+            // CORREÇÃO: Usar innerHTML para renderizar HTML, não escapeHtml
             modalBody.innerHTML = `
                 <div class="article-content">
                     <h3 style="margin-bottom: 15px;">${escapeHtml(data.titulo)}</h3>
@@ -954,8 +968,8 @@
                         <p><strong>Setor:</strong> ${escapeHtml(data.setor || 'Não especificado')}</p>
                         <p><strong>Idioma:</strong> ${escapeHtml(data.armario || 'Não especificado')}</p>
                     </div>
-                    <div style="margin-top: 20px; white-space: pre-wrap; line-height: 1.6;">
-                        ${escapeHtml(data.descricao || 'Sem conteúdo.')}
+                    <div style="margin-top: 20px;" class="html-content">
+                        ${data.descricao || 'Sem conteúdo.'}
                     </div>
                     <div style="margin-top: 20px;">
                         <button onclick="closeModal(); openPainelInIframe('${collectionUid}')" class="btn-abrir-painel">
@@ -973,12 +987,11 @@
         }
     };
 
-    // Criar nova subcoleção
     document.getElementById('create-subcollection-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         if (!currentUser) {
-            showModal('Aviso', 'Você precisa estar logado para criar uma subcoleção.');
+            showModal('Aviso', 'Você precisa estar logado para criar uma página.');
             return;
         }
         
@@ -988,7 +1001,7 @@
         const categoria = document.getElementById('sub-category').value.trim() || 'Geral';
         
         if (!uid || !titulo) {
-            showModal('Erro', 'Preencha o nome da subcoleção e o título.');
+            showModal('Erro', 'Preencha o nome da página e o título.');
             return;
         }
         
@@ -997,7 +1010,7 @@
             const doc = await docRef.get();
             
             if (doc.exists) {
-                showModal('Erro', `A subcoleção "${uid}" já existe! Escolha outro nome.`);
+                showModal('Erro', `A página "${uid}" já existe! Escolha outro nome.`);
                 return;
             }
             
@@ -1014,24 +1027,22 @@
                 status: 'ativo'
             });
             
-            showModal('Sucesso!', `Subcoleção "${titulo}" criada com sucesso!`);
+            showModal('Sucesso!', `Página "${titulo}" criada com sucesso!`);
             
             document.getElementById('create-subcollection-form').reset();
             loadSubcollections();
             showListView();
             
-            // Abrir a subcoleção recém-criada
             setTimeout(() => {
                 openSubcollection(uid);
             }, 500);
             
         } catch (error) {
-            console.error("Erro ao criar subcoleção:", error);
-            showModal('Erro', `Não foi possível criar a subcoleção: ${error.message}`);
+            console.error("Erro:", error);
+            showModal('Erro', `Não foi possível criar: ${error.message}`);
         }
     });
 
-    // Funções de navegação
     function showListView() {
         document.getElementById('list-view').classList.add('active');
         document.getElementById('article-view').classList.remove('active');
@@ -1044,7 +1055,6 @@
             }
         });
         
-        // Remover o parâmetro da URL
         const newUrl = window.location.pathname;
         window.history.pushState({}, '', newUrl);
     }
@@ -1065,7 +1075,6 @@
     window.showListView = showListView;
     window.showCreateView = showCreateView;
     
-    // Busca
     document.getElementById('search-btn')?.addEventListener('click', () => {
         const searchTerm = document.getElementById('search-input').value.toLowerCase();
         if (!searchTerm) {
@@ -1082,10 +1091,9 @@
         displaySubcollections(filtered);
     });
     
-    // Subcoleção aleatória
     window.showRandomCollection = function() {
         if (allSubcollections.length === 0) {
-            showModal('Aviso', 'Nenhuma subcoleção disponível.');
+            showModal('Aviso', 'Nenhuma página disponível.');
             return;
         }
         const randomIndex = Math.floor(Math.random() * allSubcollections.length);
@@ -1096,7 +1104,6 @@
         window.showRandomCollection();
     });
     
-    // Navegação por tabs
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const view = tab.getAttribute('data-view');
@@ -1105,7 +1112,6 @@
         });
     });
     
-    // Navegação com botão voltar/avançar do navegador
     window.addEventListener('popstate', (event) => {
         const uid = event.state?.uid;
         if (uid) {
@@ -1115,7 +1121,6 @@
         }
     });
     
-    // Fechar iframe com ESC
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             const iframeOverlay = document.getElementById('iframe-overlay');
@@ -1125,7 +1130,6 @@
         }
     });
     
-    // Funções auxiliares
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -1151,7 +1155,6 @@
         }
     };
     
-    // Carregamento inicial
     loadSubcollections();
 </script>
 
