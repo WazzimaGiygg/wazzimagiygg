@@ -570,15 +570,28 @@
     let currentUser = null;
     let allSubcollections = [];
 
+    // Função para obter parâmetro da URL
+    function getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    // Verificar se há um UID na URL para abrir diretamente
+    const urlUid = getUrlParameter('uid');
+    if (urlUid) {
+        // Aguarda um pouco para o Firebase carregar e depois abre a subcoleção
+        setTimeout(() => {
+            if (typeof openSubcollection === 'function') {
+                openSubcollection(urlUid);
+            }
+        }, 1000);
+    }
+
     // Autenticação
     auth.onAuthStateChanged((user) => {
         currentUser = user;
         updateAuthUI();
-        if (user) {
-            loadSubcollections();
-        } else {
-            loadSubcollections(); // Carrega mesmo sem login (apenas leitura)
-        }
+        loadSubcollections();
     });
 
     document.getElementById('login-btn')?.addEventListener('click', () => {
@@ -604,13 +617,12 @@
         }
     }
 
-    // Carregar todas as subcoleções (documentos pais que têm subcoleção 'inevitavel')
+    // Carregar todas as subcoleções
     async function loadSubcollections() {
         const container = document.getElementById('subcollections-container');
         container.innerHTML = '<div class="loading">📚 Carregando subcoleções...</div>';
         
         try {
-            // Buscar todos os documentos da coleção 'documentos'
             const snapshot = await db.collection('documentos').get();
             const subcollections = [];
             let totalArticles = 0;
@@ -618,7 +630,6 @@
             for (const doc of snapshot.docs) {
                 const data = doc.data();
                 const subcollectionRef = db.collection('documentos').doc(doc.id).collection('inevitavel');
-                const articlesSnapshot = await subcollectionRef.limit(1).get();
                 const articleCount = (await subcollectionRef.get()).size;
                 
                 totalArticles += articleCount;
@@ -698,7 +709,7 @@
         }
     }
 
-    // Abrir uma subcoleção (como uma página de artigo)
+    // Abrir uma subcoleção
     window.openSubcollection = async function(uid) {
         const articleView = document.getElementById('article-view');
         const listView = document.getElementById('list-view');
@@ -706,12 +717,14 @@
         
         articleContent.innerHTML = '<div class="loading">📖 Carregando página...</div>';
         
-        // Mudar para view de artigo
         listView.classList.remove('active');
         articleView.classList.add('active');
         
+        // Atualizar a URL sem recarregar a página
+        const newUrl = `${window.location.pathname}?uid=${encodeURIComponent(uid)}`;
+        window.history.pushState({ uid: uid }, '', newUrl);
+        
         try {
-            // Buscar dados da subcoleção
             const docRef = db.collection('documentos').doc(uid);
             const doc = await docRef.get();
             
@@ -722,7 +735,6 @@
             
             const data = doc.data();
             
-            // Buscar artigos dentro da subcoleção
             const articlesSnapshot = await docRef.collection('inevitavel').get();
             const articles = [];
             articlesSnapshot.forEach(articleDoc => {
@@ -736,7 +748,6 @@
                 });
             });
             
-            // Ordenar artigos por data (mais recentes primeiro)
             articles.sort((a, b) => {
                 if (!a.dataCriacao) return 1;
                 if (!b.dataCriacao) return -1;
@@ -900,13 +911,8 @@
             
             showModal('Sucesso!', `Subcoleção "${titulo}" criada com sucesso!`);
             
-            // Limpar formulário
             document.getElementById('create-subcollection-form').reset();
-            
-            // Recarregar lista
             loadSubcollections();
-            
-            // Voltar para lista
             showListView();
             
         } catch (error) {
@@ -927,6 +933,10 @@
                 tab.classList.add('active');
             }
         });
+        
+        // Remover o parâmetro da URL
+        const newUrl = window.location.pathname;
+        window.history.pushState({}, '', newUrl);
     }
     
     function showCreateView() {
@@ -962,7 +972,8 @@
         displaySubcollections(filtered);
     });
     
-    // Subcoleção aleatória    window.showRandomCollection = function() {
+    // Subcoleção aleatória - FUNÇÃO CORRIGIDA
+    window.showRandomCollection = function() {
         if (allSubcollections.length === 0) {
             showModal('Aviso', 'Nenhuma subcoleção disponível.');
             return;
@@ -971,7 +982,9 @@
         openSubcollection(allSubcollections[randomIndex].uid);
     };
     
-    document.getElementById('random-btn')?.addEventListener('click', showRandomCollection);
+    document.getElementById('random-btn')?.addEventListener('click', () => {
+        window.showRandomCollection();
+    });
     
     // Navegação por tabs
     document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -980,6 +993,16 @@
             if (view === 'list') showListView();
             else if (view === 'create') showCreateView();
         });
+    });
+    
+    // Navegação com botão voltar/avançar do navegador
+    window.addEventListener('popstate', (event) => {
+        const uid = event.state?.uid;
+        if (uid) {
+            openSubcollection(uid);
+        } else {
+            showListView();
+        }
     });
     
     // Funções auxiliares
@@ -1001,7 +1024,6 @@
         document.getElementById('modal').style.display = 'none';
     };
     
-    // Fechar modal clicando fora
     window.onclick = function(event) {
         const modal = document.getElementById('modal');
         if (event.target === modal) {
