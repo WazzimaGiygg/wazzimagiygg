@@ -571,9 +571,47 @@
         .btn-abrir-painel:hover {
             background-color: #2a5a9e;
         }
+
+        /* Aviso de redirecionamento mobile */
+        .mobile-redirect-notice {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.85);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .mobile-redirect-notice button {
+            background: #36c;
+            border: none;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        .mobile-redirect-notice .cancel-btn {
+            background: #666;
+        }
     </style>
 </head>
 <body>
+
+<!-- Aviso de redirecionamento mobile -->
+<div id="mobile-redirect-notice" class="mobile-redirect-notice">
+    <span>📱 Versão mobile disponível!</span>
+    <button id="go-to-mobile">Ir para Mobile</button>
+    <button id="stay-desktop" class="cancel-btn">Continuar Desktop</button>
+</div>
 
 <div class="wikipedia-header">
     <div class="header-top">
@@ -839,6 +877,85 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
+    // ============================================
+    // DETECÇÃO DE DISPOSITIVO MÓVEL E REDIRECIONAMENTO
+    // ============================================
+    
+    function isMobileDevice() {
+        // Verifica se é dispositivo móvel por largura da tela ou user agent
+        const isMobileWidth = window.innerWidth <= 768;
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(userAgent.toLowerCase());
+        
+        return isMobileWidth || isMobileUA;
+    }
+    
+    function redirectToMobile() {
+        // Preserva o caminho atual e parâmetros da URL
+        const currentPath = window.location.pathname;
+        const currentParams = window.location.search;
+        const currentHash = window.location.hash;
+        
+        // Constrói a URL mobile
+        let mobileUrl = '/wiki/mobile';
+        
+        // Adiciona o caminho original se não for a raiz
+        if (currentPath !== '/' && currentPath !== '/wiki/pages/') {
+            mobileUrl += currentPath;
+        }
+        
+        // Adiciona os parâmetros e hash
+        mobileUrl += currentParams + currentHash;
+        
+        // Redireciona
+        window.location.href = mobileUrl;
+    }
+    
+    // Verifica se já está na versão mobile
+    const isAlreadyMobile = window.location.pathname.includes('/mobile');
+    
+    // Verifica se o usuário optou por ficar no desktop
+    const stayOnDesktop = localStorage.getItem('wikizero_stay_on_desktop') === 'true';
+    const stayExpiry = localStorage.getItem('wikizero_stay_expiry');
+    const isExpired = stayExpiry ? new Date().getTime() > parseInt(stayExpiry) : true;
+    
+    // Se o usuário optou por ficar no desktop e não expirou, não redireciona
+    if (!isAlreadyMobile && isMobileDevice() && (!stayOnDesktop || isExpired)) {
+        // Se expirou, limpa a preferência
+        if (stayOnDesktop && isExpired) {
+            localStorage.removeItem('wikizero_stay_on_desktop');
+            localStorage.removeItem('wikizero_stay_expiry');
+        } else {
+            // Mostra aviso de redirecionamento
+            const notice = document.getElementById('mobile-redirect-notice');
+            if (notice) {
+                notice.style.display = 'flex';
+                
+                // Botão para ir para mobile
+                document.getElementById('go-to-mobile').onclick = () => {
+                    redirectToMobile();
+                };
+                
+                // Botão para continuar no desktop (guarda preferência por 1 hora)
+                document.getElementById('stay-desktop').onclick = () => {
+                    localStorage.setItem('wikizero_stay_on_desktop', 'true');
+                    const oneHourLater = new Date().getTime() + (60 * 60 * 1000);
+                    localStorage.setItem('wikizero_stay_expiry', oneHourLater.toString());
+                    notice.style.display = 'none';
+                };
+            } else {
+                // Se o aviso não existe, redireciona automaticamente após 2 segundos
+                setTimeout(() => {
+                    redirectToMobile();
+                }, 2000);
+            }
+        }
+    }
+    
+    // ============================================
+    // CÓDIGO PRINCIPAL (Firebase, autenticação, etc)
+    // ============================================
+    
     // Configuração do Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
