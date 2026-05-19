@@ -152,6 +152,29 @@
             white-space: nowrap;
         }
 
+        /* Indicador de limite de edições */
+        .edit-limit-indicator {
+            background-color: #e8f0fe;
+            border-radius: 16px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .edit-limit-indicator.warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .edit-limit-indicator.danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
         /* Navegação mobile - scroll horizontal */
         .nav-tabs {
             display: flex;
@@ -409,6 +432,11 @@
             font-weight: 500;
         }
 
+        .submit-btn:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -550,6 +578,11 @@
             width: 100%;
         }
 
+        .btn-abrir-painel:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+
         /* Toast message */
         .toast {
             position: fixed;
@@ -647,6 +680,7 @@
             <div id="user-info" style="display: none;" class="user-info">
                 <div class="avatar" id="user-avatar"></div>
                 <span id="user-name"></span>
+                <span id="edit-count-indicator" class="edit-limit-indicator">✏️ 5/5</span>
                 <button id="logout-btn" style="background: none; border: none; color: #d33; cursor: pointer; font-size: 18px;">✕</button>
             </div>
         </div>
@@ -698,7 +732,7 @@
                     <label for="sub-category">Categoria</label>
                     <input type="text" id="sub-category" placeholder="Ex: Tecnologia, Ciência, Arte">
                 </div>
-                <button type="submit" class="submit-btn">✨ Criar Página</button>
+                <button type="submit" class="submit-btn" id="create-page-btn">✨ Criar Página</button>
             </form>
         </div>
 
@@ -746,6 +780,10 @@
             <ul id="featured-list">
                 <li>Carregando...</li>
             </ul>
+        </div>
+        <div class="sidebar-section">
+            <h3>⚡ Limite de Edições</h3>
+            <p style="font-size: 0.8em; color: #666;">Cada usuário pode fazer até <strong>5 edições por dia</strong>.</p>
         </div>
     </div>
 </div>
@@ -803,6 +841,108 @@
     let currentUser = null;
     let allSubcollections = [];
 
+    // ============================================
+    // LIMITE DE EDIÇÕES POR DIA (5 por usuário)
+    // ============================================
+    
+    const MAX_EDITIONS_PER_DAY = 5;
+    
+    async function getUserEditsToday(userId) {
+        if (!userId) return 0;
+        
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const inicioDoDia = firebase.firestore.Timestamp.fromDate(hoje);
+        const fimDoDia = firebase.firestore.Timestamp.fromDate(new Date(hoje.getTime() + 86400000));
+        
+        try {
+            const editsRef = db.collection('user_edits');
+            const snapshot = await editsRef
+                .where('userId', '==', userId)
+                .where('timestamp', '>=', inicioDoDia)
+                .where('timestamp', '<', fimDoDia)
+                .get();
+            
+            return snapshot.size;
+        } catch (error) {
+            console.error("Erro ao contar edições:", error);
+            return 0;
+        }
+    }
+    
+    async function registerEdit(userId, userName, action, targetId, targetType) {
+        if (!userId) return false;
+        
+        const editsHoje = await getUserEditsToday(userId);
+        
+        if (editsHoje >= MAX_EDITIONS_PER_DAY) {
+            console.log(`Usuário ${userId} já atingiu o limite de ${MAX_EDITIONS_PER_DAY} edições hoje`);
+            return false;
+        }
+        
+        try {
+            await db.collection('user_edits').add({
+                userId: userId,
+                userName: userName || 'Anônimo',
+                action: action,
+                targetId: targetId,
+                targetType: targetType,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                date: new Date().toISOString().split('T')[0]
+            });
+            
+            console.log(`Edição registrada: ${action} em ${targetId}`);
+            return true;
+        } catch (error) {
+            console.error("Erro ao registrar edição:", error);
+            return false;
+        }
+    }
+    
+    async function checkEditLimit(userId) {
+        if (!userId) return { allowed: false, remaining: 0, message: "Faça login para editar" };
+        
+        const editsHoje = await getUserEditsToday(userId);
+        const remaining = Math.max(0, MAX_EDITIONS_PER_DAY - editsHoje);
+        const allowed = remaining > 0;
+        
+        let message = "";
+        if (allowed) {
+            message = `Você tem ${remaining} edição${remaining !== 1 ? 'ões' : ''} restante${remaining !== 1 ? 's' : ''} hoje.`;
+        } else {
+            message = `Você atingiu o limite de ${MAX_EDITIONS_PER_DAY} edições por dia. Volte amanhã para continuar editando!`;
+        }
+        
+        return { allowed, remaining, message };
+    }
+    
+    async function updateEditLimitDisplay(userId) {
+        const indicator = document.getElementById('edit-count-indicator');
+        if (!indicator) return;
+        
+        if (!userId) {
+            indicator.style.display = 'none';
+            return;
+        }
+        
+        indicator.style.display = 'inline-flex';
+        const editsHoje = await getUserEditsToday(userId);
+        const remaining = Math.max(0, MAX_EDITIONS_PER_DAY - editsHoje);
+        
+        indicator.innerHTML = `✏️ ${remaining}/${MAX_EDITIONS_PER_DAY}`;
+        
+        indicator.classList.remove('warning', 'danger');
+        if (remaining <= 2 && remaining > 0) {
+            indicator.classList.add('warning');
+        } else if (remaining === 0) {
+            indicator.classList.add('danger');
+        }
+    }
+
+    // ============================================
+    // FUNÇÕES PRINCIPAIS
+    // ============================================
+
     function getUrlParameter(name) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(name);
@@ -825,12 +965,14 @@
         }, 1000);
     }
 
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(async (user) => {
         currentUser = user;
         updateAuthUI();
+        if (currentUser) {
+            await updateEditLimitDisplay(currentUser.uid);
+        }
         loadSubcollections();
         
-        // Mostrar/esconder botão flutuante para mobile
         const fab = document.getElementById('fab-create');
         if (fab) {
             fab.style.display = user ? (window.innerWidth < 768 ? 'flex' : 'none') : 'none';
@@ -861,7 +1003,19 @@
         }
     }
 
-    function openPainelInIframe(uid) {
+    async function openPainelInIframe(uid) {
+        if (!currentUser) {
+            showToast('Faça login para editar');
+            return;
+        }
+        
+        const limitCheck = await checkEditLimit(currentUser.uid);
+        
+        if (!limitCheck.allowed) {
+            showModal('Limite de edições atingido', limitCheck.message);
+            return;
+        }
+        
         const iframeOverlay = document.getElementById('iframe-overlay');
         const iframe = document.getElementById('painel-iframe');
         const painelUrl = `/wiki/painel.html?uid=${encodeURIComponent(uid)}`;
@@ -1109,6 +1263,13 @@
             return;
         }
         
+        const limitCheck = await checkEditLimit(currentUser.uid);
+        
+        if (!limitCheck.allowed) {
+            showModal('Limite de edições atingido', limitCheck.message);
+            return;
+        }
+        
         const uid = document.getElementById('sub-name').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
         const titulo = document.getElementById('sub-title').value.trim();
         const descricao = document.getElementById('sub-description').value.trim();
@@ -1119,12 +1280,18 @@
             return;
         }
         
+        const submitBtn = document.getElementById('create-page-btn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⌛ Criando...';
+        
         try {
             const docRef = db.collection('documentos').doc(uid);
             const doc = await docRef.get();
             
             if (doc.exists) {
                 showModal('Erro', `A página "${uid}" já existe!`);
+                submitBtn.disabled = false;
+                submitBtn.textContent = '✨ Criar Página';
                 return;
             }
             
@@ -1141,7 +1308,17 @@
                 status: 'ativo'
             });
             
-            showModal('Sucesso!', `Página "${titulo}" criada!`);
+            await registerEdit(
+                currentUser.uid,
+                currentUser.displayName || currentUser.email,
+                'criar_pagina',
+                uid,
+                'subcollection'
+            );
+            
+            await updateEditLimitDisplay(currentUser.uid);
+            
+            showModal('Sucesso!', `Página "${titulo}" criada! Você usou 1 das ${MAX_EDITIONS_PER_DAY} edições diárias.`);
             
             document.getElementById('create-subcollection-form').reset();
             loadSubcollections();
@@ -1155,6 +1332,9 @@
         } catch (error) {
             console.error("Erro:", error);
             showModal('Erro', error.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '✨ Criar Página';
         }
     });
 
@@ -1237,7 +1417,6 @@
         window.showRandomCollection();
     });
     
-    // Botão flutuante mobile
     document.getElementById('fab-create')?.addEventListener('click', () => {
         showCreateView();
     });
