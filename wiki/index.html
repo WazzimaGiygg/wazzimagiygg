@@ -398,6 +398,11 @@
             cursor: pointer;
         }
 
+        .submit-btn:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -602,6 +607,29 @@
         .mobile-redirect-notice .cancel-btn {
             background: #666;
         }
+
+        /* Indicador de limite de edições */
+        .edit-limit-indicator {
+            background-color: #f8f9fa;
+            border: 1px solid #eaecf0;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 0.75em;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .edit-limit-indicator.warning {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+        }
+
+        .edit-limit-indicator.danger {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
@@ -636,6 +664,7 @@
             <div id="user-info" style="display: none;" class="user-info">
                 <div class="avatar" id="user-avatar"></div>
                 <span id="user-name"></span>
+                <span id="edit-count-indicator" class="edit-limit-indicator">✏️ 5/5 restantes</span>
                 <button id="logout-btn" style="background: none; border: none; color: #d33; cursor: pointer;">Sair</button>
             </div>
         </div>
@@ -687,7 +716,7 @@
                     <label for="sub-category">Categoria</label>
                     <input type="text" id="sub-category" placeholder="Ex: Tecnologia, Ciência, Arte">
                 </div>
-                <button type="submit" class="submit-btn">✨ Criar Página</button>
+                <button type="submit" class="submit-btn" id="create-page-btn">✨ Criar Página</button>
             </form>
         </div>
 
@@ -841,6 +870,9 @@
                 WikiZero é uma enciclopédia colaborativa onde cada usuário pode criar sua própria página de artigos.
                 Cada página funciona como uma mini-wiki independente.
             </p>
+            <p style="font-size: 0.8em; margin-top: 10px; color: #666;">
+                ⚡ Limite de 5 edições por usuário por dia.
+            </p>
         </div>
     </div>
 </div>
@@ -882,61 +914,38 @@
     // ============================================
     
     function isMobileDevice() {
-        // Verifica se é dispositivo móvel por largura da tela ou user agent
         const isMobileWidth = window.innerWidth <= 768;
         const userAgent = navigator.userAgent || navigator.vendor || window.opera;
         const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(userAgent.toLowerCase());
-        
         return isMobileWidth || isMobileUA;
     }
     
     function redirectToMobile() {
-        // Preserva o caminho atual e parâmetros da URL
         const currentPath = window.location.pathname;
         const currentParams = window.location.search;
         const currentHash = window.location.hash;
-        
-        // Constrói a URL mobile
         let mobileUrl = '/mobile';
-        
-        // Adiciona o caminho original se não for a raiz
         if (currentPath !== '/' && currentPath !== '/wiki/pages/') {
             mobileUrl += currentPath;
         }
-        
-        // Adiciona os parâmetros e hash
         mobileUrl += currentParams + currentHash;
-        
-        // Redireciona
         window.location.href = mobileUrl;
     }
     
-    // Verifica se já está na versão mobile
     const isAlreadyMobile = window.location.pathname.includes('/mobile');
-    
-    // Verifica se o usuário optou por ficar no desktop
     const stayOnDesktop = localStorage.getItem('wikizero_stay_on_desktop') === 'true';
     const stayExpiry = localStorage.getItem('wikizero_stay_expiry');
     const isExpired = stayExpiry ? new Date().getTime() > parseInt(stayExpiry) : true;
     
-    // Se o usuário optou por ficar no desktop e não expirou, não redireciona
     if (!isAlreadyMobile && isMobileDevice() && (!stayOnDesktop || isExpired)) {
-        // Se expirou, limpa a preferência
         if (stayOnDesktop && isExpired) {
             localStorage.removeItem('wikizero_stay_on_desktop');
             localStorage.removeItem('wikizero_stay_expiry');
         } else {
-            // Mostra aviso de redirecionamento
             const notice = document.getElementById('mobile-redirect-notice');
             if (notice) {
                 notice.style.display = 'flex';
-                
-                // Botão para ir para mobile
-                document.getElementById('go-to-mobile').onclick = () => {
-                    redirectToMobile();
-                };
-                
-                // Botão para continuar no desktop (guarda preferência por 1 hora)
+                document.getElementById('go-to-mobile').onclick = () => redirectToMobile();
                 document.getElementById('stay-desktop').onclick = () => {
                     localStorage.setItem('wikizero_stay_on_desktop', 'true');
                     const oneHourLater = new Date().getTime() + (60 * 60 * 1000);
@@ -944,11 +953,106 @@
                     notice.style.display = 'none';
                 };
             } else {
-                // Se o aviso não existe, redireciona automaticamente após 2 segundos
-                setTimeout(() => {
-                    redirectToMobile();
-                }, 2000);
+                setTimeout(() => redirectToMobile(), 2000);
             }
+        }
+    }
+    
+    // ============================================
+    // LIMITE DE EDIÇÕES POR DIA
+    // ============================================
+    
+    const MAX_EDITIONS_PER_DAY = 5;
+    
+    async function getUserEditsToday(userId) {
+        if (!userId) return 0;
+        
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const inicioDoDia = firebase.firestore.Timestamp.fromDate(hoje);
+        const fimDoDia = firebase.firestore.Timestamp.fromDate(new Date(hoje.getTime() + 86400000));
+        
+        try {
+            const editsRef = db.collection('user_edits');
+            const snapshot = await editsRef
+                .where('userId', '==', userId)
+                .where('timestamp', '>=', inicioDoDia)
+                .where('timestamp', '<', fimDoDia)
+                .get();
+            
+            return snapshot.size;
+        } catch (error) {
+            console.error("Erro ao contar edições:", error);
+            return 0;
+        }
+    }
+    
+    async function registerEdit(userId, userName, action, targetId, targetType) {
+        if (!userId) return false;
+        
+        const editsHoje = await getUserEditsToday(userId);
+        
+        if (editsHoje >= MAX_EDITIONS_PER_DAY) {
+            console.log(`Usuário ${userId} já atingiu o limite de ${MAX_EDITIONS_PER_DAY} edições hoje`);
+            return false;
+        }
+        
+        try {
+            await db.collection('user_edits').add({
+                userId: userId,
+                userName: userName || 'Anônimo',
+                action: action,
+                targetId: targetId,
+                targetType: targetType,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                date: new Date().toISOString().split('T')[0]
+            });
+            
+            console.log(`Edição registrada: ${action} em ${targetId}`);
+            return true;
+        } catch (error) {
+            console.error("Erro ao registrar edição:", error);
+            return false;
+        }
+    }
+    
+    async function checkEditLimit(userId) {
+        if (!userId) return { allowed: false, remaining: 0, message: "Faça login para editar" };
+        
+        const editsHoje = await getUserEditsToday(userId);
+        const remaining = Math.max(0, MAX_EDITIONS_PER_DAY - editsHoje);
+        const allowed = remaining > 0;
+        
+        let message = "";
+        if (allowed) {
+            message = `Você tem ${remaining} edição${remaining !== 1 ? 'ões' : ''} restante${remaining !== 1 ? 's' : ''} hoje.`;
+        } else {
+            message = `Você atingiu o limite de ${MAX_EDITIONS_PER_DAY} edições por dia. Volte amanhã para continuar editando!`;
+        }
+        
+        return { allowed, remaining, message };
+    }
+    
+    async function updateEditLimitDisplay(userId) {
+        const indicator = document.getElementById('edit-count-indicator');
+        if (!indicator) return;
+        
+        if (!userId) {
+            indicator.style.display = 'none';
+            return;
+        }
+        
+        indicator.style.display = 'inline-flex';
+        const editsHoje = await getUserEditsToday(userId);
+        const remaining = Math.max(0, MAX_EDITIONS_PER_DAY - editsHoje);
+        
+        indicator.innerHTML = `✏️ ${remaining}/${MAX_EDITIONS_PER_DAY} restantes`;
+        
+        indicator.classList.remove('warning', 'danger');
+        if (remaining <= 2 && remaining > 0) {
+            indicator.classList.add('warning');
+        } else if (remaining === 0) {
+            indicator.classList.add('danger');
         }
     }
     
@@ -956,7 +1060,6 @@
     // CÓDIGO PRINCIPAL (Firebase, autenticação, etc)
     // ============================================
     
-    // Configuração do Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
         authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -973,13 +1076,11 @@
     let currentUser = null;
     let allSubcollections = [];
 
-    // Função para obter parâmetro da URL
     function getUrlParameter(name) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(name);
     }
 
-    // Verificar se há um UID na URL para abrir diretamente
     const urlUid = getUrlParameter('uid');
     if (urlUid && urlUid !== 'null') {
         setTimeout(() => {
@@ -989,10 +1090,12 @@
         }, 1000);
     }
 
-    // Autenticação
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(async (user) => {
         currentUser = user;
         updateAuthUI();
+        if (currentUser) {
+            await updateEditLimitDisplay(currentUser.uid);
+        }
         loadSubcollections();
     });
 
@@ -1019,10 +1122,23 @@
         }
     }
 
-    function openPainelInIframe(uid) {
+    async function openPainelInIframe(uid) {
+        if (!currentUser) {
+            showModal('Acesso negado', 'Você precisa estar logado para acessar o painel administrativo.');
+            return;
+        }
+        
+        const limitCheck = await checkEditLimit(currentUser.uid);
+        
+        if (!limitCheck.allowed) {
+            showModal('Limite de edições atingido', limitCheck.message);
+            return;
+        }
+        
         const iframeOverlay = document.getElementById('iframe-overlay');
         const iframe = document.getElementById('painel-iframe');
         const painelUrl = `/wiki/pages/?uid=${encodeURIComponent(uid)}`;
+        
         iframe.src = painelUrl;
         iframeOverlay.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -1281,6 +1397,13 @@
             return;
         }
         
+        const limitCheck = await checkEditLimit(currentUser.uid);
+        
+        if (!limitCheck.allowed) {
+            showModal('Limite de edições atingido', limitCheck.message);
+            return;
+        }
+        
         const uid = document.getElementById('sub-name').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
         const titulo = document.getElementById('sub-title').value.trim();
         const descricao = document.getElementById('sub-description').value.trim();
@@ -1291,12 +1414,18 @@
             return;
         }
         
+        const submitBtn = document.getElementById('create-page-btn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⌛ Criando...';
+        
         try {
             const docRef = db.collection('documentos').doc(uid);
             const doc = await docRef.get();
             
             if (doc.exists) {
                 showModal('Erro', `A página "${uid}" já existe! Escolha outro nome.`);
+                submitBtn.disabled = false;
+                submitBtn.textContent = '✨ Criar Página';
                 return;
             }
             
@@ -1313,7 +1442,17 @@
                 status: 'ativo'
             });
             
-            showModal('Sucesso!', `Página "${titulo}" criada com sucesso!`);
+            await registerEdit(
+                currentUser.uid,
+                currentUser.displayName || currentUser.email,
+                'criar_pagina',
+                uid,
+                'subcollection'
+            );
+            
+            await updateEditLimitDisplay(currentUser.uid);
+            
+            showModal('Sucesso!', `Página "${titulo}" criada com sucesso! Você utilizou uma das suas 5 edições diárias.`);
             
             document.getElementById('create-subcollection-form').reset();
             loadSubcollections();
@@ -1326,6 +1465,9 @@
         } catch (error) {
             console.error("Erro:", error);
             showModal('Erro', `Não foi possível criar: ${error.message}`);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '✨ Criar Página';
         }
     });
 
