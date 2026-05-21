@@ -1590,8 +1590,32 @@
         document.body.style.overflow = 'auto';
     };
 
+    // FUNÇÃO PRINCIPAL OTIMIZADA - Agora verifica login antes de tentar acessar o Firestore
     async function loadSubcollections() {
         const container = document.getElementById('subcollections-container');
+        
+        // VERIFICAÇÃO CRÍTICA: Usuário precisa estar logado
+        if (!currentUser) {
+            container.innerHTML = `
+                <div class="loading" style="color: #d33; text-align: center; padding: 40px;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">🔒</div>
+                    <p style="font-size: 1.2em; margin-bottom: 20px;"><strong>É preciso estar logado para visualizar as páginas.</strong></p>
+                    <p style="margin-bottom: 20px; color: #666;">Faça login com sua conta Google para acessar o conteúdo da enciclopédia.</p>
+                    <button onclick="document.getElementById('login-dropdown-btn').click()" 
+                            style="margin-top: 10px; padding: 12px 24px; background: #36c; color: white; 
+                                   border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                        🔑 Fazer Login com Google
+                    </button>
+                </div>
+            `;
+            // Também atualiza as estatísticas para mostrar que não está logado
+            document.getElementById('total-count').textContent = '🔒';
+            document.getElementById('total-articles').textContent = '🔒';
+            document.getElementById('featured-list').innerHTML = '<li>Faça login para ver</li>';
+            return;
+        }
+        
+        // Se chegou aqui, usuário está logado - pode prosseguir com segurança
         container.innerHTML = '<div class="loading">📚 Carregando páginas...</div>';
         
         try {
@@ -1625,8 +1649,24 @@
             updateFeaturedList(subcollections);
             
         } catch (error) {
-            console.error("Erro:", error);
-            container.innerHTML = `<div class="loading" style="color: #d33;">❌ Erro: ${error.message}</div>`;
+            console.error("Erro detalhado:", error);
+            // Tratamento específico para erro de permissão
+            if (error.code === 'permission-denied') {
+                container.innerHTML = `
+                    <div class="loading" style="color: #d33; text-align: center; padding: 40px;">
+                        <div style="font-size: 3em; margin-bottom: 20px;">🔒</div>
+                        <p style="font-size: 1.2em; margin-bottom: 20px;"><strong>Permissão negada.</strong></p>
+                        <p style="margin-bottom: 20px; color: #666;">Você precisa estar logado para acessar este conteúdo.</p>
+                        <button onclick="document.getElementById('login-dropdown-btn').click()" 
+                                style="margin-top: 10px; padding: 12px 24px; background: #36c; color: white; 
+                                       border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                            🔑 Fazer Login
+                        </button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `<div class="loading" style="color: #d33;">❌ Erro: ${error.message}</div>`;
+            }
         }
     }
 
@@ -1680,6 +1720,12 @@
     }
 
     window.openSubcollection = async function(uid) {
+        // Verifica se está logado antes de abrir
+        if (!currentUser) {
+            showModal('Acesso negado', 'Você precisa estar logado para visualizar as páginas. Faça login com sua conta Google.');
+            return;
+        }
+        
         const articleView = document.getElementById('article-view');
         const listView = document.getElementById('list-view');
         const articleContent = document.getElementById('article-content');
@@ -1779,6 +1825,12 @@
     };
     
     window.openArticle = async function(collectionUid, articleId) {
+        // Verifica se está logado antes de abrir
+        if (!currentUser) {
+            showModal('Acesso negado', 'Você precisa estar logado para visualizar os artigos.');
+            return;
+        }
+        
         try {
             const articleRef = db.collection('documentos').doc(collectionUid).collection('inevitavel').doc(articleId);
             const article = await articleRef.get();
