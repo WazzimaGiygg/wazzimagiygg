@@ -132,7 +132,7 @@
         .user-name-small {
             font-size: 14px;
             color: #202122;
-            max-width: 120px;
+            max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -152,7 +152,7 @@
             position: absolute;
             top: calc(100% + 8px);
             right: 0;
-            width: 280px;
+            width: 300px;
             background: white;
             border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -199,10 +199,11 @@
             font-weight: 600;
             font-size: 14px;
             color: #202122;
+            word-break: break-all;
         }
 
         .dropdown-user-email {
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
             word-break: break-all;
         }
@@ -265,17 +266,6 @@
             font-size: 11px;
             color: #999;
             text-align: center;
-        }
-
-        .edit-limit-badge {
-            background-color: #f8f9fa;
-            border-radius: 20px;
-            padding: 4px 10px;
-            font-size: 11px;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            margin-top: 8px;
         }
 
         .temp-badge {
@@ -725,7 +715,6 @@
             margin: 10px 0;
         }
 
-        /* Estilos para conteúdo Wiki renderizado */
         .wiki-content-rendered {
             line-height: 1.6;
         }
@@ -762,6 +751,13 @@
             border: 1px solid #a2a9b1;
             padding: 8px 12px;
         }
+        
+        .guest-info {
+            font-size: 11px;
+            color: #28a745;
+            margin-top: 5px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -791,13 +787,10 @@
                 <div id="dropdown-not-logged" style="display: block;">
                     <button id="login-dropdown-btn" class="login-dropdown-btn">🔑 Entrar com Google</button>
                     <div style="text-align: center; color: #999; font-size: 12px; margin: 5px 0;">ou</div>
-                    <div class="temp-login-form">
-                        <input type="text" id="temp-username" placeholder="Digite um nome (acesso temporário)">
-                        <button id="temp-login-btn" class="temp-login-btn">🔄 Acesso Temporário (Leitura)</button>
-                    </div>
+                    <button id="guest-login-btn" class="temp-login-btn">🎭 Acesso Convidado (Leitura)</button>
+                    <div class="guest-info">🔒 Acesso temporário apenas para leitura</div>
                     <div class="dropdown-footer">
-                        Faça login para criar e editar páginas<br>
-                        <small>⚠️ Acesso temporário permite apenas leitura</small>
+                        Faça login com Google para criar e editar páginas
                     </div>
                 </div>
                 <div id="dropdown-logged" style="display: none;">
@@ -877,7 +870,7 @@
                     <p><strong>🔒 Tipos de Acesso:</strong></p>
                     <ul>
                         <li><strong>Login com Google:</strong> Acesso completo com capacidade de criar e editar páginas</li>
-                        <li><strong>Acesso Temporário:</strong> Permite apenas leitura das páginas</li>
+                        <li><strong>Acesso Convidado:</strong> Acesso anônimo gerado automaticamente, apenas leitura</li>
                     </ul>
                 </div>
                 <div id="user-uid-display" class="uid-display"></div>
@@ -918,7 +911,7 @@
                 <p>Ao utilizar a WikiZero, você concorda com estes Termos de Uso.</p>
                 <h2>Limitações</h2>
                 <ul>
-                    <li>Limite de 5 edições por dia por usuário</li>
+                    <li>Limite de 5 edições por dia por usuário autenticado</li>
                     <li>Conteúdo impróprio será removido</li>
                     <li>Respeito às leis de direitos autorais</li>
                 </ul>
@@ -1061,48 +1054,60 @@ function wikitextToHtml(wikitext) {
 }
 
 // ============================================
-// CONFIGURAÇÃO INICIAL
+// FUNÇÃO PARA GERAR UID DE CONVIDADO
 // ============================================
 
-let firebaseInitialized = false;
-let currentUser = null;
-let isTempUser = false;
-let allSubcollections = [];
-let db, auth;
-
-// ============================================
-// FUNÇÕES DE AUTENTICAÇÃO
-// ============================================
-
-function createTempUser(username) {
-    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
-    const expiry = Date.now() + (24 * 60 * 60 * 1000);
-    localStorage.setItem('wikizero_temp_expiry', expiry.toString());
-    return {
-        uid: tempId,
-        displayName: username,
-        email: `${username}@temp.wikizero.local`,
-        isTemp: true
-    };
+function generateGuestUID() {
+    // Gera string hexadecimal aleatória com até 60 caracteres (mantendo dentro de 127)
+    const hexLength = Math.floor(Math.random() * 40) + 20; // Entre 20 e 60 caracteres hex
+    let hex = '';
+    for (let i = 0; i < hexLength; i++) {
+        hex += Math.floor(Math.random() * 16).toString(16);
+    }
+    return 'convid_' + hex;
 }
 
-function getStoredTempUser() {
-    const expiry = localStorage.getItem('wikizero_temp_expiry');
+function createGuestUser() {
+    const guestUID = generateGuestUID();
+    const expiry = Date.now() + (24 * 60 * 60 * 1000); // 24 horas
+    
+    const guestUser = {
+        uid: guestUID,
+        displayName: 'Convidado',
+        email: `${guestUID}@guest.wikizero.local`,
+        isTemp: true,
+        isGuest: true
+    };
+    
+    localStorage.setItem('wikizero_guest_user', JSON.stringify(guestUser));
+    localStorage.setItem('wikizero_guest_expiry', expiry.toString());
+    
+    return guestUser;
+}
+
+function getStoredGuestUser() {
+    const expiry = localStorage.getItem('wikizero_guest_expiry');
     if (expiry && Date.now() < parseInt(expiry)) {
-        const stored = localStorage.getItem('wikizero_temp_user');
+        const stored = localStorage.getItem('wikizero_guest_user');
         if (stored) return JSON.parse(stored);
     }
     return null;
 }
 
-function saveTempUser(user) {
-    localStorage.setItem('wikizero_temp_user', JSON.stringify(user));
+function clearGuestUser() {
+    localStorage.removeItem('wikizero_guest_user');
+    localStorage.removeItem('wikizero_guest_expiry');
 }
 
-function clearTempUser() {
-    localStorage.removeItem('wikizero_temp_user');
-    localStorage.removeItem('wikizero_temp_expiry');
-}
+// ============================================
+// CONFIGURAÇÃO INICIAL
+// ============================================
+
+let firebaseInitialized = false;
+let currentUser = null;
+let isGuestUser = false;
+let allSubcollections = [];
+let db, auth;
 
 function initializeFirebase() {
     if (firebaseInitialized) return;
@@ -1130,19 +1135,19 @@ function setupAuthListener() {
     auth.onAuthStateChanged(user => {
         if (user) {
             currentUser = user;
-            isTempUser = false;
+            isGuestUser = false;
             updateAuthUI();
             loadSubcollections();
         } else {
-            const tempUser = getStoredTempUser();
-            if (tempUser) {
-                currentUser = tempUser;
-                isTempUser = true;
+            const guestUser = getStoredGuestUser();
+            if (guestUser) {
+                currentUser = guestUser;
+                isGuestUser = true;
                 updateAuthUI();
                 loadSubcollections();
             } else {
                 currentUser = null;
-                isTempUser = false;
+                isGuestUser = false;
                 updateAuthUI();
                 loadSubcollections();
             }
@@ -1163,19 +1168,27 @@ function updateAuthUI() {
         notLoggedDiv.style.display = 'none';
         loggedDiv.style.display = 'block';
         
-        const name = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuário');
+        let name = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuário');
+        if (isGuestUser) {
+            name = '👤 Convidado';
+        }
         const initial = name ? name[0].toUpperCase() : 'U';
         
         dropdownAvatarSmall.textContent = initial;
         dropdownUserName.textContent = name.length > 15 ? name.substring(0,12)+'...' : name;
-        dropdownFullName.innerHTML = name + (isTempUser ? ' <span class="temp-badge">Temporário</span>' : '');
-        dropdownEmail.textContent = isTempUser ? 'Modo leitura apenas' : (currentUser.email || 'sem email');
+        dropdownFullName.innerHTML = name + (isGuestUser ? ' <span class="temp-badge">Convidado</span>' : '');
+        
+        if (isGuestUser) {
+            dropdownEmail.textContent = '🔒 Modo convidado (somente leitura)';
+        } else {
+            dropdownEmail.textContent = currentUser.email || 'sem email';
+        }
         
         if (uidDisplay) {
-            if (isTempUser) {
-                uidDisplay.innerHTML = `<strong>Modo:</strong> Acesso Temporário (Somente leitura)<br><small>Faça login com Google para editar</small>`;
+            if (isGuestUser) {
+                uidDisplay.innerHTML = `<strong>🎭 Modo Convidado:</strong><br>UID: ${currentUser.uid}<br><small>🔒 Acesso apenas para leitura<br>⏰ Expira em 24 horas</small>`;
             } else {
-                uidDisplay.innerHTML = `<strong>Seu UID:</strong> ${currentUser.uid}<br><small>Identificador único na plataforma</small>`;
+                uidDisplay.innerHTML = `<strong>🔐 Usuário Autenticado:</strong><br>UID: ${currentUser.uid}<br><small>✅ Acesso completo (criar/editar páginas)</small>`;
             }
         }
     } else {
@@ -1183,7 +1196,7 @@ function updateAuthUI() {
         loggedDiv.style.display = 'none';
         dropdownAvatarSmall.textContent = '👤';
         dropdownUserName.textContent = 'Conta';
-        if (uidDisplay) uidDisplay.innerHTML = '<strong>Não autenticado</strong><br><small>Faça login para acessar</small>';
+        if (uidDisplay) uidDisplay.innerHTML = '<strong>⚠️ Não autenticado</strong><br><small>Faça login ou acesse como convidado</small>';
     }
 }
 
@@ -1195,7 +1208,7 @@ async function loadSubcollections() {
     const container = document.getElementById('subcollections-container');
     
     if (!currentUser) {
-        container.innerHTML = '<div class="loading">🔒 Faça login para visualizar as páginas</div>';
+        container.innerHTML = '<div class="loading">🔒 Faça login ou acesse como convidado para visualizar as páginas</div>';
         document.getElementById('total-count').textContent = '?';
         document.getElementById('total-articles').textContent = '?';
         return;
@@ -1309,12 +1322,12 @@ window.openSubcollection = async function(uid) {
                     `).join('')}
                 </div>
             `}
-            ${!isTempUser ? `
+            ${!isGuestUser ? `
                 <div style="margin-top: 30px; padding: 20px; background-color: #eaf3ff; border-radius: 8px; text-align: center;">
                     <p>✏️ Quer contribuir com esta página?</p>
                     <button onclick="openPainelInIframe('${uid}')" class="btn-abrir-painel">📝 Acessar Painel Administrativo</button>
                 </div>
-            ` : '<p style="margin-top:30px; text-align:center; color:#666;">🔒 Acesso temporário: faça login com Google para editar.</p>'}
+            ` : '<p style="margin-top:30px; text-align:center; color:#666;">🎭 Modo convidado: faça login com Google para editar.</p>'}
         `;
         
     } catch (error) {
@@ -1380,8 +1393,8 @@ function showListView() {
 }
 
 function showCreateView() {
-    if (isTempUser) { 
-        alert('Acesso temporário permite apenas leitura. Faça login com Google para criar páginas.');
+    if (isGuestUser) { 
+        alert('🎭 Modo convidado permite apenas leitura. Faça login com Google para criar páginas.');
         return;
     }
     document.querySelectorAll('.article-view').forEach(v => v.classList.remove('active'));
@@ -1414,7 +1427,7 @@ async function showMyDataView() {
     
     const container = document.getElementById('user-data-container');
     
-    if (currentUser && !isTempUser) {
+    if (currentUser && !isGuestUser) {
         container.innerHTML = `
             <div style="background:#e8f0fe; padding:15px; border-radius:8px; margin-bottom:20px;">
                 <h3>👤 Seus Dados</h3>
@@ -1425,14 +1438,16 @@ async function showMyDataView() {
             </div>
             <p><small>Para solicitar correção ou exclusão de dados, entre em contato com nosso DPO.</small></p>
         `;
+    } else if (isGuestUser) {
+        container.innerHTML = '<p>🎭 Você está no modo convidado. Seus dados não são salvos permanentemente. Faça login com Google para ter uma conta permanente.</p>';
     } else {
         container.innerHTML = '<p>🔒 Faça login com Google para visualizar seus dados pessoais.</p>';
     }
 }
 
 function openPainelInIframe(uid) {
-    if (isTempUser) {
-        alert('Acesso temporário não permite edição. Faça login com Google para acessar o painel.');
+    if (isGuestUser) {
+        alert('🎭 Modo convidado não permite edição. Faça login com Google para acessar o painel.');
         return;
     }
     const iframe = document.getElementById('painel-iframe');
@@ -1489,8 +1504,8 @@ window.closeDropdown = closeDropdown;
 document.getElementById('create-subcollection-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    if (isTempUser) {
-        alert('Acesso temporário permite apenas leitura. Faça login com Google para criar páginas.');
+    if (isGuestUser) {
+        alert('🎭 Modo convidado permite apenas leitura. Faça login com Google para criar páginas.');
         return;
     }
     
@@ -1566,33 +1581,36 @@ document.getElementById('random-btn')?.addEventListener('click', () => {
 });
 
 document.getElementById('login-dropdown-btn')?.addEventListener('click', () => {
-    clearTempUser();
+    clearGuestUser();
     auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     closeDropdown();
 });
 
-document.getElementById('temp-login-btn')?.addEventListener('click', () => {
-    const username = document.getElementById('temp-username').value.trim();
-    if (!username) {
-        alert('Digite um nome de usuário para acesso temporário.');
-        return;
-    }
-    
-    const tempUser = createTempUser(username);
-    saveTempUser(tempUser);
+document.getElementById('guest-login-btn')?.addEventListener('click', () => {
+    const guestUser = createGuestUser();
     
     if (auth.currentUser) {
         auth.signOut().then(() => {
-            setTimeout(() => location.reload(), 500);
+            setTimeout(() => {
+                currentUser = guestUser;
+                isGuestUser = true;
+                updateAuthUI();
+                loadSubcollections();
+                location.reload();
+            }, 500);
         });
     } else {
+        currentUser = guestUser;
+        isGuestUser = true;
+        updateAuthUI();
+        loadSubcollections();
         location.reload();
     }
     closeDropdown();
 });
 
 document.getElementById('logout-dropdown-btn')?.addEventListener('click', () => {
-    clearTempUser();
+    clearGuestUser();
     if (auth.currentUser) {
         auth.signOut();
     } else {
@@ -1609,7 +1627,7 @@ document.getElementById('dropdown-trigger')?.addEventListener('click', (e) => {
 document.addEventListener('click', () => closeDropdown());
 
 document.getElementById('export-data-btn')?.addEventListener('click', () => {
-    if (currentUser && !isTempUser) {
+    if (currentUser && !isGuestUser) {
         const data = {
             user: {
                 uid: currentUser.uid,
@@ -1627,12 +1645,18 @@ document.getElementById('export-data-btn')?.addEventListener('click', () => {
         a.click();
         URL.revokeObjectURL(url);
         alert('✅ Dados exportados com sucesso!');
+    } else if (isGuestUser) {
+        alert('🎭 Modo convidado: seus dados não são persistentes. Faça login com Google para ter uma conta permanente.');
     } else {
         alert('Faça login com Google para exportar seus dados.');
     }
 });
 
 document.getElementById('delete-data-btn')?.addEventListener('click', () => {
+    if (isGuestUser) {
+        alert('🎭 Modo convidado: sua sessão expira automaticamente em 24 horas. Faça login com Google para solicitar exclusão de conta.');
+        return;
+    }
     if (confirm('⚠️ Esta ação solicitará a exclusão da sua conta e de todos os seus dados pessoais.\n\nO processo pode levar até 30 dias.\n\nDeseja continuar?')) {
         alert('✅ Solicitação de exclusão enviada! Nossa equipe processará em até 30 dias úteis.\n\nPara mais informações, entre em contato com nosso DPO.');
     }
