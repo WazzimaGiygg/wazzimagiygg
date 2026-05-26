@@ -416,13 +416,25 @@
             padding: 2px 4px;
             border: 1px solid #c8ccd1;
         }
+        
+        .loading {
+            padding: 40px;
+            text-align: center;
+            color: #54595d;
+        }
+        
+        .error-message {
+            padding: 40px;
+            text-align: center;
+            color: #dd3333;
+        }
     </style>
 </head>
 <body>
 
 <div class="login-container" id="login-section">
     <div class="login-form">
-        <h2>Wikipédia</h2>
+        <h2>WikiZero</h2>
         <p style="color: #54595d;">A enciclopédia livre</p>
         <hr style="margin: 20px 0;">
         <button id="google-login-btn" class="google-btn">
@@ -439,6 +451,7 @@
                 <small>A enciclopédia livre</small>
             </div>
             <div class="user-controls">
+                <span id="user-email-info"></span>
                 <span id="uid-info"></span>
                 <button id="logout-button">Sair</button>
             </div>
@@ -471,7 +484,7 @@
             </div>
             
             <div id="artigos-list">
-                <div class="loading" style="padding: 40px; text-align: center;">Carregando artigos...</div>
+                <div class="loading">Carregando artigos...</div>
             </div>
 
             <div class="pagination-container" id="pagination-container" style="display: none;">
@@ -493,11 +506,11 @@
                     <h2 class="wiki-title">Editar artigo</h2>
                     <form id="form-edicao-artigo">
                         <div class="form-group">
-                            <label>Título</label>
+                            <label>Título *</label>
                             <input type="text" id="edit-titulo" required>
                         </div>
                         <div class="form-group">
-                            <label>Conteúdo (Wikitexto)</label>
+                            <label>Conteúdo (Wikitexto) *</label>
                             <div class="editor-toolbar">
                                 <button type="button" class="toolbar-button" data-action="format" data-target="edit-descricao" data-start="== " data-end=" ==">Título</button>
                                 <button type="button" class="toolbar-button" data-action="format" data-target="edit-descricao" data-start="=== " data-end=" ===">Subtítulo</button>
@@ -523,23 +536,25 @@
                     <h2 class="wiki-title">Criar novo artigo</h2>
                     <form id="form-novo-artigo">
                         <div class="form-group">
-                            <label>Título do artigo</label>
+                            <label>Título do artigo *</label>
                             <input type="text" id="new-titulo" required placeholder="Digite o título do artigo">
                         </div>
                         <div class="form-group">
-                            <label>Categoria</label>
+                            <label>Categoria *</label>
                             <input type="text" id="new-setor" required placeholder="Ex: Ciência, Tecnologia, História">
                         </div>
                         <div class="form-group">
-                            <label>Idioma</label>
+                            <label>Idioma *</label>
                             <select id="new-armario" required>
                                 <option value="Português">Português</option>
                                 <option value="Inglês">Inglês</option>
                                 <option value="Espanhol">Espanhol</option>
+                                <option value="Francês">Francês</option>
+                                <option value="Alemão">Alemão</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Conteúdo (Wikitexto)</label>
+                            <label>Conteúdo (Wikitexto) *</label>
                             <div class="editor-toolbar">
                                 <button type="button" class="toolbar-button" data-action="format" data-target="new-descricao" data-start="== " data-end=" ==">Título</button>
                                 <button type="button" class="toolbar-button" data-action="format" data-target="new-descricao" data-start="=== " data-end=" ===">Subtítulo</button>
@@ -662,11 +677,6 @@
         const uidParam = getUrlParameter('uid');
         const parentDocId = uidParam || 'padrao';
 
-        const uidInfoElement = document.getElementById('uid-info');
-        if (uidInfoElement) {
-            uidInfoElement.textContent = `Usuário: ${parentDocId.substring(0, 15)}...`;
-        }
-
         // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
@@ -682,28 +692,30 @@
         const auth = firebase.auth();
         const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-        const parentDocRef = db.collection('documentos').doc(parentDocId);
-        
-        async function getSubColecaoRef() {
-            try {
-                const parentDoc = await parentDocRef.get();
-                if (!parentDoc.exists) {
-                    await parentDocRef.set({
-                        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-                        criadoPor: auth.currentUser ? auth.currentUser.uid : 'sistema',
-                        status: 'ativo'
-                    });
-                }
-                return parentDocRef.collection('artigos');
-            } catch (error) {
-                console.error("Erro ao acessar subcoleção:", error);
-                throw error;
-            }
+        // Referência correta seguindo as regras do Firebase
+        // A estrutura é: documentos/{uid}/inevitavel/{artigoId}
+        function getParentDocRef(uid) {
+            return db.collection('documentos').doc(uid);
         }
         
-        async function operarNaSubColecao(operacao) {
-            const subColecao = await getSubColecaoRef();
-            return await operacao(subColecao);
+        function getArtigosSubCollection(uid) {
+            return getParentDocRef(uid).collection('inevitavel');
+        }
+
+        // Garantir que o documento pai existe
+        async function ensureParentDocExists(uid, user) {
+            const parentRef = getParentDocRef(uid);
+            const parentDoc = await parentRef.get();
+            if (!parentDoc.exists) {
+                await parentRef.set({
+                    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+                    criadoPor: user ? user.uid : 'sistema',
+                    status: 'ativo',
+                    uid: uid,
+                    nome: `Coleção ${uid}`
+                });
+            }
+            return parentRef;
         }
 
         // Elementos DOM
@@ -714,6 +726,8 @@
         const artigosBtn = document.getElementById('artigos-btn');
         const criarArtigoBtn = document.getElementById('criar-artigo-btn');
         const buscaAvancadaBtn = document.getElementById('busca-avancada-btn');
+        const userEmailInfo = document.getElementById('user-email-info');
+        const uidInfoElement = document.getElementById('uid-info');
 
         const artigosList = document.getElementById('artigos-list');
         const ordenarPorSelect = document.getElementById('ordenar-por');
@@ -765,7 +779,7 @@
             const artigosPagina = todosArtigos.slice(inicio, inicio + itensPorPagina);
             
             if (todosArtigos.length === 0) {
-                artigosList.innerHTML = '<div style="padding: 40px; text-align: center;">Nenhum artigo encontrado.</div>';
+                artigosList.innerHTML = '<div class="loading">Nenhum artigo encontrado.</div>';
                 document.getElementById('pagination-container').style.display = 'none';
                 contadorArtigos.textContent = '0 artigos';
                 return;
@@ -801,36 +815,42 @@
         }
 
         async function buscarArtigos() {
-            artigosList.innerHTML = '<div style="padding: 40px; text-align: center;">Carregando artigos...</div>';
+            if (!currentUser) return;
+            
+            artigosList.innerHTML = '<div class="loading">Carregando artigos...</div>';
             const ordenacao = ordenarPorSelect?.value || 'data-desc';
             
             try {
-                await operarNaSubColecao(async (subColecao) => {
-                    let query = subColecao;
-                    switch (ordenacao) {
-                        case 'data-desc': query = query.orderBy('ultimaEdicao', 'desc'); break;
-                        case 'data-asc': query = query.orderBy('ultimaEdicao', 'asc'); break;
-                        case 'titulo-asc': query = query.orderBy('titulo', 'asc'); break;
-                        case 'titulo-desc': query = query.orderBy('titulo', 'desc'); break;
-                        default: query = query.orderBy('ultimaEdicao', 'desc');
-                    }
-                    const querySnapshot = await query.limit(200).get();
-                    todosArtigos = [];
-                    querySnapshot.forEach(doc => {
-                        todosArtigos.push({ id: doc.id, data: doc.data() });
-                    });
-                    paginaAtual = 1;
-                    exibirPaginaAtual();
+                // Garantir que o documento pai existe
+                await ensureParentDocExists(parentDocId, currentUser);
+                
+                const artigosRef = getArtigosSubCollection(parentDocId);
+                let query = artigosRef;
+                
+                switch (ordenacao) {
+                    case 'data-desc': query = query.orderBy('ultimaEdicao', 'desc'); break;
+                    case 'data-asc': query = query.orderBy('ultimaEdicao', 'asc'); break;
+                    case 'titulo-asc': query = query.orderBy('titulo', 'asc'); break;
+                    case 'titulo-desc': query = query.orderBy('titulo', 'desc'); break;
+                    default: query = query.orderBy('ultimaEdicao', 'desc');
+                }
+                
+                const querySnapshot = await query.limit(200).get();
+                todosArtigos = [];
+                querySnapshot.forEach(doc => {
+                    todosArtigos.push({ id: doc.id, data: doc.data() });
                 });
+                paginaAtual = 1;
+                exibirPaginaAtual();
             } catch (error) {
                 console.error("Erro detalhado:", error);
                 let errorMsg = "Erro ao carregar artigos. ";
                 if (error.code === 'permission-denied') {
-                    errorMsg += "Permissão negada. Verifique as regras de segurança do Firebase no Firestore.";
+                    errorMsg += "Permissão negada. Verifique se você está logado corretamente.";
                 } else {
                     errorMsg += error.message;
                 }
-                artigosList.innerHTML = `<div style="padding: 40px; text-align: center; color: #dd3333;">${errorMsg}</div>`;
+                artigosList.innerHTML = `<div class="error-message">${errorMsg}</div>`;
                 showMessage(errorMsg, true);
             }
         }
@@ -838,6 +858,7 @@
         function criarArtigoComFormatacao(titulo, setor, conteudo, user) {
             let conteudoFinal = conteudo;
             
+            // Adiciona estrutura básica se não existir
             if (!conteudo.includes('==')) {
                 conteudoFinal = `== Introdução ==\n\n${conteudo}\n\n== Ver também ==\n\n* [[Página principal]]\n\n== Referências ==\n\n== Ligações externas ==`;
             }
@@ -911,18 +932,17 @@
             if (!user) return showMessage('Faça login para editar', true);
             
             try {
-                await operarNaSubColecao(async (subColecao) => {
-                    await subColecao.doc(docId).update({
-                        titulo: document.getElementById('edit-titulo').value,
-                        descricao: document.getElementById('edit-descricao').value,
-                        ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp(),
-                        ultimoEditorId: user.uid,
-                        ultimoEditorEmail: user.email
-                    });
+                const artigosRef = getArtigosSubCollection(parentDocId);
+                await artigosRef.doc(docId).update({
+                    titulo: document.getElementById('edit-titulo').value,
+                    descricao: document.getElementById('edit-descricao').value,
+                    ultimaEdicao: firebase.firestore.FieldValue.serverTimestamp(),
+                    ultimoEditorId: user.uid,
+                    ultimoEditorEmail: user.email
                 });
                 showMessage('Artigo editado com sucesso!');
                 buscarArtigos();
-                const doc = await (await getSubColecaoRef()).doc(docId).get();
+                const doc = await artigosRef.doc(docId).get();
                 if (doc.exists) carregarDetalhesArtigo(doc.id, doc.data());
             } catch (error) {
                 showMessage('Erro: ' + error.message, true);
@@ -934,23 +954,29 @@
             const user = auth.currentUser;
             if (!user) return showMessage('Faça login para criar', true);
             
+            const titulo = document.getElementById('new-titulo').value;
+            if (!titulo || titulo.trim() === '') {
+                showMessage('O título é obrigatório', true);
+                return;
+            }
+            
             try {
                 const novoArtigo = criarArtigoComFormatacao(
-                    document.getElementById('new-titulo').value,
+                    titulo,
                     document.getElementById('new-setor').value,
                     document.getElementById('new-descricao').value,
                     user
                 );
                 
-                await operarNaSubColecao(async (subColecao) => {
-                    await subColecao.add(novoArtigo);
-                });
+                const artigosRef = getArtigosSubCollection(parentDocId);
+                await artigosRef.add(novoArtigo);
                 showMessage('Artigo criado com sucesso!');
                 formNovoArtigo.reset();
                 exibirPainel('detalhes-artigo');
                 buscarArtigos();
             } catch (error) {
-                showMessage('Erro: ' + error.message, true);
+                console.error('Erro ao criar artigo:', error);
+                showMessage('Erro ao criar artigo: ' + error.message, true);
             }
         });
 
@@ -960,45 +986,45 @@
             const setorBusca = document.getElementById('busca-setor')?.value.toLowerCase().trim() || '';
             
             const resultadosDiv = document.getElementById('resultados-busca');
-            resultadosDiv.innerHTML = '<div style="padding: 20px; text-align: center;">Buscando...</div>';
+            resultadosDiv.innerHTML = '<div class="loading">Buscando...</div>';
             
             try {
-                await operarNaSubColecao(async (subColecao) => {
-                    const snapshot = await subColecao.get();
-                    const resultados = [];
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        let match = true;
-                        if (tituloBusca && !(data.titulo?.toLowerCase().includes(tituloBusca))) match = false;
-                        if (conteudoBusca && !(data.descricao?.toLowerCase().includes(conteudoBusca))) match = false;
-                        if (setorBusca && !(data.setor?.toLowerCase().includes(setorBusca))) match = false;
-                        if (match) resultados.push({ id: doc.id, data: data });
-                    });
-                    
-                    if (resultados.length === 0) {
-                        resultadosDiv.innerHTML = '<p style="padding: 20px; text-align: center;">Nenhum resultado encontrado</p>';
-                    } else {
-                        resultadosDiv.innerHTML = `
-                            <h3>Resultados (${resultados.length})</h3>
-                            ${resultados.map(r => `
-                                <div class="artigo-item" data-id="${r.id}" data-data='${JSON.stringify(r.data).replace(/'/g, "\\'")}'>
-                                    <h3>${escapeHtml(r.data.titulo || 'Sem título')}</h3>
-                                    <p>Categoria: ${escapeHtml(r.data.setor || 'Sem categoria')}</p>
-                                </div>
-                            `).join('')}
-                        `;
-                        
-                        document.querySelectorAll('#resultados-busca .artigo-item').forEach(item => {
-                            item.addEventListener('click', () => {
-                                const id = item.getAttribute('data-id');
-                                const data = JSON.parse(item.getAttribute('data-data'));
-                                carregarDetalhesArtigo(id, data);
-                            });
-                        });
-                    }
+                const artigosRef = getArtigosSubCollection(parentDocId);
+                const snapshot = await artigosRef.get();
+                const resultados = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    let match = true;
+                    if (tituloBusca && !(data.titulo?.toLowerCase().includes(tituloBusca))) match = false;
+                    if (conteudoBusca && !(data.descricao?.toLowerCase().includes(conteudoBusca))) match = false;
+                    if (setorBusca && !(data.setor?.toLowerCase().includes(setorBusca))) match = false;
+                    if (match) resultados.push({ id: doc.id, data: data });
                 });
+                
+                if (resultados.length === 0) {
+                    resultadosDiv.innerHTML = '<p style="padding: 20px; text-align: center;">Nenhum resultado encontrado</p>';
+                } else {
+                    resultadosDiv.innerHTML = `
+                        <h3>Resultados (${resultados.length})</h3>
+                        ${resultados.map(r => `
+                            <div class="artigo-item" data-id="${r.id}" data-data='${JSON.stringify(r.data).replace(/'/g, "\\'")}'>
+                                <h3>${escapeHtml(r.data.titulo || 'Sem título')}</h3>
+                                <p>Categoria: ${escapeHtml(r.data.setor || 'Sem categoria')}</p>
+                            </div>
+                        `).join('')}
+                    `;
+                    
+                    document.querySelectorAll('#resultados-busca .artigo-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            const id = item.getAttribute('data-id');
+                            const data = JSON.parse(item.getAttribute('data-data'));
+                            carregarDetalhesArtigo(id, data);
+                            exibirPainel('detalhes-artigo');
+                        });
+                    });
+                }
             } catch (error) {
-                resultadosDiv.innerHTML = '<p style="color:#dd3333;">Erro na busca</p>';
+                resultadosDiv.innerHTML = '<p class="error-message">Erro na busca</p>';
                 showMessage('Erro na busca: ' + error.message, true);
             }
         }
@@ -1019,9 +1045,8 @@
         async function removerArtigo(id) {
             if (confirm('Tem certeza que deseja remover este artigo? Esta ação é irreversível!')) {
                 try {
-                    await operarNaSubColecao(async (subColecao) => {
-                        await subColecao.doc(id).delete();
-                    });
+                    const artigosRef = getArtigosSubCollection(parentDocId);
+                    await artigosRef.doc(id).delete();
                     showMessage('Artigo removido com sucesso!');
                     buscarArtigos();
                     exibirPainel('detalhes-artigo');
@@ -1036,8 +1061,24 @@
         auth.onAuthStateChanged(async (user) => {
             currentUser = user;
             if (user) {
+                // Atualizar informações do usuário
+                if (userEmailInfo) {
+                    userEmailInfo.textContent = user.email || user.displayName || 'Usuário';
+                }
+                if (uidInfoElement) {
+                    uidInfoElement.textContent = `📌 ID: ${user.uid.substring(0, 15)}...`;
+                }
+                
                 loginSection.style.display = 'none';
                 loggedInContainer.style.display = 'block';
+                
+                // Garantir que o documento pai existe
+                try {
+                    await ensureParentDocExists(parentDocId, user);
+                } catch (error) {
+                    console.warn('Erro ao garantir documento pai:', error);
+                }
+                
                 exibirPainel('detalhes-artigo');
                 buscarArtigos();
             } else {
