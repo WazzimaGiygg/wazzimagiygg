@@ -26,7 +26,6 @@
             display: block;
         }
 
-        /* Header */
         .header {
             background: white;
             border-radius: 12px;
@@ -72,7 +71,6 @@
             margin-top: 5px;
         }
 
-        /* Filtros */
         .filters {
             background: white;
             border-radius: 12px;
@@ -121,7 +119,6 @@
             background: #5a67d8;
         }
 
-        /* Tabela */
         .table-container {
             background: white;
             border-radius: 12px;
@@ -219,7 +216,6 @@
             background: #138496;
         }
 
-        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -283,14 +279,12 @@
             color: #667eea;
         }
 
-        /* Loading */
         .loading {
             text-align: center;
             padding: 40px;
             color: #666;
         }
 
-        /* Alertas */
         .alert {
             padding: 12px 20px;
             border-radius: 8px;
@@ -328,7 +322,6 @@
             border: 1px solid #bee5eb;
         }
 
-        /* Login required */
         .login-required {
             text-align: center;
             padding: 60px 20px;
@@ -358,7 +351,6 @@
             background: #5a67d8;
         }
 
-        /* Bulk actions */
         .bulk-actions {
             background: white;
             padding: 15px 20px;
@@ -377,7 +369,14 @@
             margin-right: 10px;
         }
 
-        /* Responsive */
+        .admin-info {
+            background: #e8f0fe;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #667eea;
+        }
+
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -397,9 +396,7 @@
     </style>
 </head>
 <body>
-    <div id="main-container">
-        <!-- Container principal que será mostrado após login -->
-    </div>
+    <div id="main-container"></div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -424,19 +421,33 @@
         let allRequests = [];
         let currentRequestId = null;
 
-        // ADMINISTRADORES AUTORIZADOS
+        // ============================================
+        // ⚠️ CONFIGURAÇÃO DE ADMINISTRADORES ⚠️
+        // ============================================
+        // ADICIONE SEU EMAIL AQUI PARA TER ACESSO:
         const ADMIN_EMAILS = [
-            'wazzimagiygg@gmail.com'
-            // Adicione mais emails conforme necessário
+            'wazzimagiygg@gmail.com',
+            // ⬇⬇⬑ COLE SEU EMAIL AQUI ⬇⬇⬇
+            'seu-email-aqui@gmail.com',  // SUBSTITUA pelo seu email do Google
+            // Adicione mais administradores se necessário
         ];
+        
+        // Se quiser permitir qualquer email (apenas para teste), mude para true
+        const ALLOW_ANY_EMAIL = false;  // Mude para true APENAS para teste!
+        
+        // Função para verificar se é admin
+        function isAdmin(email) {
+            if (!email) return false;
+            if (ALLOW_ANY_EMAIL) return true;
+            return ADMIN_EMAILS.includes(email.toLowerCase());
+        }
+        // ============================================
 
-        // Função para mostrar alertas (corrigida)
+        // Função para mostrar alertas
         function showAlert(message, type) {
-            // Procura ou cria o container de alertas
             let alertContainer = document.getElementById('alert-container');
             
             if (!alertContainer) {
-                // Se o container não existe, procura em outro lugar ou cria
                 const filtersDiv = document.querySelector('.filters');
                 if (filtersDiv) {
                     alertContainer = document.createElement('div');
@@ -467,10 +478,15 @@
             container.innerHTML = `
                 <div class="container">
                     <div class="header">
-                        <h1>
-                            📋 Painel Administrativo
-                            <span style="font-size: 14px; color: #666;">Pedidos de Exclusão - LGPD</span>
-                        </h1>
+                        <div>
+                            <h1>
+                                📋 Painel Administrativo
+                                <span style="font-size: 14px; color: #666;">Pedidos de Exclusão - LGPD</span>
+                            </h1>
+                            <div class="admin-info" style="margin-top: 10px;">
+                                ✅ Logado como: <strong>${currentAdminUser?.email}</strong>
+                            </div>
+                        </div>
                         <div class="stats" id="stats">
                             <div class="stat-card">
                                 <div class="stat-number" id="total-pending">0</div>
@@ -513,6 +529,7 @@
                             <input type="date" id="date-end">
                         </div>
                         <button class="btn-refresh" onclick="window.loadDeletionRequests()">🔄 Atualizar</button>
+                        <button class="btn-refresh" onclick="window.signOut()" style="background: #dc3545;">🚪 Sair</button>
                     </div>
 
                     <div class="bulk-actions" id="bulk-actions">
@@ -543,7 +560,6 @@
                     </div>
                 </div>
 
-                <!-- Modal de Detalhes -->
                 <div id="detail-modal" class="modal">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -559,7 +575,6 @@
                     </div>
                 </div>
 
-                <!-- Modal de Confirmação -->
                 <div id="confirm-modal" class="modal">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -575,7 +590,6 @@
                 </div>
             `;
             
-            // Adicionar event listeners após renderizar
             document.getElementById('filter-status')?.addEventListener('change', () => window.applyFilters());
             document.getElementById('search-input')?.addEventListener('input', () => window.applyFilters());
             document.getElementById('date-start')?.addEventListener('change', () => window.applyFilters());
@@ -589,6 +603,9 @@
                 <div class="login-required">
                     <h2>🔐 Área Restrita</h2>
                     <p>Faça login com uma conta de administrador para acessar este painel.</p>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        Emails autorizados: ${ADMIN_EMAILS.join(', ')}
+                    </p>
                     <button class="login-btn" onclick="window.signIn()">🔑 Login com Google</button>
                 </div>
             `;
@@ -601,7 +618,14 @@
                 <div class="login-required">
                     <h2>⛔ Acesso Restrito</h2>
                     <p>Você não tem permissão para acessar esta área administrativa.</p>
-                    <button class="login-btn" onclick="window.location.href='/'">Voltar para WikiZero</button>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        Seu email: <strong>${currentAdminUser?.email || 'Não autenticado'}</strong>
+                    </p>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        Emails autorizados: ${ADMIN_EMAILS.join(', ')}
+                    </p>
+                    <button class="login-btn" onclick="window.signOut()">🚪 Sair e tentar outra conta</button>
+                    <button class="login-btn" onclick="window.location.href='/'" style="background: #6c757d;">Voltar para WikiZero</button>
                 </div>
             `;
         }
@@ -637,7 +661,6 @@
             }
         };
 
-        // Aplicar filtros
         window.applyFilters = function() {
             const statusFilter = document.getElementById('filter-status')?.value || 'all';
             const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
@@ -672,7 +695,6 @@
             window.displayRequests(filtered);
         };
 
-        // Exibir pedidos na tabela
         window.displayRequests = function(requests) {
             const tbody = document.getElementById('table-body');
             if (!tbody) return;
@@ -705,7 +727,6 @@
             `).join('');
         };
 
-        // Ver detalhes do pedido
         window.viewDetails = async function(requestId) {
             const request = allRequests.find(r => r.id === requestId);
             if (!request) return;
@@ -750,7 +771,6 @@
             document.getElementById('detail-modal').style.display = 'flex';
         };
 
-        // Processar exclusão
         window.processRequest = async function(requestId, bulk = false) {
             const request = allRequests.find(r => r.id === requestId);
             if (!request) return;
@@ -769,14 +789,12 @@
                     try {
                         showAlert('🔄 Processando exclusão...', 'info');
                         
-                        // Buscar todos os dados do usuário
                         const userPages = await db.collection('documentos')
                             .where('criadoPor', '==', request.userId)
                             .get();
                         
                         let deletedCount = 0;
                         
-                        // Excluir páginas e seus artigos
                         for (const doc of userPages.docs) {
                             const articles = await doc.ref.collection('inevitavel').get();
                             for (const article of articles.docs) {
@@ -787,7 +805,6 @@
                             deletedCount++;
                         }
                         
-                        // Excluir histórico de edições
                         const edits = await db.collection('user_edits')
                             .where('userId', '==', request.userId)
                             .get();
@@ -797,7 +814,6 @@
                             deletedCount++;
                         }
                         
-                        // Excluir logs de consentimento
                         const consents = await db.collection('consent_logs')
                             .where('userId', '==', request.userId)
                             .get();
@@ -807,7 +823,6 @@
                             deletedCount++;
                         }
                         
-                        // Atualizar status do pedido
                         await db.collection('deletion_requests').doc(requestId).update({
                             status: 'completed',
                             processedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -829,11 +844,10 @@
             );
         };
 
-        // Rejeitar pedido
         window.rejectRequest = async function(requestId, bulk = false) {
             window.showConfirmModal(
                 '❌ Rejeitar Pedido',
-                '<p>Tem certeza que deseja rejeitar este pedido de exclusão?</p><p>O usuário será notificado que o pedido foi recusado.</p>',
+                '<p>Tem certeza que deseja rejeitar este pedido de exclusão?</p>',
                 async () => {
                     try {
                         await db.collection('deletion_requests').doc(requestId).update({
@@ -856,7 +870,6 @@
             );
         };
 
-        // Ações em lote
         window.bulkProcess = async function() {
             const selected = window.getSelectedRequests();
             if (selected.length === 0) {
@@ -932,7 +945,6 @@
             window.updateSelectedCount();
         };
         
-        // Atualizar estatísticas
         window.updateStats = function() {
             const pending = allRequests.filter(r => r.status === 'pending').length;
             const processing = allRequests.filter(r => r.status === 'processing').length;
@@ -947,7 +959,6 @@
             if (completedEl) completedEl.textContent = completed;
         };
         
-        // Funções auxiliares
         window.formatDate = function(date) {
             if (!date) return 'N/A';
             return date.toLocaleString('pt-BR');
@@ -980,10 +991,8 @@
             document.getElementById('confirm-modal').style.display = 'flex';
             
             const confirmBtn = document.getElementById('confirm-yes');
-            const oldClick = confirmBtn.onclick;
             confirmBtn.onclick = () => {
                 onConfirm();
-                confirmBtn.onclick = oldClick;
             };
         };
         
@@ -1006,14 +1015,21 @@
         window.signIn = function() {
             auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
         };
+        
+        window.signOut = function() {
+            auth.signOut().then(() => {
+                location.reload();
+            });
+        };
 
         // Verificar autenticação
         auth.onAuthStateChanged(async (user) => {
-            if (user && ADMIN_EMAILS.includes(user.email)) {
+            if (user && isAdmin(user.email)) {
                 currentAdminUser = user;
                 renderAdminPanel();
                 await window.loadDeletionRequests();
             } else if (user) {
+                currentAdminUser = user;
                 renderAccessDenied();
             } else {
                 renderLoginScreen();
