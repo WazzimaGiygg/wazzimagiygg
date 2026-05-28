@@ -23,6 +23,7 @@
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            display: block;
         }
 
         /* Header */
@@ -294,7 +295,19 @@
             padding: 12px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
-            display: none;
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
 
         .alert-success {
@@ -321,6 +334,8 @@
             padding: 60px 20px;
             background: white;
             border-radius: 12px;
+            max-width: 500px;
+            margin: 100px auto;
         }
 
         .login-required h2 {
@@ -336,6 +351,11 @@
             border-radius: 8px;
             font-size: 16px;
             cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .login-btn:hover {
+            background: #5a67d8;
         }
 
         /* Bulk actions */
@@ -344,10 +364,9 @@
             padding: 15px 20px;
             margin-bottom: 20px;
             border-radius: 12px;
-            display: flex;
+            display: none;
             gap: 10px;
             align-items: center;
-            display: none;
         }
 
         .bulk-actions.show {
@@ -378,119 +397,8 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>
-                📋 Painel Administrativo
-                <span style="font-size: 14px; color: #666;">Pedidos de Exclusão - LGPD</span>
-            </h1>
-            <div class="stats" id="stats">
-                <div class="stat-card">
-                    <div class="stat-number" id="total-pending">0</div>
-                    <div class="stat-label">Pendentes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="total-processing">0</div>
-                    <div class="stat-label">Processando</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="total-completed">0</div>
-                    <div class="stat-label">Concluídos</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="alert-container"></div>
-
-        <div class="filters">
-            <div class="filter-group">
-                <label>📊 Status</label>
-                <select id="filter-status">
-                    <option value="all">Todos</option>
-                    <option value="pending">⏳ Pendentes</option>
-                    <option value="processing">🔄 Processando</option>
-                    <option value="completed">✅ Concluídos</option>
-                    <option value="rejected">❌ Rejeitados</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>🔍 Buscar por Email/UID</label>
-                <input type="text" id="search-input" placeholder="Digite email ou UID...">
-            </div>
-            <div class="filter-group">
-                <label>📅 Data inicial</label>
-                <input type="date" id="date-start">
-            </div>
-            <div class="filter-group">
-                <label>📅 Data final</label>
-                <input type="date" id="date-end">
-            </div>
-            <button class="btn-refresh" onclick="loadDeletionRequests()">🔄 Atualizar</button>
-        </div>
-
-        <div class="bulk-actions" id="bulk-actions">
-            <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
-            <label for="select-all" class="select-all">Selecionar todos</label>
-            <button class="btn-action btn-process" onclick="bulkProcess()">✅ Processar Selecionados</button>
-            <button class="btn-action btn-reject" onclick="bulkReject()">❌ Rejeitar Selecionados</button>
-            <span id="selected-count" style="margin-left: auto; font-size: 12px; color: #666;">0 selecionados</span>
-        </div>
-
-        <div class="table-container">
-            <table id="requests-table">
-                <thead>
-                    <tr>
-                        <th style="width: 30px;"><input type="checkbox" id="header-checkbox" onchange="toggleSelectAllFromHeader()"></th>
-                        <th>Usuário</th>
-                        <th>Email</th>
-                        <th>UID</th>
-                        <th>Data do Pedido</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body">
-                    <tr>
-                        <td colspan="7" class="loading">Carregando pedidos...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Modal de Detalhes -->
-    <div id="detail-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>📄 Detalhes do Pedido de Exclusão</h3>
-                <span class="close-modal" onclick="closeModal()">&times;</span>
-            </div>
-            <div class="modal-body" id="modal-body">
-                <!-- Conteúdo dinâmico -->
-            </div>
-            <div class="modal-footer">
-                <button class="btn-action btn-process" id="modal-process-btn" onclick="processFromModal()">✅ Processar Exclusão</button>
-                <button class="btn-action btn-reject" id="modal-reject-btn" onclick="rejectFromModal()">❌ Rejeitar</button>
-                <button class="btn-action" onclick="closeModal()" style="background: #6c757d;">Fechar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Confirmação -->
-    <div id="confirm-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="confirm-title">Confirmar ação</h3>
-                <span class="close-modal" onclick="closeConfirmModal()">&times;</span>
-            </div>
-            <div class="modal-body" id="confirm-body">
-                <!-- Conteúdo dinâmico -->
-            </div>
-            <div class="modal-footer">
-                <button class="btn-action" id="confirm-yes" style="background: #28a745;">Sim, confirmar</button>
-                <button class="btn-action" onclick="closeConfirmModal()" style="background: #6c757d;">Cancelar</button>
-            </div>
-        </div>
+    <div id="main-container">
+        <!-- Container principal que será mostrado após login -->
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -498,7 +406,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
     <script>
-        // Configuração do Firebase (mesma da sua aplicação)
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -516,48 +424,193 @@
         let allRequests = [];
         let currentRequestId = null;
 
-        // ADMINISTRADORES AUTORIZADOS (adicione os emails dos admins aqui)
+        // ADMINISTRADORES AUTORIZADOS
         const ADMIN_EMAILS = [
-            'wazzimagiygg@gmail.com',
-            'seu-email-admin@gmail.com'  // Adicione mais emails conforme necessário
+            'wazzimagiygg@gmail.com'
+            // Adicione mais emails conforme necessário
         ];
 
-        // Verificar autenticação
-        auth.onAuthStateChanged(async (user) => {
-            if (user && ADMIN_EMAILS.includes(user.email)) {
-                currentAdminUser = user;
-                document.getElementById('admin-login').style.display = 'none';
-                document.querySelector('.container').style.display = 'block';
-                await loadDeletionRequests();
-            } else if (user) {
-                showAlert('❌ Acesso negado! Você não é administrador.', 'error');
-                document.querySelector('.container').style.display = 'none';
-                document.body.innerHTML = `
-                    <div class="login-required">
-                        <h2>⛔ Acesso Restrito</h2>
-                        <p>Você não tem permissão para acessar esta área administrativa.</p>
-                        <button onclick="window.location.href='/'">Voltar para WikiZero</button>
-                    </div>
-                `;
-            } else {
-                document.querySelector('.container').style.display = 'none';
-                document.body.innerHTML = `
-                    <div class="login-required">
-                        <h2>🔐 Área Restrita</h2>
-                        <p>Faça login com uma conta de administrador para acessar este painel.</p>
-                        <button class="login-btn" onclick="signIn()">🔑 Login com Google</button>
-                    </div>
-                `;
+        // Função para mostrar alertas (corrigida)
+        function showAlert(message, type) {
+            // Procura ou cria o container de alertas
+            let alertContainer = document.getElementById('alert-container');
+            
+            if (!alertContainer) {
+                // Se o container não existe, procura em outro lugar ou cria
+                const filtersDiv = document.querySelector('.filters');
+                if (filtersDiv) {
+                    alertContainer = document.createElement('div');
+                    alertContainer.id = 'alert-container';
+                    filtersDiv.parentNode.insertBefore(alertContainer, filtersDiv);
+                } else {
+                    console.error('Container de alertas não encontrado');
+                    return;
+                }
             }
-        });
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = message;
+            
+            alertContainer.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv && alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
 
-        function signIn() {
-            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        // Renderizar o painel administrativo
+        function renderAdminPanel() {
+            const container = document.getElementById('main-container');
+            container.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1>
+                            📋 Painel Administrativo
+                            <span style="font-size: 14px; color: #666;">Pedidos de Exclusão - LGPD</span>
+                        </h1>
+                        <div class="stats" id="stats">
+                            <div class="stat-card">
+                                <div class="stat-number" id="total-pending">0</div>
+                                <div class="stat-label">Pendentes</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="total-processing">0</div>
+                                <div class="stat-label">Processando</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="total-completed">0</div>
+                                <div class="stat-label">Concluídos</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="alert-container"></div>
+
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label>📊 Status</label>
+                            <select id="filter-status">
+                                <option value="all">Todos</option>
+                                <option value="pending">⏳ Pendentes</option>
+                                <option value="processing">🔄 Processando</option>
+                                <option value="completed">✅ Concluídos</option>
+                                <option value="rejected">❌ Rejeitados</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>🔍 Buscar por Email/UID</label>
+                            <input type="text" id="search-input" placeholder="Digite email ou UID...">
+                        </div>
+                        <div class="filter-group">
+                            <label>📅 Data inicial</label>
+                            <input type="date" id="date-start">
+                        </div>
+                        <div class="filter-group">
+                            <label>📅 Data final</label>
+                            <input type="date" id="date-end">
+                        </div>
+                        <button class="btn-refresh" onclick="window.loadDeletionRequests()">🔄 Atualizar</button>
+                    </div>
+
+                    <div class="bulk-actions" id="bulk-actions">
+                        <input type="checkbox" id="select-all" onchange="window.toggleSelectAll()">
+                        <label for="select-all" class="select-all">Selecionar todos</label>
+                        <button class="btn-action btn-process" onclick="window.bulkProcess()">✅ Processar Selecionados</button>
+                        <button class="btn-action btn-reject" onclick="window.bulkReject()">❌ Rejeitar Selecionados</button>
+                        <span id="selected-count" style="margin-left: auto; font-size: 12px; color: #666;">0 selecionados</span>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="requests-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30px;"><input type="checkbox" id="header-checkbox" onchange="window.toggleSelectAllFromHeader()"></th>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th>UID</th>
+                                    <th>Data do Pedido</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <tr><td colspan="7" class="loading">📚 Carregando pedidos...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Modal de Detalhes -->
+                <div id="detail-modal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>📄 Detalhes do Pedido de Exclusão</h3>
+                            <span class="close-modal" onclick="window.closeModal()">&times;</span>
+                        </div>
+                        <div class="modal-body" id="modal-body"></div>
+                        <div class="modal-footer">
+                            <button class="btn-action btn-process" id="modal-process-btn" onclick="window.processFromModal()">✅ Processar Exclusão</button>
+                            <button class="btn-action btn-reject" id="modal-reject-btn" onclick="window.rejectFromModal()">❌ Rejeitar</button>
+                            <button class="btn-action" onclick="window.closeModal()" style="background: #6c757d;">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal de Confirmação -->
+                <div id="confirm-modal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="confirm-title">Confirmar ação</h3>
+                            <span class="close-modal" onclick="window.closeConfirmModal()">&times;</span>
+                        </div>
+                        <div class="modal-body" id="confirm-body"></div>
+                        <div class="modal-footer">
+                            <button class="btn-action" id="confirm-yes" style="background: #28a745;">Sim, confirmar</button>
+                            <button class="btn-action" onclick="window.closeConfirmModal()" style="background: #6c757d;">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Adicionar event listeners após renderizar
+            document.getElementById('filter-status')?.addEventListener('change', () => window.applyFilters());
+            document.getElementById('search-input')?.addEventListener('input', () => window.applyFilters());
+            document.getElementById('date-start')?.addEventListener('change', () => window.applyFilters());
+            document.getElementById('date-end')?.addEventListener('change', () => window.applyFilters());
+        }
+
+        // Renderizar tela de login
+        function renderLoginScreen() {
+            const container = document.getElementById('main-container');
+            container.innerHTML = `
+                <div class="login-required">
+                    <h2>🔐 Área Restrita</h2>
+                    <p>Faça login com uma conta de administrador para acessar este painel.</p>
+                    <button class="login-btn" onclick="window.signIn()">🔑 Login com Google</button>
+                </div>
+            `;
+        }
+
+        // Renderizar acesso negado
+        function renderAccessDenied() {
+            const container = document.getElementById('main-container');
+            container.innerHTML = `
+                <div class="login-required">
+                    <h2>⛔ Acesso Restrito</h2>
+                    <p>Você não tem permissão para acessar esta área administrativa.</p>
+                    <button class="login-btn" onclick="window.location.href='/'">Voltar para WikiZero</button>
+                </div>
+            `;
         }
 
         // Carregar pedidos de exclusão
-        async function loadDeletionRequests() {
+        window.loadDeletionRequests = async function() {
             const tbody = document.getElementById('table-body');
+            if (!tbody) return;
+            
             tbody.innerHTML = '<tr><td colspan="7" class="loading">📚 Carregando pedidos...</td></tr>';
             
             try {
@@ -575,30 +628,28 @@
                     });
                 });
                 
-                applyFilters();
-                updateStats();
+                window.applyFilters();
+                window.updateStats();
                 
             } catch (error) {
                 console.error('Erro:', error);
                 tbody.innerHTML = `<tr><td colspan="7" class="loading" style="color:#d33;">❌ Erro: ${error.message}</td></tr>`;
             }
-        }
+        };
 
         // Aplicar filtros
-        function applyFilters() {
-            const statusFilter = document.getElementById('filter-status').value;
-            const searchTerm = document.getElementById('search-input').value.toLowerCase();
-            const dateStart = document.getElementById('date-start').value;
-            const dateEnd = document.getElementById('date-end').value;
+        window.applyFilters = function() {
+            const statusFilter = document.getElementById('filter-status')?.value || 'all';
+            const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
+            const dateStart = document.getElementById('date-start')?.value || '';
+            const dateEnd = document.getElementById('date-end')?.value || '';
             
             let filtered = [...allRequests];
             
-            // Filtro de status
             if (statusFilter !== 'all') {
                 filtered = filtered.filter(r => r.status === statusFilter);
             }
             
-            // Filtro de busca
             if (searchTerm) {
                 filtered = filtered.filter(r => 
                     r.userEmail?.toLowerCase().includes(searchTerm) ||
@@ -607,7 +658,6 @@
                 );
             }
             
-            // Filtro de data
             if (dateStart) {
                 const start = new Date(dateStart);
                 filtered = filtered.filter(r => r.requestDate >= start);
@@ -619,12 +669,13 @@
                 filtered = filtered.filter(r => r.requestDate <= end);
             }
             
-            displayRequests(filtered);
-        }
+            window.displayRequests(filtered);
+        };
 
         // Exibir pedidos na tabela
-        function displayRequests(requests) {
+        window.displayRequests = function(requests) {
             const tbody = document.getElementById('table-body');
+            if (!tbody) return;
             
             if (requests.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" class="loading">📭 Nenhum pedido encontrado</td></tr>';
@@ -633,42 +684,44 @@
             
             tbody.innerHTML = requests.map(req => `
                 <tr>
-                    <td><input type="checkbox" class="request-checkbox" data-id="${req.id}" onchange="updateSelectedCount()"></td>
+                    <td><input type="checkbox" class="request-checkbox" data-id="${req.id}" onchange="window.updateSelectedCount()"></td>
                     <td>
-                        <strong>${escapeHtml(req.userName || 'N/A')}</strong>
+                        <strong>${window.escapeHtml(req.userName || 'N/A')}</strong>
                         <br>
-                        <small style="color:#666;">ID: ${escapeHtml(req.id.substring(0, 8))}...</small>
+                        <small style="color:#666;">ID: ${window.escapeHtml(req.id.substring(0, 8))}...</small>
                     </td>
-                    <td>${escapeHtml(req.userEmail || 'N/A')}</td>
-                    <td><code style="font-size: 11px;">${escapeHtml(req.userId?.substring(0, 20))}...</code></td>
-                    <td>${formatDate(req.requestDate)}</td>
-                    <td>${getStatusBadge(req.status)}</td>
+                    <td>${window.escapeHtml(req.userEmail || 'N/A')}</td>
+                    <td><code style="font-size: 11px;">${window.escapeHtml(req.userId?.substring(0, 20))}...</code></td>
+                    <td>${window.formatDate(req.requestDate)}</td>
+                    <td>${window.getStatusBadge(req.status)}</td>
                     <td>
-                        <button class="btn-action btn-view" onclick="viewDetails('${req.id}')">👁️ Detalhes</button>
+                        <button class="btn-action btn-view" onclick="window.viewDetails('${req.id}')">👁️ Detalhes</button>
                         ${req.status === 'pending' ? `
-                            <button class="btn-action btn-process" onclick="processRequest('${req.id}')">✅ Processar</button>
-                            <button class="btn-action btn-reject" onclick="rejectRequest('${req.id}')">❌ Rejeitar</button>
+                            <button class="btn-action btn-process" onclick="window.processRequest('${req.id}')">✅ Processar</button>
+                            <button class="btn-action btn-reject" onclick="window.rejectRequest('${req.id}')">❌ Rejeitar</button>
                         ` : ''}
                     </td>
                 </tr>
             `).join('');
-        }
+        };
 
         // Ver detalhes do pedido
-        async function viewDetails(requestId) {
+        window.viewDetails = async function(requestId) {
             const request = allRequests.find(r => r.id === requestId);
             if (!request) return;
             
             currentRequestId = requestId;
             
             const modalBody = document.getElementById('modal-body');
+            if (!modalBody) return;
+            
             modalBody.innerHTML = `
                 <div class="user-detail">
-                    <p><strong>👤 Nome:</strong> ${escapeHtml(request.userName || 'Não informado')}</p>
-                    <p><strong>📧 Email:</strong> ${escapeHtml(request.userEmail || 'Não informado')}</p>
-                    <p><strong>🆔 UID:</strong> <code>${escapeHtml(request.userId)}</code></p>
-                    <p><strong>📅 Data do pedido:</strong> ${formatDate(request.requestDate)}</p>
-                    <p><strong>📊 Status:</strong> ${getStatusBadge(request.status)}</p>
+                    <p><strong>👤 Nome:</strong> ${window.escapeHtml(request.userName || 'Não informado')}</p>
+                    <p><strong>📧 Email:</strong> ${window.escapeHtml(request.userEmail || 'Não informado')}</p>
+                    <p><strong>🆔 UID:</strong> <code>${window.escapeHtml(request.userId)}</code></p>
+                    <p><strong>📅 Data do pedido:</strong> ${window.formatDate(request.requestDate)}</p>
+                    <p><strong>📊 Status:</strong> ${window.getStatusBadge(request.status)}</p>
                     <p><strong>🔖 ID do Pedido:</strong> <code>${request.id}</code></p>
                 </div>
                 <div style="margin-top: 20px;">
@@ -677,38 +730,38 @@
                         <li>A exclusão remove permanentemente todos os dados do usuário</li>
                         <li>O processo inclui: páginas criadas, edições, logs de consentimento</li>
                         <li>Após processado, o status será alterado para "completed"</li>
-                        <li>O usuário será notificado por email (se implementado)</li>
                     </ul>
                 </div>
             `;
             
-            // Mostrar/esconder botões conforme status
             const processBtn = document.getElementById('modal-process-btn');
             const rejectBtn = document.getElementById('modal-reject-btn');
             
-            if (request.status === 'pending') {
-                processBtn.style.display = 'inline-block';
-                rejectBtn.style.display = 'inline-block';
-            } else {
-                processBtn.style.display = 'none';
-                rejectBtn.style.display = 'none';
+            if (processBtn && rejectBtn) {
+                if (request.status === 'pending') {
+                    processBtn.style.display = 'inline-block';
+                    rejectBtn.style.display = 'inline-block';
+                } else {
+                    processBtn.style.display = 'none';
+                    rejectBtn.style.display = 'none';
+                }
             }
             
             document.getElementById('detail-modal').style.display = 'flex';
-        }
+        };
 
         // Processar exclusão
-        async function processRequest(requestId, bulk = false) {
+        window.processRequest = async function(requestId, bulk = false) {
             const request = allRequests.find(r => r.id === requestId);
             if (!request) return;
             
-            showConfirmModal(
+            window.showConfirmModal(
                 '⚠️ Confirmar Exclusão de Dados',
                 `
                     <p>Tem certeza que deseja <strong>EXCLUIR PERMANENTEMENTE</strong> os dados do usuário?</p>
                     <div class="user-detail" style="margin-top: 15px;">
-                        <p><strong>Usuário:</strong> ${escapeHtml(request.userName || request.userEmail)}</p>
-                        <p><strong>UID:</strong> <code>${escapeHtml(request.userId)}</code></p>
+                        <p><strong>Usuário:</strong> ${window.escapeHtml(request.userName || request.userEmail)}</p>
+                        <p><strong>UID:</strong> <code>${window.escapeHtml(request.userId)}</code></p>
                     </div>
                     <p style="color: #dc3545; margin-top: 15px;"><strong>⚠️ Esta ação é irreversível!</strong></p>
                 `,
@@ -716,14 +769,14 @@
                     try {
                         showAlert('🔄 Processando exclusão...', 'info');
                         
-                        // 1. Buscar todos os dados do usuário
+                        // Buscar todos os dados do usuário
                         const userPages = await db.collection('documentos')
                             .where('criadoPor', '==', request.userId)
                             .get();
                         
                         let deletedCount = 0;
                         
-                        // 2. Excluir páginas e seus artigos
+                        // Excluir páginas e seus artigos
                         for (const doc of userPages.docs) {
                             const articles = await doc.ref.collection('inevitavel').get();
                             for (const article of articles.docs) {
@@ -734,7 +787,7 @@
                             deletedCount++;
                         }
                         
-                        // 3. Excluir histórico de edições
+                        // Excluir histórico de edições
                         const edits = await db.collection('user_edits')
                             .where('userId', '==', request.userId)
                             .get();
@@ -744,7 +797,7 @@
                             deletedCount++;
                         }
                         
-                        // 4. Excluir logs de consentimento
+                        // Excluir logs de consentimento
                         const consents = await db.collection('consent_logs')
                             .where('userId', '==', request.userId)
                             .get();
@@ -754,7 +807,7 @@
                             deletedCount++;
                         }
                         
-                        // 5. Atualizar status do pedido
+                        // Atualizar status do pedido
                         await db.collection('deletion_requests').doc(requestId).update({
                             status: 'completed',
                             processedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -763,10 +816,10 @@
                         });
                         
                         showAlert(`✅ Exclusão concluída! ${deletedCount} itens removidos.`, 'success');
-                        await loadDeletionRequests();
-                        closeModal();
+                        await window.loadDeletionRequests();
+                        window.closeModal();
                         
-                        if (!bulk) closeConfirmModal();
+                        if (!bulk) window.closeConfirmModal();
                         
                     } catch (error) {
                         console.error('Erro na exclusão:', error);
@@ -774,11 +827,11 @@
                     }
                 }
             );
-        }
+        };
 
         // Rejeitar pedido
-        async function rejectRequest(requestId, bulk = false) {
-            showConfirmModal(
+        window.rejectRequest = async function(requestId, bulk = false) {
+            window.showConfirmModal(
                 '❌ Rejeitar Pedido',
                 '<p>Tem certeza que deseja rejeitar este pedido de exclusão?</p><p>O usuário será notificado que o pedido foi recusado.</p>',
                 async () => {
@@ -791,109 +844,116 @@
                         });
                         
                         showAlert('✅ Pedido rejeitado!', 'success');
-                        await loadDeletionRequests();
-                        closeModal();
+                        await window.loadDeletionRequests();
+                        window.closeModal();
                         
-                        if (!bulk) closeConfirmModal();
+                        if (!bulk) window.closeConfirmModal();
                         
                     } catch (error) {
                         showAlert(`❌ Erro: ${error.message}`, 'error');
                     }
                 }
             );
-        }
+        };
 
         // Ações em lote
-        async function bulkProcess() {
-            const selected = getSelectedRequests();
+        window.bulkProcess = async function() {
+            const selected = window.getSelectedRequests();
             if (selected.length === 0) {
                 showAlert('⚠️ Selecione pelo menos um pedido.', 'error');
                 return;
             }
             
-            showConfirmModal(
+            window.showConfirmModal(
                 `Processar ${selected.length} pedido(s)`,
                 `<p>Tem certeza que deseja processar ${selected.length} pedido(s) de exclusão?</p><p><strong>⚠️ Esta ação é irreversível!</strong></p>`,
                 async () => {
                     for (const requestId of selected) {
-                        await processRequest(requestId, true);
-                        await delay(500); // Pequeno delay entre processamentos
+                        await window.processRequest(requestId, true);
+                        await new Promise(resolve => setTimeout(resolve, 500));
                     }
                     showAlert(`✅ ${selected.length} pedido(s) processado(s)!`, 'success');
-                    await loadDeletionRequests();
-                    closeConfirmModal();
+                    await window.loadDeletionRequests();
+                    window.closeConfirmModal();
                 }
             );
-        }
+        };
         
-        async function bulkReject() {
-            const selected = getSelectedRequests();
+        window.bulkReject = async function() {
+            const selected = window.getSelectedRequests();
             if (selected.length === 0) {
                 showAlert('⚠️ Selecione pelo menos um pedido.', 'error');
                 return;
             }
             
-            showConfirmModal(
+            window.showConfirmModal(
                 `Rejeitar ${selected.length} pedido(s)`,
                 `<p>Tem certeza que deseja rejeitar ${selected.length} pedido(s) de exclusão?</p>`,
                 async () => {
                     for (const requestId of selected) {
-                        await rejectRequest(requestId, true);
-                        await delay(300);
+                        await window.rejectRequest(requestId, true);
+                        await new Promise(resolve => setTimeout(resolve, 300));
                     }
                     showAlert(`✅ ${selected.length} pedido(s) rejeitado(s)!`, 'success');
-                    await loadDeletionRequests();
-                    closeConfirmModal();
+                    await window.loadDeletionRequests();
+                    window.closeConfirmModal();
                 }
             );
-        }
+        };
         
-        function getSelectedRequests() {
+        window.getSelectedRequests = function() {
             const checkboxes = document.querySelectorAll('.request-checkbox:checked');
             return Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
-        }
+        };
         
-        function updateSelectedCount() {
-            const count = getSelectedRequests().length;
-            document.getElementById('selected-count').textContent = `${count} selecionado(s)`;
-            document.getElementById('bulk-actions').classList.toggle('show', count > 0);
-        }
+        window.updateSelectedCount = function() {
+            const count = window.getSelectedRequests().length;
+            const selectedSpan = document.getElementById('selected-count');
+            const bulkActions = document.getElementById('bulk-actions');
+            if (selectedSpan) selectedSpan.textContent = `${count} selecionado(s)`;
+            if (bulkActions) bulkActions.classList.toggle('show', count > 0);
+        };
         
-        function toggleSelectAll() {
-            const isChecked = document.getElementById('select-all').checked;
+        window.toggleSelectAll = function() {
+            const isChecked = document.getElementById('select-all')?.checked || false;
             document.querySelectorAll('.request-checkbox').forEach(cb => {
                 cb.checked = isChecked;
             });
-            updateSelectedCount();
-        }
+            window.updateSelectedCount();
+        };
         
-        function toggleSelectAllFromHeader() {
-            const isChecked = document.getElementById('header-checkbox').checked;
+        window.toggleSelectAllFromHeader = function() {
+            const isChecked = document.getElementById('header-checkbox')?.checked || false;
             document.querySelectorAll('.request-checkbox').forEach(cb => {
                 cb.checked = isChecked;
             });
-            document.getElementById('select-all').checked = isChecked;
-            updateSelectedCount();
-        }
+            const selectAll = document.getElementById('select-all');
+            if (selectAll) selectAll.checked = isChecked;
+            window.updateSelectedCount();
+        };
         
         // Atualizar estatísticas
-        function updateStats() {
+        window.updateStats = function() {
             const pending = allRequests.filter(r => r.status === 'pending').length;
             const processing = allRequests.filter(r => r.status === 'processing').length;
             const completed = allRequests.filter(r => r.status === 'completed').length;
             
-            document.getElementById('total-pending').textContent = pending;
-            document.getElementById('total-processing').textContent = processing;
-            document.getElementById('total-completed').textContent = completed;
-        }
+            const pendingEl = document.getElementById('total-pending');
+            const processingEl = document.getElementById('total-processing');
+            const completedEl = document.getElementById('total-completed');
+            
+            if (pendingEl) pendingEl.textContent = pending;
+            if (processingEl) processingEl.textContent = processing;
+            if (completedEl) completedEl.textContent = completed;
+        };
         
         // Funções auxiliares
-        function formatDate(date) {
+        window.formatDate = function(date) {
             if (!date) return 'N/A';
             return date.toLocaleString('pt-BR');
-        }
+        };
         
-        function getStatusBadge(status) {
+        window.getStatusBadge = function(status) {
             const badges = {
                 'pending': '<span class="status status-pending">⏳ Pendente</span>',
                 'processing': '<span class="status status-processing">🔄 Processando</span>',
@@ -901,32 +961,22 @@
                 'rejected': '<span class="status status-rejected">❌ Rejeitado</span>'
             };
             return badges[status] || '<span class="status">❓ Desconhecido</span>';
-        }
+        };
         
-        function escapeHtml(text) {
+        window.escapeHtml = function(text) {
             if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
-        }
+        };
         
-        function showAlert(message, type) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type}`;
-            alertDiv.innerHTML = message;
-            alertDiv.style.display = 'block';
+        window.showConfirmModal = function(title, body, onConfirm) {
+            const titleEl = document.getElementById('confirm-title');
+            const bodyEl = document.getElementById('confirm-body');
             
-            const container = document.getElementById('alert-container');
-            container.appendChild(alertDiv);
+            if (titleEl) titleEl.textContent = title;
+            if (bodyEl) bodyEl.innerHTML = body;
             
-            setTimeout(() => {
-                alertDiv.remove();
-            }, 5000);
-        }
-        
-        function showConfirmModal(title, body, onConfirm) {
-            document.getElementById('confirm-title').textContent = title;
-            document.getElementById('confirm-body').innerHTML = body;
             document.getElementById('confirm-modal').style.display = 'flex';
             
             const confirmBtn = document.getElementById('confirm-yes');
@@ -935,43 +985,40 @@
                 onConfirm();
                 confirmBtn.onclick = oldClick;
             };
-        }
-        
-        function closeModal() {
-            document.getElementById('detail-modal').style.display = 'none';
-        }
-        
-        function closeConfirmModal() {
-            document.getElementById('confirm-modal').style.display = 'none';
-        }
-        
-        function processFromModal() {
-            if (currentRequestId) processRequest(currentRequestId);
-        }
-        
-        function rejectFromModal() {
-            if (currentRequestId) rejectRequest(currentRequestId);
-        }
-        
-        function delay(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-        
-        // Event listeners para filtros
-        document.getElementById('filter-status').addEventListener('change', applyFilters);
-        document.getElementById('search-input').addEventListener('input', applyFilters);
-        document.getElementById('date-start').addEventListener('change', applyFilters);
-        document.getElementById('date-end').addEventListener('change', applyFilters);
-        
-        // Inicialização
-        document.querySelector('.container').style.display = 'none';
-        
-        // Fechar modais ao clicar fora
-        window.onclick = (event) => {
-            if (event.target.classList.contains('modal')) {
-                event.target.style.display = 'none';
-            }
         };
+        
+        window.closeModal = function() {
+            document.getElementById('detail-modal').style.display = 'none';
+        };
+        
+        window.closeConfirmModal = function() {
+            document.getElementById('confirm-modal').style.display = 'none';
+        };
+        
+        window.processFromModal = function() {
+            if (currentRequestId) window.processRequest(currentRequestId);
+        };
+        
+        window.rejectFromModal = function() {
+            if (currentRequestId) window.rejectRequest(currentRequestId);
+        };
+        
+        window.signIn = function() {
+            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        };
+
+        // Verificar autenticação
+        auth.onAuthStateChanged(async (user) => {
+            if (user && ADMIN_EMAILS.includes(user.email)) {
+                currentAdminUser = user;
+                renderAdminPanel();
+                await window.loadDeletionRequests();
+            } else if (user) {
+                renderAccessDenied();
+            } else {
+                renderLoginScreen();
+            }
+        });
     </script>
 </body>
 </html>
