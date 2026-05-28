@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Administrativo - WikiZero</title>
+    <title>Painel Administrativo - Pedidos de Exclusão | WikiZero</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -28,10 +28,10 @@
             gap: 20px;
         }
         .header h1 { color: #333; font-size: 24px; }
-        .stats { display: flex; gap: 20px; }
-        .stat-card { background: #f8f9fa; padding: 10px 20px; border-radius: 8px; text-align: center; }
+        .stats { display: flex; gap: 20px; flex-wrap: wrap; }
+        .stat-card { background: #f8f9fa; padding: 10px 20px; border-radius: 8px; text-align: center; min-width: 80px; }
         .stat-number { font-size: 28px; font-weight: bold; color: #667eea; }
-        .stat-label { font-size: 12px; color: #666; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
         .filters {
             background: white;
             border-radius: 12px;
@@ -42,12 +42,12 @@
             flex-wrap: wrap;
             align-items: flex-end;
         }
-        .filter-group { flex: 1; min-width: 180px; }
+        .filter-group { flex: 1; min-width: 150px; }
         .filter-group label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 5px; }
-        .filter-group select, .filter-group input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+        .filter-group select, .filter-group input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
         .btn-refresh {
             background: #667eea; color: white; border: none; padding: 8px 20px;
-            border-radius: 6px; cursor: pointer; font-weight: 600;
+            border-radius: 6px; cursor: pointer; font-weight: 600; height: 38px;
         }
         .btn-refresh:hover { background: #5a67d8; }
         .btn-logout { background: #dc3545; }
@@ -79,10 +79,14 @@
             background: white; border-radius: 12px; max-width: 600px;
             width: 90%; max-height: 80vh; overflow-y: auto;
         }
-        .modal-header { padding: 20px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; }
+        .modal-header { padding: 20px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; }
+        .close-modal { cursor: pointer; font-size: 24px; color: #999; }
         .modal-body { padding: 20px; }
         .modal-footer { padding: 20px; border-top: 1px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px; }
         .user-detail { margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        .user-detail p { margin: 8px 0; }
+        .user-detail strong { color: #667eea; }
         .loading { text-align: center; padding: 40px; color: #666; }
         .alert { padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; animation: slideIn 0.3s ease; }
         .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -92,14 +96,22 @@
             text-align: center; padding: 60px 20px; background: white;
             border-radius: 12px; max-width: 500px; margin: 100px auto;
         }
+        .login-required h2 { margin-bottom: 20px; }
         .login-btn {
             background: #667eea; color: white; border: none; padding: 12px 30px;
             border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px;
         }
         .admin-info { background: #e8f0fe; padding: 10px 15px; border-radius: 8px; font-size: 12px; margin-top: 10px; }
         .warning-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+        .warning-box code { background: #f8f9fa; padding: 8px; display: block; margin-top: 10px; border-radius: 6px; font-size: 11px; word-break: break-all; }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
         @media (max-width: 768px) {
-            th, td { font-size: 12px; padding: 8px; }
+            .header { flex-direction: column; text-align: center; }
+            .stats { justify-content: center; }
+            th, td { font-size: 12px; padding: 10px; }
             .btn-action { padding: 4px 8px; font-size: 10px; }
         }
     </style>
@@ -112,6 +124,9 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
     <script>
+        // ============================================
+        // CONFIGURAÇÃO DO FIREBASE
+        // ============================================
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -125,14 +140,21 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
+        // ============================================
+        // VARIÁVEIS GLOBAIS
+        // ============================================
         let currentUser = null;
         let allRequests = [];
         let currentRequestId = null;
         let isAdminUser = false;
 
-        // UIDs específicos que são administradores (da função isSpecificAdmin)
+        // UIDs específicos que são administradores (da sua regra isSpecificAdmin)
         const SPECIFIC_ADMIN_UIDS = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1'];
 
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
+        
         function showAlert(message, type) {
             let alertContainer = document.getElementById('alert-container');
             if (!alertContainer) {
@@ -141,7 +163,10 @@
                     alertContainer = document.createElement('div');
                     alertContainer.id = 'alert-container';
                     container.insertBefore(alertContainer, container.firstChild);
-                } else return;
+                } else {
+                    console.warn('Container não encontrado para alerta:', message);
+                    return;
+                }
             }
             const alertDiv = document.createElement('div');
             alertDiv.className = `alert alert-${type}`;
@@ -156,6 +181,7 @@
             
             // Verifica se é admin específico por UID
             if (SPECIFIC_ADMIN_UIDS.includes(user.uid)) {
+                console.log('✅ Usuário é admin específico por UID');
                 return true;
             }
             
@@ -163,14 +189,19 @@
             try {
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists && userDoc.data().isAdmin === true) {
+                    console.log('✅ Usuário é admin pelo documento /users');
                     return true;
                 }
             } catch (error) {
-                console.warn('Erro ao verificar admin:', error);
+                console.warn('Erro ao verificar documento de admin:', error);
             }
             
             return false;
         }
+
+        // ============================================
+        // RENDERIZAÇÃO DAS TELAS
+        // ============================================
 
         function renderAdminPanel() {
             const container = document.getElementById('main-container');
@@ -180,8 +211,9 @@
                         <div>
                             <h1>📋 Painel Administrativo - Pedidos de Exclusão (LGPD)</h1>
                             <div class="admin-info">
-                                ✅ Logado: <strong>${currentUser?.email}</strong> | UID: ${currentUser?.uid.substring(0, 20)}...
-                                ${isAdminUser ? '<span style="color:#28a745; margin-left:10px;">✓ Admin verificado</span>' : '<span style="color:#dc3545; margin-left:10px;">⚠️ Sem permissões de admin</span>'}
+                                ✅ Logado: <strong>${escapeHtml(currentUser?.email)}</strong><br>
+                                🆔 UID: <code>${currentUser?.uid}</code>
+                                ${isAdminUser ? '<span style="color:#28a745; margin-left:10px;">✓ Permissões de admin confirmadas</span>' : '<span style="color:#dc3545; margin-left:10px;">⚠️ Sem permissões de admin</span>'}
                             </div>
                         </div>
                         <div class="stats">
@@ -193,26 +225,83 @@
                     </div>
                     <div id="alert-container"></div>
                     <div class="filters">
-                        <div class="filter-group"><label>📊 Status</label><select id="filter-status"><option value="all">Todos</option><option value="pending">Pendentes</option><option value="processing">Processando</option><option value="completed">Concluídos</option><option value="rejected">Rejeitados</option></select></div>
-                        <div class="filter-group"><label>🔍 Buscar</label><input type="text" id="search-input" placeholder="Email ou UID"></div>
-                        <div class="filter-group"><label>📅 Data inicial</label><input type="date" id="date-start"></div>
-                        <div class="filter-group"><label>📅 Data final</label><input type="date" id="date-end"></div>
+                        <div class="filter-group">
+                            <label>📊 Status</label>
+                            <select id="filter-status">
+                                <option value="all">Todos</option>
+                                <option value="pending">⏳ Pendentes</option>
+                                <option value="processing">🔄 Processando</option>
+                                <option value="completed">✅ Concluídos</option>
+                                <option value="rejected">❌ Rejeitados</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>🔍 Buscar</label>
+                            <input type="text" id="search-input" placeholder="Email ou UID">
+                        </div>
+                        <div class="filter-group">
+                            <label>📅 Data inicial</label>
+                            <input type="date" id="date-start">
+                        </div>
+                        <div class="filter-group">
+                            <label>📅 Data final</label>
+                            <input type="date" id="date-end">
+                        </div>
                         <button class="btn-refresh" onclick="loadRequests()">🔄 Atualizar</button>
                         <button class="btn-refresh btn-logout" onclick="signOut()">🚪 Sair</button>
                     </div>
                     <div class="table-container">
-                        <table>
+                        <table id="requests-table">
                             <thead>
-                                <tr><th>Usuário</th><th>Email</th><th>UID</th><th>Data do Pedido</th><th>Status</th><th>Ações</th></tr>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th>UID</th>
+                                    <th>Data do Pedido</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
                             </thead>
-                            <tbody id="table-body"><tr><td colspan="6" class="loading">📚 Carregando pedidos...</td></tr></tbody>
+                            <tbody id="table-body">
+                                <tr><td colspan="6" class="loading">📚 Carregando pedidos...</td</tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
-                <div id="detail-modal" class="modal"><div class="modal-content"><div class="modal-header"><h3>📄 Detalhes do Pedido</h3><span class="close-modal" onclick="closeModal()">&times;</span></div><div class="modal-body" id="modal-body"></div><div class="modal-footer"><button class="btn-action btn-process" id="modal-process-btn" onclick="processFromModal()">✅ Processar Exclusão</button><button class="btn-action btn-reject" id="modal-reject-btn" onclick="rejectFromModal()">❌ Rejeitar</button><button class="btn-action" onclick="closeModal()">Fechar</button></div></div></div>
-                <div id="confirm-modal" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="confirm-title">Confirmar ação</h3><span class="close-modal" onclick="closeConfirmModal()">&times;</span></div><div class="modal-body" id="confirm-body"></div><div class="modal-footer"><button class="btn-action" id="confirm-yes" style="background:#28a745">Sim, confirmar</button><button class="btn-action" onclick="closeConfirmModal()">Cancelar</button></div></div></div>
+
+                <!-- Modal de Detalhes -->
+                <div id="detail-modal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>📄 Detalhes do Pedido de Exclusão</h3>
+                            <span class="close-modal" onclick="closeModal()">&times;</span>
+                        </div>
+                        <div class="modal-body" id="modal-body"></div>
+                        <div class="modal-footer">
+                            <button class="btn-action btn-process" id="modal-process-btn" onclick="processFromModal()">✅ Processar Exclusão</button>
+                            <button class="btn-action btn-reject" id="modal-reject-btn" onclick="rejectFromModal()">❌ Rejeitar</button>
+                            <button class="btn-action" onclick="closeModal()" style="background:#6c757d">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal de Confirmação -->
+                <div id="confirm-modal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="confirm-title">Confirmar ação</h3>
+                            <span class="close-modal" onclick="closeConfirmModal()">&times;</span>
+                        </div>
+                        <div class="modal-body" id="confirm-body"></div>
+                        <div class="modal-footer">
+                            <button class="btn-action" id="confirm-yes" style="background:#28a745">Sim, confirmar</button>
+                            <button class="btn-action" onclick="closeConfirmModal()" style="background:#6c757d">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
             `;
             
+            // Adicionar event listeners
             document.getElementById('filter-status')?.addEventListener('change', () => applyFilters());
             document.getElementById('search-input')?.addEventListener('input', () => applyFilters());
             document.getElementById('date-start')?.addEventListener('change', () => applyFilters());
@@ -224,7 +313,9 @@
                 <div class="login-required">
                     <h2>🔐 Área Administrativa</h2>
                     <p>Faça login com uma conta de administrador para acessar este painel.</p>
-                    <p style="font-size:12px;color:#666;margin-top:10px">UIDs autorizados: ${SPECIFIC_ADMIN_UIDS.join(', ')}</p>
+                    <p style="font-size:12px;color:#666;margin-top:10px">
+                        UIDs autorizados: ${SPECIFIC_ADMIN_UIDS.join(', ')}
+                    </p>
                     <button class="login-btn" onclick="signIn()">🔑 Login com Google</button>
                 </div>
             `;
@@ -234,51 +325,59 @@
             document.getElementById('main-container').innerHTML = `
                 <div class="login-required">
                     <h2>⛔ Acesso Negado</h2>
-                    <p>Seu email <strong>${currentUser?.email}</strong> não tem permissões de administrador.</p>
+                    <p>Seu email <strong>${escapeHtml(currentUser?.email)}</strong> não tem permissões de administrador.</p>
                     <div class="warning-box">
                         <strong>⚠️ Para se tornar administrador:</strong><br>
                         1. Abra o console (F12)<br>
-                        2. Execute o comando para criar o documento de admin:<br>
-                        <code style="display:block; margin-top:10px; padding:10px; background:#f8f9fa; font-size:11px;">
-                        await firebase.firestore().collection('users').doc('${currentUser?.uid}').set({ isAdmin: true, email: '${currentUser?.email}' });
+                        2. Execute o comando abaixo:<br>
+                        <code>
+                        await firebase.firestore().collection('users').doc('${currentUser?.uid}').set({ 
+                            isAdmin: true, 
+                            email: '${currentUser?.email}',
+                            displayName: '${currentUser?.displayName}'
+                        });
                         </code>
-                        3. Recarregue a página
+                        3. Recarregue a página (F5)
                     </div>
-                    <button class="login-btn" onclick="signOut()">Sair e tentar outra conta</button>
+                    <button class="login-btn" onclick="signOut()">🚪 Sair e tentar outra conta</button>
                 </div>
             `;
         }
 
-        // Carregar pedidos de exclusão
+        // ============================================
+        // FUNÇÕES DE CARREGAMENTO E FILTROS
+        // ============================================
+
         async function loadRequests() {
             const tbody = document.getElementById('table-body');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="6" class="loading">📚 Carregando pedidos...</td></tr>';
+            tbody.innerHTML = '<td><td colspan="6" class="loading">📚 Carregando pedidos...</td</tr>';
             
             try {
-                // Usar a coleção deletion_requests (já configurada nas regras)
                 const snapshot = await db.collection('deletion_requests')
                     .orderBy('requestDate', 'desc')
                     .get();
                 
                 allRequests = [];
                 snapshot.forEach(doc => {
+                    const data = doc.data();
                     allRequests.push({
                         id: doc.id,
-                        ...doc.data(),
-                        requestDate: doc.data().requestDate?.toDate() || new Date()
+                        ...data,
+                        requestDate: data.requestDate?.toDate() || new Date()
                     });
                 });
                 
+                console.log(`📋 Carregados ${allRequests.length} pedidos`);
                 updateStats();
                 applyFilters();
                 
                 if (allRequests.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="loading">📭 Nenhum pedido de exclusão encontrado</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="loading">📭 Nenhum pedido de exclusão encontrado</td</tr>';
                 }
             } catch (error) {
                 console.error('Erro ao carregar:', error);
-                tbody.innerHTML = `<tr><td colspan="6" class="loading" style="color:#d33">❌ Erro: ${error.message}</td></tr>`;
+                tbody.innerHTML = `<td><td colspan="6" class="loading" style="color:#d33">❌ Erro: ${error.message}</td</tr>`;
                 
                 if (error.code === 'permission-denied') {
                     showAlert('⚠️ Sem permissão para ler pedidos. Verifique se você é administrador.', 'error');
@@ -292,10 +391,15 @@
             const completed = allRequests.filter(r => r.status === 'completed').length;
             const rejected = allRequests.filter(r => r.status === 'rejected').length;
             
-            document.getElementById('total-pending') && (document.getElementById('total-pending').textContent = pending);
-            document.getElementById('total-processing') && (document.getElementById('total-processing').textContent = processing);
-            document.getElementById('total-completed') && (document.getElementById('total-completed').textContent = completed);
-            document.getElementById('total-rejected') && (document.getElementById('total-rejected').textContent = rejected);
+            const elPending = document.getElementById('total-pending');
+            const elProcessing = document.getElementById('total-processing');
+            const elCompleted = document.getElementById('total-completed');
+            const elRejected = document.getElementById('total-rejected');
+            
+            if (elPending) elPending.textContent = pending;
+            if (elProcessing) elProcessing.textContent = processing;
+            if (elCompleted) elCompleted.textContent = completed;
+            if (elRejected) elRejected.textContent = rejected;
         }
 
         function applyFilters() {
@@ -306,9 +410,21 @@
             
             let filtered = [...allRequests];
             
-            if (status !== 'all') filtered = filtered.filter(r => r.status === status);
-            if (search) filtered = filtered.filter(r => r.userEmail?.toLowerCase().includes(search) || r.userId?.toLowerCase().includes(search));
-            if (dateStart) filtered = filtered.filter(r => r.requestDate >= new Date(dateStart));
+            if (status !== 'all') {
+                filtered = filtered.filter(r => r.status === status);
+            }
+            if (search) {
+                filtered = filtered.filter(r => 
+                    r.userEmail?.toLowerCase().includes(search) || 
+                    r.userId?.toLowerCase().includes(search) ||
+                    r.userName?.toLowerCase().includes(search)
+                );
+            }
+            if (dateStart) {
+                const start = new Date(dateStart);
+                start.setHours(0, 0, 0);
+                filtered = filtered.filter(r => r.requestDate >= start);
+            }
             if (dateEnd) {
                 const end = new Date(dateEnd);
                 end.setHours(23, 59, 59);
@@ -323,13 +439,13 @@
             if (!tbody) return;
             
             if (requests.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="loading">📭 Nenhum pedido encontrado</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">📭 Nenhum pedido encontrado</td</tr>';
                 return;
             }
             
             tbody.innerHTML = requests.map(req => `
                 <tr>
-                    <td><strong>${escapeHtml(req.userName || 'N/A')}</strong><br><small>${req.id.substring(0,8)}...</small></td>
+                    <td><strong>${escapeHtml(req.userName || 'N/A')}</strong><br><small style="color:#666;">${req.id.substring(0,8)}...</small></td>
                     <td>${escapeHtml(req.userEmail || 'N/A')}</td>
                     <td><code style="font-size:11px;">${escapeHtml(req.userId?.substring(0,20))}...</code></td>
                     <td>${formatDate(req.requestDate)}</td>
@@ -345,12 +461,19 @@
             `).join('');
         }
 
+        // ============================================
+        // FUNÇÕES DE AÇÕES (PROCESSAR/REJEITAR)
+        // ============================================
+
         function viewDetails(id) {
             const request = allRequests.find(r => r.id === id);
             if (!request) return;
             currentRequestId = id;
             
-            document.getElementById('modal-body').innerHTML = `
+            const modalBody = document.getElementById('modal-body');
+            if (!modalBody) return;
+            
+            modalBody.innerHTML = `
                 <div class="user-detail">
                     <p><strong>👤 Nome:</strong> ${escapeHtml(request.userName || 'N/A')}</p>
                     <p><strong>📧 Email:</strong> ${escapeHtml(request.userEmail || 'N/A')}</p>
@@ -474,7 +597,14 @@
             });
         }
 
-        function formatDate(date) { return date ? date.toLocaleString('pt-BR') : 'N/A'; }
+        // ============================================
+        // FUNÇÕES UTILITÁRIAS
+        // ============================================
+
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            return date.toLocaleString('pt-BR');
+        }
         
         function getStatusBadge(status) {
             const badges = {
@@ -486,40 +616,86 @@
             return badges[status] || '<span class="status">❓ Desconhecido</span>';
         }
         
-        function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-        
-        function showConfirmModal(title, body, onConfirm) {
-            document.getElementById('confirm-title').textContent = title;
-            document.getElementById('confirm-body').innerHTML = body;
-            document.getElementById('confirm-modal').style.display = 'flex';
-            document.getElementById('confirm-yes').onclick = () => { onConfirm(); };
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
-        function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
-        function closeConfirmModal() { document.getElementById('confirm-modal').style.display = 'none'; }
-        function processFromModal() { if (currentRequestId) processRequest(currentRequestId); }
-        function rejectFromModal() { if (currentRequestId) rejectRequest(currentRequestId); }
+        function showConfirmModal(title, body, onConfirm) {
+            const titleEl = document.getElementById('confirm-title');
+            const bodyEl = document.getElementById('confirm-body');
+            if (titleEl) titleEl.textContent = title;
+            if (bodyEl) bodyEl.innerHTML = body;
+            
+            document.getElementById('confirm-modal').style.display = 'flex';
+            document.getElementById('confirm-yes').onclick = () => {
+                onConfirm();
+            };
+        }
         
-        function signIn() { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-        function signOut() { auth.signOut().then(() => location.reload()); }
+        function closeModal() {
+            document.getElementById('detail-modal').style.display = 'none';
+        }
+        
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').style.display = 'none';
+        }
+        
+        function processFromModal() {
+            if (currentRequestId) processRequest(currentRequestId);
+        }
+        
+        function rejectFromModal() {
+            if (currentRequestId) rejectRequest(currentRequestId);
+        }
+        
+        function signIn() {
+            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        }
+        
+        function signOut() {
+            auth.signOut().then(() => location.reload());
+        }
 
-        // Autenticação e verificação de admin
+        // ============================================
+        // INICIALIZAÇÃO E AUTENTICAÇÃO
+        // ============================================
+
         auth.onAuthStateChanged(async (user) => {
             currentUser = user;
             
             if (user) {
+                console.log('🔐 Usuário logado:', user.email, 'UID:', user.uid);
                 isAdminUser = await checkIsAdmin(user);
                 
                 if (isAdminUser) {
+                    console.log('✅ Acesso concedido como administrador');
                     renderAdminPanel();
                     await loadRequests();
                 } else {
+                    console.log('❌ Acesso negado - usuário não é admin');
                     renderAccessDenied();
                 }
             } else {
+                console.log('🔓 Usuário deslogado');
                 renderLoginScreen();
             }
         });
+
+        // Expor funções globalmente para os botões HTML
+        window.loadRequests = loadRequests;
+        window.applyFilters = applyFilters;
+        window.viewDetails = viewDetails;
+        window.processRequest = processRequest;
+        window.rejectRequest = rejectRequest;
+        window.processFromModal = processFromModal;
+        window.rejectFromModal = rejectFromModal;
+        window.closeModal = closeModal;
+        window.closeConfirmModal = closeConfirmModal;
+        window.signIn = signIn;
+        window.signOut = signOut;
     </script>
 </body>
 </html>
