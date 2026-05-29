@@ -189,18 +189,6 @@
             background: #f8fafc;
         }
 
-        .collection-row {
-            cursor: pointer;
-        }
-
-        .subcollection-row {
-            background: #f9fafb;
-        }
-
-        .subcollection-row td {
-            padding-left: 50px;
-        }
-
         .memory-bar {
             width: 100%;
             height: 6px;
@@ -366,53 +354,56 @@
         const auth = firebase.auth();
 
         // ============================================
+        // LISTA COMPLETA DE COLEÇÕES (baseada nas imagens)
+        // ============================================
+        const COLLECTIONS_TO_SCAN = [
+            // Primeira imagem
+            'Actions', 'Bemtevi', 'HTML2W', 'Kilometrosz', 'Tickets', 'WZPZM',
+            'academico', 'admin', 'admincorewnpx', 'admins', 'admiticket', 'albumimagens',
+            'ambulatorio', 'aplicativo', 'articles',
+            
+            // Segunda imagem
+            'articlesdoc', 'associations', 'blocodenotas', 'buscadelistadepaginas',
+            'calculadoradinamica', 'checkuser', 'cidadessancionadas', 'client',
+            'clientEmails', 'clientPhones', 'cliente', 'clientepaciente', 'clients',
+            'configuracoes', 'contatowazzimagiygg',
+            
+            // Terceira imagem
+            'criptografar', 'dados_do_rodape', 'deletion_requests', 'denuncias',
+            'desktop', 'docoffice', 'documentdata', 'documentuniversal', 'email',
+            'emails', 'errorlog', 'espacowazzimagiygg', 'financialData', 'forum',
+            'forumapplication',
+            
+            // Quarta imagem
+            'forumwzzm', 'gemini_api_keys', 'gespai', 'historico', 'historicoEdicoes',
+            'historicodecontribuicoes', 'historicogeral', 'imagenscode', 'index',
+            'inevitavel', 'keymenulista', 'listasecundariah', 'logeral', 'manageruid',
+            'materia',
+            
+            // Quinta imagem
+            'materials', 'materias', 'menconfig', 'minhapersona', 'news', 'officewzzm',
+            'paginasUsuario', 'pdfcode', 'planilhadinamica', 'profissional',
+            'prontuariodinamico', 'prontuariomultifuncionalformatado', 'prontuariouniversal',
+            'redirecionamento',
+            
+            // Sexta imagem
+            'relatoriosadmin', 'reports', 'rodapes_registrados', 'securityuid',
+            'skyfemboy', 'skyfemboy1', 'skyfemboy2', 'social', 'testedeartgicontificio',
+            'tickets', 'userEmails', 'user_desktop', 'user_edits', 'userpage', 'users',
+            
+            // Sétima imagem
+            'userteacher', 'uwgbooks', 'wazzimagigggfemboyverse69', 'wikicodigo',
+            'wikinotpedia', 'wikiworldweb', 'wikizero', 'wnpx', 'wwebmodmail'
+        ];
+
+        const ADMIN_UIDS = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1', '6aPqWVh8JVYL5NqEb78iDGPD7dH3'];
+
+        // ============================================
         // VARIÁVEIS GLOBAIS
         // ============================================
         let currentUser = null;
         let isAdmin = false;
         let allCollections = [];
-        let expandedCollections = new Set();
-
-        // LISTA MANUAL DE COLEÇÕES QUE VOCÊ QUER VISUALIZAR
-        // Adicione aqui todas as coleções que existem no seu Firestore
-        const COLLECTIONS_TO_SCAN = [
-            'documentos',
-            'users',
-            'user_edits',
-            'consent_logs',
-            'deletion_requests',
-            'admin_logs',
-            'tickets',
-            'paginasUsuario',
-            'user_desktop',
-            'historicodecontribuicoes',
-            'articles',
-            'news',
-            'forums',
-            'reports',
-            'settings',
-            'emails',
-            'contatowazzimagiygg',
-            'financialData',
-            'social/users',
-            'social/postagens/posts',
-            'wwebmodmail',
-            'admincorewnpx',
-            'CentroDeTerapia',
-            'wikinotpedia',
-            'forumwzzm',
-            'historicoEdicoes',
-            'rodapes_registrados',
-            'mensagens',
-            'historicogeral',
-            'logeral',
-            'wazzimagiyggfemboyverse69',
-            'imagenscode',
-            'pdfcode',
-            'albumimagens'
-        ];
-
-        const ADMIN_UIDS = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1', '6aPqWVh8JVYL5NqEb78iDGPD7dH3'];
 
         // ============================================
         // FUNÇÕES AUXILIARES
@@ -459,9 +450,11 @@
                 const collectionsData = [];
                 let totalDocs = 0;
                 let totalSize = 0;
+                let processed = 0;
                 
                 for (const collectionName of COLLECTIONS_TO_SCAN) {
-                    console.log(`📁 Escaneando coleção: ${collectionName}`);
+                    processed++;
+                    console.log(`📁 [${processed}/${COLLECTIONS_TO_SCAN.length}] Escaneando: ${collectionName}`);
                     
                     try {
                         const snapshot = await db.collection(collectionName).get();
@@ -490,7 +483,7 @@
                         });
                         
                     } catch (error) {
-                        console.warn(`⚠️ Erro ao acessar coleção ${collectionName}:`, error.message);
+                        console.warn(`⚠️ Erro ao acessar ${collectionName}:`, error.message);
                         collectionsData.push({
                             id: collectionName,
                             docCount: 0,
@@ -499,14 +492,26 @@
                             error: error.message
                         });
                     }
+                    
+                    // Atualizar progresso a cada 10 coleções
+                    if (processed % 10 === 0) {
+                        updateProgress(processed, COLLECTIONS_TO_SCAN.length);
+                    }
                 }
                 
-                allCollections = collectionsData.filter(c => c.docCount > 0 || c.error);
+                allCollections = collectionsData;
                 renderDashboard(totalDocs, totalSize);
                 
             } catch (error) {
                 console.error('Erro ao escanear:', error);
                 showError(error.message);
+            }
+        }
+        
+        function updateProgress(current, total) {
+            const progressDiv = document.getElementById('progress-text');
+            if (progressDiv) {
+                progressDiv.innerHTML = `🔍 Escaneando: ${current}/${total} coleções...`;
             }
         }
         
@@ -516,7 +521,7 @@
                 <div class="container">
                     <div class="header">
                         <h1><span class="material-icons">storage</span> Firestore Explorer</h1>
-                        <p>Escaneando coleções configuradas...</p>
+                        <p>Escaneando todas as coleções do Firestore...</p>
                         <div class="admin-info">
                             <span class="material-icons">admin_panel_settings</span>
                             Administrador: <strong>${escapeHtml(currentUser?.displayName || currentUser?.email)}</strong>
@@ -524,7 +529,8 @@
                     </div>
                     <div class="loading">
                         <div class="spinner"></div>
-                        <p style="margin-top: 20px;">🔍 Escaneando coleções... Isso pode levar alguns segundos</p>
+                        <p id="progress-text" style="margin-top: 20px;">🔍 Escaneando coleções... (0/${COLLECTIONS_TO_SCAN.length})</p>
+                        <p style="font-size: 12px; color: #718096; margin-top: 10px;">Isso pode levar alguns segundos</p>
                     </div>
                 </div>
             `;
@@ -551,7 +557,6 @@
             
             const totalCollections = allCollections.length;
             const collectionsWithData = allCollections.filter(c => c.docCount > 0).length;
-            const topCollection = [...allCollections].sort((a, b) => b.size - a.size)[0];
             
             app.innerHTML = `
                 <div class="container">
@@ -560,7 +565,7 @@
                             <span class="material-icons">storage</span>
                             Firestore Explorer - WikiZero
                         </h1>
-                        <p>Visualize todas as coleções configuradas e o espaço ocupado</p>
+                        <p>Visualize todas as ${totalCollections} coleções do Firestore</p>
                         <div class="admin-info">
                             <div>
                                 <span class="material-icons">admin_panel_settings</span>
@@ -577,7 +582,7 @@
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-value">${formatNumber(totalCollections)}</div>
-                            <div class="stat-label">Coleções Monitoradas</div>
+                            <div class="stat-label">Total de Coleções</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-value">${formatNumber(collectionsWithData)}</div>
@@ -589,7 +594,7 @@
                         </div>
                         <div class="stat-card">
                             <div class="stat-value">${formatBytes(totalSize)}</div>
-                            <div class="stat-label">Espaço Total Ocupado</div>
+                            <div class="stat-label">Espaço Total Estimado</div>
                         </div>
                     </div>
                     
@@ -614,7 +619,7 @@
                     <div class="table-container">
                         <div class="table-header">
                             <h3><span class="material-icons">folder</span> Coleções do Firestore</h3>
-                            <span style="font-size: 12px; color: #718096;">${COLLECTIONS_TO_SCAN.length} coleções configuradas</span>
+                            <span style="font-size: 12px; color: #718096;">${totalCollections} coleções monitoradas</span>
                         </div>
                         <div style="overflow-x: auto;">
                             <table id="collections-table">
@@ -628,7 +633,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="collections-tbody">
-                                    ${renderCollectionsList()}
+                                    ${renderCollectionsList(totalSize)}
                                 </tbody>
                             </table>
                         </div>
@@ -636,13 +641,13 @@
                     
                     <div class="footer">
                         <p>WikiZero - Firestore Explorer | Dados calculados com base no JSON.stringify()</p>
-                        <p>⚠️ Para adicionar novas coleções, edite a constante COLLECTIONS_TO_SCAN no código</p>
+                        <p>📊 Total de coleções escaneadas: ${totalCollections}</p>
                     </div>
                 </div>
             `;
         }
         
-        function renderCollectionsList() {
+        function renderCollectionsList(totalSize) {
             const searchTerm = document.getElementById('search-collection')?.value.toLowerCase() || '';
             const sortBy = document.getElementById('sort-by')?.value || 'name';
             
@@ -660,35 +665,35 @@
                 filtered.sort((a, b) => b.docCount - a.docCount);
             }
             
-            const totalSize = allCollections.reduce((sum, c) => sum + c.size, 0);
-            
             return filtered.map(col => {
                 const percentage = totalSize > 0 ? (col.size / totalSize) * 100 : 0;
+                const hasData = col.docCount > 0;
                 
                 return `
                     <tr>
                         <td>
-                            <span class="material-icons" style="font-size: 18px; vertical-align: middle; color: #667eea;">folder</span>
-                            <strong style="margin-left: 8px;">${escapeHtml(col.id)}</strong>
+                            <span class="material-icons" style="font-size: 18px; vertical-align: middle; color: ${hasData ? '#667eea' : '#a0aec0'};">${hasData ? 'folder' : 'folder_open'}</span>
+                            <strong style="margin-left: 8px; ${!hasData ? 'color: #a0aec0;' : ''}">${escapeHtml(col.id)}</strong>
                             ${col.error ? `<span style="color: #dc3545; margin-left: 10px; font-size: 11px;">⚠️ ${escapeHtml(col.error)}</span>` : ''}
+                            ${!hasData && !col.error ? `<span style="color: #a0aec0; margin-left: 10px; font-size: 11px;">📭 vazia</span>` : ''}
                         </td>
-                        <td>${col.docCount > 0 ? formatNumber(col.docCount) : '0'}</td>
+                        <td>${hasData ? formatNumber(col.docCount) : '0'}</td>
                         <td>
-                            <strong>${formatBytes(col.size)}</strong>
-                            ${col.size > 0 ? `
+                            ${hasData ? `<strong>${formatBytes(col.size)}</strong>` : '—'}
+                            ${hasData && percentage > 0 ? `
                                 <div class="memory-bar">
                                     <div class="memory-fill" style="width: ${Math.min(percentage, 100)}%"></div>
                                 </div>
                             ` : ''}
-                         </td>
-                        <td>${percentage.toFixed(2)}%</td>
+                        </td>
+                        <td>${hasData ? percentage.toFixed(2) + '%' : '—'}</td>
                         <td>
-                            ${col.docCount > 0 ? `
+                            ${hasData ? `
                                 <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="viewDocuments('${col.id}')">
                                     📄 Ver Docs
                                 </button>
                             ` : '—'}
-                         </td>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -701,7 +706,8 @@
         function filterCollections() {
             const tbody = document.getElementById('collections-tbody');
             if (tbody) {
-                tbody.innerHTML = renderCollectionsList();
+                const totalSize = allCollections.reduce((sum, c) => sum + c.size, 0);
+                tbody.innerHTML = renderCollectionsList(totalSize);
             }
         }
         
@@ -759,6 +765,7 @@
             const exportData = {
                 exportDate: new Date().toISOString(),
                 totalCollections: allCollections.length,
+                collectionsWithData: allCollections.filter(c => c.docCount > 0).length,
                 totalSize: allCollections.reduce((sum, c) => sum + c.size, 0),
                 collections: allCollections.map(col => ({
                     name: col.id,
