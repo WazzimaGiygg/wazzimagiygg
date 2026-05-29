@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Stats - WikiZero</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 25px 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header p {
+            color: #718096;
+            margin-top: 8px;
+        }
+
+        .admin-info {
+            background: #e8f0fe;
+            padding: 10px 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .stat-icon .material-icons {
+            font-size: 28px;
+            color: white;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: #2d3748;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .chart-card h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+        }
+
+        canvas {
+            max-height: 300px;
+        }
+
+        /* Tabela de Conteúdo */
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+        }
+
+        .table-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .table-header h3 {
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-box input {
+            padding: 8px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-family: inherit;
+            width: 250px;
+        }
+
+        .search-box button {
+            padding: 8px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Top Users */
+        .top-users-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .top-user-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: transform 0.3s;
+        }
+
+        .top-user-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .rank {
+            font-size: 28px;
+            font-weight: 800;
+            color: #cbd5e0;
+            width: 50px;
+        }
+
+        .rank-1 { color: #fbbf24; }
+        .rank-2 { color: #94a3b8; }
+        .rank-3 { color: #cd7f32; }
+
+        .user-stats {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .user-count {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+        }
+
+        /* Botão Refresh */
+        .btn-refresh {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .btn-refresh:hover {
+            background: #5a67d8;
+        }
+
+        .btn-logout {
+            background: #dc3545;
+        }
+
+        .btn-logout:hover {
+            background: #c82333;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .table-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .search-box {
+                width: 100%;
+            }
+            .search-box input {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Conteúdo será renderizado dinamicamente -->
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        // ============================================
+        // CONFIGURAÇÃO FIREBASE
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ============================================
+        // VARIÁVEIS GLOBAIS
+        // ============================================
+        let currentUser = null;
+        let isAdmin = false;
+        let statistics = {
+            totalPages: 0,
+            totalArticles: 0,
+            totalUsers: 0,
+            totalEdits: 0,
+            pagesByCategory: {},
+            articlesByMonth: {},
+            topContributors: [],
+            recentArticles: []
+        };
+
+        // UIDs de administradores
+        const ADMIN_UIDS = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1', '6aPqWVh8JVYL5NqEb78iDGPD7dH3'];
+
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
+        
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            if (date.toDate) date = date.toDate();
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function checkIsAdmin(user) {
+            if (!user) return false;
+            if (ADMIN_UIDS.includes(user.uid)) return true;
+            try {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                return userDoc.exists && userDoc.data().isAdmin === true;
+            } catch { return false; }
+        }
+
+        // ============================================
+        // FUNÇÃO PRINCIPAL DE ESTATÍSTICAS
+        // ============================================
+        
+        async function loadStatistics() {
+            if (!isAdmin) return;
+            
+            showLoading();
+            
+            try {
+                // 1. Carregar todas as páginas (documentos)
+                const pagesSnapshot = await db.collection('documentos').get();
+                const totalPages = pagesSnapshot.size;
+                
+                // 2. Carregar todos os artigos (inevitavel)
+                let totalArticles = 0;
+                const pagesByCategory = {};
+                const contributorsMap = new Map();
+                const recentArticles = [];
+                
+                for (const pageDoc of pagesSnapshot.docs) {
+                    const pageData = pageDoc.data();
+                    const category = pageData.categoria || 'Geral';
+                    pagesByCategory[category] = (pagesByCategory[category] || 0) + 1;
+                    
+                    // Contar artigos da página
+                    const articlesSnapshot = await db.collection('documentos')
+                        .doc(pageDoc.id)
+                        .collection('inevitavel')
+                        .get();
+                    
+                    totalArticles += articlesSnapshot.size;
+                    
+                    // Processar artigos
+                    for (const articleDoc of articlesSnapshot.docs) {
+                        const articleData = articleDoc.data();
+                        const creatorId = articleData.criadorId || pageData.criadoPor;
+                        const creatorName = articleData.criadorNome || pageData.criadoPorNome || 'Anônimo';
+                        
+                        // Contar contribuições
+                        if (creatorId) {
+                            contributorsMap.set(creatorId, {
+                                id: creatorId,
+                                name: creatorName,
+                                count: (contributorsMap.get(creatorId)?.count || 0) + 1
+                            });
+                        }
+                        
+                        // Adicionar aos artigos recentes
+                        if (articleData.dataCriacao) {
+                            recentArticles.push({
+                                title: articleData.titulo || 'Sem título',
+                                pageId: pageDoc.id,
+                                pageTitle: pageData.titulo || pageDoc.id,
+                                author: creatorName,
+                                createdAt: articleData.dataCriacao.toDate ? articleData.dataCriacao.toDate() : new Date(articleData.dataCriacao),
+                                id: articleDoc.id
+                            });
+                        }
+                    }
+                }
+                
+                // 3. Contar usuários únicos
+                const usersSnapshot = await db.collection('users').get();
+                const totalUsers = usersSnapshot.size;
+                
+                // 4. Contar edições
+                const editsSnapshot = await db.collection('user_edits').get();
+                const totalEdits = editsSnapshot.size;
+                
+                // 5. Organizar top contribuidores
+                const topContributors = Array.from(contributorsMap.values())
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+                
+                // 6. Organizar artigos recentes
+                const sortedRecentArticles = recentArticles
+                    .sort((a, b) => b.createdAt - a.createdAt)
+                    .slice(0, 20);
+                
+                // 7. Estatísticas por mês
+                const articlesByMonth = {};
+                for (const article of recentArticles) {
+                    const monthYear = `${article.createdAt.getFullYear()}-${String(article.createdAt.getMonth() + 1).padStart(2, '0')}`;
+                    articlesByMonth[monthYear] = (articlesByMonth[monthYear] || 0) + 1;
+                }
+                
+                // Salvar estatísticas
+                statistics = {
+                    totalPages,
+                    totalArticles,
+                    totalUsers,
+                    totalEdits,
+                    pagesByCategory,
+                    articlesByMonth,
+                    topContributors,
+                    recentArticles: sortedRecentArticles
+                };
+                
+                renderDashboard();
+                
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+                document.getElementById('app').innerHTML = `
+                    <div class="container">
+                        <div class="header">
+                            <h1><span class="material-icons">error</span> Erro ao Carregar</h1>
+                            <p>${escapeHtml(error.message)}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function showLoading() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1><span class="material-icons">analytics</span> Carregando Estatísticas...</h1>
+                        <p>Aguarde enquanto coletamos os dados da WikiZero</p>
+                    </div>
+                    <div class="loading">📊 Coletando dados do sistema...</div>
+                </div>
+            `;
+        }
+        
+        // ============================================
+        // RENDERIZAÇÃO DO DASHBOARD
+        // ============================================
+        
+        function renderDashboard() {
+            const app = document.getElementById('app');
+            
+            // Preparar dados para gráficos
+            const categories = Object.keys(statistics.pagesByCategory);
+            const categoryValues = categories.map(c => statistics.pagesByCategory[c]);
+            
+            const months = Object.keys(statistics.articlesByMonth).sort();
+            const monthValues = months.map(m => statistics.articlesByMonth[m]);
+            
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1>
+                            <span class="material-icons">analytics</span>
+                            Painel de Estatísticas - WikiZero
+                        </h1>
+                        <p>Métricas e análises sobre o conteúdo da enciclopédia</p>
+                        <div class="admin-info">
+                            <div>
+                                <span class="material-icons" style="font-size: 16px; vertical-align: middle;">admin_panel_settings</span>
+                                Administrador: <strong>${escapeHtml(currentUser?.displayName || currentUser?.email)}</strong>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-refresh" onclick="refreshStats()">
+                                    <span class="material-icons" style="font-size: 18px;">refresh</span> Atualizar
+                                </button>
+                                <button class="btn-refresh btn-logout" onclick="logout()">
+                                    <span class="material-icons" style="font-size: 18px;">logout</span> Sair
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cards de Estatísticas -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon"><span class="material-icons">menu_book</span></div>
+                            <div class="stat-value">${statistics.totalPages}</div>
+                            <div class="stat-label">Páginas Wiki</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><span class="material-icons">article</span></div>
+                            <div class="stat-value">${statistics.totalArticles}</div>
+                            <div class="stat-label">Artigos Publicados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><span class="material-icons">people</span></div>
+                            <div class="stat-value">${statistics.totalUsers}</div>
+                            <div class="stat-label">Usuários Registrados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><span class="material-icons">edit_note</span></div>
+                            <div class="stat-value">${statistics.totalEdits}</div>
+                            <div class="stat-label">Edições Realizadas</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráficos -->
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3><span class="material-icons">category</span> Páginas por Categoria</h3>
+                            <canvas id="category-chart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3><span class="material-icons">date_range</span> Artigos por Mês</h3>
+                            <canvas id="monthly-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Top Contribuidores -->
+                    <div class="top-users-grid">
+                        <div class="chart-card">
+                            <h3><span class="material-icons">emoji_events</span> Top Contribuidores</h3>
+                            <div id="top-contributors-list">
+                                ${renderTopContributors()}
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3><span class="material-icons">trending_up</span> Resumo Rápido</h3>
+                            <div style="padding: 10px;">
+                                <p><strong>📊 Média de artigos por página:</strong> ${(statistics.totalArticles / statistics.totalPages).toFixed(1)}</p>
+                                <p><strong>👥 Média de edições por usuário:</strong> ${(statistics.totalEdits / statistics.totalUsers).toFixed(1)}</p>
+                                <p><strong>🏆 Contribuidor mais ativo:</strong> ${statistics.topContributors[0]?.name || 'Nenhum'}</p>
+                                <p><strong>📅 ${Object.keys(statistics.articlesByMonth).length} meses</strong> com atividade</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Artigos Recentes -->
+                    <div class="table-container">
+                        <div class="table-header">
+                            <h3><span class="material-icons">history</span> Últimos Artigos Criados</h3>
+                            <div class="search-box">
+                                <input type="text" id="search-recent" placeholder="Buscar artigo..." onkeyup="filterRecentArticles()">
+                                <button onclick="filterRecentArticles()">🔍 Buscar</button>
+                            </div>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table id="recent-articles-table">
+                                <thead>
+                                    <tr>
+                                        <th>Título</th>
+                                        <th>Página</th>
+                                        <th>Autor</th>
+                                        <th>Data de Criação</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${renderRecentArticles(statistics.recentArticles)}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>WikiZero - Estatísticas atualizadas em tempo real | Dados coletados do Firestore</p>
+                        <p>© 2026 WikiZero - Enciclopédia Livre e Colaborativa</p>
+                    </div>
+                </div>
+            `;
+            
+            // Inicializar gráficos após renderizar
+            setTimeout(() => {
+                initCharts(categories, categoryValues, months, monthValues);
+            }, 100);
+        }
+        
+        function renderTopContributors() {
+            if (statistics.topContributors.length === 0) {
+                return '<div class="loading">Nenhum contribuidor encontrado</div>';
+            }
+            
+            return statistics.topContributors.map((user, index) => `
+                <div class="top-user-card">
+                    <div class="rank ${index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : ''}">
+                        #${index + 1}
+                    </div>
+                    <div class="user-avatar">${user.name.charAt(0).toUpperCase()}</div>
+                    <div class="user-stats">
+                        <div class="user-name">${escapeHtml(user.name)}</div>
+                        <div class="user-count">📄 ${user.count} artigo(s) criado(s)</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderRecentArticles(articles) {
+            if (articles.length === 0) {
+                return '<tr><td colspan="5" class="loading">Nenhum artigo encontrado</td></tr>';
+            }
+            
+            return articles.map(article => `
+                <tr>
+                    <td><strong>${escapeHtml(article.title.substring(0, 50))}${article.title.length > 50 ? '...' : ''}</strong></td>
+                    <td>${escapeHtml(article.pageTitle)}</td>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar" style="width: 30px; height: 30px; font-size: 12px;">${article.author.charAt(0).toUpperCase()}</div>
+                            ${escapeHtml(article.author)}
+                        </div>
+                    </td>
+                    <td>${formatDate(article.createdAt)}</td>
+                    <td>
+                        <button class="btn-refresh" style="padding: 5px 10px; font-size: 11px;" onclick="viewArticle('${article.pageId}', '${article.id}')">
+                            Ver Artigo
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function initCharts(categories, categoryValues, months, monthValues) {
+            // Gráfico de Categorias
+            const categoryCtx = document.getElementById('category-chart')?.getContext('2d');
+            if (categoryCtx) {
+                new Chart(categoryCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            data: categoryValues,
+                            backgroundColor: [
+                                '#667eea', '#764ba2', '#f093fb', '#f5576c',
+                                '#4facfe', '#00f2fe', '#43e97b', '#38f9d7',
+                                '#fa709a', '#fee140', '#30cfd0', '#330867'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { position: 'right' }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico Mensal
+            const monthlyCtx = document.getElementById('monthly-chart')?.getContext('2d');
+            if (monthlyCtx) {
+                new Chart(monthlyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: 'Artigos Criados',
+                            data: monthValues,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { position: 'top' }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function filterRecentArticles() {
+            const searchTerm = document.getElementById('search-recent')?.value.toLowerCase() || '';
+            const filtered = statistics.recentArticles.filter(article => 
+                article.title.toLowerCase().includes(searchTerm) ||
+                article.pageTitle.toLowerCase().includes(searchTerm) ||
+                article.author.toLowerCase().includes(searchTerm)
+            );
+            
+            const tbody = document.querySelector('#recent-articles-table tbody');
+            if (tbody) {
+                tbody.innerHTML = renderRecentArticles(filtered);
+            }
+        }
+        
+        // ============================================
+        // FUNÇÕES DE AÇÃO
+        // ============================================
+        
+        async function refreshStats() {
+            await loadStatistics();
+        }
+        
+        function viewArticle(pageId, articleId) {
+            // Abrir em uma nova aba ou modal
+            const url = `https://wiki.wazzimagiygg.com/?page=${pageId}&article=${articleId}`;
+            window.open(url, '_blank');
+        }
+        
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = '/';
+            });
+        }
+        
+        // ============================================
+        // TELA DE LOGIN
+        // ============================================
+        
+        function renderLoginScreen() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header" style="text-align: center;">
+                        <h1><span class="material-icons">admin_panel_settings</span> Área Restrita</h1>
+                        <p>Faça login com uma conta de administrador para acessar as estatísticas</p>
+                    </div>
+                    <div style="background: white; border-radius: 20px; padding: 40px; text-align: center; max-width: 400px; margin: 0 auto;">
+                        <span class="material-icons" style="font-size: 64px; color: #667eea;">analytics</span>
+                        <h2 style="margin: 20px 0;">Painel de Estatísticas</h2>
+                        <p style="margin-bottom: 30px; color: #718096;">Acesso restrito a administradores</p>
+                        <button class="btn-refresh" onclick="signIn()" style="padding: 12px 30px;">
+                            🔑 Entrar com Google
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderAccessDenied() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header" style="text-align: center;">
+                        <h1><span class="material-icons">lock</span> Acesso Negado</h1>
+                        <p>Você não tem permissão para acessar esta página</p>
+                    </div>
+                    <div style="background: white; border-radius: 20px; padding: 40px; text-align: center;">
+                        <span class="material-icons" style="font-size: 64px; color: #dc3545;">gpp_bad</span>
+                        <h2>Área Administrativa</h2>
+                        <p>Sua conta não possui privilégios de administrador.</p>
+                        <button class="btn-refresh" onclick="window.location.href='https://wiki.wazzimagiygg.com'" style="margin-top: 20px;">
+                            Voltar para WikiZero
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function signIn() {
+            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        }
+        
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            if (user) {
+                isAdmin = await checkIsAdmin(user);
+                if (isAdmin) {
+                    await loadStatistics();
+                } else {
+                    renderAccessDenied();
+                }
+            } else {
+                renderLoginScreen();
+            }
+        });
+        
+        // Expor funções globalmente
+        window.refreshStats = refreshStats;
+        window.viewArticle = viewArticle;
+        window.filterRecentArticles = filterRecentArticles;
+        window.logout = logout;
+        window.signIn = signIn;
+    </script>
+</body>
+</html>
