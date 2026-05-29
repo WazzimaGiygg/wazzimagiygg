@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firestore Auditor - Admin | WikiZero</title>
+    <title>Firestore Explorer - Admin | WikiZero</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <style>
@@ -25,7 +25,6 @@
             margin: 0 auto;
         }
 
-        /* Header */
         .header {
             background: white;
             border-radius: 20px;
@@ -59,7 +58,6 @@
             gap: 15px;
         }
 
-        /* Stats Cards */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -90,7 +88,6 @@
             margin-top: 5px;
         }
 
-        /* Botões */
         .btn-primary {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -119,12 +116,6 @@
             font-weight: 500;
         }
 
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-
-        /* Filtros */
         .filters {
             background: white;
             border-radius: 20px;
@@ -157,7 +148,6 @@
             font-family: inherit;
         }
 
-        /* Tabela de Coleções */
         .table-container {
             background: white;
             border-radius: 20px;
@@ -203,25 +193,21 @@
             cursor: pointer;
         }
 
-        .collection-row.expanded {
-            background: #e8f0fe;
-        }
-
         .subcollection-row {
             background: #f9fafb;
         }
 
         .subcollection-row td {
-            padding-left: 40px;
+            padding-left: 50px;
         }
 
-        /* Barra de progresso de memória */
         .memory-bar {
             width: 100%;
             height: 6px;
             background: #e2e8f0;
             border-radius: 3px;
             overflow: hidden;
+            margin-top: 5px;
         }
 
         .memory-fill {
@@ -231,7 +217,6 @@
             transition: width 0.3s;
         }
 
-        /* Modal de Documentos */
         .modal {
             display: none;
             position: fixed;
@@ -275,7 +260,6 @@
             color: #999;
         }
 
-        /* Documento Card */
         .doc-card {
             background: #f8fafc;
             border-radius: 12px;
@@ -301,9 +285,10 @@
             overflow-x: auto;
             white-space: pre-wrap;
             word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
-        /* Loading */
         .loading {
             text-align: center;
             padding: 40px;
@@ -325,15 +310,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Toolbar */
-        .toolbar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        /* Footer */
         .footer {
             text-align: center;
             padding: 20px;
@@ -353,9 +329,7 @@
     </style>
 </head>
 <body>
-    <div class="container" id="app">
-        <!-- Conteúdo dinâmico -->
-    </div>
+    <div class="container" id="app"></div>
 
     <!-- Modal de Documentos -->
     <div id="docs-modal" class="modal">
@@ -399,7 +373,45 @@
         let allCollections = [];
         let expandedCollections = new Set();
 
-        // UIDs de administradores
+        // LISTA MANUAL DE COLEÇÕES QUE VOCÊ QUER VISUALIZAR
+        // Adicione aqui todas as coleções que existem no seu Firestore
+        const COLLECTIONS_TO_SCAN = [
+            'documentos',
+            'users',
+            'user_edits',
+            'consent_logs',
+            'deletion_requests',
+            'admin_logs',
+            'tickets',
+            'paginasUsuario',
+            'user_desktop',
+            'historicodecontribuicoes',
+            'articles',
+            'news',
+            'forums',
+            'reports',
+            'settings',
+            'emails',
+            'contatowazzimagiygg',
+            'financialData',
+            'social/users',
+            'social/postagens/posts',
+            'wwebmodmail',
+            'admincorewnpx',
+            'CentroDeTerapia',
+            'wikinotpedia',
+            'forumwzzm',
+            'historicoEdicoes',
+            'rodapes_registrados',
+            'mensagens',
+            'historicogeral',
+            'logeral',
+            'wazzimagiyggfemboyverse69',
+            'imagenscode',
+            'pdfcode',
+            'albumimagens'
+        ];
+
         const ADMIN_UIDS = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1', '6aPqWVh8JVYL5NqEb78iDGPD7dH3'];
 
         // ============================================
@@ -435,7 +447,7 @@
         }
 
         // ============================================
-        // FUNÇÃO PRINCIPAL - LISTAR TODAS AS COLEÇÕES
+        // FUNÇÃO PRINCIPAL - ESCANEAR COLEÇÕES
         // ============================================
         
         async function scanAllCollections() {
@@ -444,102 +456,57 @@
             showLoading();
             
             try {
-                // Obter todas as coleções raiz
-                const collectionsRef = await db.listCollections();
-                
                 const collectionsData = [];
                 let totalDocs = 0;
                 let totalSize = 0;
                 
-                for (const collectionRef of collectionsRef) {
-                    const collectionId = collectionRef.id;
-                    console.log(`📁 Escaneando coleção: ${collectionId}`);
+                for (const collectionName of COLLECTIONS_TO_SCAN) {
+                    console.log(`📁 Escaneando coleção: ${collectionName}`);
                     
-                    // Obter todos os documentos da coleção
-                    const snapshot = await collectionRef.get();
-                    const docCount = snapshot.size;
-                    let collectionSize = 0;
-                    const documents = [];
-                    
-                    for (const doc of snapshot.docs) {
-                        // Calcular tamanho aproximado do documento
-                        const docData = doc.data();
-                        const docSize = JSON.stringify(docData).length;
-                        collectionSize += docSize;
+                    try {
+                        const snapshot = await db.collection(collectionName).get();
+                        const docCount = snapshot.size;
+                        let collectionSize = 0;
+                        const documents = [];
                         
-                        documents.push({
-                            id: doc.id,
-                            data: docData,
-                            size: docSize
+                        for (const doc of snapshot.docs) {
+                            const docSize = JSON.stringify(doc.data()).length;
+                            collectionSize += docSize;
+                            documents.push({
+                                id: doc.id,
+                                data: doc.data(),
+                                size: docSize
+                            });
+                        }
+                        
+                        totalDocs += docCount;
+                        totalSize += collectionSize;
+                        
+                        collectionsData.push({
+                            id: collectionName,
+                            docCount: docCount,
+                            size: collectionSize,
+                            documents: documents
+                        });
+                        
+                    } catch (error) {
+                        console.warn(`⚠️ Erro ao acessar coleção ${collectionName}:`, error.message);
+                        collectionsData.push({
+                            id: collectionName,
+                            docCount: 0,
+                            size: 0,
+                            documents: [],
+                            error: error.message
                         });
                     }
-                    
-                    totalDocs += docCount;
-                    totalSize += collectionSize;
-                    
-                    collectionsData.push({
-                        id: collectionId,
-                        docCount: docCount,
-                        size: collectionSize,
-                        documents: documents,
-                        subcollections: []
-                    });
                 }
                 
-                // Após escanear coleções raiz, buscar subcoleções
-                for (const collection of collectionsData) {
-                    for (const doc of collection.documents) {
-                        try {
-                            const subcollections = await db.collection(collection.id).doc(doc.id).listCollections();
-                            
-                            for (const subCol of subcollections) {
-                                const subColId = subCol.id;
-                                const subSnapshot = await subCol.get();
-                                const subDocCount = subSnapshot.size;
-                                let subColSize = 0;
-                                const subDocuments = [];
-                                
-                                for (const subDoc of subSnapshot.docs) {
-                                    const subDocSize = JSON.stringify(subDoc.data()).length;
-                                    subColSize += subDocSize;
-                                    subDocuments.push({
-                                        id: subDoc.id,
-                                        data: subDoc.data(),
-                                        size: subDocSize
-                                    });
-                                }
-                                
-                                collection.subcollections.push({
-                                    id: subColId,
-                                    parentDocId: doc.id,
-                                    docCount: subDocCount,
-                                    size: subColSize,
-                                    documents: subDocuments
-                                });
-                                
-                                totalDocs += subDocCount;
-                                totalSize += subColSize;
-                            }
-                        } catch (e) {
-                            console.warn(`Erro ao listar subcoleções de ${collection.id}/${doc.id}:`, e);
-                        }
-                    }
-                }
-                
-                allCollections = collectionsData;
-                
+                allCollections = collectionsData.filter(c => c.docCount > 0 || c.error);
                 renderDashboard(totalDocs, totalSize);
                 
             } catch (error) {
                 console.error('Erro ao escanear:', error);
-                document.getElementById('app').innerHTML = `
-                    <div class="container">
-                        <div class="header">
-                            <h1><span class="material-icons">error</span> Erro</h1>
-                            <p>${escapeHtml(error.message)}</p>
-                        </div>
-                    </div>
-                `;
+                showError(error.message);
             }
         }
         
@@ -548,31 +515,42 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
-                        <h1><span class="material-icons">storage</span> Firestore Auditor</h1>
-                        <p>Escaneando todas as coleções e calculando uso de memória...</p>
+                        <h1><span class="material-icons">storage</span> Firestore Explorer</h1>
+                        <p>Escaneando coleções configuradas...</p>
                         <div class="admin-info">
-                            <span class="material-icons" style="font-size: 16px;">admin_panel_settings</span>
+                            <span class="material-icons">admin_panel_settings</span>
                             Administrador: <strong>${escapeHtml(currentUser?.displayName || currentUser?.email)}</strong>
                         </div>
                     </div>
                     <div class="loading">
                         <div class="spinner"></div>
-                        <p style="margin-top: 20px;">🔍 Escaneando Firestore... Isso pode levar alguns segundos</p>
+                        <p style="margin-top: 20px;">🔍 Escaneando coleções... Isso pode levar alguns segundos</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showError(message) {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1><span class="material-icons">error</span> Erro</h1>
+                        <p>${escapeHtml(message)}</p>
                     </div>
                 </div>
             `;
         }
         
         // ============================================
-        // RENDERIZAÇÃO DO DASHBOARD
+        // RENDERIZAÇÃO
         // ============================================
         
         function renderDashboard(totalDocs, totalSize) {
             const app = document.getElementById('app');
             
-            // Calcular estatísticas
             const totalCollections = allCollections.length;
-            const totalSubcollections = allCollections.reduce((sum, col) => sum + col.subcollections.length, 0);
+            const collectionsWithData = allCollections.filter(c => c.docCount > 0).length;
             const topCollection = [...allCollections].sort((a, b) => b.size - a.size)[0];
             
             app.innerHTML = `
@@ -580,12 +558,12 @@
                     <div class="header">
                         <h1>
                             <span class="material-icons">storage</span>
-                            Firestore Auditor - WikiZero
+                            Firestore Explorer - WikiZero
                         </h1>
-                        <p>Visualize todas as coleções, subcoleções e o espaço ocupado por cada uma</p>
+                        <p>Visualize todas as coleções configuradas e o espaço ocupado</p>
                         <div class="admin-info">
                             <div>
-                                <span class="material-icons" style="font-size: 16px;">admin_panel_settings</span>
+                                <span class="material-icons">admin_panel_settings</span>
                                 Administrador: <strong>${escapeHtml(currentUser?.displayName || currentUser?.email)}</strong>
                             </div>
                             <div>
@@ -596,15 +574,14 @@
                         </div>
                     </div>
                     
-                    <!-- Cards de Estatísticas -->
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-value">${formatNumber(totalCollections)}</div>
-                            <div class="stat-label">Coleções Raiz</div>
+                            <div class="stat-label">Coleções Monitoradas</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">${formatNumber(totalSubcollections)}</div>
-                            <div class="stat-label">Subcoleções</div>
+                            <div class="stat-value">${formatNumber(collectionsWithData)}</div>
+                            <div class="stat-label">Coleções com Dados</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-value">${formatNumber(totalDocs)}</div>
@@ -616,7 +593,6 @@
                         </div>
                     </div>
                     
-                    <!-- Filtros -->
                     <div class="filters">
                         <div class="filter-group">
                             <label>🔍 Buscar coleção</label>
@@ -635,11 +611,10 @@
                         </button>
                     </div>
                     
-                    <!-- Tabela de Coleções -->
                     <div class="table-container">
                         <div class="table-header">
                             <h3><span class="material-icons">folder</span> Coleções do Firestore</h3>
-                            <span style="font-size: 12px; color: #718096;">Clique em uma coleção para expandir/subcoleções</span>
+                            <span style="font-size: 12px; color: #718096;">${COLLECTIONS_TO_SCAN.length} coleções configuradas</span>
                         </div>
                         <div style="overflow-x: auto;">
                             <table id="collections-table">
@@ -660,8 +635,8 @@
                     </div>
                     
                     <div class="footer">
-                        <p>WikiZero - Auditoria do Firestore | Dados calculados com base no JSON.stringify()</p>
-                        <p>⚠️ O tamanho é uma estimativa aproximada, não reflete exatamente o custo do Firestore</p>
+                        <p>WikiZero - Firestore Explorer | Dados calculados com base no JSON.stringify()</p>
+                        <p>⚠️ Para adicionar novas coleções, edite a constante COLLECTIONS_TO_SCAN no código</p>
                     </div>
                 </div>
             `;
@@ -685,76 +660,35 @@
                 filtered.sort((a, b) => b.docCount - a.docCount);
             }
             
+            const totalSize = allCollections.reduce((sum, c) => sum + c.size, 0);
+            
             return filtered.map(col => {
-                const percentage = (col.size / allCollections.reduce((sum, c) => sum + c.size, 0)) * 100;
-                const isExpanded = expandedCollections.has(col.id);
+                const percentage = totalSize > 0 ? (col.size / totalSize) * 100 : 0;
                 
                 return `
-                    ${renderCollectionRow(col, percentage, isExpanded)}
-                    ${isExpanded ? renderSubcollections(col) : ''}
-                `;
-            }).join('');
-        }
-        
-        function renderCollectionRow(col, percentage, isExpanded) {
-            return `
-                <tr class="collection-row" onclick="toggleCollection('${col.id}')">
-                    <td>
-                        <span class="material-icons" style="font-size: 18px; vertical-align: middle; color: #667eea;">
-                            ${isExpanded ? 'folder_open' : 'folder'}
-                        </span>
-                        <strong style="margin-left: 8px;">${escapeHtml(col.id)}</strong>
-                    </td>
-                    <td>${formatNumber(col.docCount)}</td>
-                    <td>
-                        <strong>${formatBytes(col.size)}</strong>
-                        <div class="memory-bar" style="margin-top: 5px;">
-                            <div class="memory-fill" style="width: ${percentage}%"></div>
-                        </div>
-                    </td>
-                    <td>${percentage.toFixed(2)}%</td>
-                    <td>
-                        <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="event.stopPropagation(); viewDocuments('${col.id}', 'root')">
-                            📄 Ver Docs
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }
-        
-        function renderSubcollections(col) {
-            if (col.subcollections.length === 0) {
-                return `
-                    <tr class="subcollection-row">
-                        <td colspan="5" style="padding-left: 40px; color: #a0aec0;">
-                            📭 Nenhuma subcoleção encontrada
-                        </td>
-                    </tr>
-                `;
-            }
-            
-            return col.subcollections.map(sub => {
-                const subPercentage = (sub.size / allCollections.reduce((sum, c) => sum + c.size, 0)) * 100;
-                return `
-                    <tr class="subcollection-row">
-                        <td style="padding-left: 40px;">
-                            <span class="material-icons" style="font-size: 16px; vertical-align: middle; color: #764ba2;">subdirectory_arrow_right</span>
-                            <span style="margin-left: 5px;">${escapeHtml(sub.id)}</span>
-                            <span style="font-size: 11px; color: #999;"> (pai: ${escapeHtml(col.id)}/${escapeHtml(sub.parentDocId)})</span>
-                        </td>
-                        <td>${formatNumber(sub.docCount)}</td>
+                    <tr>
                         <td>
-                            ${formatBytes(sub.size)}
-                            <div class="memory-bar" style="margin-top: 5px;">
-                                <div class="memory-fill" style="width: ${Math.min(subPercentage, 100)}%"></div>
-                            </div>
+                            <span class="material-icons" style="font-size: 18px; vertical-align: middle; color: #667eea;">folder</span>
+                            <strong style="margin-left: 8px;">${escapeHtml(col.id)}</strong>
+                            ${col.error ? `<span style="color: #dc3545; margin-left: 10px; font-size: 11px;">⚠️ ${escapeHtml(col.error)}</span>` : ''}
                         </td>
-                        <td>${subPercentage.toFixed(2)}%</td>
+                        <td>${col.docCount > 0 ? formatNumber(col.docCount) : '0'}</td>
                         <td>
-                            <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="event.stopPropagation(); viewDocuments('${col.id}/${sub.parentDocId}/${sub.id}', 'sub')">
-                                📄 Ver Docs
-                            </button>
-                        </td>
+                            <strong>${formatBytes(col.size)}</strong>
+                            ${col.size > 0 ? `
+                                <div class="memory-bar">
+                                    <div class="memory-fill" style="width: ${Math.min(percentage, 100)}%"></div>
+                                </div>
+                            ` : ''}
+                         </td>
+                        <td>${percentage.toFixed(2)}%</td>
+                        <td>
+                            ${col.docCount > 0 ? `
+                                <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="viewDocuments('${col.id}')">
+                                    📄 Ver Docs
+                                </button>
+                            ` : '—'}
+                         </td>
                     </tr>
                 `;
             }).join('');
@@ -764,15 +698,6 @@
         // FUNÇÕES DE INTERAÇÃO
         // ============================================
         
-        function toggleCollection(collectionId) {
-            if (expandedCollections.has(collectionId)) {
-                expandedCollections.delete(collectionId);
-            } else {
-                expandedCollections.add(collectionId);
-            }
-            filterCollections();
-        }
-        
         function filterCollections() {
             const tbody = document.getElementById('collections-tbody');
             if (tbody) {
@@ -780,47 +705,33 @@
             }
         }
         
-        async function viewDocuments(collectionPath, type) {
+        async function viewDocuments(collectionName) {
             const modal = document.getElementById('docs-modal');
             const modalTitle = document.getElementById('modal-title');
             const modalBody = document.getElementById('modal-body');
             
-            modalTitle.innerHTML = `📄 Documentos: ${escapeHtml(collectionPath)}`;
+            modalTitle.innerHTML = `📄 Documentos: ${escapeHtml(collectionName)}`;
             modalBody.innerHTML = '<div class="loading"><div class="spinner"></div> Carregando documentos...</div>';
             modal.style.display = 'flex';
             
             try {
-                let docs = [];
-                
-                if (type === 'root') {
-                    // Coleção raiz
-                    const snapshot = await db.collection(collectionPath).get();
-                    docs = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        data: doc.data(),
-                        size: JSON.stringify(doc.data()).length
-                    }));
-                } else {
-                    // Subcoleção (formato: "colecao/docId/subcolecao")
-                    const parts = collectionPath.split('/');
-                    if (parts.length === 3) {
-                        const snapshot = await db.collection(parts[0]).doc(parts[1]).collection(parts[2]).get();
-                        docs = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            data: doc.data(),
-                            size: JSON.stringify(doc.data()).length
-                        }));
-                    }
-                }
+                const snapshot = await db.collection(collectionName).get();
+                const docs = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    data: doc.data(),
+                    size: JSON.stringify(doc.data()).length
+                }));
                 
                 if (docs.length === 0) {
                     modalBody.innerHTML = '<div style="padding: 40px; text-align: center; color: #a0aec0;">📭 Nenhum documento encontrado</div>';
                     return;
                 }
                 
+                const totalSize = docs.reduce((sum, d) => sum + d.size, 0);
+                
                 modalBody.innerHTML = `
-                    <div style="margin-bottom: 15px;">
-                        <strong>${formatNumber(docs.length)} documentos</strong> | Total: ${formatBytes(docs.reduce((sum, d) => sum + d.size, 0))}
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;">
+                        <strong>${formatNumber(docs.length)} documentos</strong> | Total: ${formatBytes(totalSize)}
                     </div>
                     ${docs.map(doc => `
                         <div class="doc-card">
@@ -854,13 +765,7 @@
                     documentCount: col.docCount,
                     sizeBytes: col.size,
                     sizeFormatted: formatBytes(col.size),
-                    subcollections: col.subcollections.map(sub => ({
-                        name: sub.id,
-                        parentDocument: sub.parentDocId,
-                        documentCount: sub.docCount,
-                        sizeBytes: sub.size,
-                        sizeFormatted: formatBytes(sub.size)
-                    }))
+                    error: col.error || null
                 }))
             };
             
@@ -869,7 +774,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `firestore_audit_${new Date().toISOString().slice(0, 19)}.json`;
+            a.download = `firestore_export_${new Date().toISOString().slice(0, 19)}.json`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -887,7 +792,7 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header" style="text-align: center;">
-                        <h1><span class="material-icons">storage</span> Firestore Auditor</h1>
+                        <h1><span class="material-icons">storage</span> Firestore Explorer</h1>
                         <p>Ferramenta administrativa para visualização do banco de dados</p>
                     </div>
                     <div style="background: white; border-radius: 20px; padding: 40px; text-align: center; max-width: 400px; margin: 0 auto;">
@@ -926,10 +831,6 @@
             auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
         }
         
-        function logout() {
-            auth.signOut().then(() => location.reload());
-        }
-        
         // ============================================
         // INICIALIZAÇÃO
         // ============================================
@@ -949,14 +850,12 @@
         });
         
         // Expor funções globalmente
-        window.toggleCollection = toggleCollection;
         window.filterCollections = filterCollections;
         window.viewDocuments = viewDocuments;
         window.closeModal = closeModal;
         window.exportToJSON = exportToJSON;
         window.refreshScan = refreshScan;
         window.signIn = signIn;
-        window.logout = logout;
     </script>
 </body>
 </html>
