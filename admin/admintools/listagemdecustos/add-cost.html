@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adicionar/Editar Custo - WZZM Admin</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14);
+        }
+        .header h1 {
+            color: #3f51b5;
+            margin: 0 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-card {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 2px 0 rgba(0,0,0,.14);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3f51b5;
+        }
+        .btn-primary {
+            background: #3f51b5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary:hover {
+            background: #303f9f;
+        }
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-secondary:hover {
+            background: #ccc;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background: #e8eaf6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .cost-preview {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .cost-preview h4 {
+            margin: 0 0 10px 0;
+            color: #3f51b5;
+        }
+        .cost-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        hr {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+
+    <script>
+        // ============================================
+        // CONFIGURAÇÃO FIREBASE
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+        let app;
+        try {
+            app = firebase.app();
+        } catch (e) {
+            app = firebase.initializeApp(firebaseConfig);
+        }
+        const firestore = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ============================================
+        // VARIÁVEIS GLOBAIS
+        // ============================================
+        let currentUser = null;
+        let isAdmin = false;
+        let editingId = null;
+        let existingData = null;
+
+        // Administradores autorizados
+        const ADMIN_UIDS = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1', '6aPqWVh8JVYL5NqEb78iDGPD7dH3'];
+
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
+        
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        }
+
+        function parseCurrency(value) {
+            if (!value) return null;
+            // Remove R$, espaços e substitui vírgula por ponto
+            let cleaned = value.toString().replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? null : num;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function checkIsAdmin(user) {
+            if (!user) return false;
+            if (ADMIN_UIDS.includes(user.uid)) return true;
+            try {
+                const userDoc = await firestore.collection('users').doc(user.uid).get();
+                return userDoc.exists && userDoc.data().isAdmin === true;
+            } catch { return false; }
+        }
+
+        // Extrair valor monetário do conteúdo
+        function extractCostValue(content) {
+            if (!content) return null;
+            const patterns = [
+                /R\$\s*([\d\.,]+)/,
+                /(\d{1,3}(?:\.\d{3})*,\d{2})/,
+                /(\d+(?:\.\d+)?)/
+            ];
+            for (const pattern of patterns) {
+                const match = content.match(pattern);
+                if (match) {
+                    let value = match[1].replace(/\./g, '').replace(',', '.');
+                    const num = parseFloat(value);
+                    if (!isNaN(num)) return num;
+                }
+            }
+            return null;
+        }
+
+        // ============================================
+        // RENDERIZAÇÃO DO FORMULÁRIO
+        // ============================================
+        
+        function renderForm() {
+            const app = document.getElementById('app');
+            
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1>
+                            <span class="material-icons">${editingId ? 'edit' : 'add_circle'}</span>
+                            ${editingId ? 'Editar Registro de Custo' : 'Novo Registro de Custo'}
+                        </h1>
+                        <p>Preencha os dados abaixo para ${editingId ? 'atualizar' : 'adicionar'} uma prestação de conta, despesa ou doação</p>
+                        <div class="info-box">
+                            <span class="material-icons" style="vertical-align: middle;">info</span>
+                            <strong>Administrador:</strong> ${escapeHtml(currentUser?.displayName || currentUser?.email)}
+                        </div>
+                    </div>
+                    
+                    <div class="form-card">
+                        <form id="cost-form">
+                            <div class="form-group">
+                                <label>Título *</label>
+                                <input type="text" id="title" required placeholder="Ex: Doação recebida em evento" value="${escapeHtml(existingData?.title || '')}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Descrição</label>
+                                <textarea id="description" placeholder="Descreva os detalhes deste registro...">${escapeHtml(existingData?.description || '')}</textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Conteúdo Completo</label>
+                                <textarea id="content" placeholder="Insira o conteúdo completo do registro (texto, notas, etc.)" rows="6">${escapeHtml(existingData?.formattedContent || '')}</textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Valor Monetário (R$)</label>
+                                <input type="text" id="cost-value" placeholder="Ex: 1500,00 ou R$ 1.500,00" value="${existingData?.costValue ? formatCurrency(existingData.costValue).replace('R$', '').trim() : ''}">
+                                <small style="color: #666;">Deixe em branco para extrair automaticamente do conteúdo</small>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="form-group">
+                                <label>Tipo de Registro</label>
+                                <select id="article-type">
+                                    <option value="cientifico" ${existingData?.articleType === 'cientifico' ? 'selected' : ''}>📊 Prestação de Contas</option>
+                                    <option value="revisao" ${existingData?.articleType === 'revisao' ? 'selected' : ''}>💰 Recebimento de Doação</option>
+                                    <option value="noticia" ${existingData?.articleType === 'noticia' ? 'selected' : ''}>📢 Notificação</option>
+                                    <option value="editorial" ${existingData?.articleType === 'editorial' ? 'selected' : ''}>⚠️ Alerta</option>
+                                    <option value="opiniao" ${existingData?.articleType === 'opiniao' ? 'selected' : ''}>ℹ️ Informação</option>
+                                    <option value="entrevista" ${existingData?.articleType === 'entrevista' ? 'selected' : ''}>📣 Aviso</option>
+                                    <option value="tutorial" ${existingData?.articleType === 'tutorial' ? 'selected' : ''}>📋 Custos</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Status de Verificação</label>
+                                <select id="verification-status">
+                                    <option value="pending" ${existingData?.verificationStatus === 'pending' ? 'selected' : ''}>⏳ Pendente</option>
+                                    <option value="approved" ${existingData?.verificationStatus === 'approved' ? 'selected' : ''}>✅ Aprovado</option>
+                                    <option value="rejected" ${existingData?.verificationStatus === 'rejected' ? 'selected' : ''}>❌ Rejeitado</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Idioma</label>
+                                <select id="language">
+                                    <option value="pt-BR" ${existingData?.language === 'pt-BR' ? 'selected' : ''}>Português (Brasil)</option>
+                                    <option value="en-US" ${existingData?.language === 'en-US' ? 'selected' : ''}>English (US)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>URL Original (opcional)</label>
+                                <input type="url" id="original-url" placeholder="https://..." value="${escapeHtml(existingData?.originalUrl || '')}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Fontes (separadas por vírgula)</label>
+                                <input type="text" id="sources" placeholder="Ex: Relatório financeiro, Planilha de gastos" value="${existingData?.sources ? existingData.sources.join(', ') : ''}">
+                            </div>
+                            
+                            <div id="preview-area"></div>
+                            
+                            <div class="button-group">
+                                <button type="submit" class="btn-primary">
+                                    <span class="material-icons">save</span>
+                                    ${editingId ? 'Atualizar Registro' : 'Salvar Registro'}
+                                </button>
+                                <a href="index.html" class="btn-secondary">
+                                    <span class="material-icons">arrow_back</span>
+                                    Voltar
+                                </a>
+                                ${editingId ? `<button type="button" class="btn-secondary" onclick="cancelEdit()">Cancelar Edição</button>` : ''}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            // Adicionar preview automático ao digitar
+            const titleInput = document.getElementById('title');
+            const contentTextarea = document.getElementById('content');
+            const costValueInput = document.getElementById('cost-value');
+            
+            const updatePreview = () => {
+                const title = titleInput?.value || '';
+                const content = contentTextarea?.value || '';
+                const manualValue = parseCurrency(costValueInput?.value || '');
+                const extractedValue = manualValue !== null ? manualValue : extractCostValue(content);
+                
+                const previewDiv = document.getElementById('preview-area');
+                if (previewDiv && (title || content || manualValue !== null)) {
+                    previewDiv.innerHTML = `
+                        <div class="cost-preview">
+                            <h4>🔍 Pré-visualização</h4>
+                            <p><strong>Título:</strong> ${escapeHtml(title) || '(não informado)'}</p>
+                            <p><strong>Valor detectado:</strong> 
+                                <span class="cost-value">${extractedValue !== null ? formatCurrency(extractedValue) : 'Não identificado'}</span>
+                            </p>
+                            <small>${manualValue !== null ? '✓ Valor definido manualmente' : 'ℹ️ Valor será extraído automaticamente do conteúdo se não for informado manualmente'}</small>
+                        </div>
+                    `;
+                } else if (previewDiv) {
+                    previewDiv.innerHTML = '';
+                }
+            };
+            
+            if (titleInput) titleInput.addEventListener('input', updatePreview);
+            if (contentTextarea) contentTextarea.addEventListener('input', updatePreview);
+            if (costValueInput) costValueInput.addEventListener('input', updatePreview);
+            
+            updatePreview();
+            
+            // Submissão do formulário
+            const form = document.getElementById('cost-form');
+            form.addEventListener('submit', handleSubmit);
+        }
+        
+        async function handleSubmit(e) {
+            e.preventDefault();
+            
+            // Coletar dados do formulário
+            const title = document.getElementById('title').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const content = document.getElementById('content').value.trim();
+            const manualValueStr = document.getElementById('cost-value').value.trim();
+            const articleType = document.getElementById('article-type').value;
+            const verificationStatus = document.getElementById('verification-status').value;
+            const language = document.getElementById('language').value;
+            const originalUrl = document.getElementById('original-url').value.trim();
+            const sourcesStr = document.getElementById('sources').value.trim();
+            
+            if (!title) {
+                alert('Por favor, preencha o título.');
+                return;
+            }
+            
+            // Determinar o valor monetário
+            let costValue = null;
+            if (manualValueStr) {
+                costValue = parseCurrency(manualValueStr);
+                if (costValue === null) {
+                    alert('Valor inválido. Use formato como 1500,00 ou 1.500,00');
+                    return;
+                }
+            } else {
+                costValue = extractCostValue(content);
+            }
+            
+            const sources = sourcesStr ? sourcesStr.split(',').map(s => s.trim()).filter(s => s) : [];
+            
+            const data = {
+                title: title,
+                description: description,
+                formattedContent: content,
+                costValue: costValue,
+                articleType: articleType,
+                verificationStatus: verificationStatus,
+                language: language,
+                originalUrl: originalUrl,
+                sources: sources,
+                userId: currentUser.uid,
+                lastModified: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            if (!editingId) {
+                data.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+            }
+            
+            try {
+                if (editingId) {
+                    await firestore.collection('financialData').doc(editingId).update(data);
+                    alert('✅ Registro atualizado com sucesso!');
+                } else {
+                    await firestore.collection('financialData').add(data);
+                    alert('✅ Registro criado com sucesso!');
+                }
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('❌ Erro ao salvar: ' + error.message);
+            }
+        }
+        
+        function cancelEdit() {
+            if (confirm('Deseja cancelar a edição e voltar?')) {
+                window.location.href = 'index.html';
+            }
+        }
+        
+        // ============================================
+        // CARREGAR DADOS PARA EDIÇÃO
+        // ============================================
+        
+        async function loadForEdit(docId) {
+            try {
+                const doc = await firestore.collection('financialData').doc(docId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    existingData = {
+                        ...data,
+                        costValue: data.costValue || null,
+                        formattedContent: data.formattedContent || '',
+                        sources: data.sources || []
+                    };
+                    renderForm();
+                } else {
+                    throw new Error('Registro não encontrado');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar:', error);
+                document.getElementById('app').innerHTML = `
+                    <div class="container">
+                        <div class="header">
+                            <h1>Erro</h1>
+                            <p>Não foi possível carregar o registro para edição.</p>
+                        </div>
+                        <div class="form-card">
+                            <div class="error-message">${escapeHtml(error.message)}</div>
+                            <a href="index.html" class="btn-secondary">Voltar</a>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // ============================================
+        // ACESSO NEGADO
+        // ============================================
+        
+        function renderAccessDenied() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header" style="text-align: center;">
+                        <h1><span class="material-icons">lock</span> Acesso Negado</h1>
+                        <p>Você não tem permissão para acessar esta área.</p>
+                        <a href="index.html" class="btn-secondary">Voltar</a>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderLoginScreen() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header" style="text-align: center;">
+                        <h1><span class="material-icons">add_circle</span> Adicionar Custo</h1>
+                        <p>Faça login para acessar o sistema</p>
+                    </div>
+                    <div class="form-card" style="text-align: center;">
+                        <span class="material-icons" style="font-size: 64px; color: #3f51b5;">account_circle</span>
+                        <h2 style="margin: 20px 0;">Área Restrita</h2>
+                        <button class="btn-primary" onclick="signIn()">🔑 Entrar com Google</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function signIn() {
+            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        }
+        
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        
+        // Verificar se está em modo de edição
+        const urlParams = new URLSearchParams(window.location.search);
+        editingId = urlParams.get('id');
+        
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            if (user) {
+                isAdmin = await checkIsAdmin(user);
+                if (isAdmin) {
+                    if (editingId) {
+                        await loadForEdit(editingId);
+                    } else {
+                        existingData = null;
+                        renderForm();
+                    }
+                } else {
+                    renderAccessDenied();
+                }
+            } else {
+                renderLoginScreen();
+            }
+        });
+        
+        // Expor funções globalmente
+        window.cancelEdit = cancelEdit;
+        window.signIn = signIn;
+    </script>
+</body>
+</html>
