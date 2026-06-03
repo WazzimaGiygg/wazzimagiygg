@@ -2,145 +2,96 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Administrativo LGPD - WazzimaGiygg</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>LGPD - Solicitar Exclusão de Dados | WazzimaGiygg</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    
+    <!-- EmailJS -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 40px 20px;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header {
-            background: white;
-            border-radius: 12px;
-            padding: 20px 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { color: white; font-size: 2.5em; display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap; }
+        .header p { color: rgba(255,255,255,0.9); margin-top: 15px; }
+        .badge-lgpd { display: inline-block; background: rgba(255,255,255,0.2); padding: 8px 20px; border-radius: 50px; font-size: 0.9em; margin-top: 15px; }
+        .form-card { background: white; border-radius: 24px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+        .form-title { font-size: 1.5em; color: #2d3748; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+        .form-subtitle { color: #718096; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #2d3748; }
+        .form-group label .required { color: #e53e3e; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px;
+            font-family: 'Inter', sans-serif; font-size: 15px; transition: all 0.3s;
         }
-        .header h1 { color: #333; font-size: 24px; }
-        .lgpd-compliance {
-            background: #d4edda;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            color: #155724;
-            display: inline-block;
-            margin-left: 10px;
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
         }
-        .stats { display: flex; gap: 20px; flex-wrap: wrap; }
-        .stat-card { background: #f8f9fa; padding: 10px 20px; border-radius: 8px; text-align: center; min-width: 80px; }
-        .stat-number { font-size: 28px; font-weight: bold; color: #667eea; }
-        .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
-        .filters {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            align-items: flex-end;
+        .form-group textarea { resize: vertical; min-height: 100px; }
+        .info-box { background: #ebf8ff; border-left: 4px solid #3182ce; padding: 15px 20px; border-radius: 12px; margin-bottom: 25px; overflow: hidden; }
+        .info-box .material-icons { float: left; margin-right: 12px; color: #3182ce; }
+        .info-box p { margin-left: 28px; color: #2c5282; font-size: 14px; }
+        .warning-box { background: #fff5f5; border-left: 4px solid #e53e3e; padding: 15px 20px; border-radius: 12px; margin-bottom: 25px; overflow: hidden; }
+        .warning-box .material-icons { float: left; margin-right: 12px; color: #e53e3e; }
+        .warning-box p { margin-left: 28px; color: #c53030; font-size: 14px; }
+        .checkbox-group { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0; }
+        .checkbox-group input { width: 20px; height: 20px; margin-top: 2px; }
+        .btn-submit {
+            width: 100%; background: linear-gradient(135deg, #e53e3e, #c53030); color: white;
+            border: none; padding: 14px 24px; border-radius: 12px; font-size: 16px;
+            font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
         }
-        .filter-group { flex: 1; min-width: 150px; }
-        .filter-group label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 5px; }
-        .filter-group select, .filter-group input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
-        .btn-refresh {
-            background: #667eea; color: white; border: none; padding: 8px 20px;
-            border-radius: 6px; cursor: pointer; font-weight: 600; height: 38px;
-        }
-        .btn-refresh:hover { background: #5a67d8; }
-        .btn-logout { background: #dc3545; }
-        .btn-logout:hover { background: #c82333; }
-        .table-container { background: white; border-radius: 12px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; border-bottom: 2px solid #e9ecef; }
-        td { padding: 15px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
-        tr:hover { background: #f8f9fa; }
-        .status {
-            display: inline-block; padding: 4px 12px; border-radius: 20px;
-            font-size: 12px; font-weight: 600;
-        }
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-processing { background: #cfe2ff; color: #084298; }
-        .status-completed { background: #d1e7dd; color: #0f5132; }
-        .status-rejected { background: #f8d7da; color: #721c24; }
-        .btn-action { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin: 0 3px; }
-        .btn-process { background: #28a745; color: white; }
-        .btn-process:hover { background: #218838; }
-        .btn-reject { background: #dc3545; color: white; }
-        .btn-reject:hover { background: #c82333; }
-        .btn-view { background: #17a2b8; color: white; }
+        .btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(229,62,62,0.3); }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+        .rights-section { margin-top: 30px; padding: 20px; background: #f7fafc; border-radius: 16px; }
+        .rights-section h3 { font-size: 1.1em; color: #2d3748; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .rights-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+        .right-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #4a5568; }
+        .right-item .material-icons { font-size: 16px; color: #48bb78; }
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;
         }
-        .modal-content {
-            background: white; border-radius: 12px; max-width: 700px;
-            width: 90%; max-height: 85vh; overflow-y: auto;
-        }
-        .modal-header { padding: 20px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
-        .modal-header h3 { margin: 0; }
-        .close-modal { cursor: pointer; font-size: 24px; color: #999; }
-        .modal-body { padding: 20px; }
-        .modal-footer { padding: 20px; border-top: 1px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px; }
-        .user-detail { margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; }
-        .user-detail p { margin: 8px 0; }
-        .loading { text-align: center; padding: 40px; color: #666; }
-        .alert { padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; animation: slideIn 0.3s ease; }
-        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-        .login-required {
-            text-align: center; padding: 60px 20px; background: white;
-            border-radius: 12px; max-width: 500px; margin: 100px auto;
-        }
-        .login-btn {
-            background: #667eea; color: white; border: none; padding: 12px 30px;
-            border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px;
-        }
-        .admin-info { background: #e8f0fe; padding: 10px 15px; border-radius: 8px; font-size: 12px; margin-top: 10px; }
-        .warning-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 8px; }
-        .progress-bar { width: 100%; height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden; margin: 10px 0; }
-        .progress-fill { height: 100%; background: #28a745; transition: width 0.3s ease; }
-        .local-storage-badge {
-            background: #17a2b8;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            margin-left: 10px;
-        }
-        @keyframes slideIn {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @media (max-width: 768px) {
-            .header { flex-direction: column; text-align: center; }
-            th, td { font-size: 12px; padding: 8px; }
-        }
+        .modal-content { background: white; border-radius: 20px; max-width: 500px; width: 90%; padding: 30px; text-align: center; }
+        .modal-content .material-icons { font-size: 64px; margin-bottom: 20px; }
+        .modal-content .success-icon { color: #48bb78; }
+        .modal-content .error-icon { color: #e53e3e; }
+        .modal-content h3 { margin-bottom: 15px; color: #2d3748; }
+        .modal-content p { color: #718096; margin-bottom: 20px; }
+        .modal-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 10px 24px; border-radius: 50px; cursor: pointer; }
+        .protocol-code { background: #f0f0f0; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 18px; letter-spacing: 2px; margin: 15px 0; }
+        .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 50px; font-size: 14px; z-index: 1100; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateX(-50%) translateY(100px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+        .login-container { max-width: 500px; margin: 100px auto; background: white; border-radius: 24px; padding: 50px 40px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+        .login-container h2 { color: #2d3748; margin-bottom: 20px; }
+        .login-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 14px 30px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 12px; }
+        .user-info { display: flex; align-items: center; justify-content: space-between; background: #f7fafc; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; }
+        .user-avatar { width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        .logout-btn { background: #e53e3e; color: white; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        @media (max-width: 640px) { .form-card { padding: 25px; } .header h1 { font-size: 1.8em; } }
     </style>
 </head>
 <body>
-    <div id="main-container"></div>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <div id="app"></div>
 
     <script>
-        // ============================================
-        // CONFIGURAÇÃO DO FIREBASE
-        // ============================================
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
             authDomain: "wzzm-ce3fc.firebaseapp.com",
@@ -150,448 +101,342 @@
             appId: "1:249427877153:web:0e4297294794a5aadeb260"
         };
 
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
         const auth = firebase.auth();
+        const db = firebase.firestore();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-        // ============================================
-        // VARIÁVEIS GLOBAIS
-        // ============================================
+        // EmailJS
+        const EMAILJS_CONFIG = {
+            PUBLIC_KEY: 'KB_xBv3-83G8qMGlw',
+            SERVICE_ID: 'service_wxt3tt9',
+            TEMPLATE_ID: 'template_svo2mrf'
+        };
+        
+        if (typeof emailjs !== 'undefined') {
+            emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+        }
+
         let currentUser = null;
-        let allRequests = [];
-        let currentRequestId = null;
-        let isAdminUser = false;
-        let isProcessing = false;
 
-        // UIDs específicos que são administradores
-        const SPECIFIC_ADMIN_UIDS = ['sZxfMuOBPbXdR8nttVPXIN8QOOl1', '6aPqWVh8JVYL5NqEb78iDGPD7dH3'];
-
-        // ============================================
-        // FUNÇÕES AUXILIARES
-        // ============================================
-        
-        function showAlert(message, type) {
-            let alertContainer = document.getElementById('alert-container');
-            if (!alertContainer) {
-                const container = document.querySelector('.container');
-                if (container) {
-                    alertContainer = document.createElement('div');
-                    alertContainer.id = 'alert-container';
-                    container.insertBefore(alertContainer, container.firstChild);
-                } else {
-                    console.log(message);
-                    return;
-                }
-            }
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type}`;
-            alertDiv.innerHTML = message;
-            alertContainer.appendChild(alertDiv);
-            setTimeout(() => alertDiv.remove(), 5000);
+        function showToast(message, isError) {
+            var toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.background = isError ? '#e53e3e' : '#48bb78';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 4000);
         }
 
-        async function checkIsAdmin(user) {
-            if (!user) return false;
-            if (SPECIFIC_ADMIN_UIDS.includes(user.uid)) return true;
-            try {
-                const userDoc = await db.collection('users').doc(user.uid).get();
-                if (userDoc.exists && userDoc.data().isAdmin === true) return true;
-            } catch (error) { console.warn('Erro:', error); }
-            return false;
+        function generateProtocol() {
+            var date = new Date();
+            var year = date.getFullYear();
+            var month = String(date.getMonth() + 1).padStart(2, '0');
+            var day = String(date.getDate()).padStart(2, '0');
+            var hours = String(date.getHours()).padStart(2, '0');
+            var minutes = String(date.getMinutes()).padStart(2, '0');
+            var random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            return 'WZZM-LGPD-' + year + month + day + '-' + hours + minutes + '-' + random;
         }
 
-        function formatDate(date) {
-            if (!date) return 'N/A';
-            if (typeof date === 'string') date = new Date(date);
-            if (date.toDate) date = date.toDate();
-            return date.toLocaleString('pt-BR');
-        }
-        
-        function getStatusBadge(status) {
-            const badges = {
-                'pending': '<span class="status status-pending">⏳ Pendente</span>',
-                'processing': '<span class="status status-processing">🔄 Processando</span>',
-                'completed': '<span class="status status-completed">✅ Concluído</span>',
-                'rejected': '<span class="status status-rejected">❌ Rejeitado</span>'
-            };
-            return badges[status] || '<span class="status">❓ Desconhecido</span>';
-        }
-        
         function escapeHtml(text) {
             if (!text) return '';
-            const div = document.createElement('div');
+            var div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
-        
-        function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-        // ============================================
-        // CARREGAR SOLICITAÇÕES DO LOCALSTORAGE
-        // ============================================
-        
-        function loadRequestsFromLocalStorage() {
-            const allLocalRequests = [];
-            
-            // Percorrer todos os itens do localStorage
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('wzzm_deletion_requests_')) {
-                    try {
-                        const userRequests = JSON.parse(localStorage.getItem(key));
-                        if (Array.isArray(userRequests)) {
-                            userRequests.forEach(req => {
-                                allLocalRequests.push({
-                                    id: req.id || 'local_' + Date.now(),
-                                    userName: req.userName || req.name || 'Usuário',
-                                    userEmail: req.userEmail || req.email || 'email@desconhecido.com',
-                                    userId: req.userId || req.uid || 'desconhecido',
-                                    status: req.status || 'pending',
-                                    requestDate: req.requestDate ? new Date(req.requestDate) : new Date(),
-                                    protocol: req.protocol || 'SEM_PROTOCOLO',
-                                    reason: req.reason || '',
-                                    comments: req.comments || '',
-                                    source: 'localStorage'
-                                });
-                            });
-                        }
-                    } catch(e) { console.warn('Erro ao ler:', key, e); }
-                }
+        // Enviar e-mail para o DPO
+        async function sendEmailNotification(requestData, protocol) {
+            if (typeof emailjs === 'undefined') {
+                console.log('EmailJS não disponível');
+                return { success: false };
             }
-            
-            // Ordenar por data (mais recente primeiro)
-            allLocalRequests.sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
-            
-            return allLocalRequests;
+            var templateParams = {
+                to_email: 'dpo@wazzimagiygg.com',
+                from_name: requestData.userName,
+                from_email: currentUser.email,
+                subject: '[LGPD] Solicitação de Exclusão de Dados - ' + protocol,
+                protocol: protocol,
+                request_type: 'Exclusão de Dados (LGPD Art. 18)',
+                law: 'LGPD - Lei Geral de Proteção de Dados',
+                message: 'Protocolo: ' + protocol + '\n' +
+                         'Nome: ' + requestData.userName + '\n' +
+                         'Email: ' + currentUser.email + '\n' +
+                         'UID: ' + currentUser.uid + '\n' +
+                         'Motivo: ' + (requestData.reason || 'Não informado') + '\n' +
+                         'Observações: ' + (requestData.comments || 'Nenhuma'),
+                reply_to: currentUser.email,
+                created_at: new Date().toLocaleString('pt-BR')
+            };
+            try {
+                await emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_ID, templateParams);
+                console.log('✅ E-mail enviado para dpo@wazzimagiygg.com');
+                return { success: true };
+            } catch (error) {
+                console.error('Erro no EmailJS:', error);
+                return { success: false };
+            }
         }
 
-        // ============================================
-        // CARREGAR SOLICITAÇÕES (Firestore + LocalStorage)
-        // ============================================
-
-        async function loadRequests() {
-            const tbody = document.getElementById('table-body');
-            if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="6" class="loading">📚 Carregando...</td></tr>';
-            
-            // Tentar carregar do Firestore primeiro
+        // Salvar no Firestore
+        async function saveToFirestore(requestData) {
             try {
-                const snapshot = await db.collection('deletion_requests').orderBy('requestDate', 'desc').get();
-                const firestoreRequests = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    firestoreRequests.push({ 
-                        id: doc.id, 
-                        ...data, 
-                        requestDate: data.requestDate?.toDate() || new Date(),
-                        source: 'firestore'
-                    });
+                const docRef = await db.collection('deletion_requests').add({
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    userName: currentUser.displayName || currentUser.email.split('@')[0],
+                    status: 'pending',
+                    requestDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    source: 'web_form',
+                    protocol: requestData.protocol,
+                    reason: requestData.reason,
+                    comments: requestData.comments,
+                    requestType: 'deletion'
                 });
-                
-                // Carregar do localStorage também
-                const localRequests = loadRequestsFromLocalStorage();
-                
-                // Combinar e remover duplicatas (por protocolo ou email/data)
-                const allRequestsMap = new Map();
-                
-                firestoreRequests.forEach(req => {
-                    allRequestsMap.set(req.id, req);
+                console.log('✅ Salvo no Firestore com ID:', docRef.id);
+                return { success: true, id: docRef.id };
+            } catch (error) {
+                console.error('❌ Erro no Firestore:', error.message);
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Salvar no localStorage (fallback)
+        function saveToLocalStorage(requestData) {
+            try {
+                var key = 'wzzm_deletion_requests_' + currentUser.uid;
+                var existing = localStorage.getItem(key);
+                var requests = existing ? JSON.parse(existing) : [];
+                requests.push({
+                    id: Date.now().toString(),
+                    userName: currentUser.displayName || currentUser.email.split('@')[0],
+                    userEmail: currentUser.email,
+                    userId: currentUser.uid,
+                    status: 'pending',
+                    requestDate: new Date().toISOString(),
+                    protocol: requestData.protocol,
+                    reason: requestData.reason,
+                    comments: requestData.comments,
+                    source: 'localStorage_fallback'
                 });
+                localStorage.setItem(key, JSON.stringify(requests));
+                console.log('✅ Salvo no localStorage como fallback');
+                return { success: true };
+            } catch (error) {
+                console.error('Erro no localStorage:', error);
+                return { success: false };
+            }
+        }
+
+        // Submeter solicitação
+        async function submitDeletionRequest(event) {
+            event.preventDefault();
+            
+            var reasonSelect = document.getElementById('reason');
+            var commentsText = document.getElementById('comments');
+            var confirmCheckbox = document.getElementById('confirm-lgpd');
+            
+            var reason = reasonSelect ? reasonSelect.value : '';
+            var comments = commentsText ? commentsText.value.trim() : '';
+            var confirmLgpd = confirmCheckbox ? confirmCheckbox.checked : false;
+            
+            if (!confirmLgpd) {
+                showToast('❌ Você precisa confirmar que é o titular dos dados', true);
+                return;
+            }
+            
+            var protocol = generateProtocol();
+            var submitBtn = document.getElementById('submit-btn');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="loading-spinner"></span> Enviando solicitação...';
+            }
+            
+            var requestData = {
+                protocol: protocol,
+                reason: reason || null,
+                comments: comments || null,
+                userName: currentUser.displayName || currentUser.email.split('@')[0]
+            };
+            
+            try {
+                // 1. Tentar salvar no Firestore primeiro
+                var firestoreResult = await saveToFirestore(requestData);
                 
-                localRequests.forEach(req => {
-                    if (!allRequestsMap.has(req.id) && !allRequestsMap.has(req.protocol)) {
-                        allRequestsMap.set(req.id, req);
-                    }
-                });
+                var savedToCloud = firestoreResult.success;
                 
-                allRequests = Array.from(allRequestsMap.values());
-                allRequests.sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
-                
-                const localCount = localRequests.length;
-                if (localCount > 0) {
-                    showAlert(`📦 ${localCount} solicitação(ões) carregada(s) do armazenamento local (modo temporário)`, 'info');
+                // 2. Se falhou no Firestore, salvar no localStorage
+                if (!savedToCloud) {
+                    console.log('Firestore falhou, salvando localmente...');
+                    saveToLocalStorage(requestData);
+                    showToast('⚠️ Solicitação salva localmente (modo offline). O admin será notificado por e-mail.', true);
+                } else {
+                    showToast('✅ Solicitação salva na nuvem com sucesso!');
                 }
                 
-                updateStats();
-                applyFilters();
+                // 3. Enviar e-mail (sempre tenta)
+                await sendEmailNotification(requestData, protocol);
+                
+                // 4. Mostrar modal de sucesso
+                var modal = document.getElementById('success-modal');
+                var protocolSpan = document.getElementById('success-protocol');
+                if (protocolSpan) protocolSpan.textContent = protocol;
+                if (modal) modal.style.display = 'flex';
+                
+                // 5. Limpar formulário
+                if (reasonSelect) reasonSelect.value = '';
+                if (commentsText) commentsText.value = '';
+                if (confirmCheckbox) confirmCheckbox.checked = false;
                 
             } catch (error) {
-                console.error('Erro no Firestore, usando apenas localStorage:', error);
-                // Fallback: apenas localStorage
-                allRequests = loadRequestsFromLocalStorage();
-                allRequests.sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
-                updateStats();
-                applyFilters();
-                showAlert('⚠️ Usando apenas dados locais (Firestore indisponível)', 'error');
-            }
-        }
-
-        function updateStats() {
-            const pending = allRequests.filter(r => r.status === 'pending').length;
-            const completed = allRequests.filter(r => r.status === 'completed').length;
-            const rejected = allRequests.filter(r => r.status === 'rejected').length;
-            document.getElementById('total-pending') && (document.getElementById('total-pending').textContent = pending);
-            document.getElementById('total-completed') && (document.getElementById('total-completed').textContent = completed);
-            document.getElementById('total-rejected') && (document.getElementById('total-rejected').textContent = rejected);
-        }
-
-        function applyFilters() {
-            const status = document.getElementById('filter-status')?.value || 'all';
-            const search = document.getElementById('search-input')?.value.toLowerCase() || '';
-            let filtered = [...allRequests];
-            if (status !== 'all') filtered = filtered.filter(r => r.status === status);
-            if (search) filtered = filtered.filter(r => (r.userEmail && r.userEmail.toLowerCase().includes(search)) || 
-                                                           (r.userId && r.userId.toLowerCase().includes(search)) ||
-                                                           (r.userName && r.userName.toLowerCase().includes(search)));
-            displayRequests(filtered);
-        }
-
-        function displayRequests(requests) {
-            const tbody = document.getElementById('table-body');
-            if (!tbody) return;
-            if (requests.length === 0) { 
-                tbody.innerHTML = '<table><td colspan="6" class="loading">📭 Nenhum pedido encontrado</td></tr>'; 
-                return; 
-            }
-            
-            tbody.innerHTML = requests.map(req => `
-                <tr>
-                    <td>
-                        <strong>${escapeHtml(req.userName || 'N/A')}</strong><br>
-                        <small>${req.source === 'localStorage' ? '💾 Local' : '☁️ Cloud'}</small>
-                        ${req.protocol ? `<br><small class="protocol-code">${escapeHtml(req.protocol)}</small>` : ''}
-                    </td>
-                    <td>${escapeHtml(req.userEmail || 'N/A')}</td>
-                    <td><code>${escapeHtml((req.userId || 'desconhecido').substring(0,20))}...</code></td>
-                    <td>${formatDate(req.requestDate)}</td>
-                    <td>${getStatusBadge(req.status)}</td>
-                    <td>
-                        <button class="btn-action btn-view" onclick="viewDetails('${req.id}')">👁️</button>
-                        ${req.status === 'pending' ? `<button class="btn-action btn-process" onclick="processRequest('${req.id}')">🗑️</button><button class="btn-action btn-reject" onclick="rejectRequest('${req.id}')">❌</button>` : ''}
-                     </td>
-                </tr>
-            `).join('');
-        }
-
-        function viewDetails(id) {
-            const request = allRequests.find(r => r.id === id);
-            if (!request) return;
-            currentRequestId = id;
-            document.getElementById('modal-body').innerHTML = `
-                <div class="user-detail">
-                    <p><strong>Nome:</strong> ${escapeHtml(request.userName || 'N/A')}</p>
-                    <p><strong>Email:</strong> ${escapeHtml(request.userEmail || 'N/A')}</p>
-                    <p><strong>UID:</strong> <code>${escapeHtml(request.userId || 'desconhecido')}</code></p>
-                    <p><strong>Protocolo:</strong> <code>${escapeHtml(request.protocol || 'N/A')}</code></p>
-                    <p><strong>Data do pedido:</strong> ${formatDate(request.requestDate)}</p>
-                    <p><strong>Status:</strong> ${getStatusBadge(request.status)}</p>
-                    ${request.reason ? `<p><strong>Motivo:</strong> ${escapeHtml(request.reason)}</p>` : ''}
-                    ${request.comments ? `<p><strong>Observações:</strong> ${escapeHtml(request.comments)}</p>` : ''}
-                    <p><strong>Origem:</strong> ${request.source === 'localStorage' ? 'Armazenamento Local (navegador)' : 'Firestore Cloud'}</p>
-                </div>
-                <div class="warning-box">
-                    <strong>✅ LGPD - Art. 18 (Direito ao Esquecimento)</strong><br>
-                    Serão excluídos: páginas, artigos, edições, logs e dados pessoais.
-                </div>
-            `;
-            document.getElementById('detail-modal').style.display = 'flex';
-        }
-
-        async function processRequest(id) {
-            if (isProcessing) { showAlert('Aguarde...', 'warning'); return; }
-            const request = allRequests.find(r => r.id === id);
-            if (!request) return;
-            
-            showConfirmModal('⚠️ CONFIRMAR EXCLUSÃO TOTAL - LGPD', `
-                <p>Você está prestes a <strong>EXCLUIR PERMANENTEMENTE</strong> todos os dados do usuário:</p>
-                <div class="user-detail"><p><strong>Usuário:</strong> ${escapeHtml(request.userName || request.userEmail)}</p><p><strong>UID:</strong> <code>${escapeHtml(request.userId)}</code></p></div>
-                <p style="color:#dc3545"><strong>⚠️ Esta ação é IRREVERSÍVEL e atende à LGPD Art. 18!</strong></p>
-            `, async () => {
-                isProcessing = true;
-                const progressModal = document.getElementById('progress-modal');
-                const progressFill = document.getElementById('progress-fill');
-                const progressStatus = document.getElementById('progress-status');
-                if (progressModal) progressModal.style.display = 'flex';
-                
-                try {
-                    if (progressStatus) progressStatus.textContent = '🔄 Excluindo dados...';
-                    if (progressFill) progressFill.style.width = '30%';
-                    
-                    // Atualizar status na fonte correspondente
-                    if (request.source === 'firestore') {
-                        await db.collection('deletion_requests').doc(id).update({ status: 'processing', processingStartedAt: new Date() });
-                    } else {
-                        // Atualizar no localStorage
-                        updateLocalStorageRequestStatus(request.userId || request.userEmail, id, 'processing');
-                    }
-                    
-                    if (progressStatus) progressStatus.textContent = '📊 Registrando conclusão...';
-                    if (progressFill) progressFill.style.width = '80%';
-                    
-                    if (request.source === 'firestore') {
-                        await db.collection('deletion_requests').doc(id).update({
-                            status: 'completed',
-                            completedAt: new Date(),
-                            processedBy: currentUser.email,
-                            lgpdCompliant: true
-                        });
-                    } else {
-                        updateLocalStorageRequestStatus(request.userId || request.userEmail, id, 'completed');
-                    }
-                    
-                    if (progressFill) progressFill.style.width = '100%';
-                    if (progressStatus) progressStatus.textContent = '✅ Exclusão registrada!';
-                    await delay(1000);
-                    
-                    showAlert(`✅ Solicitação marcada como concluída!`, 'success');
-                    await loadRequests();
-                    closeModal();
-                    closeConfirmModal();
-                } catch (error) {
-                    showAlert(`❌ Erro: ${error.message}`, 'error');
-                } finally {
-                    isProcessing = false;
-                    if (progressModal) progressModal.style.display = 'none';
-                }
-            });
-        }
-        
-        function updateLocalStorageRequestStatus(userIdentifier, requestId, newStatus) {
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('wzzm_deletion_requests_')) {
-                    try {
-                        const requests = JSON.parse(localStorage.getItem(key));
-                        if (Array.isArray(requests)) {
-                            const updated = requests.map(req => {
-                                if (req.id === requestId) {
-                                    return { ...req, status: newStatus, completedAt: new Date().toISOString() };
-                                }
-                                return req;
-                            });
-                            localStorage.setItem(key, JSON.stringify(updated));
-                        }
-                    } catch(e) {}
+                console.error('Erro:', error);
+                showToast('❌ Erro ao enviar solicitação: ' + error.message, true);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span class="material-icons">delete_forever</span> Solicitar Exclusão Permanente';
                 }
             }
         }
 
-        async function rejectRequest(id) {
-            showConfirmModal('❌ Rejeitar Pedido', '<p>Tem certeza que deseja rejeitar este pedido?</p>', async () => {
-                try {
-                    const request = allRequests.find(r => r.id === id);
-                    if (request && request.source === 'firestore') {
-                        await db.collection('deletion_requests').doc(id).update({ status: 'rejected', rejectedAt: new Date(), rejectedBy: currentUser.email });
-                    } else {
-                        updateLocalStorageRequestStatus(request?.userId, id, 'rejected');
-                    }
-                    showAlert('✅ Pedido rejeitado!', 'success');
-                    await loadRequests();
-                    closeModal();
-                    closeConfirmModal();
-                } catch (error) { showAlert(`❌ Erro: ${error.message}`, 'error'); }
-            });
-        }
-
-        function showConfirmModal(title, body, onConfirm) {
-            document.getElementById('confirm-title').textContent = title;
-            document.getElementById('confirm-body').innerHTML = body;
-            document.getElementById('confirm-modal').style.display = 'flex';
-            document.getElementById('confirm-yes').onclick = () => { onConfirm(); };
-        }
-        
-        function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
-        function closeConfirmModal() { document.getElementById('confirm-modal').style.display = 'none'; }
-        function processFromModal() { if (currentRequestId) processRequest(currentRequestId); }
-        function rejectFromModal() { if (currentRequestId) rejectRequest(currentRequestId); }
-        function signIn() { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-        function signOut() { auth.signOut().then(() => location.reload()); }
-
-        // ============================================
-        // RENDERIZAÇÃO
-        // ============================================
-
-        function renderAdminPanel() {
-            const container = document.getElementById('main-container');
-            container.innerHTML = `
+        // Renderizar Dashboard do Usuário
+        function renderUserDashboard() {
+            var app = document.getElementById('app');
+            var userName = currentUser.displayName || currentUser.email.split('@')[0];
+            var userInitial = userName.charAt(0).toUpperCase();
+            
+            app.innerHTML = `
                 <div class="container">
                     <div class="header">
-                        <div>
-                            <h1>📋 Painel Administrativo - LGPD <span class="lgpd-compliance">✅ Direito ao Esquecimento</span></h1>
-                            <div class="admin-info">
-                                ✅ Logado: <strong>${escapeHtml(currentUser?.email)}</strong> | UID: ${currentUser?.uid.substring(0, 20)}...
-                                <span class="local-storage-badge">💾 Inclui solicitações locais</span>
+                        <h1><span class="material-icons">delete_forever</span> Solicitar Exclusão de Dados - LGPD</h1>
+                        <p>Nos termos da Lei 13.709/2018 - Direito ao Esquecimento</p>
+                        <div class="badge-lgpd"><span class="material-icons" style="font-size: 14px;">verified</span> Seus dados, seu controle</div>
+                    </div>
+                    
+                    <div class="form-card">
+                        <div class="user-info">
+                            <div class="user-avatar">${escapeHtml(userInitial)}</div>
+                            <div><strong>${escapeHtml(userName)}</strong><br>${escapeHtml(currentUser.email)}</div>
+                            <button class="logout-btn" onclick="window.logout()">Sair</button>
+                        </div>
+                        
+                        <div class="form-title"><span class="material-icons">assignment</span> Nova Solicitação de Exclusão</div>
+                        <div class="form-subtitle">Preencha os dados abaixo para solicitar a exclusão permanente de suas informações.</div>
+                        
+                        <div class="info-box">
+                            <span class="material-icons">info</span>
+                            <p><strong>Prazo de resposta:</strong> Até 15 dias úteis, conforme estabelecido pela LGPD.</p>
+                        </div>
+                        
+                        <div class="warning-box">
+                            <span class="material-icons">warning</span>
+                            <p><strong>Atenção:</strong> A exclusão é irreversível! Todos os seus dados serão permanentemente removidos.</p>
+                        </div>
+                        
+                        <form id="deletion-form">
+                            <div class="form-group">
+                                <label>Motivo da Solicitação</label>
+                                <select id="reason">
+                                    <option value="">Selecione uma opção...</option>
+                                    <option value="Não utilizo mais a plataforma">Não utilizo mais a plataforma</option>
+                                    <option value="Preocupações com privacidade">Preocupações com privacidade</option>
+                                    <option value="Dados incorretos">Dados incorretos ou desatualizados</option>
+                                    <option value="Revogação de consentimento">Revogação de consentimento</option>
+                                    <option value="Outro motivo">Outro motivo</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Observações adicionais</label>
+                                <textarea id="comments" placeholder="Informe qualquer detalhe relevante sobre sua solicitação..."></textarea>
+                            </div>
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="confirm-lgpd">
+                                <label>Confirmo que sou o titular dos dados e estou ciente de que a exclusão é irreversível, conforme previsto no <strong>Art. 18 da LGPD</strong>.</label>
+                            </div>
+                            
+                            <button type="submit" class="btn-submit" id="submit-btn">
+                                <span class="material-icons">delete_forever</span> Solicitar Exclusão Permanente
+                            </button>
+                        </form>
+                        
+                        <div class="rights-section">
+                            <h3><span class="material-icons">gavel</span> Seus direitos garantidos pela LGPD:</h3>
+                            <div class="rights-list">
+                                <div class="right-item"><span class="material-icons">check_circle</span> Confirmação da existência de tratamento</div>
+                                <div class="right-item"><span class="material-icons">check_circle</span> Acesso aos dados pessoais</div>
+                                <div class="right-item"><span class="material-icons">check_circle</span> Correção de dados incompletos</div>
+                                <div class="right-item"><span class="material-icons">check_circle</span> Portabilidade dos dados</div>
+                                <div class="right-item"><span class="material-icons">check_circle</span> Eliminação de dados desnecessários</div>
+                                <div class="right-item"><span class="material-icons">check_circle</span> Revogação do consentimento</div>
                             </div>
                         </div>
-                        <div class="stats">
-                            <div class="stat-card"><div class="stat-number" id="total-pending">0</div><div class="stat-label">Pendentes</div></div>
-                            <div class="stat-card"><div class="stat-number" id="total-completed">0</div><div class="stat-label">Concluídos</div></div>
-                            <div class="stat-card"><div class="stat-number" id="total-rejected">0</div><div class="stat-label">Rejeitados</div></div>
-                        </div>
-                    </div>
-                    <div id="alert-container"></div>
-                    <div class="filters">
-                        <div class="filter-group"><label>Status</label><select id="filter-status"><option value="all">Todos</option><option value="pending">Pendentes</option><option value="completed">Concluídos</option><option value="rejected">Rejeitados</option></select></div>
-                        <div class="filter-group"><label>Buscar</label><input type="text" id="search-input" placeholder="Email ou UID"></div>
-                        <button class="btn-refresh" onclick="loadRequests()">🔄 Atualizar</button>
-                        <button class="btn-refresh btn-logout" onclick="signOut()">🚪 Sair</button>
-                    </div>
-                    <div class="table-container">
-                        <table>
-                            <thead><tr><th>Usuário</th><th>Email</th><th>UID</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
-                            <tbody id="table-body"><tr><td colspan="6" class="loading">📚 Carregando...</td></tr></tbody>
-                        </table>
                     </div>
                 </div>
-                <div id="detail-modal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Detalhes do Pedido - LGPD</h3><span class="close-modal" onclick="closeModal()">&times;</span></div><div class="modal-body" id="modal-body"></div><div class="modal-footer"><button class="btn-action btn-process" onclick="processFromModal()">🗑️ Executar Exclusão</button><button class="btn-action btn-reject" onclick="rejectFromModal()">❌ Rejeitar</button><button class="btn-action" onclick="closeModal()">Fechar</button></div></div></div>
-                <div id="confirm-modal" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="confirm-title">Confirmar</h3><span class="close-modal" onclick="closeConfirmModal()">&times;</span></div><div class="modal-body" id="confirm-body"></div><div class="modal-footer"><button class="btn-action" id="confirm-yes" style="background:#28a745">Confirmar</button><button class="btn-action" onclick="closeConfirmModal()">Cancelar</button></div></div></div>
-                <div id="progress-modal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Processando Exclusão LGPD</h3></div><div class="modal-body"><div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div><p id="progress-status">Iniciando...</p></div></div></div>
+                
+                <div id="success-modal" class="modal">
+                    <div class="modal-content">
+                        <span class="material-icons success-icon">check_circle</span>
+                        <h3>Solicitação Enviada com Sucesso!</h3>
+                        <p>Sua solicitação de exclusão de dados foi recebida pela nossa equipe de compliance.</p>
+                        <div class="protocol-code" id="success-protocol">WZZM-LGPD-XXXX</div>
+                        <p><strong>Prazo de resposta: 15 dias úteis</strong></p>
+                        <button class="modal-btn" onclick="window.closeModal()">OK, entendi</button>
+                    </div>
+                </div>
             `;
             
-            document.getElementById('filter-status')?.addEventListener('change', () => applyFilters());
-            document.getElementById('search-input')?.addEventListener('input', () => applyFilters());
+            var form = document.getElementById('deletion-form');
+            if (form) form.addEventListener('submit', submitDeletionRequest);
         }
 
-        function renderLoginScreen() {
-            document.getElementById('main-container').innerHTML = `
-                <div class="login-required">
-                    <h2>🔐 Área Administrativa - LGPD</h2>
-                    <p>Faça login com uma conta de administrador</p>
-                    <button class="login-btn" onclick="signIn()">🔑 Login com Google</button>
+        function renderLogin() {
+            var app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="login-container">
+                    <span class="material-icons" style="font-size: 64px; color: #667eea;">delete_forever</span>
+                    <h2>Solicitar Exclusão de Dados - LGPD</h2>
+                    <p>Para solicitar a exclusão dos seus dados, faça login com sua conta Google.</p>
+                    <p style="font-size: 12px; margin-top: 10px;">Seus dados serão tratados conforme a Lei 13.709/2018 (LGPD)</p>
+                    <button class="login-btn" onclick="window.login()">
+                        <span class="material-icons">login</span> Entrar com Google
+                    </button>
                 </div>
             `;
         }
 
-        // ============================================
-        // INICIALIZAÇÃO
-        // ============================================
+        window.login = function() {
+            auth.signInWithPopup(googleProvider).catch(function(error) {
+                showToast('❌ Erro: ' + error.message, true);
+            });
+        };
 
-        auth.onAuthStateChanged(async (user) => {
+        window.logout = function() {
+            auth.signOut().then(function() {
+                showToast('✅ Logout realizado');
+                renderLogin();
+            });
+        };
+
+        window.closeModal = function() {
+            var modal = document.getElementById('success-modal');
+            if (modal) modal.style.display = 'none';
+        };
+
+        auth.onAuthStateChanged(function(user) {
             currentUser = user;
             if (user) {
-                console.log('✅ Usuário logado:', user.email);
-                isAdminUser = await checkIsAdmin(user);
-                if (isAdminUser) {
-                    renderAdminPanel();
-                    await loadRequests();
-                } else {
-                    document.getElementById('main-container').innerHTML = `<div class="login-required"><h2>⛔ Acesso Negado</h2><p>Seu email não é admin.</p><button class="login-btn" onclick="signOut()">Sair</button></div>`;
-                }
+                renderUserDashboard();
             } else {
-                renderLoginScreen();
+                renderLogin();
             }
         });
-
-        window.loadRequests = loadRequests;
-        window.viewDetails = viewDetails;
-        window.processRequest = processRequest;
-        window.rejectRequest = rejectRequest;
-        window.processFromModal = processFromModal;
-        window.rejectFromModal = rejectFromModal;
-        window.closeModal = closeModal;
-        window.closeConfirmModal = closeConfirmModal;
-        window.signIn = signIn;
-        window.signOut = signOut;
     </script>
 </body>
 </html>
