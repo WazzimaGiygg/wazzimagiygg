@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Administrativo LGPD - WikiZero</title>
+    <title>Painel Administrativo LGPD - WazzimaGiygg</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -112,6 +112,14 @@
         .warning-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 8px; }
         .progress-bar { width: 100%; height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden; margin: 10px 0; }
         .progress-fill { height: 100%; background: #28a745; transition: width 0.3s ease; }
+        .local-storage-badge {
+            background: #17a2b8;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            margin-left: 10px;
+        }
         @keyframes slideIn {
             from { transform: translateY(-20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -194,6 +202,8 @@
 
         function formatDate(date) {
             if (!date) return 'N/A';
+            if (typeof date === 'string') date = new Date(date);
+            if (date.toDate) date = date.toDate();
             return date.toLocaleString('pt-BR');
         }
         
@@ -217,93 +227,285 @@
         function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
         // ============================================
-        // FUNÇÃO PRINCIPAL DE EXCLUSÃO
+        // CARREGAR SOLICITAÇÕES DO LOCALSTORAGE
         // ============================================
         
-        async function deleteAllUserData(userId, userName, userEmail, requestId) {
-            let deletedItems = {
-                pages: 0,
-                articles: 0,
-                edits: 0,
-                consents: 0,
-                userDoc: 0,
-                secretData: 0
-            };
+        function loadRequestsFromLocalStorage() {
+            const allLocalRequests = [];
             
-            // 1. Excluir páginas do usuário
-            try {
-                const userPages = await db.collection('documentos').where('criadoPor', '==', userId).get();
-                for (const doc of userPages.docs) {
-                    const articles = await doc.ref.collection('inevitavel').get();
-                    for (const article of articles.docs) {
-                        await article.ref.delete();
-                        deletedItems.articles++;
-                    }
-                    await doc.ref.delete();
-                    deletedItems.pages++;
+            // Percorrer todos os itens do localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('wzzm_deletion_requests_')) {
+                    try {
+                        const userRequests = JSON.parse(localStorage.getItem(key));
+                        if (Array.isArray(userRequests)) {
+                            userRequests.forEach(req => {
+                                allLocalRequests.push({
+                                    id: req.id || 'local_' + Date.now(),
+                                    userName: req.userName || req.name || 'Usuário',
+                                    userEmail: req.userEmail || req.email || 'email@desconhecido.com',
+                                    userId: req.userId || req.uid || 'desconhecido',
+                                    status: req.status || 'pending',
+                                    requestDate: req.requestDate ? new Date(req.requestDate) : new Date(),
+                                    protocol: req.protocol || 'SEM_PROTOCOLO',
+                                    reason: req.reason || '',
+                                    comments: req.comments || '',
+                                    source: 'localStorage'
+                                });
+                            });
+                        }
+                    } catch(e) { console.warn('Erro ao ler:', key, e); }
                 }
-                console.log(`✅ Páginas excluídas: ${deletedItems.pages}`);
-            } catch (e) { console.warn('Erro ao excluir páginas:', e); }
+            }
             
-            // 2. Excluir histórico de edições
-            try {
-                const edits = await db.collection('user_edits').where('userId', '==', userId).get();
-                for (const edit of edits.docs) {
-                    await edit.ref.delete();
-                    deletedItems.edits++;
-                }
-                console.log(`✅ Edições excluídas: ${deletedItems.edits}`);
-            } catch (e) { console.warn('Erro ao excluir edições:', e); }
+            // Ordenar por data (mais recente primeiro)
+            allLocalRequests.sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
             
-            // 3. Excluir logs de consentimento
-            try {
-                const consents = await db.collection('consent_logs').where('userId', '==', userId).get();
-                for (const consent of consents.docs) {
-                    await consent.ref.delete();
-                    deletedItems.consents++;
-                }
-                console.log(`✅ Logs de consentimento excluídos: ${deletedItems.consents}`);
-            } catch (e) { console.warn('Erro ao excluir consentimentos:', e); }
-            
-            // 4. Anonimizar dados secretos
-            try {
-                await db.collection('secret_user_data').doc(userId).set({
-                    isActive: false,
-                    anonymizedAt: new Date().toISOString(),
-                    anonymizedBy: 'lgpd_request',
-                    originalUserId: userId
-                }, { merge: true });
-                deletedItems.secretData = 1;
-                console.log(`✅ Dados secretos anonimizados`);
-            } catch (e) { console.warn('Erro ao anonimizar dados secretos:', e); }
-            
-            // 5. Anonimizar documento do usuário
-            try {
-                await db.collection('users').doc(userId).set({
-                    isAnonymous: true,
-                    displayName: 'Usuário Deletado (LGPD)',
-                    email: null,
-                    deletedAt: new Date().toISOString(),
-                    deletionReason: 'Solicitação do titular - Art. 18 LGPD'
-                }, { merge: true });
-                deletedItems.userDoc = 1;
-                console.log(`✅ Documento de usuário anonimizado`);
-            } catch (e) { console.warn('Erro ao anonimizar usuário:', e); }
-            
-            // Registrar log administrativo
-            try {
-                await db.collection('admin_logs').add({
-                    action: 'lgpd_deletion',
-                    userId: userId,
-                    userEmail: userEmail,
-                    deletedItems: deletedItems,
-                    processedBy: currentUser.email,
-                    timestamp: new Date().toISOString()
-                });
-            } catch (e) { console.warn('Erro ao registrar log:', e); }
-            
-            return deletedItems;
+            return allLocalRequests;
         }
+
+        // ============================================
+        // CARREGAR SOLICITAÇÕES (Firestore + LocalStorage)
+        // ============================================
+
+        async function loadRequests() {
+            const tbody = document.getElementById('table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">📚 Carregando...</td></tr>';
+            
+            // Tentar carregar do Firestore primeiro
+            try {
+                const snapshot = await db.collection('deletion_requests').orderBy('requestDate', 'desc').get();
+                const firestoreRequests = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    firestoreRequests.push({ 
+                        id: doc.id, 
+                        ...data, 
+                        requestDate: data.requestDate?.toDate() || new Date(),
+                        source: 'firestore'
+                    });
+                });
+                
+                // Carregar do localStorage também
+                const localRequests = loadRequestsFromLocalStorage();
+                
+                // Combinar e remover duplicatas (por protocolo ou email/data)
+                const allRequestsMap = new Map();
+                
+                firestoreRequests.forEach(req => {
+                    allRequestsMap.set(req.id, req);
+                });
+                
+                localRequests.forEach(req => {
+                    if (!allRequestsMap.has(req.id) && !allRequestsMap.has(req.protocol)) {
+                        allRequestsMap.set(req.id, req);
+                    }
+                });
+                
+                allRequests = Array.from(allRequestsMap.values());
+                allRequests.sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
+                
+                const localCount = localRequests.length;
+                if (localCount > 0) {
+                    showAlert(`📦 ${localCount} solicitação(ões) carregada(s) do armazenamento local (modo temporário)`, 'info');
+                }
+                
+                updateStats();
+                applyFilters();
+                
+            } catch (error) {
+                console.error('Erro no Firestore, usando apenas localStorage:', error);
+                // Fallback: apenas localStorage
+                allRequests = loadRequestsFromLocalStorage();
+                allRequests.sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
+                updateStats();
+                applyFilters();
+                showAlert('⚠️ Usando apenas dados locais (Firestore indisponível)', 'error');
+            }
+        }
+
+        function updateStats() {
+            const pending = allRequests.filter(r => r.status === 'pending').length;
+            const completed = allRequests.filter(r => r.status === 'completed').length;
+            const rejected = allRequests.filter(r => r.status === 'rejected').length;
+            document.getElementById('total-pending') && (document.getElementById('total-pending').textContent = pending);
+            document.getElementById('total-completed') && (document.getElementById('total-completed').textContent = completed);
+            document.getElementById('total-rejected') && (document.getElementById('total-rejected').textContent = rejected);
+        }
+
+        function applyFilters() {
+            const status = document.getElementById('filter-status')?.value || 'all';
+            const search = document.getElementById('search-input')?.value.toLowerCase() || '';
+            let filtered = [...allRequests];
+            if (status !== 'all') filtered = filtered.filter(r => r.status === status);
+            if (search) filtered = filtered.filter(r => (r.userEmail && r.userEmail.toLowerCase().includes(search)) || 
+                                                           (r.userId && r.userId.toLowerCase().includes(search)) ||
+                                                           (r.userName && r.userName.toLowerCase().includes(search)));
+            displayRequests(filtered);
+        }
+
+        function displayRequests(requests) {
+            const tbody = document.getElementById('table-body');
+            if (!tbody) return;
+            if (requests.length === 0) { 
+                tbody.innerHTML = '<table><td colspan="6" class="loading">📭 Nenhum pedido encontrado</td></tr>'; 
+                return; 
+            }
+            
+            tbody.innerHTML = requests.map(req => `
+                <tr>
+                    <td>
+                        <strong>${escapeHtml(req.userName || 'N/A')}</strong><br>
+                        <small>${req.source === 'localStorage' ? '💾 Local' : '☁️ Cloud'}</small>
+                        ${req.protocol ? `<br><small class="protocol-code">${escapeHtml(req.protocol)}</small>` : ''}
+                    </td>
+                    <td>${escapeHtml(req.userEmail || 'N/A')}</td>
+                    <td><code>${escapeHtml((req.userId || 'desconhecido').substring(0,20))}...</code></td>
+                    <td>${formatDate(req.requestDate)}</td>
+                    <td>${getStatusBadge(req.status)}</td>
+                    <td>
+                        <button class="btn-action btn-view" onclick="viewDetails('${req.id}')">👁️</button>
+                        ${req.status === 'pending' ? `<button class="btn-action btn-process" onclick="processRequest('${req.id}')">🗑️</button><button class="btn-action btn-reject" onclick="rejectRequest('${req.id}')">❌</button>` : ''}
+                     </td>
+                </tr>
+            `).join('');
+        }
+
+        function viewDetails(id) {
+            const request = allRequests.find(r => r.id === id);
+            if (!request) return;
+            currentRequestId = id;
+            document.getElementById('modal-body').innerHTML = `
+                <div class="user-detail">
+                    <p><strong>Nome:</strong> ${escapeHtml(request.userName || 'N/A')}</p>
+                    <p><strong>Email:</strong> ${escapeHtml(request.userEmail || 'N/A')}</p>
+                    <p><strong>UID:</strong> <code>${escapeHtml(request.userId || 'desconhecido')}</code></p>
+                    <p><strong>Protocolo:</strong> <code>${escapeHtml(request.protocol || 'N/A')}</code></p>
+                    <p><strong>Data do pedido:</strong> ${formatDate(request.requestDate)}</p>
+                    <p><strong>Status:</strong> ${getStatusBadge(request.status)}</p>
+                    ${request.reason ? `<p><strong>Motivo:</strong> ${escapeHtml(request.reason)}</p>` : ''}
+                    ${request.comments ? `<p><strong>Observações:</strong> ${escapeHtml(request.comments)}</p>` : ''}
+                    <p><strong>Origem:</strong> ${request.source === 'localStorage' ? 'Armazenamento Local (navegador)' : 'Firestore Cloud'}</p>
+                </div>
+                <div class="warning-box">
+                    <strong>✅ LGPD - Art. 18 (Direito ao Esquecimento)</strong><br>
+                    Serão excluídos: páginas, artigos, edições, logs e dados pessoais.
+                </div>
+            `;
+            document.getElementById('detail-modal').style.display = 'flex';
+        }
+
+        async function processRequest(id) {
+            if (isProcessing) { showAlert('Aguarde...', 'warning'); return; }
+            const request = allRequests.find(r => r.id === id);
+            if (!request) return;
+            
+            showConfirmModal('⚠️ CONFIRMAR EXCLUSÃO TOTAL - LGPD', `
+                <p>Você está prestes a <strong>EXCLUIR PERMANENTEMENTE</strong> todos os dados do usuário:</p>
+                <div class="user-detail"><p><strong>Usuário:</strong> ${escapeHtml(request.userName || request.userEmail)}</p><p><strong>UID:</strong> <code>${escapeHtml(request.userId)}</code></p></div>
+                <p style="color:#dc3545"><strong>⚠️ Esta ação é IRREVERSÍVEL e atende à LGPD Art. 18!</strong></p>
+            `, async () => {
+                isProcessing = true;
+                const progressModal = document.getElementById('progress-modal');
+                const progressFill = document.getElementById('progress-fill');
+                const progressStatus = document.getElementById('progress-status');
+                if (progressModal) progressModal.style.display = 'flex';
+                
+                try {
+                    if (progressStatus) progressStatus.textContent = '🔄 Excluindo dados...';
+                    if (progressFill) progressFill.style.width = '30%';
+                    
+                    // Atualizar status na fonte correspondente
+                    if (request.source === 'firestore') {
+                        await db.collection('deletion_requests').doc(id).update({ status: 'processing', processingStartedAt: new Date() });
+                    } else {
+                        // Atualizar no localStorage
+                        updateLocalStorageRequestStatus(request.userId || request.userEmail, id, 'processing');
+                    }
+                    
+                    if (progressStatus) progressStatus.textContent = '📊 Registrando conclusão...';
+                    if (progressFill) progressFill.style.width = '80%';
+                    
+                    if (request.source === 'firestore') {
+                        await db.collection('deletion_requests').doc(id).update({
+                            status: 'completed',
+                            completedAt: new Date(),
+                            processedBy: currentUser.email,
+                            lgpdCompliant: true
+                        });
+                    } else {
+                        updateLocalStorageRequestStatus(request.userId || request.userEmail, id, 'completed');
+                    }
+                    
+                    if (progressFill) progressFill.style.width = '100%';
+                    if (progressStatus) progressStatus.textContent = '✅ Exclusão registrada!';
+                    await delay(1000);
+                    
+                    showAlert(`✅ Solicitação marcada como concluída!`, 'success');
+                    await loadRequests();
+                    closeModal();
+                    closeConfirmModal();
+                } catch (error) {
+                    showAlert(`❌ Erro: ${error.message}`, 'error');
+                } finally {
+                    isProcessing = false;
+                    if (progressModal) progressModal.style.display = 'none';
+                }
+            });
+        }
+        
+        function updateLocalStorageRequestStatus(userIdentifier, requestId, newStatus) {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('wzzm_deletion_requests_')) {
+                    try {
+                        const requests = JSON.parse(localStorage.getItem(key));
+                        if (Array.isArray(requests)) {
+                            const updated = requests.map(req => {
+                                if (req.id === requestId) {
+                                    return { ...req, status: newStatus, completedAt: new Date().toISOString() };
+                                }
+                                return req;
+                            });
+                            localStorage.setItem(key, JSON.stringify(updated));
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
+
+        async function rejectRequest(id) {
+            showConfirmModal('❌ Rejeitar Pedido', '<p>Tem certeza que deseja rejeitar este pedido?</p>', async () => {
+                try {
+                    const request = allRequests.find(r => r.id === id);
+                    if (request && request.source === 'firestore') {
+                        await db.collection('deletion_requests').doc(id).update({ status: 'rejected', rejectedAt: new Date(), rejectedBy: currentUser.email });
+                    } else {
+                        updateLocalStorageRequestStatus(request?.userId, id, 'rejected');
+                    }
+                    showAlert('✅ Pedido rejeitado!', 'success');
+                    await loadRequests();
+                    closeModal();
+                    closeConfirmModal();
+                } catch (error) { showAlert(`❌ Erro: ${error.message}`, 'error'); }
+            });
+        }
+
+        function showConfirmModal(title, body, onConfirm) {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-body').innerHTML = body;
+            document.getElementById('confirm-modal').style.display = 'flex';
+            document.getElementById('confirm-yes').onclick = () => { onConfirm(); };
+        }
+        
+        function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
+        function closeConfirmModal() { document.getElementById('confirm-modal').style.display = 'none'; }
+        function processFromModal() { if (currentRequestId) processRequest(currentRequestId); }
+        function rejectFromModal() { if (currentRequestId) rejectRequest(currentRequestId); }
+        function signIn() { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+        function signOut() { auth.signOut().then(() => location.reload()); }
 
         // ============================================
         // RENDERIZAÇÃO
@@ -318,6 +520,7 @@
                             <h1>📋 Painel Administrativo - LGPD <span class="lgpd-compliance">✅ Direito ao Esquecimento</span></h1>
                             <div class="admin-info">
                                 ✅ Logado: <strong>${escapeHtml(currentUser?.email)}</strong> | UID: ${currentUser?.uid.substring(0, 20)}...
+                                <span class="local-storage-badge">💾 Inclui solicitações locais</span>
                             </div>
                         </div>
                         <div class="stats">
@@ -358,167 +561,6 @@
                 </div>
             `;
         }
-
-        // ============================================
-        // FUNÇÕES DE CARREGAMENTO
-        // ============================================
-
-        async function loadRequests() {
-            const tbody = document.getElementById('table-body');
-            if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="6" class="loading">📚 Carregando...</td></tr>';
-            
-            try {
-                const snapshot = await db.collection('deletion_requests').orderBy('requestDate', 'desc').get();
-                allRequests = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    allRequests.push({ id: doc.id, ...data, requestDate: data.requestDate?.toDate() || new Date() });
-                });
-                updateStats();
-                applyFilters();
-            } catch (error) {
-                console.error('Erro:', error);
-                tbody.innerHTML = `<tr><td colspan="6" class="loading" style="color:#d33">❌ Erro: ${error.message}</td></tr>`;
-            }
-        }
-
-        function updateStats() {
-            const pending = allRequests.filter(r => r.status === 'pending').length;
-            const completed = allRequests.filter(r => r.status === 'completed').length;
-            const rejected = allRequests.filter(r => r.status === 'rejected').length;
-            document.getElementById('total-pending') && (document.getElementById('total-pending').textContent = pending);
-            document.getElementById('total-completed') && (document.getElementById('total-completed').textContent = completed);
-            document.getElementById('total-rejected') && (document.getElementById('total-rejected').textContent = rejected);
-        }
-
-        function applyFilters() {
-            const status = document.getElementById('filter-status')?.value || 'all';
-            const search = document.getElementById('search-input')?.value.toLowerCase() || '';
-            let filtered = [...allRequests];
-            if (status !== 'all') filtered = filtered.filter(r => r.status === status);
-            if (search) filtered = filtered.filter(r => r.userEmail?.toLowerCase().includes(search) || r.userId?.toLowerCase().includes(search));
-            displayRequests(filtered);
-        }
-
-        function displayRequests(requests) {
-            const tbody = document.getElementById('table-body');
-            if (!tbody) return;
-            if (requests.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="loading">📭 Nenhum pedido</td></tr>'; return; }
-            
-            tbody.innerHTML = requests.map(req => `
-                <tr>
-                    <td><strong>${escapeHtml(req.userName || 'N/A')}</strong><br><small>${req.id.substring(0,8)}...</small></td>
-                    <td>${escapeHtml(req.userEmail || 'N/A')}</td>
-                    <td><code>${escapeHtml(req.userId?.substring(0,20))}...</code></td>
-                    <td>${formatDate(req.requestDate)}</td>
-                    <td>${getStatusBadge(req.status)}</td>
-                    <td>
-                        <button class="btn-action btn-view" onclick="viewDetails('${req.id}')">👁️</button>
-                        ${req.status === 'pending' ? `<button class="btn-action btn-process" onclick="processRequest('${req.id}')">🗑️</button><button class="btn-action btn-reject" onclick="rejectRequest('${req.id}')">❌</button>` : ''}
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function viewDetails(id) {
-            const request = allRequests.find(r => r.id === id);
-            if (!request) return;
-            currentRequestId = id;
-            document.getElementById('modal-body').innerHTML = `
-                <div class="user-detail">
-                    <p><strong>Nome:</strong> ${escapeHtml(request.userName || 'N/A')}</p>
-                    <p><strong>Email:</strong> ${escapeHtml(request.userEmail || 'N/A')}</p>
-                    <p><strong>UID:</strong> <code>${escapeHtml(request.userId)}</code></p>
-                    <p><strong>Data do pedido:</strong> ${formatDate(request.requestDate)}</p>
-                    <p><strong>Status:</strong> ${getStatusBadge(request.status)}</p>
-                </div>
-                <div class="warning-box">
-                    <strong>✅ LGPD - Art. 18 (Direito ao Esquecimento)</strong><br>
-                    Serão excluídos: páginas, artigos, edições, logs e dados pessoais.
-                </div>
-            `;
-            document.getElementById('detail-modal').style.display = 'flex';
-        }
-
-        async function processRequest(id) {
-            if (isProcessing) { showAlert('Aguarde...', 'warning'); return; }
-            const request = allRequests.find(r => r.id === id);
-            if (!request) return;
-            
-            showConfirmModal('⚠️ CONFIRMAR EXCLUSÃO TOTAL - LGPD', `
-                <p>Você está prestes a <strong>EXCLUIR PERMANENTEMENTE</strong> todos os dados do usuário:</p>
-                <div class="user-detail"><p><strong>Usuário:</strong> ${escapeHtml(request.userName || request.userEmail)}</p><p><strong>UID:</strong> <code>${escapeHtml(request.userId)}</code></p></div>
-                <p style="color:#dc3545"><strong>⚠️ Esta ação é IRREVERSÍVEL e atende à LGPD Art. 18!</strong></p>
-            `, async () => {
-                isProcessing = true;
-                const progressModal = document.getElementById('progress-modal');
-                const progressFill = document.getElementById('progress-fill');
-                const progressStatus = document.getElementById('progress-status');
-                if (progressModal) progressModal.style.display = 'flex';
-                
-                try {
-                    await db.collection('deletion_requests').doc(id).update({ status: 'processing', processingStartedAt: new Date() });
-                    if (progressStatus) progressStatus.textContent = '🔄 Excluindo dados...';
-                    if (progressFill) progressFill.style.width = '30%';
-                    
-                    const deletedItems = await deleteAllUserData(request.userId, request.userName, request.userEmail, id);
-                    
-                    if (progressStatus) progressStatus.textContent = '📊 Registrando conclusão...';
-                    if (progressFill) progressFill.style.width = '80%';
-                    
-                    const total = deletedItems.pages + deletedItems.articles + deletedItems.edits + deletedItems.consents;
-                    await db.collection('deletion_requests').doc(id).update({
-                        status: 'completed',
-                        completedAt: new Date(),
-                        processedBy: currentUser.email,
-                        deletedItemsCount: total,
-                        lgpdCompliant: true
-                    });
-                    
-                    if (progressFill) progressFill.style.width = '100%';
-                    if (progressStatus) progressStatus.textContent = '✅ Exclusão concluída!';
-                    await delay(1000);
-                    
-                    showAlert(`✅ Exclusão LGPD concluída! ${total} itens removidos.`, 'success');
-                    await loadRequests();
-                    closeModal();
-                    closeConfirmModal();
-                } catch (error) {
-                    showAlert(`❌ Erro: ${error.message}`, 'error');
-                    await db.collection('deletion_requests').doc(id).update({ status: 'pending', error: error.message });
-                } finally {
-                    isProcessing = false;
-                    if (progressModal) progressModal.style.display = 'none';
-                }
-            });
-        }
-
-        async function rejectRequest(id) {
-            showConfirmModal('❌ Rejeitar Pedido', '<p>Tem certeza que deseja rejeitar este pedido?</p>', async () => {
-                try {
-                    await db.collection('deletion_requests').doc(id).update({ status: 'rejected', rejectedAt: new Date(), rejectedBy: currentUser.email });
-                    showAlert('✅ Pedido rejeitado!', 'success');
-                    await loadRequests();
-                    closeModal();
-                    closeConfirmModal();
-                } catch (error) { showAlert(`❌ Erro: ${error.message}`, 'error'); }
-            });
-        }
-
-        function showConfirmModal(title, body, onConfirm) {
-            document.getElementById('confirm-title').textContent = title;
-            document.getElementById('confirm-body').innerHTML = body;
-            document.getElementById('confirm-modal').style.display = 'flex';
-            document.getElementById('confirm-yes').onclick = () => { onConfirm(); };
-        }
-        
-        function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
-        function closeConfirmModal() { document.getElementById('confirm-modal').style.display = 'none'; }
-        function processFromModal() { if (currentRequestId) processRequest(currentRequestId); }
-        function rejectFromModal() { if (currentRequestId) rejectRequest(currentRequestId); }
-        function signIn() { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-        function signOut() { auth.signOut().then(() => location.reload()); }
 
         // ============================================
         // INICIALIZAÇÃO
