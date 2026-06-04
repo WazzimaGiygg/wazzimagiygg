@@ -77,7 +77,6 @@
             padding: 0 20px;
         }
 
-        /* Moderation Panel */
         .mod-panel {
             background: white;
             border-radius: 16px;
@@ -148,18 +147,6 @@
             font-weight: 600;
         }
 
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75em;
-            font-weight: 600;
-        }
-
-        .status-active { background: #d4edda; color: #155724; }
-        .status-deleted { background: #f8d7da; color: #721c24; }
-        .status-reported { background: #fff3cd; color: #856404; }
-
         .action-buttons {
             display: flex;
             gap: 8px;
@@ -172,16 +159,13 @@
             padding: 5px;
             border-radius: 4px;
             transition: all 0.2s;
+            font-size: 18px;
         }
 
         .btn-icon.delete { color: #dc3545; }
         .btn-icon.delete:hover { background: #dc3545; color: white; }
-        .btn-icon.edit { color: #28a745; }
-        .btn-icon.edit:hover { background: #28a745; color: white; }
         .btn-icon.view { color: #17a2b8; }
         .btn-icon.view:hover { background: #17a2b8; color: white; }
-        .btn-icon.restore { color: #ffc107; }
-        .btn-icon.restore:hover { background: #ffc107; color: white; }
 
         .btn-primary {
             background: linear-gradient(135deg, #e94560, #ff6b6b);
@@ -277,6 +261,11 @@
             color: #e94560;
         }
 
+        .access-denied {
+            text-align: center;
+            padding: 60px;
+        }
+
         @media (max-width: 768px) {
             .header-container {
                 flex-direction: column;
@@ -295,7 +284,7 @@
 <div class="header">
     <div class="header-container">
         <div class="logo">
-            <span class="material-icons">forum</span>
+            <span class="material-icons">gavel</span>
             Maspia Forum - Moderação
         </div>
         <div class="nav-links">
@@ -344,6 +333,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 
 <script>
 // Firebase Config
@@ -372,7 +362,6 @@ const categoriesRef = () => maspiaRef.doc('forum').collection('categories');
 const subcategoriesRef = (catId) => categoriesRef().doc(catId).collection('subcategories');
 const threadsRef = (catId, subId) => subcategoriesRef(catId).doc(subId).collection('threads');
 const postsRef = (catId, subId, threadId) => threadsRef(catId, subId).doc(threadId).collection('posts');
-const usersRef = () => maspiaRef.doc('usuarios').collection('perfis');
 
 // ============================================
 // FUNÇÕES DE AUTENTICAÇÃO
@@ -382,13 +371,15 @@ async function checkIsAdmin(user) {
     if (!user) return false;
     if (ADMIN_UIDS.includes(user.uid)) return true;
     try {
-        const userDoc = await usersRef().doc(user.uid).get();
-        return userDoc.exists && (userDoc.data().role === 'admin' || userDoc.data().role === 'moderator');
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        return userDoc.exists && userDoc.data().isAdmin === true;
     } catch { return false; }
 }
 
 async function logout() {
-    await auth.signOut();
+    try {
+        await auth.signOut();
+    } catch(e) {}
     window.location.href = 'index.html';
 }
 
@@ -401,10 +392,13 @@ function goToForum() {
 // ============================================
 
 async function loadModPanel() {
+    const container = document.getElementById('main-container');
+    
     if (!isAdmin) {
-        document.getElementById('main-container').innerHTML = `
-            <div class="mod-panel" style="text-align:center;">
-                <h2>⛔ Acesso Restrito</h2>
+        container.innerHTML = `
+            <div class="mod-panel access-denied">
+                <span style="font-size: 64px;">⛔</span>
+                <h2>Acesso Restrito</h2>
                 <p>Você não tem permissão para acessar esta página.</p>
                 <button class="btn-primary" onclick="goToForum()">Voltar ao Fórum</button>
             </div>
@@ -412,7 +406,6 @@ async function loadModPanel() {
         return;
     }
 
-    const container = document.getElementById('main-container');
     container.innerHTML = `
         <div class="mod-panel">
             <div class="mod-header">
@@ -426,7 +419,6 @@ async function loadModPanel() {
             <div class="mod-tabs">
                 <div class="mod-tab active" onclick="showTab('threads')">📋 Tópicos</div>
                 <div class="mod-tab" onclick="showTab('posts')">💬 Posts</div>
-                <div class="mod-tab" onclick="showTab('reports')">⚠️ Denúncias</div>
             </div>
 
             <div id="stats-container" class="stats-cards"></div>
@@ -459,7 +451,6 @@ async function loadStats() {
         document.getElementById('stats-container').innerHTML = `
             <div class="stat-card"><div class="stat-number">${totalThreads}</div><div>Total de Tópicos</div></div>
             <div class="stat-card"><div class="stat-number">${totalPosts}</div><div>Total de Posts</div></div>
-            <div class="stat-card"><div class="stat-number">0</div><div>Denúncias Pendentes</div></div>
         `;
     } catch (error) {
         console.error('Erro ao carregar estatísticas:', error);
@@ -488,7 +479,6 @@ async function loadThreads() {
                         subcategoryName: subDoc.data().name,
                         title: thread.title,
                         authorName: thread.authorName,
-                        authorId: thread.authorId,
                         createdAt: thread.createdAt,
                         postsCount: thread.postsCount || 0
                     });
@@ -527,10 +517,10 @@ function renderThreads(threads) {
                 ${threads.map(thread => `
                     <tr>
                         <td><strong>${escapeHtml(thread.title)}</strong></td>
-                        <td>${escapeHtml(thread.categoryName)} / ${escapeHtml(thread.subcategoryName)}</td>
-                        <td>${escapeHtml(thread.authorName || 'Anônimo')}</td>
-                        <td>${thread.postsCount}</td>
-                        <td>${formatDate(thread.createdAt)}</td>
+                        <td>${escapeHtml(thread.categoryName)} / ${escapeHtml(thread.subcategoryName)}</td
+                        <td>${escapeHtml(thread.authorName || 'Anônimo')}</td
+                        <td>${thread.postsCount}</td
+                        <td>${formatDate(thread.createdAt)}</td
                         <td class="action-buttons">
                             <button class="btn-icon view" onclick="viewThread('${thread.categoryId}', '${thread.subcategoryId}', '${thread.id}')" title="Visualizar">👁️</button>
                             <button class="btn-icon delete" onclick="confirmDeleteThread('${thread.categoryId}', '${thread.subcategoryId}', '${thread.id}', '${escapeHtml(thread.title)}')" title="Excluir">🗑️</button>
@@ -565,10 +555,8 @@ async function loadPosts() {
                             categoryId: catDoc.id,
                             subcategoryId: subDoc.id,
                             categoryName: catDoc.data().name,
-                            subcategoryName: subDoc.data().name,
                             content: post.content,
                             authorName: post.authorName,
-                            authorId: post.authorId,
                             createdAt: post.createdAt
                         });
                     }
@@ -606,11 +594,11 @@ function renderPosts(posts) {
             <tbody>
                 ${posts.map(post => `
                     <tr>
-                        <td>${escapeHtml(post.content?.substring(0, 100) || '')}...</td>
-                        <td>${escapeHtml(post.threadTitle)}</td>
-                        <td>${escapeHtml(post.categoryName)}</td>
-                        <td>${escapeHtml(post.authorName || 'Anônimo')}</td>
-                        <td>${formatDate(post.createdAt)}</td>
+                        <td>${escapeHtml((post.content || '').substring(0, 100))}...</td
+                        <td>${escapeHtml(post.threadTitle)}</td
+                        <td>${escapeHtml(post.categoryName)}</td
+                        <td>${escapeHtml(post.authorName || 'Anônimo')}</td
+                        <td>${formatDate(post.createdAt)}</td
                         <td class="action-buttons">
                             <button class="btn-icon view" onclick="viewPost('${post.categoryId}', '${post.subcategoryId}', '${post.threadId}', '${post.id}')" title="Visualizar">👁️</button>
                             <button class="btn-icon delete" onclick="confirmDeletePost('${post.categoryId}', '${post.subcategoryId}', '${post.threadId}', '${post.id}')" title="Excluir">🗑️</button>
@@ -619,16 +607,6 @@ function renderPosts(posts) {
                 `).join('')}
             </tbody>
         </table>
-    `;
-}
-
-function loadReports() {
-    const container = document.getElementById('items-container');
-    container.innerHTML = `
-        <div class="loading" style="text-align:center; padding:60px;">
-            ⚠️ Sistema de denúncias em desenvolvimento<br>
-            <small>Em breve você poderá gerenciar denúncias de usuários</small>
-        </div>
     `;
 }
 
@@ -653,15 +631,15 @@ function filterItems() {
 }
 
 function showTab(tab) {
-    document.querySelectorAll('.mod-tab').forEach(t => t.classList.remove('active'));
-    event.target.classList.add('active');
+    const tabs = document.querySelectorAll('.mod-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    if (event && event.target) event.target.classList.add('active');
+    else tabs[0].classList.add('active');
     
     if (tab === 'threads') {
         loadThreads();
     } else if (tab === 'posts') {
         loadPosts();
-    } else if (tab === 'reports') {
-        loadReports();
     }
 }
 
@@ -691,25 +669,12 @@ async function executeDeleteThread() {
     const reason = document.getElementById('delete-reason').value;
     
     try {
-        // Excluir todos os posts do tópico
         const postsSnapshot = await postsRef(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId, pendingDeleteItem.threadId).get();
         for (const postDoc of postsSnapshot.docs) {
             await postsRef(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId, pendingDeleteItem.threadId).doc(postDoc.id).delete();
         }
         
-        // Excluir o tópico
         await threadsRef(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId).doc(pendingDeleteItem.threadId).delete();
-        
-        // Registrar log de exclusão
-        await maspiaRef.doc('mod_logs').collection('logs').add({
-            type: 'thread',
-            itemId: pendingDeleteItem.threadId,
-            title: pendingDeleteItem.title,
-            moderatorId: currentUser.uid,
-            moderatorName: currentUser.displayName || currentUser.email,
-            reason: reason,
-            deletedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
         
         await updateCountsAfterDelete(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId);
         
@@ -747,22 +712,10 @@ async function executeDeletePost() {
     try {
         await postsRef(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId, pendingDeleteItem.threadId).doc(pendingDeleteItem.postId).delete();
         
-        // Atualizar contagem de posts do tópico
         const postsSnapshot = await postsRef(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId, pendingDeleteItem.threadId).get();
         const newCount = postsSnapshot.size;
         await threadsRef(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId).doc(pendingDeleteItem.threadId).update({
             postsCount: newCount
-        });
-        
-        // Registrar log de exclusão
-        await maspiaRef.doc('mod_logs').collection('logs').add({
-            type: 'post',
-            itemId: pendingDeleteItem.postId,
-            threadId: pendingDeleteItem.threadId,
-            moderatorId: currentUser.uid,
-            moderatorName: currentUser.displayName || currentUser.email,
-            reason: reason,
-            deletedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         await updateCountsAfterDelete(pendingDeleteItem.categoryId, pendingDeleteItem.subcategoryId);
@@ -899,21 +852,18 @@ auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
         isAdmin = await checkIsAdmin(user);
-        
-        if (isAdmin) {
-            document.getElementById('logout-btn').style.display = 'flex';
-            loadModPanel();
-        } else {
-            document.getElementById('main-container').innerHTML = `
-                <div class="mod-panel" style="text-align:center;">
-                    <h2>⛔ Acesso Restrito</h2>
-                    <p>Você não tem permissão para acessar esta página.</p>
-                    <button class="btn-primary" onclick="goToForum()">Voltar ao Fórum</button>
-                </div>
-            `;
-        }
+        document.getElementById('logout-btn').style.display = isAdmin ? 'flex' : 'none';
+        loadModPanel();
     } else {
-        window.location.href = 'index.html';
+        // Não redirecionar automaticamente, apenas mostrar acesso negado
+        document.getElementById('main-container').innerHTML = `
+            <div class="mod-panel access-denied">
+                <span style="font-size: 64px;">🔐</span>
+                <h2>Faça login para acessar</h2>
+                <p>Você precisa estar logado com uma conta de administrador.</p>
+                <button class="btn-primary" onclick="goToForum()">Voltar ao Fórum</button>
+            </div>
+        `;
     }
 });
 
