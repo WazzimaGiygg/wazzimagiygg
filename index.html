@@ -609,6 +609,98 @@
             margin-top: 8px;
         }
 
+        /* Seção de notícias do Google */
+        .google-news-section {
+            background: linear-gradient(135deg, #1a5f7a, #2c7da0);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .google-news-header {
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .google-news-header .material-icons {
+            font-size: 28px;
+        }
+
+        .google-news-header h3 {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .google-news-header p {
+            font-size: 0.8em;
+            opacity: 0.9;
+            margin-left: auto;
+        }
+
+        .google-news-list {
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .google-news-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .google-news-item:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateX(5px);
+        }
+
+        .google-news-item .news-rank {
+            background: #ff9800;
+            color: #1a5f7a;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .google-news-item .news-content {
+            flex: 1;
+        }
+
+        .google-news-item .news-title {
+            color: white;
+            font-weight: 500;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .google-news-item .news-meta {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.7em;
+            display: flex;
+            gap: 15px;
+        }
+
+        .google-news-item .material-icons {
+            color: rgba(255,255,255,0.6);
+            font-size: 18px;
+        }
+
         /* Seção de compliance */
         .info-section {
             max-width: 1400px;
@@ -775,6 +867,9 @@
                 gap: 8px;
                 align-items: center;
             }
+            .google-news-header p {
+                display: none;
+            }
         }
 
         .modal {
@@ -934,7 +1029,7 @@
         <div class="products-sidebar-section" onclick="window.open('https://wazzimagiygg.com/produtos', '_blank')">
             <div class="menu-item">
                 <span class="material-icons">storefront</span>
-                <span>Serviços gratuítos WazzimaGiygg</span>
+                <span>Serviços gratuitos WazzimaGiygg</span>
             </div>
         </div>
         
@@ -960,13 +1055,25 @@
     </div>
 
     <div class="content-area" id="content-area">
+        <!-- SEÇÃO GOOGLE NEWS RSS ADICIONADA -->
+        <div class="google-news-section" id="google-news-section">
+            <div class="google-news-header">
+                <span class="material-icons">whatshot</span>
+                <h3>🔥 Em alta no Google Notícias</h3>
+                <p>Atualizado em tempo real</p>
+            </div>
+            <div class="google-news-list" id="google-news-list">
+                <div class="loading-container" style="padding: 20px;"><div class="spinner"></div><p>Carregando notícias...</p></div>
+            </div>
+        </div>
+        
         <!-- Banner de Produtos -->
         <div class="products-banner" onclick="window.open('https://wazzimagiygg.com/produtos', '_blank')">
             <h3>
                 <span class="material-icons">shopping_bag</span>
                 Conheça outros serviços WazzimaGiygg!
             </h3>
-            <p>Serviços em expansão gratuítos - Clique aqui e confira!</p>
+            <p>Serviços em expansão gratuitos - Clique aqui e confira!</p>
         </div>
         
         <div id="detail-view">
@@ -1104,6 +1211,68 @@ let ensaioItems = [];
 const wikiworldListDiv = document.getElementById('wikiworld-list');
 const ensaioListDiv = document.getElementById('ensaio-list');
 const detailView = document.getElementById('detail-view');
+
+// ============================================
+// FUNÇÃO PARA CARREGAR NOTÍCIAS DO GOOGLE NEWS RSS
+// ============================================
+async function loadGoogleNews() {
+    const newsContainer = document.getElementById('google-news-list');
+    if (!newsContainer) return;
+    
+    try {
+        // Usando RSS do Google Notícias Brasil
+        const rssUrl = 'https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt';
+        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+        
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        
+        if (data.status === 'ok' && data.items && data.items.length > 0) {
+            const topNews = data.items.slice(0, 12);
+            
+            newsContainer.innerHTML = topNews.map((item, index) => {
+                // Extrair título principal (remover nome do site)
+                let title = item.title;
+                const titleParts = title.split(' - ');
+                if (titleParts.length > 1) {
+                    title = titleParts[0];
+                }
+                
+                // Formatar data
+                const pubDate = new Date(item.pubDate);
+                const now = new Date();
+                const diffHours = Math.floor((now - pubDate) / (1000 * 60 * 60));
+                let timeAgo;
+                if (diffHours < 1) {
+                    timeAgo = 'há poucos minutos';
+                } else if (diffHours < 24) {
+                    timeAgo = `há ${diffHours} horas`;
+                } else {
+                    timeAgo = `há ${Math.floor(diffHours / 24)} dias`;
+                }
+                
+                return `
+                    <div class="google-news-item" onclick="window.open('${item.link}', '_blank')">
+                        <div class="news-rank">${index + 1}</div>
+                        <div class="news-content">
+                            <div class="news-title">${escapeHtml(title.substring(0, 80))}${title.length > 80 ? '...' : ''}</div>
+                            <div class="news-meta">
+                                <span><span class="material-icons" style="font-size: 12px;">schedule</span> ${timeAgo}</span>
+                                <span><span class="material-icons" style="font-size: 12px;">source</span> ${escapeHtml(item.author || 'Google Notícias')}</span>
+                            </div>
+                        </div>
+                        <span class="material-icons" style="color: rgba(255,255,255,0.5);">open_in_new</span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            newsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.7);">📡 Nenhuma notícia disponível no momento</div>';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar Google News:', error);
+        newsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.7);">⚠️ Erro ao carregar notícias. Tente novamente mais tarde.</div>';
+    }
+}
 
 // ============================================
 // FUNÇÕES DE UTILIDADE
@@ -1580,6 +1749,7 @@ if (storedGuest) {
     updateAuthUI();
     loadWikiworldContent();
     loadEnsaioContent();
+    loadGoogleNews(); // Carregar notícias do Google
 } else {
     auth.onAuthStateChanged(async (user) => {
         if (user) {
@@ -1588,6 +1758,7 @@ if (storedGuest) {
             clearGuestUser();
             updateAuthUI();
             await Promise.all([loadWikiworldContent(), loadEnsaioContent()]);
+            loadGoogleNews(); // Carregar notícias do Google
         } else {
             currentUser = null;
             isGuestUser = false;
@@ -1597,6 +1768,7 @@ if (storedGuest) {
             // Mostrar mensagem nas listas laterais
             wikiworldListDiv.innerHTML = '<div class="empty-state" style="padding: 30px;">🔒 Faça login ou use acesso convidado para visualizar</div>';
             ensaioListDiv.innerHTML = '<div class="empty-state" style="padding: 30px;">🔒 Faça login ou use acesso convidado para visualizar</div>';
+            loadGoogleNews(); // Mesmo sem login, carrega as notícias do Google (são públicas)
         }
     });
 }
