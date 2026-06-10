@@ -1213,7 +1213,7 @@ const ensaioListDiv = document.getElementById('ensaio-list');
 const detailView = document.getElementById('detail-view');
 
 // ============================================
-// FUNÇÃO PARA CARREGAR NOTÍCIAS DO GOOGLE NEWS RSS (VERSÃO CORRIGIDA)
+// FUNÇÃO PARA CARREGAR NOTÍCIAS (VERSÃO ESTÁVEL)
 // ============================================
 async function loadGoogleNews() {
     const newsContainer = document.getElementById('google-news-list');
@@ -1222,67 +1222,106 @@ async function loadGoogleNews() {
     // Mostrar loading
     newsContainer.innerHTML = '<div class="loading-container" style="padding: 20px;"><div class="spinner"></div><p>Carregando notícias...</p></div>';
     
-    // Opção 1: Usar API do GNews (mais confiável)
-    // Opção 2: Usar RSS2JSON com fallback
-    // Opção 3: Usar dados estáticos de exemplo
-    
-    const apis = [
-        // API GNews (gratuita, sem necessidade de chave para uso básico)
-        'https://gnews.io/api/v4/top-headlines?country=br&lang=pt&max=10',
-        
-        // Fallback: RSS2JSON com parâmetros alternativos
-        `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt')}`
-    ];
-    
     let newsData = null;
     
-    // Tentar primeiro a API GNews
+    // TENTATIVA 1: Firebase - Buscar notícias salvas no seu próprio banco
     try {
-        console.log('📰 Tentando carregar notícias via GNews API...');
-        const response = await fetch(apis[0]);
+        console.log('📰 Tentando carregar notícias do Firebase...');
+        const snapshot = await db.collection('noticias')
+            .orderBy('dataPublicacao', 'desc')
+            .limit(10)
+            .get();
         
-        if (response.ok) {
-            const data = await response.json();
-            if (data.articles && data.articles.length > 0) {
-                newsData = data.articles.map((article, index) => ({
-                    title: article.title,
-                    link: article.url,
-                    author: article.source?.name || 'GNews',
-                    pubDate: article.publishedAt
-                }));
-                console.log('✅ Notícias carregadas via GNews API');
-            }
+        if (!snapshot.empty) {
+            newsData = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                newsData.push({
+                    title: data.titulo || 'Sem título',
+                    link: data.link || '#',
+                    author: data.fonte || 'WazzimaGiygg',
+                    pubDate: data.dataPublicacao ? data.dataPublicacao.toDate() : new Date()
+                });
+            });
+            console.log('✅ Notícias carregadas do Firebase');
         }
     } catch (error) {
-        console.warn('⚠️ Erro na GNews API:', error.message);
+        console.warn('⚠️ Firebase (notícias):', error.message);
     }
     
-    // Se falhou, tentar RSS2JSON
+    // TENTATIVA 2: NewsAPI.org (requer chave gratuita - cadastre em https://newsapi.org)
     if (!newsData) {
         try {
-            console.log('📰 Tentando carregar notícias via RSS2JSON...');
-            const response = await fetch(apis[1]);
+            console.log('📰 Tentando NewsAPI...');
+            // IMPORTANTE: Substitua pela sua chave do NewsAPI (gratuita: 100 requisições/dia)
+            const NEWS_API_KEY = 'sua_chave_aqui'; // Cadastre em https://newsapi.org/register
+            const response = await fetch(`https://newsapi.org/v2/top-headlines?country=br&pageSize=10&apiKey=${NEWS_API_KEY}`);
             
             if (response.ok) {
                 const data = await response.json();
-                if (data.status === 'ok' && data.items && data.items.length > 0) {
-                    newsData = data.items.slice(0, 10).map(item => ({
-                        title: item.title,
-                        link: item.link,
-                        author: item.author || 'Google Notícias',
-                        pubDate: item.pubDate
+                if (data.articles && data.articles.length > 0) {
+                    newsData = data.articles.map(article => ({
+                        title: article.title,
+                        link: article.url,
+                        author: article.source?.name || article.author || 'Redação',
+                        pubDate: new Date(article.publishedAt)
                     }));
-                    console.log('✅ Notícias carregadas via RSS2JSON');
+                    console.log('✅ Notícias carregadas da NewsAPI');
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Erro no RSS2JSON:', error.message);
+            console.warn('⚠️ NewsAPI:', error.message);
         }
     }
     
-    // Se ambas falharam, usar dados de fallback (notícias estáticas recentes)
-    if (!newsData || newsData.length === 0) {
-        console.log('📰 Usando dados de fallback (notícias recentes do Brasil)');
+    // TENTATIVA 3: RSS do Google News via CORS Proxy alternativo
+    if (!newsData) {
+        const corsProxies = [
+            'https://cors-anywhere.herokuapp.com/',
+            'https://api.allorigins.win/raw?url=',
+            'https://thingproxy.freeboard.io/fetch/'
+        ];
+        
+        const rssUrl = 'https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt';
+        
+        for (const proxy of corsProxies) {
+            if (newsData) break;
+            try {
+                console.log(`📰 Tentando proxy: ${proxy}...`);
+                const response = await fetch(proxy + encodeURIComponent(rssUrl));
+                if (response.ok) {
+                    const text = await response.text();
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(text, 'text/xml');
+                    const items = xmlDoc.querySelectorAll('item');
+                    
+                    if (items.length > 0) {
+                        newsData = [];
+                        for (let i = 0; i < Math.min(items.length, 10); i++) {
+                            const item = items[i];
+                            const title = item.querySelector('title')?.textContent || '';
+                            // Limpar título (remover o nome do site)
+                            const cleanTitle = title.split(' - ')[0];
+                            newsData.push({
+                                title: cleanTitle,
+                                link: item.querySelector('link')?.textContent || '#',
+                                author: item.querySelector('source')?.textContent || 'Google Notícias',
+                                pubDate: new Date(item.querySelector('pubDate')?.textContent || Date.now())
+                            });
+                        }
+                        console.log('✅ Notícias carregadas via CORS proxy');
+                        break;
+                    }
+                }
+            } catch (error) {
+                console.warn(`⚠️ Proxy ${proxy} falhou:`, error.message);
+            }
+        }
+    }
+    
+    // TENTATIVA 4: Dados estáticos de fallback (sempre funcionam)
+    if (!newsData) {
+        console.log('📰 Usando dados de fallback');
         newsData = getFallbackNews();
     }
     
@@ -1290,58 +1329,52 @@ async function loadGoogleNews() {
     if (newsData && newsData.length > 0) {
         renderGoogleNews(newsData, newsContainer);
     } else {
-        newsContainer.innerHTML = `
-            <div style="text-align: center; padding: 30px; color: rgba(255,255,255,0.7);">
-                <span class="material-icons" style="font-size: 48px; margin-bottom: 10px;">newspaper</span>
-                <p>📡 Serviço de notícias temporariamente indisponível</p>
-                <p style="font-size: 12px; margin-top: 8px;">Tente novamente mais tarde</p>
-            </div>
-        `;
+        newsContainer.innerHTML = getErrorNewsHTML();
     }
 }
 
 // ============================================
-// FUNÇÃO PARA RENDERIZAR NOTÍCIAS
+// RENDERIZAR NOTÍCIAS
 // ============================================
 function renderGoogleNews(newsItems, container) {
     const topNews = newsItems.slice(0, 10);
     
     container.innerHTML = topNews.map((item, index) => {
-        // Limpar título (remover nome do site se existir)
+        // Limpar título
         let title = item.title;
-        const titleParts = title.split(' - ');
-        if (titleParts.length > 1 && titleParts[1].length < 30) {
-            title = titleParts[0];
+        if (title) {
+            const cleanTitle = title.replace(/\s*[-|]\s*[^-|]+$/, '').trim();
+            if (cleanTitle.length > 5) title = cleanTitle;
         }
         
         // Formatar data
         let timeAgo = 'agora';
         if (item.pubDate) {
             try {
-                const pubDate = new Date(item.pubDate);
+                const pubDate = item.pubDate instanceof Date ? item.pubDate : new Date(item.pubDate);
                 const now = new Date();
-                const diffMs = now - pubDate;
-                const diffMins = Math.floor(diffMs / (1000 * 60));
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const diffMins = Math.floor((now - pubDate) / (1000 * 60));
                 
                 if (diffMins < 1) timeAgo = 'agora mesmo';
                 else if (diffMins < 60) timeAgo = `há ${diffMins} min`;
-                else if (diffHours < 24) timeAgo = `há ${diffHours} h`;
-                else timeAgo = `há ${diffDays} dias`;
+                else if (diffMins < 1440) timeAgo = `há ${Math.floor(diffMins / 60)} h`;
+                else timeAgo = `há ${Math.floor(diffMins / 1440)} dias`;
             } catch (e) {
                 timeAgo = 'recentemente';
             }
         }
         
+        const authorName = item.author || 'Redação';
+        const displayAuthor = authorName.length > 25 ? authorName.substring(0, 22) + '...' : authorName;
+        
         return `
-            <div class="google-news-item" onclick="window.open('${item.link}', '_blank')">
+            <div class="google-news-item" onclick="window.open('${escapeHtml(item.link)}', '_blank')">
                 <div class="news-rank">${index + 1}</div>
                 <div class="news-content">
                     <div class="news-title">${escapeHtml(title.substring(0, 80))}${title.length > 80 ? '...' : ''}</div>
                     <div class="news-meta">
                         <span><span class="material-icons" style="font-size: 12px;">schedule</span> ${timeAgo}</span>
-                        <span><span class="material-icons" style="font-size: 12px;">source</span> ${escapeHtml(item.author || 'Redação')}</span>
+                        <span><span class="material-icons" style="font-size: 12px;">source</span> ${escapeHtml(displayAuthor)}</span>
                     </div>
                 </div>
                 <span class="material-icons" style="color: rgba(255,255,255,0.5);">open_in_new</span>
@@ -1351,70 +1384,87 @@ function renderGoogleNews(newsItems, container) {
 }
 
 // ============================================
-// DADOS DE FALLBACK (NOTÍCIAS RECENTES DO BRASIL)
+// HTML PARA ERRO
+// ============================================
+function getErrorNewsHTML() {
+    return `
+        <div style="text-align: center; padding: 30px; color: rgba(255,255,255,0.7);">
+            <span class="material-icons" style="font-size: 48px; margin-bottom: 10px;">signal_wifi_off</span>
+            <p>📡 Serviço de notícias temporariamente indisponível</p>
+            <p style="font-size: 12px; margin-top: 8px;">
+                <a href="#" onclick="loadGoogleNews(); return false;" style="color: #ff9800; text-decoration: none;">
+                    🔄 Clique aqui para tentar novamente
+                </a>
+            </p>
+        </div>
+    `;
+}
+
+// ============================================
+// DADOS DE FALLBACK (NOTÍCIAS DO BRASIL)
 // ============================================
 function getFallbackNews() {
     const now = new Date();
     
     return [
         {
-            title: 'Governo anuncia novo pacote de investimentos em infraestrutura para 2026',
-            link: 'https://news.google.com/search?q=infraestrutura+Brasil+2026',
+            title: 'Governo Federal anuncia novas medidas para impulsionar a economia brasileira',
+            link: 'https://www.gov.br/planalto/pt-br',
             author: 'Agência Brasil',
-            pubDate: now
-        },
-        {
-            title: 'Tecnologia brasileira ganha destaque em feira internacional de inovação',
-            link: 'https://news.google.com/search?q=tecnologia+brasileira+destaque',
-            author: 'TechNews Brasil',
             pubDate: new Date(now - 2 * 60 * 60 * 1000)
         },
         {
-            title: 'Economia: Projeções para o PIB são revisadas para cima pelo mercado financeiro',
-            link: 'https://news.google.com/search?q=PIB+Brasil+2026',
-            author: 'Valor Econômico',
-            pubDate: new Date(now - 5 * 60 * 60 * 1000)
+            title: 'Brasil se destaca em inovação tecnológica na América Latina',
+            link: 'https://www.gov.br/mcti/pt-br',
+            author: 'Ministério da Ciência',
+            pubDate: new Date(now - 4 * 60 * 60 * 1000)
         },
         {
-            title: 'Novas regras para proteção de dados entram em vigor; veja o que muda',
-            link: 'https://news.google.com/search?q=LGPD+novas+regras',
-            author: 'Tecnoblog',
-            pubDate: new Date(now - 8 * 60 * 60 * 1000)
+            title: 'Programa de aceleração do crescimento investe em infraestrutura',
+            link: 'https://www.gov.br/casacivil/pt-br',
+            author: 'Casa Civil',
+            pubDate: new Date(now - 6 * 60 * 60 * 1000)
         },
         {
-            title: 'Educação: MEC anuncia expansão do programa de escolas em tempo integral',
-            link: 'https://news.google.com/search?q=escolas+tempo+integral+MEC',
-            author: 'Portal da Educação',
-            pubDate: new Date(now - 12 * 60 * 60 * 1000)
-        },
-        {
-            title: 'Saúde: Campanha nacional de vacinação começa na próxima semana',
-            link: 'https://news.google.com/search?q=vacinação+Brasil+2026',
+            title: 'Campanha nacional de vacinação alcança metas estabelecidas pelo Ministério',
+            link: 'https://www.gov.br/saude/pt-br',
             author: 'Ministério da Saúde',
+            pubDate: new Date(now - 10 * 60 * 60 * 1000)
+        },
+        {
+            title: 'Educação: Novo modelo de escolas em tempo integral é implementado',
+            link: 'https://www.gov.br/mec/pt-br',
+            author: 'MEC',
             pubDate: new Date(now - 1 * 24 * 60 * 60 * 1000)
         },
         {
-            title: 'Meio ambiente: Brasil atinge meta de redução de desmatamento na Amazônia',
-            link: 'https://news.google.com/search?q=desmatamento+Amazônia+2026',
-            author: 'Portal Ambiental',
+            title: 'Meio ambiente: Índices de desmatamento apresentam redução significativa',
+            link: 'https://www.gov.br/mma/pt-br',
+            author: 'Ministério do Meio Ambiente',
             pubDate: new Date(now - 1 * 24 * 60 * 60 * 1000)
         },
         {
-            title: 'Cultura: Festival de cinema brasileiro bate recorde de público',
-            link: 'https://news.google.com/search?q=cultura+cinema+brasileiro',
-            author: 'Cultura News',
+            title: 'Exportações brasileiras batem recorde no primeiro semestre',
+            link: 'https://www.gov.br/economia/pt-br',
+            author: 'Ministério da Economia',
             pubDate: new Date(now - 2 * 24 * 60 * 60 * 1000)
         },
         {
-            title: 'Esportes: Brasil se prepara para competição internacional de futebol',
-            link: 'https://news.google.com/search?q=seleção+brasileira+futebol',
-            author: 'ESPN Brasil',
+            title: 'Turismo: Brasil recebe prêmio internacional de destino sustentável',
+            link: 'https://www.gov.br/turismo/pt-br',
+            author: 'Embratur',
             pubDate: new Date(now - 2 * 24 * 60 * 60 * 1000)
         },
         {
-            title: 'Ciência: Pesquisadores brasileiros desenvolvem nova tecnologia sustentável',
-            link: 'https://news.google.com/search?q=pesquisa+científica+Brasil',
-            author: 'Revista Pesquisa FAPESP',
+            title: 'Cultura: Lei de incentivo à cultura beneficia novos projetos artísticos',
+            link: 'https://www.gov.br/cultura/pt-br',
+            author: 'Ministério da Cultura',
+            pubDate: new Date(now - 3 * 24 * 60 * 60 * 1000)
+        },
+        {
+            title: 'Agricultura familiar recebe novo programa de incentivo do governo',
+            link: 'https://www.gov.br/agricultura/pt-br',
+            author: 'MAPA',
             pubDate: new Date(now - 3 * 24 * 60 * 60 * 1000)
         }
     ];
