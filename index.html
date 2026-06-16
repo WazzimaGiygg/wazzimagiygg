@@ -847,6 +847,41 @@ function getBadgeForTab(tab) {
 }
 
 // ============================================
+// FUNÇÃO PARA REGISTRAR USUÁRIO
+// ============================================
+async function registerUser(user, isGuest = false) {
+    try {
+        const uid = user.uid;
+        const userData = {
+            uid: uid,
+            email: user.email || (isGuest ? `${uid}@guest.local` : ''),
+            name: user.displayName || (isGuest ? 'Convidado' : 'Usuário'),
+            profilePictureUrl: user.photoURL || (isGuest ? '' : ''),
+            isAdmin: false,
+            isBan: false,
+            isBanned: false,
+            isTeacher: false,
+            isTeatcher: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        // Registra na coleção 'users'
+        await db.collection('users').doc(uid).set(userData, { merge: true });
+        
+        // Registra na coleção 'usuários'
+        await db.collection('usuários').doc(uid).set(userData, { merge: true });
+
+        console.log(`Usuário ${uid} registrado com sucesso!`);
+        return true;
+    } catch (error) {
+        console.error('Erro ao registrar usuário:', error);
+        return false;
+    }
+}
+
+// ============================================
 // AUTENTICAÇÃO
 // ============================================
 function generateGuestUID() {
@@ -856,7 +891,12 @@ function generateGuestUID() {
 function createGuestUser() {
     const guestUID = generateGuestUID();
     const expiry = Date.now() + (24 * 60 * 60 * 1000);
-    const guestUser = { uid: guestUID, displayName: 'Convidado', email: `${guestUID}@guest.local`, isGuest: true };
+    const guestUser = { 
+        uid: guestUID, 
+        displayName: 'Convidado', 
+        email: `${guestUID}@guest.local`, 
+        isGuest: true 
+    };
     localStorage.setItem('wzzm_guest_user', JSON.stringify(guestUser));
     localStorage.setItem('wzzm_guest_expiry', expiry.toString());
     return guestUser;
@@ -902,17 +942,26 @@ function hideLoginModal() { document.getElementById('login-modal').classList.rem
 
 async function loginWithGoogle() {
     try { 
-        await auth.signInWithPopup(googleProvider); 
+        const result = await auth.signInWithPopup(googleProvider);
+        const user = result.user;
+        
+        // Registra o usuário no Firestore
+        await registerUser(user, false);
+        
         hideLoginModal(); 
     } catch (error) { 
         alert('Erro: ' + error.message); 
     }
 }
 
-function guestLogin() {
+async function guestLogin() {
     const guestUser = createGuestUser();
     currentUser = guestUser;
     isGuestUser = true;
+    
+    // Registra o convidado no Firestore
+    await registerUser(guestUser, true);
+    
     updateAuthUI();
     hideLoginModal();
     loadAllContent();
@@ -928,7 +977,7 @@ async function logout() {
 }
 
 // ============================================
-// CARREGAMENTO DE CONTEÚDO - NOMES CORRETOS DAS COLEÇÕES
+// CARREGAMENTO DE CONTEÚDO
 // ============================================
 async function loadWikiworldContent() {
     if (!currentUser) return [];
@@ -996,7 +1045,6 @@ async function loadAcademicoContent() {
     }
 }
 
-// CORREÇÃO: Carrega da coleção 'materia' (que existe nas regras)
 async function loadMateriaContent() {
     if (!currentUser) return [];
     try {
@@ -1303,6 +1351,10 @@ if (storedGuest) {
             currentUser = user;
             isGuestUser = false;
             clearGuestUser();
+            
+            // Registra/atualiza o usuário no Firestore
+            await registerUser(user, false);
+            
             updateAuthUI();
             loadAllContent();
         } else {
