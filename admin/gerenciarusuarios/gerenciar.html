@@ -1,226 +1,3 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Gerenciamento de Usuários | WazzimaGiygg</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Lato:wght@300;400;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="icon" href="https://wazzimagiygg.com/favicom.png" type="image/x-icon">
-    
-    <style>
-        /* ... (mantenha os estilos existentes) ... */
-        /* Adicione estilos para o debug */
-        .debug-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            text-align: left;
-            font-size: 12px;
-            color: #555;
-            display: none;
-            border: 1px solid #ddd;
-            max-height: 200px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            font-family: monospace;
-        }
-
-        .debug-info.show {
-            display: block;
-        }
-        
-        .btn-debug {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            margin-left: 10px;
-        }
-        
-        .btn-debug:hover {
-            background: #5a6268;
-        }
-    </style>
-</head>
-<body>
-
-<!-- Login Required Screen -->
-<div id="loginScreen" class="login-required">
-    <div class="login-box">
-        <div class="icon">🔐</div>
-        <h2>Área Administrativa</h2>
-        <p>Faça login com sua conta Google para acessar o gerenciamento de usuários.</p>
-        
-        <div id="errorMessage" class="error-message"></div>
-        <div id="debugInfo" class="debug-info"></div>
-        
-        <button onclick="loginWithGoogle()" class="btn-google-login">
-            <span style="font-size:20px;">G</span> Entrar com Google
-        </button>
-        
-        <div style="margin-top:20px; font-size:12px; color:#999;">
-            Apenas administradores têm acesso a esta área.
-        </div>
-    </div>
-</div>
-
-<!-- Admin Dashboard -->
-<div id="adminDashboard" style="display:none;">
-    <div class="admin-container">
-        <!-- Header -->
-        <div class="admin-header">
-            <h1>
-                <span class="material-icons">admin_panel_settings</span>
-                Gerenciamento de Usuários
-            </h1>
-            <div class="header-actions">
-                <a href="/" class="btn-back">
-                    <span class="material-icons">arrow_back</span> Voltar ao Site
-                </a>
-                <button onclick="logoutAdmin()" class="btn-logout-admin">
-                    <span class="material-icons">logout</span> Sair
-                </button>
-                <button onclick="toggleDebug()" class="btn-debug">🐛 Debug</button>
-            </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="admin-stats" id="adminStats">
-            <div class="stat-card">
-                <div class="icon">👥</div>
-                <div class="number" id="totalUsers">0</div>
-                <div class="label">Total de Usuários</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">👑</div>
-                <div class="number" id="totalAdmins">0</div>
-                <div class="label">Administradores</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">👨‍🏫</div>
-                <div class="number" id="totalTeachers">0</div>
-                <div class="label">Professores</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon">🚫</div>
-                <div class="number" id="totalBanned">0</div>
-                <div class="label">Usuários Banidos</div>
-            </div>
-        </div>
-
-        <!-- Debug Info -->
-        <div id="debugPanel" style="display:none; background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #ddd;">
-            <h4 style="color: #1a3c5e;">🔍 Informações de Debug</h4>
-            <div id="debugContent" style="font-size: 12px; font-family: monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto;"></div>
-        </div>
-
-        <!-- Controls -->
-        <div class="admin-controls">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Buscar por nome, email ou UID..." onkeyup="filterUsers()">
-                <button onclick="filterUsers()">🔍 Buscar</button>
-            </div>
-            <div class="filter-options">
-                <button class="active" onclick="filterByRole('all', this)">Todos</button>
-                <button onclick="filterByRole('admin', this)">👑 Admin</button>
-                <button onclick="filterByRole('teacher', this)">👨‍🏫 Professor</button>
-                <button onclick="filterByRole('banned', this)">🚫 Banidos</button>
-            </div>
-        </div>
-
-        <!-- Users Table -->
-        <div class="users-table-container">
-            <div id="loadingUsers" class="loading-container">
-                <div class="spinner"></div>
-                <p>Carregando usuários...</p>
-            </div>
-            <div id="usersContent" style="display: none;">
-                <table class="users-table" id="usersTable">
-                    <thead>
-                        <tr>
-                            <th onclick="sortTable('name')">Usuário ↕</th>
-                            <th onclick="sortTable('email')">Email ↕</th>
-                            <th onclick="sortTable('role')">Status/Role ↕</th>
-                            <th onclick="sortTable('lastLoginAt')">Último Login ↕</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersTableBody">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Edit User Modal -->
-<div id="editModal" class="modal">
-    <div class="modal-content">
-        <h2>✏️ Editar Usuário</h2>
-        <div id="editUserInfo">
-            <div class="form-group">
-                <label>UID</label>
-                <input type="text" id="editUid" readonly style="background: #f5f5f5;">
-            </div>
-            <div class="form-group">
-                <label>Nome</label>
-                <input type="text" id="editName">
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="editEmail">
-            </div>
-            <div class="form-group">
-                <label>isAdmin</label>
-                <select id="editIsAdmin">
-                    <option value="false">❌ Não</option>
-                    <option value="true">✅ Sim</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>isTeacher</label>
-                <select id="editIsTeacher">
-                    <option value="false">❌ Não</option>
-                    <option value="true">✅ Sim</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>isBanned</label>
-                <select id="editIsBanned">
-                    <option value="false">✅ Ativo</option>
-                    <option value="true">🚫 Banido</option>
-                </select>
-            </div>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-cancel" onclick="closeModal('editModal')">Cancelar</button>
-            <button class="btn-save" onclick="saveUserEdits()">💾 Salvar</button>
-        </div>
-    </div>
-</div>
-
-<!-- Confirmation Modal -->
-<div id="confirmModal" class="modal">
-    <div class="modal-content">
-        <h2 id="confirmTitle">⚠️ Confirmar</h2>
-        <p id="confirmMessage" style="margin: 20px 0; font-size: 16px;"></p>
-        <div class="modal-actions">
-            <button class="btn-cancel" onclick="closeModal('confirmModal')">Cancelar</button>
-            <button class="btn-save" id="confirmActionBtn" onclick="executeConfirmAction()">Confirmar</button>
-        </div>
-    </div>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
-<script>
 // ============================================
 // FIREBASE CONFIG
 // ============================================
@@ -248,6 +25,57 @@ let pendingAction = null;
 let debugMode = false;
 
 // ============================================
+// CONSTANTES - UIDs de Administradores Específicos
+// ============================================
+const SPECIFIC_ADMIN_UIDS = [
+    'sZxfMuOBPbXdR8nttVPXIN8QOOl1',
+    // Adicione outros UIDs de admin aqui se necessário
+];
+
+// ============================================
+// DEBUG SYSTEM
+// ============================================
+function toggleDebug() {
+    debugMode = !debugMode;
+    const panel = document.getElementById('debugPanel');
+    const btn = document.getElementById('debugToggleBtn');
+    
+    if (debugMode) {
+        panel.classList.add('show');
+        btn.classList.add('active');
+        btn.innerHTML = '🐛 Debug ON';
+        addDebugLine('🐛 Modo Debug ATIVADO', 'info');
+        addDebugLine(`📱 Firebase Project: ${firebaseConfig.projectId}`, 'info');
+        addDebugLine(`👑 Admin UIDs: ${SPECIFIC_ADMIN_UIDS.join(', ')}`, 'info');
+    } else {
+        panel.classList.remove('show');
+        btn.classList.remove('active');
+        btn.innerHTML = '🐛 Debug';
+    }
+}
+
+function addDebugLine(message, type = 'info') {
+    if (!debugMode) return;
+    const container = document.getElementById('debugContent');
+    const timestamp = new Date().toLocaleTimeString();
+    const line = document.createElement('div');
+    line.className = `debug-line ${type}`;
+    line.textContent = `[${timestamp}] ${message}`;
+    container.appendChild(line);
+    container.scrollTop = container.scrollHeight;
+}
+
+function logError(error, context) {
+    console.error(`[${context}]`, error);
+    if (debugMode) {
+        addDebugLine(`❌ ERRO em ${context}: ${error.message || error}`, 'error');
+        if (error.code) addDebugLine(`   Código: ${error.code}`, 'error');
+        if (error.details) addDebugLine(`   Detalhes: ${error.details}`, 'error');
+    }
+    showToast(`Erro: ${error.message}`, 'error');
+}
+
+// ============================================
 // TOAST NOTIFICATIONS
 // ============================================
 function showToast(message, type = 'info') {
@@ -260,36 +88,6 @@ function showToast(message, type = 'info') {
         toast.classList.add('fade-out');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
-}
-
-// ============================================
-// DEBUG
-// ============================================
-function toggleDebug() {
-    debugMode = !debugMode;
-    const panel = document.getElementById('debugPanel');
-    panel.style.display = debugMode ? 'block' : 'none';
-    if (debugMode) {
-        updateDebugInfo('🐛 Modo Debug ativado');
-    }
-}
-
-function updateDebugInfo(message) {
-    if (!debugMode) return;
-    const content = document.getElementById('debugContent');
-    const timestamp = new Date().toLocaleTimeString();
-    content.innerHTML += `[${timestamp}] ${message}\n`;
-    content.scrollTop = content.scrollHeight;
-}
-
-function showDebugError(error, context) {
-    console.error(`[${context}]`, error);
-    if (debugMode) {
-        updateDebugInfo(`❌ ERRO em ${context}: ${error.message || error}`);
-        if (error.code) updateDebugInfo(`   Código: ${error.code}`);
-        if (error.details) updateDebugInfo(`   Detalhes: ${error.details}`);
-    }
-    showToast(`Erro: ${error.message}`, 'error');
 }
 
 // ============================================
@@ -318,44 +116,75 @@ async function loginWithGoogle() {
         const result = await auth.signInWithPopup(googleProvider);
         const user = result.user;
         currentAuthUser = user;
-        updateDebugInfo(`✅ Login realizado: ${user.email}`);
+        addDebugLine(`✅ Login realizado: ${user.email}`, 'success');
+        addDebugLine(`🔑 UID: ${user.uid}`, 'info');
         await checkAdminAccess(user);
     } catch (error) {
         showError('Erro ao fazer login: ' + error.message);
-        showDebugError(error, 'loginWithGoogle');
+        logError(error, 'loginWithGoogle');
     }
 }
 
 async function checkAdminAccess(user) {
     try {
-        updateDebugInfo(`🔍 Verificando admin para UID: ${user.uid}`);
+        addDebugLine(`🔍 Verificando admin para UID: ${user.uid}`, 'info');
         
-        const doc = await db.collection('users').doc(user.uid).get();
-        
-        if (!doc.exists) {
-            updateDebugInfo('❌ Usuário não encontrado na coleção users');
-            showError('❌ Você não é um administrador. Acesso negado!');
+        // PRIMEIRO: Verifica se é um admin específico (isSpecificAdmin)
+        if (SPECIFIC_ADMIN_UIDS.includes(user.uid)) {
+            addDebugLine(`✅ Usuário é ADMIN ESPECÍFICO (UID na lista)`, 'success');
+            currentUserData = { uid: user.uid, isAdmin: true, name: user.displayName || 'Admin' };
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('adminDashboard').style.display = 'block';
+            loadUsers();
             return;
         }
         
-        const data = doc.data();
-        currentUserData = data;
-        updateDebugInfo(`📄 Dados do usuário: ${JSON.stringify(data, null, 2)}`);
-        
-        if (data.isAdmin !== true) {
-            updateDebugInfo(`❌ isAdmin = ${data.isAdmin}`);
+        // SEGUNDO: Tenta buscar da coleção 'users'
+        try {
+            const doc = await db.collection('users').doc(user.uid).get();
+            
+            if (!doc.exists) {
+                addDebugLine('❌ Usuário não encontrado na coleção users', 'error');
+                showError('❌ Você não é um administrador. Acesso negado!');
+                return;
+            }
+            
+            const data = doc.data();
+            currentUserData = data;
+            addDebugLine(`📄 Dados do usuário: ${JSON.stringify(data, null, 2)}`, 'info');
+            
+            if (data.isAdmin !== true) {
+                addDebugLine(`❌ isAdmin = ${data.isAdmin} - Acesso negado!`, 'error');
+                showError('❌ Você não é um administrador. Acesso negado!');
+                return;
+            }
+            
+            addDebugLine('✅ Admin confirmado via coleção users!', 'success');
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('adminDashboard').style.display = 'block';
+            loadUsers();
+            
+        } catch (err) {
+            // Se não conseguir ler a coleção 'users', pode ser problema de permissão
+            addDebugLine(`⚠️ Erro ao ler users: ${err.message}`, 'warning');
+            addDebugLine(`📌 Tentando verificar como admin específico...`, 'info');
+            
+            // Se falhar, verifica se é admin específico
+            if (SPECIFIC_ADMIN_UIDS.includes(user.uid)) {
+                addDebugLine(`✅ Usuário é ADMIN ESPECÍFICO (UID na lista)`, 'success');
+                currentUserData = { uid: user.uid, isAdmin: true, name: user.displayName || 'Admin' };
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminDashboard').style.display = 'block';
+                loadUsers();
+                return;
+            }
+            
             showError('❌ Você não é um administrador. Acesso negado!');
-            return;
         }
-        
-        updateDebugInfo('✅ Admin confirmado!');
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('adminDashboard').style.display = 'block';
-        loadUsers();
         
     } catch (error) {
         showError('Erro ao verificar permissões: ' + error.message);
-        showDebugError(error, 'checkAdminAccess');
+        logError(error, 'checkAdminAccess');
     }
 }
 
@@ -371,21 +200,47 @@ function logoutAdmin() {
 async function loadUsers() {
     document.getElementById('loadingUsers').style.display = 'block';
     document.getElementById('usersContent').style.display = 'none';
-    updateDebugInfo('🔄 Carregando lista de usuários...');
+    addDebugLine('🔄 Carregando lista de usuários...', 'info');
     
     try {
-        const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get();
+        // TENTA CARREGAR DA COLEÇÃO 'users'
+        let snapshot;
+        try {
+            snapshot = await db.collection('users').orderBy('createdAt', 'desc').get();
+        } catch (err) {
+            addDebugLine(`⚠️ Erro ao ler users: ${err.message}`, 'warning');
+            addDebugLine('📌 Tentando ler da coleção "usuários" como fallback...', 'info');
+            
+            // Fallback: tenta ler da coleção 'usuários'
+            snapshot = await db.collection('usuários').orderBy('createdAt', 'desc').get();
+        }
+        
         allUsers = [];
         
         snapshot.forEach(doc => {
             const data = doc.data();
+            // Garante que o UID está presente
             allUsers.push({
                 uid: doc.id,
                 ...data
             });
         });
         
-        updateDebugInfo(`✅ ${allUsers.length} usuários carregados`);
+        // Se não encontrou nenhum usuário, adiciona o admin atual manualmente
+        if (allUsers.length === 0 && currentAuthUser) {
+            addDebugLine('📌 Nenhum usuário encontrado. Adicionando admin atual manualmente...', 'warning');
+            allUsers.push({
+                uid: currentAuthUser.uid,
+                name: currentAuthUser.displayName || 'Admin',
+                email: currentAuthUser.email || '',
+                isAdmin: true,
+                isBanned: false,
+                isTeacher: false,
+                profilePictureUrl: currentAuthUser.photoURL || ''
+            });
+        }
+        
+        addDebugLine(`✅ ${allUsers.length} usuários carregados`, 'success');
         updateStats();
         filteredUsers = [...allUsers];
         applyFilters();
@@ -394,11 +249,32 @@ async function loadUsers() {
         document.getElementById('usersContent').style.display = 'block';
         
     } catch (error) {
-        showDebugError(error, 'loadUsers');
-        document.getElementById('loadingUsers').innerHTML = `
-            <p style="color: #e74c3c;">❌ Erro ao carregar usuários: ${error.message}</p>
-            <button onclick="loadUsers()" style="margin-top:15px; padding:10px 20px; background:#1a3c5e; color:white; border:none; border-radius:8px; cursor:pointer;">🔄 Recarregar</button>
-        `;
+        logError(error, 'loadUsers');
+        
+        // Último recurso: mostra o admin atual mesmo sem conseguir carregar a lista
+        if (currentAuthUser) {
+            addDebugLine('📌 Modo de emergência: mostrando apenas o admin atual', 'warning');
+            allUsers = [{
+                uid: currentAuthUser.uid,
+                name: currentAuthUser.displayName || 'Admin',
+                email: currentAuthUser.email || '',
+                isAdmin: true,
+                isBanned: false,
+                isTeacher: false,
+                profilePictureUrl: currentAuthUser.photoURL || ''
+            }];
+            updateStats();
+            filteredUsers = [...allUsers];
+            applyFilters();
+            document.getElementById('loadingUsers').style.display = 'none';
+            document.getElementById('usersContent').style.display = 'block';
+        } else {
+            document.getElementById('loadingUsers').innerHTML = `
+                <p style="color: #e74c3c;">❌ Erro ao carregar usuários: ${error.message}</p>
+                <p style="color: #666; margin-top: 10px;">💡 Verifique as regras de segurança do Firestore</p>
+                <button onclick="loadUsers()" style="margin-top:15px; padding:10px 20px; background:#1a3c5e; color:white; border:none; border-radius:8px; cursor:pointer;">🔄 Recarregar</button>
+            `;
+        }
     }
 }
 
@@ -567,8 +443,8 @@ function openEditModal(uid) {
     document.getElementById('editIsBanned').value = user.isBanned ? 'true' : 'false';
     
     if (debugMode) {
-        updateDebugInfo(`📝 Editando usuário: ${uid}`);
-        updateDebugInfo(`   Nome: ${user.name}, Admin: ${user.isAdmin}`);
+        addDebugLine(`📝 Editando usuário: ${uid}`, 'info');
+        addDebugLine(`   Nome: ${user.name}, Admin: ${user.isAdmin}`, 'info');
     }
     
     openModal('editModal');
@@ -587,8 +463,10 @@ async function saveUserEdits() {
         return;
     }
     
-    updateDebugInfo(`💾 Salvando alterações para UID: ${uid}`);
-    updateDebugInfo(`   Nome: ${name}, Admin: ${isAdmin}, Teacher: ${isTeacher}, Banned: ${isBanned}`);
+    if (debugMode) {
+        addDebugLine(`💾 Salvando alterações para UID: ${uid}`, 'info');
+        addDebugLine(`   Nome: ${name}, Admin: ${isAdmin}, Teacher: ${isTeacher}, Banned: ${isBanned}`, 'info');
+    }
     
     const saveBtn = document.querySelector('#editModal .btn-save');
     const originalText = saveBtn.textContent;
@@ -605,32 +483,58 @@ async function saveUserEdits() {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        updateDebugInfo(`📤 Atualizando users/${uid}`);
-        await db.collection('users').doc(uid).update(updateData);
-        updateDebugInfo(`✅ users/${uid} atualizado`);
+        let success = false;
+        let errorMessages = [];
         
-        // Tenta atualizar a coleção 'usuários' também, mas não falha se não existir
+        // Tenta atualizar a coleção 'users'
         try {
-            updateDebugInfo(`📤 Atualizando usuários/${uid}`);
-            await db.collection('usuários').doc(uid).update(updateData);
-            updateDebugInfo(`✅ usuários/${uid} atualizado`);
+            addDebugLine(`📤 Atualizando users/${uid}`, 'info');
+            await db.collection('users').doc(uid).update(updateData);
+            addDebugLine(`✅ users/${uid} atualizado`, 'success');
+            success = true;
         } catch (err) {
-            updateDebugInfo(`⚠️ Não foi possível atualizar 'usuários': ${err.message}`);
-            // Não falha se a coleção 'usuários' não existir
+            addDebugLine(`⚠️ Erro ao atualizar users: ${err.message}`, 'warning');
+            errorMessages.push(`users: ${err.message}`);
+            
+            // Tenta usar set com merge como fallback
+            try {
+                addDebugLine(`📤 Tentando set com merge em users/${uid}`, 'info');
+                await db.collection('users').doc(uid).set(updateData, { merge: true });
+                addDebugLine(`✅ users/${uid} atualizado com merge`, 'success');
+                success = true;
+            } catch (err2) {
+                addDebugLine(`❌ Erro no merge: ${err2.message}`, 'error');
+                errorMessages.push(`users merge: ${err2.message}`);
+            }
         }
         
-        showToast('✅ Usuário atualizado com sucesso!', 'success');
-        closeModal('editModal');
-        loadUsers();
+        // Tenta atualizar a coleção 'usuários'
+        try {
+            addDebugLine(`📤 Atualizando usuários/${uid}`, 'info');
+            await db.collection('usuários').doc(uid).set(updateData, { merge: true });
+            addDebugLine(`✅ usuários/${uid} atualizado`, 'success');
+        } catch (err) {
+            addDebugLine(`⚠️ Não foi possível atualizar 'usuários': ${err.message}`, 'warning');
+            errorMessages.push(`usuários: ${err.message}`);
+        }
+        
+        if (success) {
+            showToast('✅ Usuário atualizado com sucesso!', 'success');
+            closeModal('editModal');
+            loadUsers();
+        } else {
+            showToast('⚠️ Atualização parcial. Algumas coleções podem não ter sido atualizadas.', 'error');
+            addDebugLine(`❌ Falhas: ${errorMessages.join('; ')}`, 'error');
+        }
         
     } catch (error) {
-        updateDebugInfo(`❌ Erro ao salvar: ${error.message}`);
-        if (error.code) updateDebugInfo(`   Código: ${error.code}`);
-        if (error.details) updateDebugInfo(`   Detalhes: ${error.details}`);
+        addDebugLine(`❌ Erro ao salvar: ${error.message}`, 'error');
+        if (error.code) addDebugLine(`   Código: ${error.code}`, 'error');
         
         if (error.code === 'permission-denied') {
             showToast('❌ Permissão negada! Verifique as regras de segurança do Firestore.', 'error');
-            updateDebugInfo('🔒 PERMISSION DENIED - Verifique as Security Rules do Firestore');
+            addDebugLine('🔒 PERMISSION DENIED - Verifique as Security Rules do Firestore', 'error');
+            addDebugLine('📌 Solução: Adicione regras que permitam escrita para administradores', 'warning');
         } else {
             showToast('Erro ao atualizar: ' + error.message, 'error');
         }
@@ -703,19 +607,24 @@ async function executeConfirmAction() {
     const { type, uid } = pendingAction;
     pendingAction = null;
     
-    updateDebugInfo(`🔄 Executando ação: ${type} para UID: ${uid}`);
+    addDebugLine(`🔄 Executando ação: ${type} para UID: ${uid}`, 'info');
     
     try {
         if (type === 'delete') {
-            updateDebugInfo(`🗑️ Excluindo usuário: ${uid}`);
-            await db.collection('users').doc(uid).delete();
+            addDebugLine(`🗑️ Excluindo usuário: ${uid}`, 'warning');
+            try {
+                await db.collection('users').doc(uid).delete();
+                addDebugLine(`✅ users/${uid} excluído`, 'success');
+            } catch (err) {
+                addDebugLine(`⚠️ Erro ao excluir users: ${err.message}`, 'warning');
+            }
             try {
                 await db.collection('usuários').doc(uid).delete();
+                addDebugLine(`✅ usuários/${uid} excluído`, 'success');
             } catch (err) {
-                updateDebugInfo(`⚠️ Não foi possível excluir de 'usuários': ${err.message}`);
+                addDebugLine(`⚠️ Não foi possível excluir de 'usuários': ${err.message}`, 'warning');
             }
             showToast('🗑️ Usuário excluído permanentemente!', 'success');
-            updateDebugInfo('✅ Usuário excluído');
             loadUsers();
             return;
         }
@@ -741,34 +650,53 @@ async function executeConfirmAction() {
                 break;
         }
         
-        updateDebugInfo(`📤 Atualizando users/${uid}: ${actionMessage}`);
-        await db.collection('users').doc(uid).update(updateData);
-        updateDebugInfo(`✅ users/${uid} atualizado`);
+        let success = false;
+        
+        // Tenta atualizar a coleção 'users'
+        try {
+            addDebugLine(`📤 Atualizando users/${uid}: ${actionMessage}`, 'info');
+            await db.collection('users').doc(uid).update(updateData);
+            addDebugLine(`✅ users/${uid} atualizado`, 'success');
+            success = true;
+        } catch (err) {
+            addDebugLine(`⚠️ Erro ao atualizar users: ${err.message}`, 'warning');
+            try {
+                await db.collection('users').doc(uid).set(updateData, { merge: true });
+                addDebugLine(`✅ users/${uid} atualizado com merge`, 'success');
+                success = true;
+            } catch (err2) {
+                addDebugLine(`❌ Erro no merge: ${err2.message}`, 'error');
+            }
+        }
         
         // Tenta atualizar a coleção 'usuários'
         try {
-            await db.collection('usuários').doc(uid).update(updateData);
-            updateDebugInfo(`✅ usuários/${uid} atualizado`);
+            await db.collection('usuários').doc(uid).set(updateData, { merge: true });
+            addDebugLine(`✅ usuários/${uid} atualizado`, 'success');
         } catch (err) {
-            updateDebugInfo(`⚠️ Não foi possível atualizar 'usuários': ${err.message}`);
+            addDebugLine(`⚠️ Não foi possível atualizar 'usuários': ${err.message}`, 'warning');
         }
         
-        const messages = {
-            ban: '✅ Usuário banido com sucesso!',
-            unban: '✅ Usuário desbanido com sucesso!',
-            promote: '✅ Usuário promovido a admin!',
-            demote: '✅ Privilégios de admin removidos!'
-        };
-        
-        showToast(messages[type] || '✅ Ação realizada!', 'success');
-        updateDebugInfo(`✅ Ação concluída: ${actionMessage}`);
+        if (success) {
+            const messages = {
+                ban: '✅ Usuário banido com sucesso!',
+                unban: '✅ Usuário desbanido com sucesso!',
+                promote: '✅ Usuário promovido a admin!',
+                demote: '✅ Privilégios de admin removidos!'
+            };
+            
+            showToast(messages[type] || '✅ Ação realizada!', 'success');
+            addDebugLine(`✅ Ação concluída: ${actionMessage}`, 'success');
+        } else {
+            showToast('⚠️ Ação parcial. Algumas coleções podem não ter sido atualizadas.', 'error');
+        }
         loadUsers();
         
     } catch (error) {
-        updateDebugInfo(`❌ Erro na ação ${type}: ${error.message}`);
+        addDebugLine(`❌ Erro na ação ${type}: ${error.message}`, 'error');
         if (error.code === 'permission-denied') {
             showToast('❌ Permissão negada! Verifique as regras de segurança.', 'error');
-            updateDebugInfo('🔒 PERMISSION DENIED - Verifique as Security Rules do Firestore');
+            addDebugLine('🔒 PERMISSION DENIED - Verifique as Security Rules do Firestore', 'error');
         } else {
             showToast('Erro: ' + error.message, 'error');
         }
@@ -820,18 +748,18 @@ function formatDate(date) {
 // INIT
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializa o debug
-    updateDebugInfo('🚀 Admin Panel iniciado');
-    updateDebugInfo(`📱 Firebase Project: ${firebaseConfig.projectId}`);
+    addDebugLine('🚀 Admin Panel iniciado', 'info');
+    addDebugLine(`👑 Admin UIDs configurados: ${SPECIFIC_ADMIN_UIDS.join(', ')}`, 'info');
     
     // Check if user is already logged in
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             currentAuthUser = user;
-            updateDebugInfo(`👤 Usuário logado: ${user.email}`);
+            addDebugLine(`👤 Usuário logado: ${user.email}`, 'info');
+            addDebugLine(`🔑 UID: ${user.uid}`, 'info');
             await checkAdminAccess(user);
         } else {
-            updateDebugInfo('👤 Nenhum usuário logado');
+            addDebugLine('👤 Nenhum usuário logado', 'info');
         }
     });
 });
@@ -861,6 +789,7 @@ window.closeModal = closeModal;
 window.openModal = openModal;
 window.toggleDebug = toggleDebug;
 window.loadUsers = loadUsers;
+window.addDebugLine = addDebugLine;
 </script>
 </body>
 </html>
