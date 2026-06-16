@@ -259,6 +259,8 @@
             border-radius: 20px;
             font-size: 12px;
             font-weight: bold;
+            display: inline-block;
+            margin: 2px;
         }
 
         .badge-admin {
@@ -379,6 +381,95 @@
             color: #999;
         }
 
+        /* Login Required */
+        .login-required {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            padding: 50px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+        }
+
+        .login-box .icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        .login-box h2 {
+            font-family: 'Playfair Display', serif;
+            color: #1a3c5e;
+            margin-bottom: 10px;
+        }
+
+        .login-box p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .btn-google-login {
+            background: #4285F4;
+            color: white;
+            padding: 14px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.3s;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-google-login:hover {
+            background: #357ae8;
+        }
+
+        .btn-guest-login {
+            background: #28a745;
+            color: white;
+            padding: 14px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.3s;
+            width: 100%;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .btn-guest-login:hover {
+            background: #218838;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c0392b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
         /* Modal */
         .modal {
             display: none;
@@ -475,6 +566,15 @@
             background: #7f8c8d;
         }
 
+        .modal-actions .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .modal-actions .btn-delete:hover {
+            background: #c0392b;
+        }
+
         .toast {
             position: fixed;
             top: 20px;
@@ -550,86 +650,115 @@
                 padding: 3px 8px;
                 font-size: 10px;
             }
+
+            .login-box {
+                padding: 30px;
+            }
         }
     </style>
 </head>
 <body>
 
-<div class="admin-container">
-    <!-- Header -->
-    <div class="admin-header">
-        <h1>
-            <span class="material-icons">admin_panel_settings</span>
-            Gerenciamento de Usuários
-        </h1>
-        <div class="header-actions">
-            <a href="/" class="btn-back">
-                <span class="material-icons">arrow_back</span> Voltar ao Site
-            </a>
-            <button onclick="logoutAdmin()" class="btn-logout-admin">
-                <span class="material-icons">logout</span> Sair
-            </button>
+<!-- Login Required Screen -->
+<div id="loginScreen" class="login-required">
+    <div class="login-box">
+        <div class="icon">🔐</div>
+        <h2>Área Administrativa</h2>
+        <p>Faça login com sua conta Google para acessar o gerenciamento de usuários.</p>
+        
+        <div id="errorMessage" class="error-message"></div>
+        
+        <button onclick="loginWithGoogle()" class="btn-google-login">
+            <span style="font-size:20px;">G</span> Entrar com Google
+        </button>
+        <button onclick="guestLogin()" class="btn-guest-login">
+            👤 Acesso Convidado (Demonstração)
+        </button>
+        
+        <div style="margin-top:20px; font-size:12px; color:#999;">
+            Apenas administradores têm acesso a esta área.
         </div>
     </div>
+</div>
 
-    <!-- Stats -->
-    <div class="admin-stats" id="adminStats">
-        <div class="stat-card">
-            <div class="icon">👥</div>
-            <div class="number" id="totalUsers">0</div>
-            <div class="label">Total de Usuários</div>
+<!-- Admin Dashboard -->
+<div id="adminDashboard" style="display:none;">
+    <div class="admin-container">
+        <!-- Header -->
+        <div class="admin-header">
+            <h1>
+                <span class="material-icons">admin_panel_settings</span>
+                Gerenciamento de Usuários
+            </h1>
+            <div class="header-actions">
+                <a href="/" class="btn-back">
+                    <span class="material-icons">arrow_back</span> Voltar ao Site
+                </a>
+                <button onclick="logoutAdmin()" class="btn-logout-admin">
+                    <span class="material-icons">logout</span> Sair
+                </button>
+            </div>
         </div>
-        <div class="stat-card">
-            <div class="icon">👑</div>
-            <div class="number" id="totalAdmins">0</div>
-            <div class="label">Administradores</div>
-        </div>
-        <div class="stat-card">
-            <div class="icon">👨‍🏫</div>
-            <div class="number" id="totalTeachers">0</div>
-            <div class="label">Professores</div>
-        </div>
-        <div class="stat-card">
-            <div class="icon">🚫</div>
-            <div class="number" id="totalBanned">0</div>
-            <div class="label">Usuários Banidos</div>
-        </div>
-    </div>
 
-    <!-- Controls -->
-    <div class="admin-controls">
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Buscar por nome, email ou UID..." onkeyup="filterUsers()">
-            <button onclick="filterUsers()">🔍 Buscar</button>
+        <!-- Stats -->
+        <div class="admin-stats" id="adminStats">
+            <div class="stat-card">
+                <div class="icon">👥</div>
+                <div class="number" id="totalUsers">0</div>
+                <div class="label">Total de Usuários</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">👑</div>
+                <div class="number" id="totalAdmins">0</div>
+                <div class="label">Administradores</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">👨‍🏫</div>
+                <div class="number" id="totalTeachers">0</div>
+                <div class="label">Professores</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">🚫</div>
+                <div class="number" id="totalBanned">0</div>
+                <div class="label">Usuários Banidos</div>
+            </div>
         </div>
-        <div class="filter-options">
-            <button class="active" onclick="filterByRole('all', this)">Todos</button>
-            <button onclick="filterByRole('admin', this)">👑 Admin</button>
-            <button onclick="filterByRole('teacher', this)">👨‍🏫 Professor</button>
-            <button onclick="filterByRole('banned', this)">🚫 Banidos</button>
-        </div>
-    </div>
 
-    <!-- Users Table -->
-    <div class="users-table-container">
-        <div id="loadingUsers" class="loading-container">
-            <div class="spinner"></div>
-            <p>Carregando usuários...</p>
+        <!-- Controls -->
+        <div class="admin-controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar por nome, email ou UID..." onkeyup="filterUsers()">
+                <button onclick="filterUsers()">🔍 Buscar</button>
+            </div>
+            <div class="filter-options">
+                <button class="active" onclick="filterByRole('all', this)">Todos</button>
+                <button onclick="filterByRole('admin', this)">👑 Admin</button>
+                <button onclick="filterByRole('teacher', this)">👨‍🏫 Professor</button>
+                <button onclick="filterByRole('banned', this)">🚫 Banidos</button>
+            </div>
         </div>
-        <div id="usersContent" style="display: none;">
-            <table class="users-table" id="usersTable">
-                <thead>
-                    <tr>
-                        <th onclick="sortTable('name')">Usuário ↕</th>
-                        <th onclick="sortTable('email')">Email ↕</th>
-                        <th onclick="sortTable('role')">Status/Role ↕</th>
-                        <th onclick="sortTable('lastLogin')">Último Login ↕</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="usersTableBody">
-                </tbody>
-            </table>
+
+        <!-- Users Table -->
+        <div class="users-table-container">
+            <div id="loadingUsers" class="loading-container">
+                <div class="spinner"></div>
+                <p>Carregando usuários...</p>
+            </div>
+            <div id="usersContent" style="display: none;">
+                <table class="users-table" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('name')">Usuário ↕</th>
+                            <th onclick="sortTable('email')">Email ↕</th>
+                            <th onclick="sortTable('role')">Status/Role ↕</th>
+                            <th onclick="sortTable('lastLoginAt')">Último Login ↕</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -712,12 +841,15 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 
 let allUsers = [];
 let filteredUsers = [];
 let currentSort = { field: 'name', direction: 'asc' };
 let currentFilter = 'all';
 let currentUserData = null;
+let currentAuthUser = null;
+let pendingAction = null;
 
 // ============================================
 // TOAST NOTIFICATIONS
@@ -746,35 +878,83 @@ function closeModal(modalId) {
 }
 
 // ============================================
-// AUTH CHECK
+// AUTH FUNCTIONS
 // ============================================
-function checkAdminAccess() {
-    auth.onAuthStateChanged(async (user) => {
-        if (!user) {
-            window.location.href = '/';
+function showError(message) {
+    const errorEl = document.getElementById('errorMessage');
+    errorEl.textContent = message;
+    errorEl.classList.add('show');
+    setTimeout(() => errorEl.classList.remove('show'), 5000);
+}
+
+async function loginWithGoogle() {
+    try {
+        const result = await auth.signInWithPopup(googleProvider);
+        const user = result.user;
+        currentAuthUser = user;
+        
+        // Verifica se o usuário é admin
+        await checkAdminAccess(user);
+    } catch (error) {
+        showError('Erro ao fazer login: ' + error.message);
+    }
+}
+
+async function guestLogin() {
+    // Login como convidado - apenas para demonstração
+    const guestUid = 'guest_' + Math.random().toString(36).substring(2, 10);
+    const guestUser = {
+        uid: guestUid,
+        displayName: 'Convidado',
+        email: 'convidado@demo.local'
+    };
+    currentAuthUser = guestUser;
+    
+    // Verifica se o convidado é admin (nunca será)
+    await checkAdminAccess(guestUser);
+}
+
+async function checkAdminAccess(user) {
+    try {
+        // Verifica se o usuário existe na coleção 'users'
+        const doc = await db.collection('users').doc(user.uid).get();
+        
+        if (!doc.exists) {
+            showError('❌ Você não é um administrador. Acesso negado!');
+            setTimeout(() => {
+                if (user.uid && user.uid.startsWith('guest_')) {
+                    auth.signOut();
+                }
+            }, 2000);
             return;
         }
         
-        try {
-            const doc = await db.collection('users').doc(user.uid).get();
-            if (!doc.exists) {
-                window.location.href = '/';
-                return;
-            }
-            
-            const data = doc.data();
-            currentUserData = data;
-            
-            if (!data.isAdmin) {
-                showToast('⚠️ Acesso restrito a administradores!', 'error');
-                setTimeout(() => window.location.href = '/', 2000);
-                return;
-            }
-            
-            loadUsers();
-        } catch (error) {
-            showToast('Erro ao verificar permissões: ' + error.message, 'error');
+        const data = doc.data();
+        currentUserData = data;
+        
+        if (data.isAdmin !== true) {
+            showError('❌ Você não é um administrador. Acesso negado!');
+            setTimeout(() => {
+                if (user.uid && user.uid.startsWith('guest_')) {
+                    auth.signOut();
+                }
+            }, 2000);
+            return;
         }
+        
+        // Admin confirmado - carrega o painel
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('adminDashboard').style.display = 'block';
+        loadUsers();
+        
+    } catch (error) {
+        showError('Erro ao verificar permissões: ' + error.message);
+    }
+}
+
+function logoutAdmin() {
+    auth.signOut().then(() => {
+        location.reload();
     });
 }
 
@@ -1026,8 +1206,6 @@ async function saveUserEdits() {
 // ============================================
 // BAN / UNBAN
 // ============================================
-let pendingAction = null;
-
 function banUser(uid) {
     const user = allUsers.find(u => u.uid === uid);
     if (!user) return;
@@ -1089,21 +1267,20 @@ async function executeConfirmAction() {
     pendingAction = null;
     
     try {
-        let updateData = {};
+        if (type === 'delete') {
+            await db.collection('users').doc(uid).delete();
+            await db.collection('usuários').doc(uid).delete();
+            showToast('🗑️ Usuário excluído permanentemente!', 'success');
+            loadUsers();
+            return;
+        }
         
+        let updateData = {};
         switch(type) {
-            case 'ban':
-                updateData = { isBanned: true, isBan: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-                break;
-            case 'unban':
-                updateData = { isBanned: false, isBan: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-                break;
-            case 'promote':
-                updateData = { isAdmin: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-                break;
-            case 'demote':
-                updateData = { isAdmin: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-                break;
+            case 'ban': updateData = { isBanned: true, isBan: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
+            case 'unban': updateData = { isBanned: false, isBan: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
+            case 'promote': updateData = { isAdmin: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
+            case 'demote': updateData = { isAdmin: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
         }
         
         await db.collection('users').doc(uid).update(updateData);
@@ -1143,49 +1320,6 @@ function deleteUser(uid) {
     openModal('confirmModal');
 }
 
-// Modified executeConfirmAction to handle delete
-const originalExecute = executeConfirmAction;
-executeConfirmAction = async function() {
-    if (!pendingAction) return;
-    
-    closeModal('confirmModal');
-    const { type, uid } = pendingAction;
-    pendingAction = null;
-    
-    try {
-        if (type === 'delete') {
-            await db.collection('users').doc(uid).delete();
-            await db.collection('usuários').doc(uid).delete();
-            showToast('🗑️ Usuário excluído permanentemente!', 'success');
-            loadUsers();
-            return;
-        }
-        
-        let updateData = {};
-        switch(type) {
-            case 'ban': updateData = { isBanned: true, isBan: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
-            case 'unban': updateData = { isBanned: false, isBan: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
-            case 'promote': updateData = { isAdmin: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
-            case 'demote': updateData = { isAdmin: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; break;
-        }
-        
-        await db.collection('users').doc(uid).update(updateData);
-        await db.collection('usuários').doc(uid).update(updateData);
-        
-        const messages = {
-            ban: '✅ Usuário banido com sucesso!',
-            unban: '✅ Usuário desbanido com sucesso!',
-            promote: '✅ Usuário promovido a admin!',
-            demote: '✅ Privilégios de admin removidos!'
-        };
-        
-        showToast(messages[type] || '✅ Ação realizada!', 'success');
-        loadUsers();
-    } catch (error) {
-        showToast('Erro: ' + error.message, 'error');
-    }
-};
-
 // ============================================
 // UTILITIES
 // ============================================
@@ -1207,16 +1341,18 @@ function formatDate(date) {
     });
 }
 
-function logoutAdmin() {
-    auth.signOut().then(() => {
-        window.location.href = '/';
-    });
-}
-
 // ============================================
 // INIT
 // ============================================
-document.addEventListener('DOMContentLoaded', checkAdminAccess);
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if user is already logged in
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            currentAuthUser = user;
+            await checkAdminAccess(user);
+        }
+    });
+});
 
 // Close modals on background click
 document.addEventListener('click', (e) => {
