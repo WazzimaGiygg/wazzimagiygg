@@ -13,7 +13,6 @@
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     
     <style>
-        /* ===== SEU CSS COMPLETO AQUI (mantido igual) ===== */
         * {
             margin: 0;
             padding: 0;
@@ -690,7 +689,7 @@
             <span id="user-name">Visitante</span>
         </div>
         <div id="authButtons">
-            <button class="user-dropdown-trigger" onclick="redirectToLogin()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:6px 15px; border-radius:30px; cursor:pointer;">
+            <button class="user-dropdown-trigger" onclick="showLoginModal()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:6px 15px; border-radius:30px; cursor:pointer;">
                 <i class="material-icons" style="font-size:16px;">login</i> Entrar
             </button>
         </div>
@@ -761,6 +760,15 @@
     </div>
 </div>
 
+<div id="login-modal" class="modal">
+    <div class="modal-content">
+        <h3>🔐 Acesso</h3>
+        <button id="google-login-btn" class="google-login-btn">Entrar com Google</button>
+        <button id="guest-login-modal-btn" class="guest-login-btn">Acesso Convidado</button>
+        <button id="close-modal-btn" style="margin-top:15px; background:none; border:none; color:#999; cursor:pointer;">Fechar</button>
+    </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -787,92 +795,6 @@ let currentUser = null;
 let isGuestUser = false;
 let currentTab = 'wikiworldweb';
 let allItems = {};
-
-// ============================================
-// SISTEMA DE REDIRECIONAMENTO UNIFICADO
-// ============================================
-
-// URL do login unificado
-const LOGIN_URL = 'https://painel.wazzimagiygg.com/login.html';
-
-// Obtém a URL atual para usar como parâmetro uid
-function getCurrentPageUrl() {
-    return window.location.href;
-}
-
-// Redireciona para o login com o parâmetro uid
-function redirectToLogin() {
-    const currentUrl = getCurrentPageUrl();
-    const loginWithReturn = `${LOGIN_URL}?uid=${encodeURIComponent(currentUrl)}`;
-    console.log('🔄 Redirecionando para login unificado:', loginWithReturn);
-    window.location.href = loginWithReturn;
-}
-
-// ============================================
-// SISTEMA DE AUTENTICAÇÃO ENTRE DOMÍNIOS
-// ============================================
-
-// Verifica se há um token de autenticação na URL (retorno do login)
-function checkAuthToken() {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('auth_token');
-    const userData = params.get('user_data');
-    
-    if (token && userData) {
-        try {
-            // Decodifica os dados do usuário
-            const user = JSON.parse(decodeURIComponent(userData));
-            console.log('🔑 Token de autenticação recebido:', user);
-            
-            // Salva no localStorage para persistência
-            localStorage.setItem('wzzm_auth_user', JSON.stringify(user));
-            localStorage.setItem('wzzm_auth_token', token);
-            localStorage.setItem('wzzm_auth_expiry', (Date.now() + 3600000).toString()); // 1 hora
-            
-            // Remove os parâmetros da URL
-            const newUrl = window.location.pathname + window.location.hash;
-            window.history.replaceState({}, document.title, newUrl);
-            
-            // Aplica o usuário
-            applyUserSession(user);
-            return true;
-        } catch (e) {
-            console.error('Erro ao processar token:', e);
-        }
-    }
-    return false;
-}
-
-// Verifica se há uma sessão salva no localStorage
-function checkStoredSession() {
-    try {
-        const token = localStorage.getItem('wzzm_auth_token');
-        const userData = localStorage.getItem('wzzm_auth_user');
-        const expiry = localStorage.getItem('wzzm_auth_expiry');
-        
-        if (token && userData && expiry && Date.now() < parseInt(expiry)) {
-            const user = JSON.parse(userData);
-            console.log('📂 Sessão restaurada do localStorage:', user);
-            applyUserSession(user);
-            return true;
-        }
-    } catch (e) {
-        console.error('Erro ao restaurar sessão:', e);
-    }
-    return false;
-}
-
-// Aplica a sessão do usuário
-function applyUserSession(user) {
-    if (user && user.uid) {
-        currentUser = user;
-        isGuestUser = user.isGuest || false;
-        updateAuthUI();
-        loadAllContent();
-        return true;
-    }
-    return false;
-}
 
 // ============================================
 // UTILIDADES
@@ -950,7 +872,10 @@ async function registerUser(user, isGuest = false) {
             lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
+        // Registra na coleção 'users'
         await db.collection('users').doc(uid).set(userData, { merge: true });
+        
+        // Registra na coleção 'usuários'
         await db.collection('usuários').doc(uid).set(userData, { merge: true });
 
         console.log(`Usuário ${uid} registrado com sucesso!`);
@@ -965,9 +890,11 @@ async function registerUser(user, isGuest = false) {
 // FUNÇÃO PARA CARREGAR CONTEÚDO SEM LOGIN
 // ============================================
 async function loadContentPublic() {
+    // Carrega o conteúdo mesmo sem usuário logado
     showLoading();
     
     try {
+        // Tenta carregar todas as coleções mesmo sem login
         const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
             loadWikiworldContentPublic(),
             loadEnsaioContentPublic(),
@@ -1160,12 +1087,39 @@ function updateAuthUI() {
     }
 }
 
+function showLoginModal() { document.getElementById('login-modal').classList.add('show'); }
+function hideLoginModal() { document.getElementById('login-modal').classList.remove('show'); }
+
+async function loginWithGoogle() {
+    try { 
+        const result = await auth.signInWithPopup(googleProvider);
+        const user = result.user;
+        
+        // Registra o usuário no Firestore
+        await registerUser(user, false);
+        
+        hideLoginModal(); 
+        location.reload();
+    } catch (error) { 
+        alert('Erro: ' + error.message); 
+    }
+}
+
+async function guestLogin() {
+    const guestUser = createGuestUser();
+    currentUser = guestUser;
+    isGuestUser = true;
+    
+    // Registra o convidado no Firestore
+    await registerUser(guestUser, true);
+    
+    updateAuthUI();
+    hideLoginModal();
+    location.reload();
+}
+
 async function logout() { 
     clearGuestUser();
-    localStorage.removeItem('wzzm_auth_user');
-    localStorage.removeItem('wzzm_auth_token');
-    localStorage.removeItem('wzzm_auth_expiry');
-    
     if (auth.currentUser) await auth.signOut();
     currentUser = null;
     isGuestUser = false;
@@ -1174,10 +1128,11 @@ async function logout() {
 }
 
 // ============================================
-// CARREGAMENTO DE CONTEÚDO
+// CARREGAMENTO DE CONTEÚDO (COM VERIFICAÇÃO DE USUÁRIO)
 // ============================================
 async function loadAllContent() {
     if (currentUser) {
+        // Usuário logado - carrega com contagem de views
         showLoading();
         
         const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
@@ -1198,6 +1153,7 @@ async function loadAllContent() {
         
         renderCurrentTab();
     } else {
+        // Usuário não logado - carrega conteúdo público
         await loadContentPublic();
     }
 }
@@ -1379,9 +1335,10 @@ function renderCurrentTab() {
 }
 
 // ============================================
-// SELEÇÃO DE ITEM
+// SELEÇÃO DE ITEM (PÚBLICO)
 // ============================================
 window.selectItem = async function(itemId, collection) {
+    // Permite visualização mesmo sem login
     document.getElementById('main-wrapper').innerHTML = '<div class="loading-container" style="grid-column:1/-1;"><div class="spinner"></div><p>Carregando...</p></div>';
     
     try {
@@ -1390,6 +1347,7 @@ window.selectItem = async function(itemId, collection) {
         
         const data = doc.data();
         
+        // Incrementa views apenas se não for convidado
         if (!isGuestUser && currentUser) {
             try {
                 const novasViews = (data.visualizacoes || 0) + 1;
@@ -1426,7 +1384,7 @@ window.selectItem = async function(itemId, collection) {
 };
 
 // ============================================
-// FILTROS E BUSCA
+// FILTROS E BUSCA (PÚBLICOS)
 // ============================================
 window.filterByTab = function(tab) {
     currentTab = tab;
@@ -1437,6 +1395,7 @@ window.filterByTab = function(tab) {
     if (allItems[tab] && allItems[tab].length > 0) {
         renderCurrentTab();
     } else {
+        // Tenta carregar o conteúdo da tab específica
         loadAllContent();
     }
 };
@@ -1507,60 +1466,38 @@ document.getElementById('currentDate').textContent = new Date().toLocaleDateStri
 
 document.getElementById('search-btn')?.addEventListener('click', searchContent);
 document.getElementById('search-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') searchContent(); });
+document.getElementById('google-login-btn')?.addEventListener('click', loginWithGoogle);
+document.getElementById('guest-login-modal-btn')?.addEventListener('click', guestLogin);
+document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
 
-// ============================================
-// INICIALIZAÇÃO - VERIFICA SESSÃO
-// ============================================
-
-// PASSO 1: Verifica token na URL (retorno do login)
-const hasToken = checkAuthToken();
-
-// PASSO 2: Se não tem token, verifica sessão no localStorage
-if (!hasToken) {
-    const hasSession = checkStoredSession();
-    
-    // PASSO 3: Se não tem sessão, verifica Firebase Auth
-    if (!hasSession) {
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                // Usuário autenticado via Firebase
-                currentUser = {
-                    uid: user.uid,
-                    displayName: user.displayName || 'Usuário',
-                    email: user.email || '',
-                    photoURL: user.photoURL || ''
-                };
-                isGuestUser = false;
-                clearGuestUser();
-                
-                await registerUser(user, false);
-                updateAuthUI();
-                loadAllContent();
-            } else {
-                // Verifica se tem convidado armazenado
-                const storedGuest = getStoredGuestUser();
-                if (storedGuest) {
-                    currentUser = storedGuest;
-                    isGuestUser = true;
-                    updateAuthUI();
-                    loadAllContent();
-                } else {
-                    currentUser = null;
-                    isGuestUser = false;
-                    updateAuthUI();
-                    loadAllContent();
-                }
-            }
-        });
+// Inicialização - carrega conteúdo independente de login
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        currentUser = user;
+        isGuestUser = false;
+        clearGuestUser();
+        
+        // Registra/atualiza o usuário no Firestore
+        await registerUser(user, false);
+        
+        updateAuthUI();
+        loadAllContent();
+    } else {
+        // Verifica se tem convidado armazenado
+        const storedGuest = getStoredGuestUser();
+        if (storedGuest) {
+            currentUser = storedGuest;
+            isGuestUser = true;
+            updateAuthUI();
+        } else {
+            currentUser = null;
+            isGuestUser = false;
+            updateAuthUI();
+        }
+        // CARREGA O CONTEÚDO MESMO SEM LOGIN
+        loadAllContent();
     }
-}
-
-// Log de inicialização
-console.log('🚀 Página principal carregada!');
-console.log('📌 Sistema de login unificado ativo');
-console.log(`🔗 URL de login: ${LOGIN_URL}`);
-console.log(`📄 Página atual: ${getCurrentPageUrl()}`);
-
+});
 </script>
 
 <!-- Iframe do verificador/logs -->
