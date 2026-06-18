@@ -690,7 +690,7 @@
             <span id="user-name">Visitante</span>
         </div>
         <div id="authButtons">
-            <button class="user-dropdown-trigger" onclick="showLoginModal()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:6px 15px; border-radius:30px; cursor:pointer;">
+            <button class="user-dropdown-trigger" onclick="redirectToLogin()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:6px 15px; border-radius:30px; cursor:pointer;">
                 <i class="material-icons" style="font-size:16px;">login</i> Entrar
             </button>
         </div>
@@ -761,15 +761,6 @@
     </div>
 </div>
 
-<div id="login-modal" class="modal">
-    <div class="modal-content">
-        <h3>🔐 Acesso</h3>
-        <button id="google-login-btn" class="google-login-btn">Entrar com Google</button>
-        <button id="guest-login-modal-btn" class="guest-login-btn">Acesso Convidado</button>
-        <button id="close-modal-btn" style="margin-top:15px; background:none; border:none; color:#999; cursor:pointer;">Fechar</button>
-    </div>
-</div>
-
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -815,6 +806,72 @@ function redirectToLogin() {
     const loginWithReturn = `${LOGIN_URL}?uid=${encodeURIComponent(currentUrl)}`;
     console.log('🔄 Redirecionando para login unificado:', loginWithReturn);
     window.location.href = loginWithReturn;
+}
+
+// ============================================
+// SISTEMA DE AUTENTICAÇÃO ENTRE DOMÍNIOS
+// ============================================
+
+// Verifica se há um token de autenticação na URL (retorno do login)
+function checkAuthToken() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('auth_token');
+    const userData = params.get('user_data');
+    
+    if (token && userData) {
+        try {
+            // Decodifica os dados do usuário
+            const user = JSON.parse(decodeURIComponent(userData));
+            console.log('🔑 Token de autenticação recebido:', user);
+            
+            // Salva no localStorage para persistência
+            localStorage.setItem('wzzm_auth_user', JSON.stringify(user));
+            localStorage.setItem('wzzm_auth_token', token);
+            localStorage.setItem('wzzm_auth_expiry', (Date.now() + 3600000).toString()); // 1 hora
+            
+            // Remove os parâmetros da URL
+            const newUrl = window.location.pathname + window.location.hash;
+            window.history.replaceState({}, document.title, newUrl);
+            
+            // Aplica o usuário
+            applyUserSession(user);
+            return true;
+        } catch (e) {
+            console.error('Erro ao processar token:', e);
+        }
+    }
+    return false;
+}
+
+// Verifica se há uma sessão salva no localStorage
+function checkStoredSession() {
+    try {
+        const token = localStorage.getItem('wzzm_auth_token');
+        const userData = localStorage.getItem('wzzm_auth_user');
+        const expiry = localStorage.getItem('wzzm_auth_expiry');
+        
+        if (token && userData && expiry && Date.now() < parseInt(expiry)) {
+            const user = JSON.parse(userData);
+            console.log('📂 Sessão restaurada do localStorage:', user);
+            applyUserSession(user);
+            return true;
+        }
+    } catch (e) {
+        console.error('Erro ao restaurar sessão:', e);
+    }
+    return false;
+}
+
+// Aplica a sessão do usuário
+function applyUserSession(user) {
+    if (user && user.uid) {
+        currentUser = user;
+        isGuestUser = user.isGuest || false;
+        updateAuthUI();
+        loadAllContent();
+        return true;
+    }
+    return false;
 }
 
 // ============================================
@@ -1103,29 +1160,12 @@ function updateAuthUI() {
     }
 }
 
-function showLoginModal() { document.getElementById('login-modal').classList.add('show'); }
-function hideLoginModal() { document.getElementById('login-modal').classList.remove('show'); }
-
-// LOGIN VIA REDIRECIONAMENTO UNIFICADO
-function loginWithRedirect() {
-    // Redireciona para o login unificado
-    redirectToLogin();
-}
-
-// Google Login - redireciona para o login unificado
-async function loginWithGoogle() {
-    // Redireciona para o login unificado
-    redirectToLogin();
-}
-
-// Guest Login - redireciona para o login unificado
-async function guestLogin() {
-    // Redireciona para o login unificado
-    redirectToLogin();
-}
-
 async function logout() { 
     clearGuestUser();
+    localStorage.removeItem('wzzm_auth_user');
+    localStorage.removeItem('wzzm_auth_token');
+    localStorage.removeItem('wzzm_auth_expiry');
+    
     if (auth.currentUser) await auth.signOut();
     currentUser = null;
     isGuestUser = false;
@@ -1468,41 +1508,52 @@ document.getElementById('currentDate').textContent = new Date().toLocaleDateStri
 document.getElementById('search-btn')?.addEventListener('click', searchContent);
 document.getElementById('search-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') searchContent(); });
 
-// MODIFICADO: Botões de login agora redirecionam para o login unificado
-document.getElementById('google-login-btn')?.addEventListener('click', loginWithRedirect);
-document.getElementById('guest-login-modal-btn')?.addEventListener('click', loginWithRedirect);
-document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
-
 // ============================================
 // INICIALIZAÇÃO - VERIFICA SESSÃO
 // ============================================
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        // Usuário autenticado via Firebase
-        currentUser = user;
-        isGuestUser = false;
-        clearGuestUser();
-        
-        await registerUser(user, false);
-        updateAuthUI();
-        loadAllContent();
-    } else {
-        // Verifica se tem convidado armazenado
-        const storedGuest = getStoredGuestUser();
-        if (storedGuest) {
-            currentUser = storedGuest;
-            isGuestUser = true;
-            updateAuthUI();
-            loadAllContent();
-        } else {
-            currentUser = null;
-            isGuestUser = false;
-            updateAuthUI();
-            // Carrega conteúdo público
-            loadAllContent();
-        }
+
+// PASSO 1: Verifica token na URL (retorno do login)
+const hasToken = checkAuthToken();
+
+// PASSO 2: Se não tem token, verifica sessão no localStorage
+if (!hasToken) {
+    const hasSession = checkStoredSession();
+    
+    // PASSO 3: Se não tem sessão, verifica Firebase Auth
+    if (!hasSession) {
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Usuário autenticado via Firebase
+                currentUser = {
+                    uid: user.uid,
+                    displayName: user.displayName || 'Usuário',
+                    email: user.email || '',
+                    photoURL: user.photoURL || ''
+                };
+                isGuestUser = false;
+                clearGuestUser();
+                
+                await registerUser(user, false);
+                updateAuthUI();
+                loadAllContent();
+            } else {
+                // Verifica se tem convidado armazenado
+                const storedGuest = getStoredGuestUser();
+                if (storedGuest) {
+                    currentUser = storedGuest;
+                    isGuestUser = true;
+                    updateAuthUI();
+                    loadAllContent();
+                } else {
+                    currentUser = null;
+                    isGuestUser = false;
+                    updateAuthUI();
+                    loadAllContent();
+                }
+            }
+        });
     }
-});
+}
 
 // Log de inicialização
 console.log('🚀 Página principal carregada!');
