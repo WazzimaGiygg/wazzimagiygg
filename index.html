@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     
     <style>
+        /* ===== SEU CSS COMPLETO AQUI (mantido igual) ===== */
         * {
             margin: 0;
             padding: 0;
@@ -797,6 +798,26 @@ let currentTab = 'wikiworldweb';
 let allItems = {};
 
 // ============================================
+// SISTEMA DE REDIRECIONAMENTO UNIFICADO
+// ============================================
+
+// URL do login unificado
+const LOGIN_URL = 'https://painel.wazzimagiygg.com/login.html';
+
+// Obtém a URL atual para usar como parâmetro uid
+function getCurrentPageUrl() {
+    return window.location.href;
+}
+
+// Redireciona para o login com o parâmetro uid
+function redirectToLogin() {
+    const currentUrl = getCurrentPageUrl();
+    const loginWithReturn = `${LOGIN_URL}?uid=${encodeURIComponent(currentUrl)}`;
+    console.log('🔄 Redirecionando para login unificado:', loginWithReturn);
+    window.location.href = loginWithReturn;
+}
+
+// ============================================
 // UTILIDADES
 // ============================================
 function escapeHtml(text) {
@@ -872,10 +893,7 @@ async function registerUser(user, isGuest = false) {
             lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        // Registra na coleção 'users'
         await db.collection('users').doc(uid).set(userData, { merge: true });
-        
-        // Registra na coleção 'usuários'
         await db.collection('usuários').doc(uid).set(userData, { merge: true });
 
         console.log(`Usuário ${uid} registrado com sucesso!`);
@@ -890,11 +908,9 @@ async function registerUser(user, isGuest = false) {
 // FUNÇÃO PARA CARREGAR CONTEÚDO SEM LOGIN
 // ============================================
 async function loadContentPublic() {
-    // Carrega o conteúdo mesmo sem usuário logado
     showLoading();
     
     try {
-        // Tenta carregar todas as coleções mesmo sem login
         const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
             loadWikiworldContentPublic(),
             loadEnsaioContentPublic(),
@@ -1090,32 +1106,22 @@ function updateAuthUI() {
 function showLoginModal() { document.getElementById('login-modal').classList.add('show'); }
 function hideLoginModal() { document.getElementById('login-modal').classList.remove('show'); }
 
-async function loginWithGoogle() {
-    try { 
-        const result = await auth.signInWithPopup(googleProvider);
-        const user = result.user;
-        
-        // Registra o usuário no Firestore
-        await registerUser(user, false);
-        
-        hideLoginModal(); 
-        location.reload();
-    } catch (error) { 
-        alert('Erro: ' + error.message); 
-    }
+// LOGIN VIA REDIRECIONAMENTO UNIFICADO
+function loginWithRedirect() {
+    // Redireciona para o login unificado
+    redirectToLogin();
 }
 
+// Google Login - redireciona para o login unificado
+async function loginWithGoogle() {
+    // Redireciona para o login unificado
+    redirectToLogin();
+}
+
+// Guest Login - redireciona para o login unificado
 async function guestLogin() {
-    const guestUser = createGuestUser();
-    currentUser = guestUser;
-    isGuestUser = true;
-    
-    // Registra o convidado no Firestore
-    await registerUser(guestUser, true);
-    
-    updateAuthUI();
-    hideLoginModal();
-    location.reload();
+    // Redireciona para o login unificado
+    redirectToLogin();
 }
 
 async function logout() { 
@@ -1128,11 +1134,10 @@ async function logout() {
 }
 
 // ============================================
-// CARREGAMENTO DE CONTEÚDO (COM VERIFICAÇÃO DE USUÁRIO)
+// CARREGAMENTO DE CONTEÚDO
 // ============================================
 async function loadAllContent() {
     if (currentUser) {
-        // Usuário logado - carrega com contagem de views
         showLoading();
         
         const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
@@ -1153,7 +1158,6 @@ async function loadAllContent() {
         
         renderCurrentTab();
     } else {
-        // Usuário não logado - carrega conteúdo público
         await loadContentPublic();
     }
 }
@@ -1335,10 +1339,9 @@ function renderCurrentTab() {
 }
 
 // ============================================
-// SELEÇÃO DE ITEM (PÚBLICO)
+// SELEÇÃO DE ITEM
 // ============================================
 window.selectItem = async function(itemId, collection) {
-    // Permite visualização mesmo sem login
     document.getElementById('main-wrapper').innerHTML = '<div class="loading-container" style="grid-column:1/-1;"><div class="spinner"></div><p>Carregando...</p></div>';
     
     try {
@@ -1347,7 +1350,6 @@ window.selectItem = async function(itemId, collection) {
         
         const data = doc.data();
         
-        // Incrementa views apenas se não for convidado
         if (!isGuestUser && currentUser) {
             try {
                 const novasViews = (data.visualizacoes || 0) + 1;
@@ -1384,7 +1386,7 @@ window.selectItem = async function(itemId, collection) {
 };
 
 // ============================================
-// FILTROS E BUSCA (PÚBLICOS)
+// FILTROS E BUSCA
 // ============================================
 window.filterByTab = function(tab) {
     currentTab = tab;
@@ -1395,7 +1397,6 @@ window.filterByTab = function(tab) {
     if (allItems[tab] && allItems[tab].length > 0) {
         renderCurrentTab();
     } else {
-        // Tenta carregar o conteúdo da tab específica
         loadAllContent();
     }
 };
@@ -1466,20 +1467,23 @@ document.getElementById('currentDate').textContent = new Date().toLocaleDateStri
 
 document.getElementById('search-btn')?.addEventListener('click', searchContent);
 document.getElementById('search-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') searchContent(); });
-document.getElementById('google-login-btn')?.addEventListener('click', loginWithGoogle);
-document.getElementById('guest-login-modal-btn')?.addEventListener('click', guestLogin);
+
+// MODIFICADO: Botões de login agora redirecionam para o login unificado
+document.getElementById('google-login-btn')?.addEventListener('click', loginWithRedirect);
+document.getElementById('guest-login-modal-btn')?.addEventListener('click', loginWithRedirect);
 document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
 
-// Inicialização - carrega conteúdo independente de login
+// ============================================
+// INICIALIZAÇÃO - VERIFICA SESSÃO
+// ============================================
 auth.onAuthStateChanged(async (user) => {
     if (user) {
+        // Usuário autenticado via Firebase
         currentUser = user;
         isGuestUser = false;
         clearGuestUser();
         
-        // Registra/atualiza o usuário no Firestore
         await registerUser(user, false);
-        
         updateAuthUI();
         loadAllContent();
     } else {
@@ -1489,15 +1493,23 @@ auth.onAuthStateChanged(async (user) => {
             currentUser = storedGuest;
             isGuestUser = true;
             updateAuthUI();
+            loadAllContent();
         } else {
             currentUser = null;
             isGuestUser = false;
             updateAuthUI();
+            // Carrega conteúdo público
+            loadAllContent();
         }
-        // CARREGA O CONTEÚDO MESMO SEM LOGIN
-        loadAllContent();
     }
 });
+
+// Log de inicialização
+console.log('🚀 Página principal carregada!');
+console.log('📌 Sistema de login unificado ativo');
+console.log(`🔗 URL de login: ${LOGIN_URL}`);
+console.log(`📄 Página atual: ${getCurrentPageUrl()}`);
+
 </script>
 
 <!-- Iframe do verificador/logs -->
