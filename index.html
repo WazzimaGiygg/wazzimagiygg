@@ -954,7 +954,8 @@
                 </div>
             </div>
             
-            <button class="btn-logout" id="btnLogout" style="display:none;">Sair</button>
+            <!-- CORRIGIDO: Adicionado onclick="logout()" -->
+            <button class="btn-logout" id="btnLogout" style="display:none;" onclick="logout()">Sair</button>
             <button class="btn-login" id="btnLogin" onclick="showLoginModal()">
                 <span class="material-icons" style="font-size:16px;">person</span> Entrar
             </button>
@@ -1264,19 +1265,21 @@ async function loadNotifications() {
 }
 
 function updateNotificationBadge() {
+    const badge = document.getElementById('notifBadge');
     if (unreadCount > 0) {
-        notifBadge.style.display = 'flex';
-        notifBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+        badge.style.display = 'flex';
+        badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
     } else {
-        notifBadge.style.display = 'none';
+        badge.style.display = 'none';
     }
 }
 
 function renderNotifications() {
-    if (!notificationList) return;
+    const list = document.getElementById('notificationList');
+    if (!list) return;
     
     if (notifications.length === 0) {
-        notificationList.innerHTML = `
+        list.innerHTML = `
             <div class="notification-empty">
                 <span class="material-icons">notifications_off</span>
                 <p>Nenhuma notificação</p>
@@ -1287,7 +1290,7 @@ function renderNotifications() {
     
     const recentNotifs = notifications.slice(0, 10);
     
-    notificationList.innerHTML = recentNotifs.map(notif => `
+    list.innerHTML = recentNotifs.map(notif => `
         <div class="notification-item ${notif.lida ? '' : 'unread'}" onclick="markAsRead('${notif.id}')">
             <div class="notif-title">${escapeHtml(notif.titulo || 'Notificação')}</div>
             <div class="notif-message">${escapeHtml(notif.mensagem || '')}</div>
@@ -1343,9 +1346,10 @@ async function markAllAsRead(event) {
 
 function toggleNotifications(event) {
     if (event) event.stopPropagation();
-    if (notifDropdown) {
-        notifDropdown.classList.toggle('show');
-        if (notifDropdown.classList.contains('show')) {
+    const dropdown = document.getElementById('notifDropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+        if (dropdown.classList.contains('show')) {
             loadNotifications();
         }
     }
@@ -1353,9 +1357,8 @@ function toggleNotifications(event) {
 
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.notification-bell')) {
-        if (notifDropdown) {
-            notifDropdown.classList.remove('show');
-        }
+        const dropdown = document.getElementById('notifDropdown');
+        if (dropdown) dropdown.classList.remove('show');
     }
 });
 
@@ -1636,13 +1639,79 @@ async function guestLogin() {
     location.reload();
 }
 
+// ============================================
+// FUNÇÃO DE LOGOUT CORRIGIDA
+// ============================================
 async function logout() { 
-    clearGuestUser();
-    if (auth.currentUser) await auth.signOut();
-    currentUser = null;
-    isGuestUser = false;
-    updateUI();
-    location.reload();
+    try {
+        // Limpa dados do convidado
+        clearGuestUser();
+        
+        // Se estiver logado com Google, desloga
+        if (auth.currentUser) {
+            await auth.signOut();
+        }
+        
+        // Reseta variáveis
+        currentUser = null;
+        isGuestUser = false;
+        isAdmin = false;
+        
+        // Limpa notificações
+        if (notificationListener) {
+            notificationListener();
+            notificationListener = null;
+        }
+        notifications = [];
+        unreadCount = 0;
+        updateNotificationBadge();
+        
+        // Atualiza UI
+        updateUI();
+        
+        // Recarrega conteúdo público
+        await loadContentPublic();
+        
+        // Recarrega a página para garantir estado limpo
+        location.reload();
+    } catch (error) {
+        console.error('Erro ao fazer logout:', error);
+        showToast('Erro ao sair: ' + error.message, true);
+    }
+}
+
+// Função para mostrar toast (feedback visual)
+function showToast(message, isError = false) {
+    // Cria um elemento toast se não existir
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 2000;
+            display: none;
+            animation: fadeInOut 3s ease;
+            max-width: 90%;
+            text-align: center;
+        `;
+        document.body.appendChild(toast);
+    }
+    
+    toast.textContent = message;
+    toast.style.background = isError ? '#c0392b' : '#27ae60';
+    toast.style.display = 'block';
+    
+    setTimeout(() => {
+        toast.style.display = 'none';
+    }, 3000);
 }
 
 // ============================================
