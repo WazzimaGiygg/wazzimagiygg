@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog · Firebase com Regras</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { background: #f4f7fc; display: flex; justify-content: center; padding: 2rem 1rem; }
+    .app { max-width: 1000px; width: 100%; }
+    .card { background: white; border-radius: 24px; padding: 1.8rem; box-shadow: 0 12px 30px rgba(0,0,0,0.08); margin-bottom: 2rem; }
+    .flex-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+    .btn { background: #eef2f6; border: none; padding: 0.6rem 1.4rem; border-radius: 60px; font-weight: 500; font-size: 0.95rem; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-primary { background: #1a73e8; color: white; }
+    .btn-primary:hover { background: #1557b0; }
+    .btn-outline { background: transparent; border: 1px solid #d0d7e2; }
+    .btn-outline:hover { background: #eef2f6; }
+    .btn-danger { background: #ea4335; color: white; }
+    .btn-danger:hover { background: #c62828; }
+    .btn-success { background: #34a853; color: white; }
+    .btn-success:hover { background: #2d9249; }
+    .user-badge { background: #e8f0fe; color: #1a73e8; padding: 0.5rem 1.2rem; border-radius: 60px; font-weight: 500; }
+    .input-area { display: flex; flex-wrap: wrap; gap: 12px; margin: 1.5rem 0 0.5rem; }
+    .input-area input, .input-area textarea { flex: 1 1 200px; padding: 0.8rem 1.2rem; border: 1px solid #d0d7e2; border-radius: 60px; font-size: 0.95rem; outline: none; transition: 0.2s; }
+    .input-area input:focus, .input-area textarea:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.15); }
+    .input-area textarea { border-radius: 20px; min-height: 70px; resize: vertical; flex-basis: 100%; }
+    .post-list { margin-top: 1.8rem; display: flex; flex-direction: column; gap: 1.2rem; }
+    .post-item { background: #fafcff; border-radius: 20px; padding: 1.5rem; border: 1px solid #e9edf4; transition: 0.15s; }
+    .post-item:hover { border-color: #cbd5e1; }
+    .post-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+    .post-title { font-size: 1.3rem; font-weight: 600; color: #0b1a33; }
+    .post-meta { color: #5f6b7a; font-size: 0.85rem; display: flex; gap: 12px; align-items: center; }
+    .post-content { margin: 0.8rem 0 0.2rem; color: #1e293b; line-height: 1.5; white-space: pre-wrap; }
+    .post-actions { display: flex; gap: 10px; margin-top: 1rem; flex-wrap: wrap; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: #5f6b7a; }
+    .empty-state i { font-size: 3rem; opacity: 0.4; margin-bottom: 1rem; }
+    .profile-info { background: #f0f4fe; border-radius: 60px; padding: 0.4rem 1.2rem 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 10px; }
+    .profile-info img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+    .uid-badge { font-family: monospace; background: #eef2f6; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.75rem; color: #2c3e50; cursor: pointer; }
+    .uid-badge:hover { background: #dce3ed; }
+    .hidden { display: none !important; }
+    .tag { background: #eef2f6; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.7rem; color: #2c3e50; }
+    .badge { background: #eef2f6; padding: 0.2rem 1rem; border-radius: 30px; font-size: 0.85rem; }
+    .rules-info { background: #f0f7ff; border-left: 4px solid #1a73e8; padding: 1rem; border-radius: 12px; margin-top: 1rem; font-size: 0.9rem; }
+    .rules-info code { background: #e8f0fe; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.85rem; }
+    .disabled { opacity: 0.5; pointer-events: none; }
+    @media (max-width: 600px) { .flex-between { flex-direction: column; align-items: stretch; } }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Cabeçalho / Autenticação -->
+  <div class="card">
+    <div class="flex-between">
+      <div>
+        <h2 style="display: flex; align-items: center; gap: 8px;"><i class="fas fa-pen-fancy" style="color: #1a73e8;"></i> Blog</h2>
+        <span style="font-size: 0.9rem; color: #4b5a6a;">Subcoleção: <code>blog/{uid}/posts</code></span>
+      </div>
+      <div id="authSection" class="flex-row">
+        <button id="loginBtn" class="btn btn-primary"><i class="fab fa-google"></i> Entrar</button>
+        <button id="logoutBtn" class="btn btn-outline hidden"><i class="fas fa-sign-out-alt"></i> Sair</button>
+      </div>
+    </div>
+    <div id="userInfo" class="hidden" style="margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+      <div class="profile-info">
+        <img id="userAvatar" src="" alt="avatar">
+        <span id="userName">Usuário</span>
+      </div>
+      <span class="uid-badge" id="userUidDisplay" title="Clique para copiar link"><i class="fas fa-copy"></i> uid: carregando...</span>
+      <span class="tag"><i class="far fa-clock"></i> blog/{uid}/posts</span>
+    </div>
+    <div class="rules-info">
+      <i class="fas fa-shield-alt" style="color: #1a73e8;"></i>
+      <strong>Regras Firebase:</strong> Leitura pública (<code>canReadPublic()</code>), escrita apenas do dono (<code>isOwner()</code>), admin tem permissões especiais.
+    </div>
+  </div>
+
+  <!-- Painel de posts -->
+  <div id="blogPanel" class="card hidden">
+    <div class="flex-between">
+      <h3><i class="fas fa-newspaper"></i> Posts</h3>
+      <span id="postCount" class="badge">0</span>
+    </div>
+
+    <!-- Formulário -->
+    <div class="input-area" id="postForm">
+      <input type="text" id="postTitleInput" placeholder="Título do post" maxlength="100" />
+      <textarea id="postContentInput" placeholder="Conteúdo do post..." maxlength="5000"></textarea>
+      <button id="publishBtn" class="btn btn-success"><i class="fas fa-plus-circle"></i> Publicar</button>
+    </div>
+
+    <!-- Lista de posts -->
+    <div id="postsContainer" class="post-list">
+      <div class="empty-state">
+        <i class="fas fa-feather-alt"></i>
+        <p>Nenhuma postagem. Crie a primeira!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rodapé / Info URL -->
+  <div class="card" style="background: #f8faff;">
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between;">
+      <div>
+        <i class="fas fa-link" style="color: #1a73e8;"></i>
+        <span style="font-weight: 500;">URL com uid</span>
+        <code style="background: #eef2f6; padding: 0.2rem 0.8rem; border-radius: 30px; margin-left: 8px;">?uid=UID</code>
+        <span style="color: #5f6b7a; font-size: 0.9rem; margin-left: 8px;">&amp;info = detalhes</span>
+      </div>
+      <div id="urlInfo" style="font-size: 0.85rem; color: #1e293b;">
+        <i class="fas fa-info-circle"></i>
+        <span id="urlStatus">Nenhum uid na URL</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+  // ================== CONFIGURAÇÃO FIREBASE ==================
+  // Substitua pelos dados do seu projeto Firebase
+       const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // ================== ELEMENTOS DOM ==================
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const userInfo = document.getElementById('userInfo');
+  const userName = document.getElementById('userName');
+  const userAvatar = document.getElementById('userAvatar');
+  const userUidDisplay = document.getElementById('userUidDisplay');
+  const blogPanel = document.getElementById('blogPanel');
+  const postsContainer = document.getElementById('postsContainer');
+  const postTitleInput = document.getElementById('postTitleInput');
+  const postContentInput = document.getElementById('postContentInput');
+  const publishBtn = document.getElementById('publishBtn');
+  const postCount = document.getElementById('postCount');
+  const urlStatus = document.getElementById('urlStatus');
+
+  // ================== ESTADO ==================
+  let currentUser = null;
+  let currentUid = null;
+  let urlUid = null;
+  let urlInfo = false;
+
+  // ================== UTIL: parâmetros URL ==================
+  function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return { uid: params.get('uid'), info: params.has('info') };
+  }
+
+  // ================== ESCAPE HTML ==================
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // ================== RENDER: posts ==================
+  function renderPosts(uid) {
+    if (!uid) {
+      postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><p>Nenhum usuário selecionado</p></div>`;
+      postCount.textContent = '0';
+      return;
+    }
+
+    // Referência: blog/{uid}/posts (conforme regras)
+    const postsRef = db.collection('blog').doc(uid).collection('posts');
+    postsRef.orderBy('createdAt', 'desc').get()
+      .then((snapshot) => {
+        if (snapshot.empty) {
+          postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-feather-alt"></i><p>Sem posts nesta subcoleção</p></div>`;
+          postCount.textContent = '0';
+          return;
+        }
+
+        let html = '';
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const title = data.title || 'Sem título';
+          const content = data.content || '';
+          const date = data.createdAt ? data.createdAt.toDate().toLocaleString('pt-BR') : 'data desconhecida';
+          const docId = doc.id;
+
+          // Verifica se o usuário atual é o dono (para mostrar botões de ação)
+          const isOwner = currentUser && uid === currentUser.uid;
+          const actionsHtml = isOwner ? `
+            <button class="btn btn-outline btn-sm edit-post-btn" data-id="${docId}"><i class="fas fa-edit"></i> Editar</button>
+            <button class="btn btn-danger btn-sm delete-post-btn" data-id="${docId}"><i class="fas fa-trash-alt"></i> Excluir</button>
+          ` : `<span class="tag"><i class="fas fa-lock"></i> Somente leitura</span>`;
+
+          html += `
+            <div class="post-item" data-id="${docId}">
+              <div class="post-header">
+                <span class="post-title">${escapeHtml(title)}</span>
+                <span class="post-meta"><i class="far fa-calendar-alt"></i> ${date}</span>
+              </div>
+              <div class="post-content">${escapeHtml(content)}</div>
+              <div class="post-actions">${actionsHtml}</div>
+            </div>
+          `;
+        });
+
+        postsContainer.innerHTML = html;
+        postCount.textContent = snapshot.size;
+
+        // Event listeners para editar/excluir (apenas se for dono)
+        if (currentUser && uid === currentUser.uid) {
+          document.querySelectorAll('.delete-post-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const id = btn.dataset.id;
+              if (confirm('Excluir esta postagem?')) deletePost(uid, id);
+            });
+          });
+
+          document.querySelectorAll('.edit-post-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const id = btn.dataset.id;
+              const postDiv = btn.closest('.post-item');
+              const titleSpan = postDiv.querySelector('.post-title');
+              const contentDiv = postDiv.querySelector('.post-content');
+              postTitleInput.value = titleSpan.textContent;
+              postContentInput.value = contentDiv.textContent;
+              if (confirm('Editar: o post atual será removido e um novo será criado.')) {
+                deletePost(uid, id).then(() => publishPost(uid));
+              }
+            });
+          });
+        }
+      })
+      .catch(err => {
+        console.error('Erro ao carregar posts:', err);
+        postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar posts: ${err.message}</p></div>`;
+      });
+  }
+
+  // ================== CRUD: posts ==================
+  function publishPost(uid) {
+    const title = postTitleInput.value.trim();
+    const content = postContentInput.value.trim();
+    if (!title || !content) {
+      alert('Preencha título e conteúdo.');
+      return Promise.reject('Campos vazios');
+    }
+
+    const postsRef = db.collection('blog').doc(uid).collection('posts');
+    return postsRef.add({
+      title: title,
+      content: content,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      authorId: uid
+    })
+    .then(() => {
+      postTitleInput.value = '';
+      postContentInput.value = '';
+      renderPosts(uid);
+    })
+    .catch(err => {
+      alert('Erro ao publicar: ' + err.message);
+      console.error('Erro publish:', err);
+    });
+  }
+
+  function deletePost(uid, docId) {
+    const postsRef = db.collection('blog').doc(uid).collection('posts');
+    return postsRef.doc(docId).delete()
+      .then(() => renderPosts(uid))
+      .catch(err => {
+        alert('Erro ao excluir: ' + err.message);
+        console.error('Erro delete:', err);
+      });
+  }
+
+  // ================== ATUALIZAR UI ==================
+  function updateUIForUser(user) {
+    if (user) {
+      currentUser = user;
+      currentUid = user.uid;
+      userName.textContent = user.displayName || 'Usuário';
+      userAvatar.src = user.photoURL || 'https://ui-avatars.com/api/?name=User&background=1a73e8&color=fff&size=32';
+      userUidDisplay.textContent = `uid: ${user.uid}`;
+      userInfo.classList.remove('hidden');
+      blogPanel.classList.remove('hidden');
+      loginBtn.classList.add('hidden');
+      logoutBtn.classList.remove('hidden');
+      publishBtn.disabled = false;
+      publishBtn.style.opacity = '1';
+
+      // Verifica se está visualizando outro usuário
+      if (urlUid && urlUid !== user.uid) {
+        renderPosts(urlUid);
+        publishBtn.disabled = true;
+        publishBtn.style.opacity = '0.5';
+        publishBtn.title = 'Visualizando subcoleção de outro usuário';
+        urlStatus.innerHTML = `<i class="fas fa-eye"></i> Visualizando <strong>${urlUid}</strong> (leitura)`;
+        document.getElementById('postForm').classList.add('disabled');
+      } else {
+        renderPosts(user.uid);
+        publishBtn.disabled = false;
+        publishBtn.style.opacity = '1';
+        publishBtn.title = '';
+        urlStatus.innerHTML = `<i class="fas fa-check-circle" style="color: #1a73e8;"></i> Sua subcoleção: blog/${user.uid}`;
+        document.getElementById('postForm').classList.remove('disabled');
+      }
+    } else {
+      currentUser = null;
+      currentUid = null;
+      userInfo.classList.add('hidden');
+      loginBtn.classList.remove('hidden');
+      logoutBtn.classList.add('hidden');
+      publishBtn.disabled = true;
+      publishBtn.style.opacity = '0.5';
+      document.getElementById('postForm').classList.add('disabled');
+
+      if (urlUid) {
+        blogPanel.classList.remove('hidden');
+        renderPosts(urlUid);
+        urlStatus.innerHTML = `<i class="fas fa-info-circle"></i> Visualizando <strong>${urlUid}</strong> (público)`;
+      } else {
+        blogPanel.classList.add('hidden');
+        postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i><p>Faça login ou use ?uid=... para ver posts</p></div>`;
+        urlStatus.textContent = 'Nenhum uid na URL';
+      }
+    }
+  }
+
+  // ================== AUTH ==================
+  auth.onAuthStateChanged(user => {
+    const params = getUrlParams();
+    urlUid = params.uid;
+    urlInfo = params.info;
+    updateUIForUser(user);
+  });
+
+  loginBtn.addEventListener('click', () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err => alert('Erro login: ' + err.message));
+  });
+
+  logoutBtn.addEventListener('click', () => auth.signOut().catch(err => alert('Erro logout: ' + err.message)));
+
+  publishBtn.addEventListener('click', () => {
+    if (!currentUser) { alert('Faça login primeiro.'); return; }
+    if (urlUid && urlUid !== currentUser.uid) {
+      alert('Você não pode publicar na subcoleção de outro usuário.');
+      return;
+    }
+    publishPost(currentUser.uid);
+  });
+
+  // ================== COPIAR UID ==================
+  userUidDisplay.addEventListener('click', function() {
+    const uid = currentUser ? currentUser.uid : (urlUid || '');
+    if (uid) {
+      const url = window.location.origin + window.location.pathname + `?uid=${uid}&info=true`;
+      navigator.clipboard?.writeText(url).then(() => {
+        alert('Link copiado: ' + url);
+      }).catch(() => {
+        // Fallback
+        prompt('Copie o link:', url);
+      });
+    }
+  });
+
+  // ================== INICIALIZA ==================
+  window.addEventListener('load', () => {
+    const params = getUrlParams();
+    urlUid = params.uid;
+    urlInfo = params.info;
+    if (!auth.currentUser && urlUid) {
+      renderPosts(urlUid);
+      blogPanel.classList.remove('hidden');
+      publishBtn.disabled = true;
+      publishBtn.style.opacity = '0.5';
+      document.getElementById('postForm').classList.add('disabled');
+      urlStatus.innerHTML = `<i class="fas fa-info-circle"></i> Visualizando <strong>${urlUid}</strong> (público)`;
+    }
+  });
+</script>
+</body>
+</html>
