@@ -205,15 +205,15 @@
 
 <script>
   // ================== CONFIGURAÇÃO ==================
-       const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
+  const firebaseConfig = {
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+    authDomain: "wzzm-ce3fc.firebaseapp.com",
+    projectId: "wzzm-ce3fc",
+    storageBucket: "wzzm-ce3fc.appspot.com",
+    messagingSenderId: "249427877153",
+    appId: "1:249427877153:web:0e4297294794a5aadeb260",
+    measurementId: "G-PLKNZNFCQ8"
+  };
 
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
@@ -275,6 +275,27 @@
     }
   }
 
+  // ================== FUNÇÃO PARA LISTAR SUBCOLEÇÕES ==================
+  // Como o Firestore não tem listCollections() no lado cliente,
+  // precisamos usar uma abordagem alternativa: buscar todos os documentos
+  // da coleção 'blog' e verificar quais existem
+  async function listBlogUsers() {
+    try {
+      // Primeiro, vamos tentar buscar todos os documentos na coleção 'blog'
+      // Isso só funciona se houver dados na coleção
+      const snapshot = await db.collection('blog').get();
+      const users = [];
+      snapshot.forEach(doc => {
+        users.push(doc.id);
+      });
+      return users;
+    } catch (error) {
+      console.error('Erro ao listar blogs:', error);
+      // Se falhar, retornar array vazio
+      return [];
+    }
+  }
+
   // ================== CARREGAR BLOGS ==================
   async function loadBlogs() {
     loadingIndicator.style.display = 'block';
@@ -283,62 +304,98 @@
 
     try {
       // Buscar todos os usuários que têm blogs
-      const blogsSnapshot = await db.collection('blog').listDocuments();
-      const blogUsers = blogsSnapshot.map(doc => doc.id);
+      // Usando a função personalizada
+      const blogUsers = await listBlogUsers();
+
+      if (blogUsers.length === 0) {
+        blogsTableBody.innerHTML = `
+          <tr><td colspan="7">
+            <div class="empty-state">
+              <i class="fas fa-inbox"></i>
+              <p>Nenhum blog encontrado no sistema.</p>
+            </div>
+          </td></tr>
+        `;
+        loadingIndicator.style.display = 'none';
+        blogsTable.style.display = 'table';
+        updateStats([]);
+        return;
+      }
 
       let blogsData = [];
 
       for (const userId of blogUsers) {
-        const postsSnapshot = await db.collection('blog').doc(userId).collection('posts')
-          .orderBy('createdAt', 'desc')
-          .limit(100)
-          .get();
-
-        const posts = postsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        // Contar comentários e likes
-        let commentCount = 0;
-        let likeCount = 0;
-
-        for (const post of posts) {
-          const commentsSnap = await db.collection('blog').doc(userId)
-            .collection('posts').doc(post.id)
-            .collection('comments').get();
-          commentCount += commentsSnap.size;
-
-          const likesSnap = await db.collection('blog').doc(userId)
-            .collection('posts').doc(post.id)
-            .collection('likes').get();
-          likeCount += likesSnap.size;
-        }
-
-        // Buscar informações do usuário
-        let userName = userId;
-        let userEmail = '';
         try {
-          const userDoc = await db.collection('users').doc(userId).get();
-          if (userDoc.exists) {
-            userName = userDoc.data().displayName || userDoc.data().name || userId;
-            userEmail = userDoc.data().email || '';
-          }
-        } catch (e) {}
+          const postsSnapshot = await db.collection('blog').doc(userId).collection('posts')
+            .orderBy('createdAt', 'desc')
+            .limit(100)
+            .get();
 
-        blogsData.push({
-          userId,
-          userName,
-          userEmail,
-          posts,
-          postCount: posts.length,
-          commentCount,
-          likeCount,
-          lastPost: posts.length > 0 ? posts[0].createdAt : null,
-          lastPostDate: posts.length > 0 && posts[0].createdAt ? 
-            posts[0].createdAt.toDate().toLocaleDateString('pt-BR') : 'Nunca',
-          isActive: posts.length > 0
-        });
+          const posts = postsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+
+          // Contar comentários e likes
+          let commentCount = 0;
+          let likeCount = 0;
+
+          for (const post of posts) {
+            try {
+              const commentsSnap = await db.collection('blog').doc(userId)
+                .collection('posts').doc(post.id)
+                .collection('comments').get();
+              commentCount += commentsSnap.size;
+            } catch (e) {}
+
+            try {
+              const likesSnap = await db.collection('blog').doc(userId)
+                .collection('posts').doc(post.id)
+                .collection('likes').get();
+              likeCount += likesSnap.size;
+            } catch (e) {}
+          }
+
+          // Buscar informações do usuário
+          let userName = userId;
+          let userEmail = '';
+          try {
+            const userDoc = await db.collection('users').doc(userId).get();
+            if (userDoc.exists) {
+              userName = userDoc.data().displayName || userDoc.data().name || userId;
+              userEmail = userDoc.data().email || '';
+            }
+          } catch (e) {}
+
+          blogsData.push({
+            userId,
+            userName,
+            userEmail,
+            posts,
+            postCount: posts.length,
+            commentCount,
+            likeCount,
+            lastPost: posts.length > 0 ? posts[0].createdAt : null,
+            lastPostDate: posts.length > 0 && posts[0].createdAt ? 
+              posts[0].createdAt.toDate().toLocaleDateString('pt-BR') : 'Nunca',
+            isActive: posts.length > 0
+          });
+        } catch (error) {
+          console.error(`Erro ao processar blog do usuário ${userId}:`, error);
+          // Adicionar mesmo com erro para mostrar que existe
+          blogsData.push({
+            userId,
+            userName: userId,
+            userEmail: '',
+            posts: [],
+            postCount: 0,
+            commentCount: 0,
+            likeCount: 0,
+            lastPost: null,
+            lastPostDate: 'Erro ao carregar',
+            isActive: false
+          });
+        }
       }
 
       allBlogs = blogsData;
@@ -352,6 +409,7 @@
           <div class="empty-state">
             <i class="fas fa-exclamation-triangle"></i>
             <p>Erro ao carregar blogs: ${error.message}</p>
+            <p style="font-size:0.8rem; margin-top:10px;">Verifique se a coleção "blog" existe no Firestore.</p>
           </div>
         </td></tr>
       `;
@@ -534,20 +592,24 @@
       // Deletar cada post com suas subcoleções
       for (const postDoc of postsSnapshot.docs) {
         // Deletar comentários
-        const commentsSnap = await db.collection('blog').doc(userId)
-          .collection('posts').doc(postDoc.id)
-          .collection('comments').get();
-        for (const commentDoc of commentsSnap.docs) {
-          await commentDoc.ref.delete();
-        }
+        try {
+          const commentsSnap = await db.collection('blog').doc(userId)
+            .collection('posts').doc(postDoc.id)
+            .collection('comments').get();
+          for (const commentDoc of commentsSnap.docs) {
+            await commentDoc.ref.delete();
+          }
+        } catch (e) {}
 
         // Deletar likes
-        const likesSnap = await db.collection('blog').doc(userId)
-          .collection('posts').doc(postDoc.id)
-          .collection('likes').get();
-        for (const likeDoc of likesSnap.docs) {
-          await likeDoc.ref.delete();
-        }
+        try {
+          const likesSnap = await db.collection('blog').doc(userId)
+            .collection('posts').doc(postDoc.id)
+            .collection('likes').get();
+          for (const likeDoc of likesSnap.docs) {
+            await likeDoc.ref.delete();
+          }
+        } catch (e) {}
 
         // Deletar post
         await postDoc.ref.delete();
