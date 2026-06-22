@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin · Gerenciador de Blogs</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { background: #f0f4f8; padding: 1rem; }
+    .app { max-width: 1400px; margin: 0 auto; }
+    
+    /* Header */
+    .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; padding: 1.5rem 2rem; border-radius: 16px; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+    .header h1 { font-size: 1.8rem; display: flex; align-items: center; gap: 12px; }
+    .header h1 i { color: #ffd700; }
+    .header-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .admin-badge { background: #ffd700; color: #1a1a2e; padding: 0.3rem 1rem; border-radius: 60px; font-weight: 600; font-size: 0.8rem; }
+    
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
+    .stat-card .number { font-size: 2.2rem; font-weight: 700; color: #1a73e8; }
+    .stat-card .label { color: #5f6b7a; font-size: 0.85rem; margin-top: 4px; }
+    
+    /* Cards */
+    .card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 1.5rem; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 1rem; }
+    .card-title { font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    
+    /* Search & Filters */
+    .filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 1.5rem; }
+    .filters input, .filters select { padding: 0.6rem 1rem; border: 1px solid #d0d7e2; border-radius: 60px; font-size: 0.9rem; outline: none; transition: 0.2s; flex: 1 1 200px; }
+    .filters input:focus, .filters select:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.15); }
+    
+    /* Table */
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { text-align: left; padding: 0.8rem 1rem; background: #f8fafc; color: #1e293b; font-weight: 600; border-bottom: 2px solid #e9edf4; }
+    td { padding: 0.8rem 1rem; border-bottom: 1px solid #e9edf4; vertical-align: middle; }
+    tr:hover td { background: #f8fafc; }
+    
+    .user-cell { display: flex; align-items: center; gap: 10px; }
+    .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: #e8f0fe; display: flex; align-items: center; justify-content: center; color: #1a73e8; font-weight: 600; font-size: 0.8rem; }
+    
+    .badge { padding: 0.2rem 0.8rem; border-radius: 60px; font-size: 0.75rem; font-weight: 500; }
+    .badge-success { background: #e6f4ea; color: #1e7e34; }
+    .badge-danger { background: #fce8e6; color: #c62828; }
+    .badge-warning { background: #fef7e0; color: #b65c00; }
+    .badge-info { background: #e8f0fe; color: #1a73e8; }
+    
+    .btn { padding: 0.4rem 1rem; border: none; border-radius: 60px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-sm { padding: 0.2rem 0.8rem; font-size: 0.75rem; }
+    .btn-primary { background: #1a73e8; color: white; }
+    .btn-primary:hover { background: #1557b0; }
+    .btn-danger { background: #ea4335; color: white; }
+    .btn-danger:hover { background: #c62828; }
+    .btn-success { background: #34a853; color: white; }
+    .btn-success:hover { background: #2d9249; }
+    .btn-outline { background: transparent; border: 1px solid #d0d7e2; }
+    .btn-outline:hover { background: #eef2f6; }
+    .btn-warning { background: #fbbc04; color: #1a1a2e; }
+    .btn-warning:hover { background: #e5a800; }
+    
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: 20px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .modal-header h2 { font-size: 1.3rem; }
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #5f6b7a; }
+    .modal-body { margin-bottom: 1.5rem; }
+    .modal-body .post-item { background: #f8fafc; padding: 1rem; border-radius: 12px; margin-bottom: 0.8rem; }
+    .modal-body .post-title { font-weight: 600; }
+    .modal-body .post-content { color: #475569; font-size: 0.9rem; margin-top: 4px; white-space: pre-wrap; }
+    .modal-body .post-meta { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
+    
+    /* Loading */
+    .loading { text-align: center; padding: 3rem; color: #94a3b8; }
+    .loading i { font-size: 2rem; margin-bottom: 1rem; display: block; }
+    
+    /* Empty State */
+    .empty-state { text-align: center; padding: 3rem; color: #94a3b8; }
+    .empty-state i { font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; display: block; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header { flex-direction: column; text-align: center; }
+      .header-actions { justify-content: center; }
+      .filters input, .filters select { flex: 1 1 100%; }
+      th, td { padding: 0.5rem; font-size: 0.8rem; }
+    }
+    
+    .truncate { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+    .text-muted { color: #94a3b8; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <h1><i class="fas fa-blog"></i> Gerenciador de Blogs</h1>
+    <div class="header-actions">
+      <span class="admin-badge"><i class="fas fa-shield-alt"></i> Admin</span>
+      <span id="adminEmail" style="font-size: 0.85rem; opacity: 0.8;"><i class="fas fa-user"></i> carregando...</span>
+      <button id="logoutBtn" class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);"><i class="fas fa-sign-out-alt"></i> Sair</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card">
+      <div class="number" id="totalUsers">0</div>
+      <div class="label"><i class="fas fa-users"></i> Usuários com blog</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="totalPosts">0</div>
+      <div class="label"><i class="fas fa-file-alt"></i> Total de posts</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="totalComments">0</div>
+      <div class="label"><i class="fas fa-comments"></i> Comentários</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="totalLikes">0</div>
+      <div class="label"><i class="fas fa-heart"></i> Curtidas</div>
+    </div>
+  </div>
+
+  <!-- Main Card -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-list"></i> Todos os Blogs</div>
+      <button id="refreshBtn" class="btn btn-outline btn-sm"><i class="fas fa-sync-alt"></i> Atualizar</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <input type="text" id="searchInput" placeholder="🔍 Buscar por usuário ou título..." />
+      <select id="sortFilter">
+        <option value="newest">📅 Mais recentes</option>
+        <option value="oldest">📅 Mais antigos</option>
+        <option value="posts">📝 Mais posts</option>
+        <option value="comments">💬 Mais comentários</option>
+      </select>
+      <select id="statusFilter">
+        <option value="all">📊 Todos</option>
+        <option value="active">✅ Ativos</option>
+        <option value="inactive">⛔ Inativos</option>
+      </select>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+      <div id="loadingIndicator" class="loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Carregando blogs...</p>
+      </div>
+      <table id="blogsTable" style="display: none;">
+        <thead>
+          <tr>
+            <th>Usuário</th>
+            <th>UID</th>
+            <th>Posts</th>
+            <th>Comentários</th>
+            <th>Curtidas</th>
+            <th>Último post</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="blogsTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal de Visualização -->
+  <div class="modal-overlay" id="viewModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2><i class="fas fa-eye"></i> Detalhes do Blog</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <div id="modalLoading" class="loading"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+        <div id="modalContent" style="display: none;"></div>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn btn-danger" id="modalDeleteBtn" style="display: none;"><i class="fas fa-trash-alt"></i> Excluir Blog</button>
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+  // ================== CONFIGURAÇÃO ==================
+       const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260",
+            measurementId: "G-PLKNZNFCQ8"
+        };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // ================== ELEMENTOS ==================
+  const adminEmail = document.getElementById('adminEmail');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const blogsTable = document.getElementById('blogsTable');
+  const blogsTableBody = document.getElementById('blogsTableBody');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  const searchInput = document.getElementById('searchInput');
+  const sortFilter = document.getElementById('sortFilter');
+  const statusFilter = document.getElementById('statusFilter');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const viewModal = document.getElementById('viewModal');
+  const modalBody = document.getElementById('modalBody');
+  const modalContent = document.getElementById('modalContent');
+  const modalLoading = document.getElementById('modalLoading');
+  const modalDeleteBtn = document.getElementById('modalDeleteBtn');
+
+  // Stats
+  const totalUsers = document.getElementById('totalUsers');
+  const totalPosts = document.getElementById('totalPosts');
+  const totalComments = document.getElementById('totalComments');
+  const totalLikes = document.getElementById('totalLikes');
+
+  // ================== ESTADO ==================
+  let allBlogs = [];
+  let currentUser = null;
+  let selectedUserId = null;
+
+  // ================== VERIFICAR ADMIN ==================
+  async function checkAdmin() {
+    const user = auth.currentUser;
+    if (!user) {
+      window.location.href = '/';
+      return false;
+    }
+
+    try {
+      const userDoc = await db.collection('users').doc(user.uid).get();
+      const isAdmin = userDoc.exists && userDoc.data().isAdmin === true;
+      const isSpecificAdmin = user.uid === 'sZxfMuOBPbXdR8nttVPXIN8QOOl1';
+
+      if (!isAdmin && !isSpecificAdmin) {
+        alert('Acesso negado. Você não é administrador.');
+        auth.signOut();
+        window.location.href = '/';
+        return false;
+      }
+
+      currentUser = user;
+      adminEmail.textContent = user.email || user.displayName || 'Admin';
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar admin:', error);
+      return false;
+    }
+  }
+
+  // ================== CARREGAR BLOGS ==================
+  async function loadBlogs() {
+    loadingIndicator.style.display = 'block';
+    blogsTable.style.display = 'none';
+    blogsTableBody.innerHTML = '';
+
+    try {
+      // Buscar todos os usuários que têm blogs
+      const blogsSnapshot = await db.collection('blog').listDocuments();
+      const blogUsers = blogsSnapshot.map(doc => doc.id);
+
+      let blogsData = [];
+
+      for (const userId of blogUsers) {
+        const postsSnapshot = await db.collection('blog').doc(userId).collection('posts')
+          .orderBy('createdAt', 'desc')
+          .limit(100)
+          .get();
+
+        const posts = postsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        // Contar comentários e likes
+        let commentCount = 0;
+        let likeCount = 0;
+
+        for (const post of posts) {
+          const commentsSnap = await db.collection('blog').doc(userId)
+            .collection('posts').doc(post.id)
+            .collection('comments').get();
+          commentCount += commentsSnap.size;
+
+          const likesSnap = await db.collection('blog').doc(userId)
+            .collection('posts').doc(post.id)
+            .collection('likes').get();
+          likeCount += likesSnap.size;
+        }
+
+        // Buscar informações do usuário
+        let userName = userId;
+        let userEmail = '';
+        try {
+          const userDoc = await db.collection('users').doc(userId).get();
+          if (userDoc.exists) {
+            userName = userDoc.data().displayName || userDoc.data().name || userId;
+            userEmail = userDoc.data().email || '';
+          }
+        } catch (e) {}
+
+        blogsData.push({
+          userId,
+          userName,
+          userEmail,
+          posts,
+          postCount: posts.length,
+          commentCount,
+          likeCount,
+          lastPost: posts.length > 0 ? posts[0].createdAt : null,
+          lastPostDate: posts.length > 0 && posts[0].createdAt ? 
+            posts[0].createdAt.toDate().toLocaleDateString('pt-BR') : 'Nunca',
+          isActive: posts.length > 0
+        });
+      }
+
+      allBlogs = blogsData;
+      renderBlogs(blogsData);
+      updateStats(blogsData);
+
+    } catch (error) {
+      console.error('Erro ao carregar blogs:', error);
+      blogsTableBody.innerHTML = `
+        <tr><td colspan="7">
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Erro ao carregar blogs: ${error.message}</p>
+          </div>
+        </td></tr>
+      `;
+    } finally {
+      loadingIndicator.style.display = 'none';
+      blogsTable.style.display = 'table';
+    }
+  }
+
+  // ================== RENDER BLOGS ==================
+  function renderBlogs(blogs) {
+    const searchTerm = searchInput.value.toLowerCase();
+    const sortBy = sortFilter.value;
+    const status = statusFilter.value;
+
+    let filtered = blogs.filter(blog => {
+      const matchesSearch = blog.userName.toLowerCase().includes(searchTerm) ||
+                           blog.userId.toLowerCase().includes(searchTerm) ||
+                           blog.posts.some(p => p.title?.toLowerCase().includes(searchTerm));
+      
+      const matchesStatus = status === 'all' || 
+                           (status === 'active' && blog.isActive) ||
+                           (status === 'inactive' && !blog.isActive);
+      
+      return matchesSearch && matchesStatus;
+    });
+
+    // Ordenar
+    filtered.sort((a, b) => {
+      switch(sortBy) {
+        case 'newest':
+          return (b.lastPost?.toMillis() || 0) - (a.lastPost?.toMillis() || 0);
+        case 'oldest':
+          return (a.lastPost?.toMillis() || 0) - (b.lastPost?.toMillis() || 0);
+        case 'posts':
+          return b.postCount - a.postCount;
+        case 'comments':
+          return b.commentCount - a.commentCount;
+        default:
+          return 0;
+      }
+    });
+
+    if (filtered.length === 0) {
+      blogsTableBody.innerHTML = `
+        <tr><td colspan="7">
+          <div class="empty-state">
+            <i class="fas fa-search"></i>
+            <p>Nenhum blog encontrado</p>
+          </div>
+        </td></tr>
+      `;
+      return;
+    }
+
+    blogsTableBody.innerHTML = filtered.map(blog => `
+      <tr>
+        <td>
+          <div class="user-cell">
+            <div class="user-avatar">${blog.userName.charAt(0).toUpperCase()}</div>
+            <div>
+              <div><strong>${escapeHtml(blog.userName)}</strong></div>
+              <div class="text-muted" style="font-size: 0.75rem;">${escapeHtml(blog.userEmail || '')}</div>
+            </div>
+          </div>
+        </td>
+        <td><code style="font-size: 0.7rem; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px;">${blog.userId.substring(0, 12)}...</code></td>
+        <td><span class="badge badge-info">${blog.postCount}</span></td>
+        <td><span class="badge badge-success">${blog.commentCount}</span></td>
+        <td><span class="badge badge-warning">${blog.likeCount}</span></td>
+        <td style="font-size: 0.8rem;">${blog.lastPostDate}</td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-primary btn-sm view-btn" data-userid="${blog.userId}">
+              <i class="fas fa-eye"></i> Ver
+            </button>
+            <button class="btn btn-danger btn-sm delete-blog-btn" data-userid="${blog.userId}">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    // Event listeners
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => viewBlog(btn.dataset.userid));
+    });
+
+    document.querySelectorAll('.delete-blog-btn').forEach(btn => {
+      btn.addEventListener('click', () => deleteBlog(btn.dataset.userid));
+    });
+  }
+
+  // ================== UPDATE STATS ==================
+  function updateStats(blogs) {
+    totalUsers.textContent = blogs.length;
+    totalPosts.textContent = blogs.reduce((sum, b) => sum + b.postCount, 0);
+    totalComments.textContent = blogs.reduce((sum, b) => sum + b.commentCount, 0);
+    totalLikes.textContent = blogs.reduce((sum, b) => sum + b.likeCount, 0);
+  }
+
+  // ================== VIEW BLOG ==================
+  async function viewBlog(userId) {
+    selectedUserId = userId;
+    viewModal.classList.add('active');
+    modalLoading.style.display = 'block';
+    modalContent.style.display = 'none';
+    modalDeleteBtn.style.display = 'none';
+
+    try {
+      const postsSnapshot = await db.collection('blog').doc(userId).collection('posts')
+        .orderBy('createdAt', 'desc')
+        .get();
+
+      const posts = postsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Buscar nome do usuário
+      let userName = userId;
+      try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          userName = userDoc.data().displayName || userDoc.data().name || userId;
+        }
+      } catch (e) {}
+
+      let html = `
+        <h3><i class="fas fa-user"></i> ${escapeHtml(userName)}</h3>
+        <p class="text-muted" style="margin-bottom: 1rem;">UID: <code>${userId}</code> · ${posts.length} posts</p>
+        <hr style="margin: 1rem 0; border-color: #e9edf4;">
+      `;
+
+      if (posts.length === 0) {
+        html += `<p class="text-muted">Nenhum post neste blog.</p>`;
+      } else {
+        posts.forEach((post, index) => {
+          const date = post.createdAt ? post.createdAt.toDate().toLocaleString('pt-BR') : 'Data desconhecida';
+          html += `
+            <div class="post-item">
+              <div class="post-title">${index + 1}. ${escapeHtml(post.title || 'Sem título')}</div>
+              <div class="post-content">${escapeHtml(post.content || '')}</div>
+              <div class="post-meta">
+                <i class="far fa-calendar-alt"></i> ${date}
+                ${post.authorId ? ` · <i class="fas fa-user"></i> ${post.authorId.substring(0, 12)}...` : ''}
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      modalContent.innerHTML = html;
+      modalLoading.style.display = 'none';
+      modalContent.style.display = 'block';
+      modalDeleteBtn.style.display = 'inline-flex';
+      modalDeleteBtn.onclick = () => {
+        if (confirm(`Tem certeza que deseja excluir TODO o blog do usuário ${userName}? Esta ação não pode ser desfeita!`)) {
+          deleteBlog(userId);
+          closeModal();
+        }
+      };
+
+    } catch (error) {
+      modalContent.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Erro: ${error.message}</p></div>`;
+      modalLoading.style.display = 'none';
+      modalContent.style.display = 'block';
+    }
+  }
+
+  // ================== DELETE BLOG ==================
+  async function deleteBlog(userId) {
+    if (!confirm(`Tem certeza que deseja excluir TODO o blog do usuário ${userId}?`)) return;
+
+    try {
+      // Buscar todos os posts
+      const postsSnapshot = await db.collection('blog').doc(userId).collection('posts').get();
+      
+      // Deletar cada post com suas subcoleções
+      for (const postDoc of postsSnapshot.docs) {
+        // Deletar comentários
+        const commentsSnap = await db.collection('blog').doc(userId)
+          .collection('posts').doc(postDoc.id)
+          .collection('comments').get();
+        for (const commentDoc of commentsSnap.docs) {
+          await commentDoc.ref.delete();
+        }
+
+        // Deletar likes
+        const likesSnap = await db.collection('blog').doc(userId)
+          .collection('posts').doc(postDoc.id)
+          .collection('likes').get();
+        for (const likeDoc of likesSnap.docs) {
+          await likeDoc.ref.delete();
+        }
+
+        // Deletar post
+        await postDoc.ref.delete();
+      }
+
+      // Deletar o documento da subcoleção do usuário
+      await db.collection('blog').doc(userId).delete();
+
+      alert('Blog excluído com sucesso!');
+      loadBlogs();
+    } catch (error) {
+      console.error('Erro ao excluir blog:', error);
+      alert('Erro ao excluir blog: ' + error.message);
+    }
+  }
+
+  // ================== ESCAPE HTML ==================
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // ================== MODAL ==================
+  function closeModal() {
+    viewModal.classList.remove('active');
+    selectedUserId = null;
+  }
+
+  // Fechar modal ao clicar fora
+  viewModal.addEventListener('click', (e) => {
+    if (e.target === viewModal) closeModal();
+  });
+
+  // ================== EVENTOS ==================
+  searchInput.addEventListener('input', () => renderBlogs(allBlogs));
+  sortFilter.addEventListener('change', () => renderBlogs(allBlogs));
+  statusFilter.addEventListener('change', () => renderBlogs(allBlogs));
+  refreshBtn.addEventListener('click', loadBlogs);
+
+  logoutBtn.addEventListener('click', () => {
+    auth.signOut().then(() => window.location.href = '/');
+  });
+
+  // ================== INICIALIZAR ==================
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      const isAdmin = await checkAdmin();
+      if (isAdmin) {
+        loadBlogs();
+      }
+    } else {
+      window.location.href = '/';
+    }
+  });
+
+  // ================== ATALHOS TECLADO ==================
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+      e.preventDefault();
+      loadBlogs();
+    }
+  });
+
+  console.log('🛠️ Gerenciador de Blogs carregado!');
+  console.log('📋 Use Ctrl+R para atualizar');
+</script>
+</body>
+</html>
