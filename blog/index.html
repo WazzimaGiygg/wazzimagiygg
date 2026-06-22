@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blog · Firebase com Regras</title>
+  <title>Blog · Editor HTML & Comentários</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body { background: #f4f7fc; display: flex; justify-content: center; padding: 2rem 1rem; }
-    .app { max-width: 1000px; width: 100%; }
+    .app { max-width: 1200px; width: 100%; }
     .card { background: white; border-radius: 24px; padding: 1.8rem; box-shadow: 0 12px 30px rgba(0,0,0,0.08); margin-bottom: 2rem; }
     .flex-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
     .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
@@ -22,38 +22,77 @@
     .btn-danger:hover { background: #c62828; }
     .btn-success { background: #34a853; color: white; }
     .btn-success:hover { background: #2d9249; }
-    .user-badge { background: #e8f0fe; color: #1a73e8; padding: 0.5rem 1.2rem; border-radius: 60px; font-weight: 500; }
-    .input-area { display: flex; flex-wrap: wrap; gap: 12px; margin: 1.5rem 0 0.5rem; }
-    .input-area input, .input-area textarea { flex: 1 1 200px; padding: 0.8rem 1.2rem; border: 1px solid #d0d7e2; border-radius: 60px; font-size: 0.95rem; outline: none; transition: 0.2s; }
-    .input-area input:focus, .input-area textarea:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.15); }
-    .input-area textarea { border-radius: 20px; min-height: 70px; resize: vertical; flex-basis: 100%; }
-    .post-list { margin-top: 1.8rem; display: flex; flex-direction: column; gap: 1.2rem; }
-    .post-item { background: #fafcff; border-radius: 20px; padding: 1.5rem; border: 1px solid #e9edf4; transition: 0.15s; }
-    .post-item:hover { border-color: #cbd5e1; }
-    .post-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
-    .post-title { font-size: 1.3rem; font-weight: 600; color: #0b1a33; }
-    .post-meta { color: #5f6b7a; font-size: 0.85rem; display: flex; gap: 12px; align-items: center; }
-    .post-content { margin: 0.8rem 0 0.2rem; color: #1e293b; line-height: 1.5; white-space: pre-wrap; }
-    .post-actions { display: flex; gap: 10px; margin-top: 1rem; flex-wrap: wrap; }
-    .empty-state { text-align: center; padding: 3rem 1rem; color: #5f6b7a; }
-    .empty-state i { font-size: 3rem; opacity: 0.4; margin-bottom: 1rem; }
+    .btn-warning { background: #fbbc04; color: #1a1a2e; }
+    .btn-warning:hover { background: #e5a800; }
+    .btn-sm { padding: 0.3rem 1rem; font-size: 0.8rem; }
+    .hidden { display: none !important; }
+    .tag { background: #eef2f6; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.7rem; color: #2c3e50; }
+    .badge { background: #eef2f6; padding: 0.2rem 1rem; border-radius: 30px; font-size: 0.85rem; }
+    .text-muted { color: #5f6b7a; font-size: 0.85rem; }
+
+    /* Profile */
     .profile-info { background: #f0f4fe; border-radius: 60px; padding: 0.4rem 1.2rem 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 10px; }
     .profile-info img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
     .uid-badge { font-family: monospace; background: #eef2f6; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.75rem; color: #2c3e50; cursor: pointer; }
     .uid-badge:hover { background: #dce3ed; }
-    .hidden { display: none !important; }
-    .tag { background: #eef2f6; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.7rem; color: #2c3e50; }
-    .badge { background: #eef2f6; padding: 0.2rem 1rem; border-radius: 30px; font-size: 0.85rem; }
+
+    /* Editor */
+    .editor-container { display: flex; flex-direction: column; gap: 12px; margin: 1rem 0; }
+    .editor-toolbar { display: flex; flex-wrap: wrap; gap: 8px; background: #f8fafc; padding: 0.8rem; border-radius: 12px; border: 1px solid #e9edf4; }
+    .editor-toolbar .btn { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+    .editor-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 768px) { .editor-split { grid-template-columns: 1fr; } }
+    .editor-textarea { width: 100%; min-height: 300px; padding: 1rem; border: 1px solid #d0d7e2; border-radius: 12px; font-family: 'Courier New', monospace; font-size: 0.9rem; resize: vertical; outline: none; transition: 0.2s; }
+    .editor-textarea:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.15); }
+    .editor-preview { border: 1px solid #d0d7e2; border-radius: 12px; overflow: hidden; background: white; }
+    .editor-preview iframe { width: 100%; min-height: 300px; border: none; background: white; }
+    .editor-preview-label { background: #f8fafc; padding: 0.5rem 1rem; border-bottom: 1px solid #e9edf4; font-size: 0.8rem; color: #5f6b7a; display: flex; justify-content: space-between; }
+    .editor-input { flex: 1 1 100%; }
+    .editor-input input { width: 100%; padding: 0.8rem 1.2rem; border: 1px solid #d0d7e2; border-radius: 12px; font-size: 0.95rem; outline: none; transition: 0.2s; }
+    .editor-input input:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.15); }
+
+    /* Posts */
+    .post-list { margin-top: 1.8rem; display: flex; flex-direction: column; gap: 1.5rem; }
+    .post-item { background: #fafcff; border-radius: 20px; padding: 1.5rem; border: 1px solid #e9edf4; transition: 0.15s; }
+    .post-item:hover { border-color: #cbd5e1; }
+    .post-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+    .post-title { font-size: 1.3rem; font-weight: 600; color: #0b1a33; }
+    .post-meta { color: #5f6b7a; font-size: 0.85rem; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .post-content { margin: 0.8rem 0; }
+    .post-content iframe { width: 100%; min-height: 200px; border: 1px solid #e9edf4; border-radius: 12px; background: white; }
+    .post-actions { display: flex; gap: 10px; margin-top: 1rem; flex-wrap: wrap; }
+    .post-footer { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e9edf4; }
+
+    /* Comments */
+    .comments-section { margin-top: 1rem; }
+    .comment-item { background: #f8fafc; padding: 0.8rem 1rem; border-radius: 12px; margin-bottom: 0.5rem; }
+    .comment-item .comment-author { font-weight: 600; font-size: 0.9rem; }
+    .comment-item .comment-text { color: #1e293b; margin-top: 2px; white-space: pre-wrap; }
+    .comment-item .comment-meta { font-size: 0.7rem; color: #94a3b8; }
+    .comment-form { display: flex; gap: 8px; margin-top: 0.8rem; flex-wrap: wrap; }
+    .comment-form input { flex: 1 1 200px; padding: 0.5rem 1rem; border: 1px solid #d0d7e2; border-radius: 60px; font-size: 0.9rem; outline: none; }
+    .comment-form input:focus { border-color: #1a73e8; }
+
+    /* Empty State */
+    .empty-state { text-align: center; padding: 3rem 1rem; color: #5f6b7a; }
+    .empty-state i { font-size: 3rem; opacity: 0.4; margin-bottom: 1rem; display: block; }
+
+    /* Settings */
+    .settings-row { display: flex; align-items: center; gap: 12px; margin: 0.5rem 0; }
+    .settings-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .settings-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+
     .rules-info { background: #f0f7ff; border-left: 4px solid #1a73e8; padding: 1rem; border-radius: 12px; margin-top: 1rem; font-size: 0.9rem; }
     .rules-info code { background: #e8f0fe; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.85rem; }
     .disabled { opacity: 0.5; pointer-events: none; }
+
     @media (max-width: 600px) { .flex-between { flex-direction: column; align-items: stretch; } }
   </style>
 </head>
 <body>
 <div class="app" id="app">
 
-  <!-- Cabeçalho / Autenticação -->
+  <!-- Cabeçalho -->
   <div class="card">
     <div class="flex-between">
       <div>
@@ -73,10 +112,6 @@
       <span class="uid-badge" id="userUidDisplay" title="Clique para copiar link"><i class="fas fa-copy"></i> uid: carregando...</span>
       <span class="tag"><i class="far fa-clock"></i> blog/{uid}/posts</span>
     </div>
-    <div class="rules-info">
-      <i class="fas fa-shield-alt" style="color: #1a73e8;"></i>
-      <strong>Regras Firebase:</strong> Leitura pública (<code>canReadPublic()</code>), escrita apenas do dono (<code>isOwner()</code>), admin tem permissões especiais.
-    </div>
   </div>
 
   <!-- Painel de posts -->
@@ -86,11 +121,46 @@
       <span id="postCount" class="badge">0</span>
     </div>
 
-    <!-- Formulário -->
-    <div class="input-area" id="postForm">
-      <input type="text" id="postTitleInput" placeholder="Título do post" maxlength="100" />
-      <textarea id="postContentInput" placeholder="Conteúdo do post..." maxlength="5000"></textarea>
-      <button id="publishBtn" class="btn btn-success"><i class="fas fa-plus-circle"></i> Publicar</button>
+    <!-- Editor -->
+    <div class="editor-container" id="postForm">
+      <div class="editor-input">
+        <input type="text" id="postTitleInput" placeholder="Título do post" maxlength="100" />
+      </div>
+      <div class="editor-toolbar">
+        <button class="btn btn-outline btn-sm" onclick="formatText('h1')"><i class="fas fa-heading"></i> H1</button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('h2')"><i class="fas fa-heading"></i> H2</button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('h3')"><i class="fas fa-heading"></i> H3</button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('bold')"><i class="fas fa-bold"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('italic')"><i class="fas fa-italic"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('underline')"><i class="fas fa-underline"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('ul')"><i class="fas fa-list-ul"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('ol')"><i class="fas fa-list-ol"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('link')"><i class="fas fa-link"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="formatText('image')"><i class="fas fa-image"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="insertCodeBlock()"><i class="fas fa-code"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="toggleMode()"><i class="fas fa-exchange-alt"></i> <span id="modeLabel">HTML</span></button>
+      </div>
+      <div class="editor-split">
+        <textarea id="postContentInput" class="editor-textarea" placeholder="Escreva seu post em HTML ou texto..." style="min-height: 300px;"></textarea>
+        <div class="editor-preview">
+          <div class="editor-preview-label">
+            <span><i class="fas fa-eye"></i> Pré-visualização</span>
+            <span style="font-size:0.7rem;"><i class="fas fa-sync-alt"></i> Atualiza automaticamente</span>
+          </div>
+          <iframe id="previewFrame" srcdoc="<html><body style='padding:1rem;font-family:Inter;'><p style='color:#94a3b8;'>Escreva HTML no editor ao lado para ver a prévia aqui...</p></body></html>"></iframe>
+        </div>
+      </div>
+      <div class="settings-row">
+        <label>
+          <input type="checkbox" id="allowComments" checked />
+          <i class="fas fa-comments"></i> Permitir comentários
+        </label>
+        <label>
+          <input type="checkbox" id="allowLikes" checked />
+          <i class="fas fa-heart"></i> Permitir curtidas
+        </label>
+      </div>
+      <button id="publishBtn" class="btn btn-success" style="align-self: flex-start;"><i class="fas fa-plus-circle"></i> Publicar Post</button>
     </div>
 
     <!-- Lista de posts -->
@@ -102,14 +172,13 @@
     </div>
   </div>
 
-  <!-- Rodapé / Info URL -->
+  <!-- Rodapé -->
   <div class="card" style="background: #f8faff;">
     <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between;">
       <div>
         <i class="fas fa-link" style="color: #1a73e8;"></i>
         <span style="font-weight: 500;">URL com uid</span>
         <code style="background: #eef2f6; padding: 0.2rem 0.8rem; border-radius: 30px; margin-left: 8px;">?uid=UID</code>
-        <span style="color: #5f6b7a; font-size: 0.9rem; margin-left: 8px;">&amp;info = detalhes</span>
       </div>
       <div id="urlInfo" style="font-size: 0.85rem; color: #1e293b;">
         <i class="fas fa-info-circle"></i>
@@ -119,29 +188,28 @@
   </div>
 </div>
 
-<!-- Firebase SDKs -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-  // ================== CONFIGURAÇÃO FIREBASE ==================
-  // Substitua pelos dados do seu projeto Firebase
-       const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
+  // ================== CONFIGURAÇÃO ==================
+  const firebaseConfig = {
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+    authDomain: "wzzm-ce3fc.firebaseapp.com",
+    projectId: "wzzm-ce3fc",
+    storageBucket: "wzzm-ce3fc.appspot.com",
+    messagingSenderId: "249427877153",
+    appId: "1:249427877153:web:0e4297294794a5aadeb260",
+    measurementId: "G-PLKNZNFCQ8"
+  };
 
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  // ================== ELEMENTOS DOM ==================
+  // ================== ELEMENTOS ==================
   const loginBtn = document.getElementById('loginBtn');
   const logoutBtn = document.getElementById('logoutBtn');
   const userInfo = document.getElementById('userInfo');
@@ -152,23 +220,27 @@
   const postsContainer = document.getElementById('postsContainer');
   const postTitleInput = document.getElementById('postTitleInput');
   const postContentInput = document.getElementById('postContentInput');
+  const previewFrame = document.getElementById('previewFrame');
   const publishBtn = document.getElementById('publishBtn');
   const postCount = document.getElementById('postCount');
   const urlStatus = document.getElementById('urlStatus');
+  const allowComments = document.getElementById('allowComments');
+  const allowLikes = document.getElementById('allowLikes');
+  const modeLabel = document.getElementById('modeLabel');
 
   // ================== ESTADO ==================
   let currentUser = null;
   let currentUid = null;
   let urlUid = null;
-  let urlInfo = false;
+  let isHtmlMode = true;
+  let previewTimeout = null;
 
-  // ================== UTIL: parâmetros URL ==================
+  // ================== UTIL ==================
   function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
     return { uid: params.get('uid'), info: params.has('info') };
   }
 
-  // ================== ESCAPE HTML ==================
   function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -176,7 +248,106 @@
     return div.innerHTML;
   }
 
-  // ================== RENDER: posts ==================
+  // ================== EDITOR ==================
+  function toggleMode() {
+    isHtmlMode = !isHtmlMode;
+    modeLabel.textContent = isHtmlMode ? 'HTML' : 'Texto';
+    if (isHtmlMode) {
+      postContentInput.placeholder = 'Escreva seu post em HTML...';
+    } else {
+      postContentInput.placeholder = 'Escreva seu post em texto simples...';
+    }
+  }
+
+  function formatText(type) {
+    const textarea = postContentInput;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = textarea.value.substring(start, end);
+    let formatted = '';
+
+    switch(type) {
+      case 'h1': formatted = `<h1>${selected || 'Título'}</h1>`; break;
+      case 'h2': formatted = `<h2>${selected || 'Subtítulo'}</h2>`; break;
+      case 'h3': formatted = `<h3>${selected || 'Subsubtítulo'}</h3>`; break;
+      case 'bold': formatted = `<strong>${selected || 'texto em negrito'}</strong>`; break;
+      case 'italic': formatted = `<em>${selected || 'texto em itálico'}</em>`; break;
+      case 'underline': formatted = `<u>${selected || 'texto sublinhado'}</u>`; break;
+      case 'ul': formatted = `<ul><li>${selected || 'item'}</li></ul>`; break;
+      case 'ol': formatted = `<ol><li>${selected || 'item'}</li></ol>`; break;
+      case 'link': {
+        const url = prompt('URL do link:', 'https://');
+        if (url) formatted = `<a href="${url}" target="_blank">${selected || 'link'}</a>`;
+        break;
+      }
+      case 'image': {
+        const url = prompt('URL da imagem:', 'https://');
+        if (url) formatted = `<img src="${url}" alt="imagem" style="max-width:100%;">`;
+        break;
+      }
+    }
+
+    if (formatted) {
+      textarea.value = textarea.value.substring(0, start) + formatted + textarea.value.substring(end);
+      updatePreview();
+    }
+  }
+
+  function insertCodeBlock() {
+    const textarea = postContentInput;
+    const start = textarea.selectionStart;
+    const code = prompt('Digite o código:', '// seu código aqui');
+    if (code !== null) {
+      const block = `<pre><code>${escapeHtml(code)}</code></pre>`;
+      textarea.value = textarea.value.substring(0, start) + block + textarea.value.substring(start);
+      updatePreview();
+    }
+  }
+
+  function updatePreview() {
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(() => {
+      let content = postContentInput.value;
+      if (!isHtmlMode) {
+        // Converter texto para HTML com quebras de linha
+        content = content.replace(/\n/g, '<br>');
+      }
+      previewFrame.srcdoc = `
+        <html>
+          <head>
+            <style>
+              body { padding: 1.5rem; font-family: 'Inter', sans-serif; line-height: 1.6; color: #1e293b; max-width: 100%; overflow-x: auto; }
+              h1, h2, h3 { margin: 1rem 0 0.5rem; }
+              h1 { font-size: 2rem; }
+              h2 { font-size: 1.5rem; }
+              h3 { font-size: 1.2rem; }
+              pre { background: #f1f5f9; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+              code { font-family: 'Courier New', monospace; }
+              img { max-width: 100%; height: auto; border-radius: 8px; }
+              a { color: #1a73e8; }
+              ul, ol { padding-left: 1.5rem; }
+              blockquote { border-left: 4px solid #1a73e8; padding-left: 1rem; margin: 1rem 0; color: #475569; }
+            </style>
+          </head>
+          <body>${content || '<p style="color:#94a3b8;">Nenhum conteúdo para pré-visualizar.</p>'}</body>
+        </html>
+      `;
+    }, 300);
+  }
+
+  // Atualiza prévia ao digitar
+  postContentInput.addEventListener('input', updatePreview);
+  postContentInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = postContentInput.selectionStart;
+      postContentInput.value = postContentInput.value.substring(0, start) + '  ' + postContentInput.value.substring(start);
+      postContentInput.selectionStart = postContentInput.selectionEnd = start + 2;
+      updatePreview();
+    }
+  });
+
+  // ================== RENDER POSTS ==================
   function renderPosts(uid) {
     if (!uid) {
       postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><p>Nenhum usuário selecionado</p></div>`;
@@ -184,10 +355,9 @@
       return;
     }
 
-    // Referência: blog/{uid}/posts (conforme regras)
     const postsRef = db.collection('blog').doc(uid).collection('posts');
     postsRef.orderBy('createdAt', 'desc').get()
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         if (snapshot.empty) {
           postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-feather-alt"></i><p>Sem posts nesta subcoleção</p></div>`;
           postCount.textContent = '0';
@@ -195,72 +365,198 @@
         }
 
         let html = '';
-        snapshot.forEach((doc) => {
+        for (const doc of snapshot.docs) {
           const data = doc.data();
           const title = data.title || 'Sem título';
           const content = data.content || '';
           const date = data.createdAt ? data.createdAt.toDate().toLocaleString('pt-BR') : 'data desconhecida';
           const docId = doc.id;
-
-          // Verifica se o usuário atual é o dono (para mostrar botões de ação)
           const isOwner = currentUser && uid === currentUser.uid;
+          const commentsEnabled = data.allowComments !== false;
+          const likesEnabled = data.allowLikes !== false;
+
+          // Contar comentários e likes
+          let commentCount = 0;
+          let likeCount = 0;
+          try {
+            const commentsSnap = await db.collection('blog').doc(uid)
+              .collection('posts').doc(docId)
+              .collection('comments').get();
+            commentCount = commentsSnap.size;
+
+            const likesSnap = await db.collection('blog').doc(uid)
+              .collection('posts').doc(docId)
+              .collection('likes').get();
+            likeCount = likesSnap.size;
+          } catch (e) {}
+
           const actionsHtml = isOwner ? `
             <button class="btn btn-outline btn-sm edit-post-btn" data-id="${docId}"><i class="fas fa-edit"></i> Editar</button>
             <button class="btn btn-danger btn-sm delete-post-btn" data-id="${docId}"><i class="fas fa-trash-alt"></i> Excluir</button>
-          ` : `<span class="tag"><i class="fas fa-lock"></i> Somente leitura</span>`;
+          ` : '';
 
           html += `
             <div class="post-item" data-id="${docId}">
               <div class="post-header">
                 <span class="post-title">${escapeHtml(title)}</span>
-                <span class="post-meta"><i class="far fa-calendar-alt"></i> ${date}</span>
+                <span class="post-meta">
+                  <i class="far fa-calendar-alt"></i> ${date}
+                  ${commentsEnabled ? `<span class="tag"><i class="fas fa-comments"></i> ${commentCount}</span>` : ''}
+                  ${likesEnabled ? `<span class="tag"><i class="fas fa-heart"></i> ${likeCount}</span>` : ''}
+                </span>
               </div>
-              <div class="post-content">${escapeHtml(content)}</div>
+              <div class="post-content">
+                <iframe srcdoc="${escapeHtml(`
+                  <html>
+                    <head>
+                      <style>
+                        body { padding: 1rem; font-family: 'Inter', sans-serif; line-height: 1.6; color: #1e293b; max-width: 100%; overflow-x: auto; }
+                        h1, h2, h3 { margin: 1rem 0 0.5rem; }
+                        h1 { font-size: 1.8rem; }
+                        h2 { font-size: 1.4rem; }
+                        h3 { font-size: 1.1rem; }
+                        pre { background: #f1f5f9; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+                        code { font-family: 'Courier New', monospace; }
+                        img { max-width: 100%; height: auto; border-radius: 8px; }
+                        a { color: #1a73e8; }
+                        ul, ol { padding-left: 1.5rem; }
+                        blockquote { border-left: 4px solid #1a73e8; padding-left: 1rem; margin: 1rem 0; color: #475569; }
+                      </style>
+                    </head>
+                    <body>${content || '<p style="color:#94a3b8;">Sem conteúdo.</p>'}</body>
+                  </html>
+                `)}"></iframe>
+              </div>
               <div class="post-actions">${actionsHtml}</div>
+              ${commentsEnabled ? renderComments(uid, docId, isOwner) : ''}
             </div>
           `;
-        });
+        }
 
         postsContainer.innerHTML = html;
         postCount.textContent = snapshot.size;
 
-        // Event listeners para editar/excluir (apenas se for dono)
+        // Event listeners
         if (currentUser && uid === currentUser.uid) {
           document.querySelectorAll('.delete-post-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              const id = btn.dataset.id;
-              if (confirm('Excluir esta postagem?')) deletePost(uid, id);
+            btn.addEventListener('click', () => {
+              if (confirm('Excluir esta postagem?')) deletePost(uid, btn.dataset.id);
             });
           });
 
           document.querySelectorAll('.edit-post-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              const id = btn.dataset.id;
+            btn.addEventListener('click', () => {
               const postDiv = btn.closest('.post-item');
-              const titleSpan = postDiv.querySelector('.post-title');
-              const contentDiv = postDiv.querySelector('.post-content');
-              postTitleInput.value = titleSpan.textContent;
-              postContentInput.value = contentDiv.textContent;
+              const title = postDiv.querySelector('.post-title').textContent;
+              const iframe = postDiv.querySelector('.post-content iframe');
+              // Extrair conteúdo do iframe
+              const content = iframe.srcdoc.replace(/^.*<body>|<\/body>.*$/g, '');
+              postTitleInput.value = title;
+              postContentInput.value = content;
+              updatePreview();
               if (confirm('Editar: o post atual será removido e um novo será criado.')) {
-                deletePost(uid, id).then(() => publishPost(uid));
+                deletePost(uid, btn.dataset.id).then(() => publishPost(uid));
               }
             });
           });
         }
+
+        // Event listeners para comentários
+        document.querySelectorAll('.comment-form').forEach(form => {
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = form.querySelector('input');
+            const postId = form.dataset.postId;
+            const userId = form.dataset.userId;
+            if (input.value.trim()) {
+              addComment(userId, postId, input.value.trim());
+              input.value = '';
+            }
+          });
+        });
+
+        // Event listeners para likes
+        document.querySelectorAll('.like-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const postId = btn.dataset.postId;
+            const userId = btn.dataset.userId;
+            toggleLike(userId, postId);
+          });
+        });
       })
       .catch(err => {
         console.error('Erro ao carregar posts:', err);
-        postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Erro ao carregar posts: ${err.message}</p></div>`;
+        postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Erro: ${err.message}</p></div>`;
       });
   }
 
-  // ================== CRUD: posts ==================
+  // ================== RENDER COMENTÁRIOS ==================
+  function renderComments(uid, postId, isOwner) {
+    return `
+      <div class="comments-section" data-postid="${postId}">
+        <div id="comments-${postId}">
+          <div class="comment-form" data-postid="${postId}" data-userid="${uid}">
+            <input type="text" placeholder="Escreva um comentário..." ${!currentUser ? 'disabled' : ''} />
+            <button class="btn btn-primary btn-sm" ${!currentUser ? 'disabled' : ''}><i class="fas fa-paper-plane"></i> Comentar</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ================== ADICIONAR COMENTÁRIO ==================
+  async function addComment(uid, postId, text) {
+    if (!currentUser) { alert('Faça login para comentar.'); return; }
+    try {
+      await db.collection('blog').doc(uid)
+        .collection('posts').doc(postId)
+        .collection('comments').add({
+          authorId: currentUser.uid,
+          authorName: currentUser.displayName || 'Anônimo',
+          content: text,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      renderPosts(uid);
+    } catch (error) {
+      alert('Erro ao comentar: ' + error.message);
+    }
+  }
+
+  // ================== CURTIR ==================
+  async function toggleLike(uid, postId) {
+    if (!currentUser) { alert('Faça login para curtir.'); return; }
+    const likeRef = db.collection('blog').doc(uid)
+      .collection('posts').doc(postId)
+      .collection('likes').doc(currentUser.uid);
+
+    try {
+      const doc = await likeRef.get();
+      if (doc.exists) {
+        await likeRef.delete();
+      } else {
+        await likeRef.set({
+          userId: currentUser.uid,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      renderPosts(uid);
+    } catch (error) {
+      alert('Erro ao curtir: ' + error.message);
+    }
+  }
+
+  // ================== CRUD POSTS ==================
   function publishPost(uid) {
     const title = postTitleInput.value.trim();
-    const content = postContentInput.value.trim();
+    let content = postContentInput.value.trim();
     if (!title || !content) {
       alert('Preencha título e conteúdo.');
       return Promise.reject('Campos vazios');
+    }
+
+    // Se não estiver em modo HTML, converter texto para HTML
+    if (!isHtmlMode) {
+      content = content.replace(/\n/g, '<br>');
     }
 
     const postsRef = db.collection('blog').doc(uid).collection('posts');
@@ -268,11 +564,14 @@
       title: title,
       content: content,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      authorId: uid
+      authorId: uid,
+      allowComments: allowComments.checked,
+      allowLikes: allowLikes.checked
     })
     .then(() => {
       postTitleInput.value = '';
       postContentInput.value = '';
+      updatePreview();
       renderPosts(uid);
     })
     .catch(err => {
@@ -303,24 +602,19 @@
       blogPanel.classList.remove('hidden');
       loginBtn.classList.add('hidden');
       logoutBtn.classList.remove('hidden');
-      publishBtn.disabled = false;
-      publishBtn.style.opacity = '1';
 
-      // Verifica se está visualizando outro usuário
       if (urlUid && urlUid !== user.uid) {
         renderPosts(urlUid);
+        document.getElementById('postForm').classList.add('disabled');
         publishBtn.disabled = true;
         publishBtn.style.opacity = '0.5';
-        publishBtn.title = 'Visualizando subcoleção de outro usuário';
         urlStatus.innerHTML = `<i class="fas fa-eye"></i> Visualizando <strong>${urlUid}</strong> (leitura)`;
-        document.getElementById('postForm').classList.add('disabled');
       } else {
         renderPosts(user.uid);
+        document.getElementById('postForm').classList.remove('disabled');
         publishBtn.disabled = false;
         publishBtn.style.opacity = '1';
-        publishBtn.title = '';
         urlStatus.innerHTML = `<i class="fas fa-check-circle" style="color: #1a73e8;"></i> Sua subcoleção: blog/${user.uid}`;
-        document.getElementById('postForm').classList.remove('disabled');
       }
     } else {
       currentUser = null;
@@ -328,9 +622,9 @@
       userInfo.classList.add('hidden');
       loginBtn.classList.remove('hidden');
       logoutBtn.classList.add('hidden');
+      document.getElementById('postForm').classList.add('disabled');
       publishBtn.disabled = true;
       publishBtn.style.opacity = '0.5';
-      document.getElementById('postForm').classList.add('disabled');
 
       if (urlUid) {
         blogPanel.classList.remove('hidden');
@@ -348,7 +642,6 @@
   auth.onAuthStateChanged(user => {
     const params = getUrlParams();
     urlUid = params.uid;
-    urlInfo = params.info;
     updateUIForUser(user);
   });
 
@@ -375,10 +668,7 @@
       const url = window.location.origin + window.location.pathname + `?uid=${uid}&info=true`;
       navigator.clipboard?.writeText(url).then(() => {
         alert('Link copiado: ' + url);
-      }).catch(() => {
-        // Fallback
-        prompt('Copie o link:', url);
-      });
+      }).catch(() => prompt('Copie o link:', url));
     }
   });
 
@@ -386,15 +676,15 @@
   window.addEventListener('load', () => {
     const params = getUrlParams();
     urlUid = params.uid;
-    urlInfo = params.info;
     if (!auth.currentUser && urlUid) {
       renderPosts(urlUid);
       blogPanel.classList.remove('hidden');
+      document.getElementById('postForm').classList.add('disabled');
       publishBtn.disabled = true;
       publishBtn.style.opacity = '0.5';
-      document.getElementById('postForm').classList.add('disabled');
       urlStatus.innerHTML = `<i class="fas fa-info-circle"></i> Visualizando <strong>${urlUid}</strong> (público)`;
     }
+    updatePreview();
   });
 </script>
 </body>
