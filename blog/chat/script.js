@@ -117,36 +117,44 @@ async function loadUsers() {
 async function createChat(userId) {
     if (!state.currentUser) return;
     
-    // Verificar se já existe um chat
-    const chatsRef = collection(db, 'chatweb', state.currentUser.uid, 'chats');
-    const q = query(chatsRef, where('participants', 'array-contains', userId));
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].id;
+    try {
+        // 1. VERIFICAR SE JÁ EXISTE UM CHAT
+        const chatsRef = collection(db, 'chatweb', state.currentUser.uid, 'chats');
+        const q = query(chatsRef, where('participants', 'array-contains', userId));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+            return querySnapshot.docs[0].id;
+        }
+        
+        // 2. CRIAR NOVO CHAT PARA O USUÁRIO ATUAL
+        const chatData = {
+            participants: [state.currentUser.uid, userId],
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            lastMessage: '',
+            lastMessageTime: serverTimestamp()
+        };
+        
+        const docRef = await addDoc(chatsRef, chatData);
+        const chatId = docRef.id;
+        
+        // 3. CRIAR O MESMO CHAT PARA O OUTRO USUÁRIO
+        const otherUserChatRef = collection(db, 'chatweb', userId, 'chats');
+        await setDoc(doc(otherUserChatRef, chatId), {
+            participants: [userId, state.currentUser.uid],
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            lastMessage: '',
+            lastMessageTime: serverTimestamp()
+        });
+        
+        return chatId;
+        
+    } catch (error) {
+        console.error('Erro ao criar chat:', error);
+        throw error;
     }
-    
-    // Criar novo chat
-    const chatData = {
-        participants: [state.currentUser.uid, userId],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastMessage: '',
-        lastMessageTime: serverTimestamp()
-    };
-    
-    // Adicionar para o usuário atual
-    const docRef = await addDoc(chatsRef, chatData);
-    const chatId = docRef.id;
-    
-    // Adicionar para o outro usuário
-    const otherUserChatRef = collection(db, 'chatweb', userId, 'chats');
-    await addDoc(otherUserChatRef, {
-        ...chatData,
-        participants: [userId, state.currentUser.uid]
-    });
-    
-    return chatId;
 }
 
 async function loadChat(chatId) {
@@ -242,10 +250,26 @@ async function sendMessage() {
     const text = DOM.messageInput.value.trim();
     DOM.messageInput.value = '';
     
-    const messagesRef = collection(db, 'chatweb', state.currentUser.uid, 'chats', state.currentChatId, 'messages');
-    
     try {
-        // Adicionar mensagem para o usuário atual
+        // 1. BUSCAR INFORMAÇÕES DO CHAT ATUAL
+        const chatRef = doc(db, 'chatweb', state.currentUser.uid, 'chats', state.currentChatId);
+        const chatDoc = await getDoc(chatRef);
+        
+        if (!chatDoc.exists()) {
+            console.error('Chat não encontrado para o usuário atual');
+            return;
+        }
+        
+        const chatData = chatDoc.data();
+        const otherUserId = chatData.participants.find(id => id !== state.currentUser.uid);
+        
+        if (!otherUserId) {
+            console.error('Outro usuário não encontrado no chat');
+            return;
+        }
+        
+        // 2. ADICIONAR MENSAGEM PARA O USUÁRIO ATUAL
+        const messagesRef = collection(db, 'chatweb', state.currentUser.uid, 'chats', state.currentChatId, 'messages');
         await addDoc(messagesRef, {
             text: text,
             senderId: state.currentUser.uid,
@@ -253,41 +277,51 @@ async function sendMessage() {
             read: false
         });
         
-        // Adicionar mensagem para o outro usuário
-        const chatRef = doc(db, 'chatweb', state.currentUser.uid, 'chats', state.currentChatId);
-        const chatDoc = await getDoc(chatRef);
-        const chatData = chatDoc.data();
-        const otherUserId = chatData.participants.find(id => id !== state.currentUser.uid);
+        // 3. ADICIONAR MENSAGEM PARA O OUTRO USUÁRIO
+        const otherMessagesRef = collection(db, 'chatweb', otherUserId, 'chats', state.currentChatId, 'messages');
+        await addDoc(otherMessagesRef, {
+            text: text,
+            senderId: state.currentUser.uid,
+            timestamp: serverTimestamp(),
+            read: false
+        });
         
-        if (otherUserId) {
-            const otherMessagesRef = collection(db, 'chatweb', otherUserId, 'chats', state.currentChatId, 'messages');
-            await addDoc(otherMessagesRef, {
-                text: text,
-                senderId: state.currentUser.uid,
-                timestamp: serverTimestamp(),
-                read: false
-            });
-        }
-        
-        // Atualizar última mensagem
+        // 4. ATUALIZAR ÚLTIMA MENSAGEM DO CHAT DO USUÁRIO ATUAL
         await updateDoc(chatRef, {
             lastMessage: text,
             lastMessageTime: serverTimestamp()
         });
         
-        // Atualizar para o outro usuário
-        if (otherUserId) {
-            const otherChatRef = doc(db, 'chatweb', otherUserId, 'chats', state.currentChatId);
+        // 5. ATUALIZAR ÚLTIMA MENSAGEM DO CHAT DO OUTRO USUÁRIO
+        const otherChatRef = doc(db, 'chatweb', otherUserId, 'chats', state.currentChatId);
+        const otherChatDoc = await getDoc(otherChatRef);
+        
+        if (otherChatDoc.exists()) {
             await updateDoc(otherChatRef, {
+                lastMessage: text,
+                lastMessageTime: serverTimestamp()
+            });
+        } else {
+            // Se o chat não existe para o outro usuário, criá-lo
+            await setDoc(otherChatRef, {
+                participants: [otherUserId, state.currentUser.uid],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
                 lastMessage: text,
                 lastMessageTime: serverTimestamp()
             });
         }
         
         scrollToBottom();
+        
     } catch (error) {
         console.error('Erro ao enviar mensagem:', error);
-        alert('Erro ao enviar mensagem. Tente novamente.');
+        // Mostrar erro mais amigável
+        if (error.code === 'permission-denied') {
+            alert('Erro de permissão. Verifique as regras do Firestore.');
+        } else {
+            alert('Erro ao enviar mensagem. Tente novamente.');
+        }
     }
 }
 
