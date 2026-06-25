@@ -26,6 +26,205 @@ let unreadCount = 0;
 let notificationListener = null;
 
 // ============================================
+// COOKIE CONSENT MANAGER
+// ============================================
+const CookieManager = {
+    STORAGE_KEY: 'wzzm_cookie_consent',
+    
+    defaults: {
+        essential: true,
+        analytics: true,
+        advertising: true
+    },
+    
+    init() {
+        const consent = this.getConsent();
+        if (!consent) {
+            this.showBanner();
+        } else {
+            this.applyConsent(consent);
+            this.hideBanner();
+        }
+        
+        // Setup event listeners
+        this.setupEventListeners();
+    },
+    
+    setupEventListeners() {
+        document.getElementById('cookieAcceptAll')?.addEventListener('click', () => {
+            this.acceptAll();
+        });
+        
+        document.getElementById('cookieRejectAll')?.addEventListener('click', () => {
+            this.rejectAll();
+        });
+        
+        document.getElementById('cookieCustomize')?.addEventListener('click', () => {
+            this.customize();
+        });
+    },
+    
+    getConsent() {
+        try {
+            const data = localStorage.getItem(this.STORAGE_KEY);
+            return data ? JSON.parse(data) : null;
+        } catch {
+            return null;
+        }
+    },
+    
+    saveConsent(preferences) {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+            ...preferences,
+            timestamp: new Date().toISOString()
+        }));
+    },
+    
+    showBanner() {
+        const banner = document.getElementById('cookieConsent');
+        if (banner) {
+            // Pequeno delay para a animação funcionar
+            setTimeout(() => {
+                banner.classList.add('show');
+            }, 100);
+        }
+    },
+    
+    hideBanner() {
+        const banner = document.getElementById('cookieConsent');
+        if (banner) {
+            banner.classList.remove('show');
+        }
+    },
+    
+    applyConsent(consent) {
+        // 1. Google Analytics
+        if (consent.analytics !== false) {
+            this.enableAnalytics();
+        } else {
+            this.disableAnalytics();
+        }
+        
+        // 2. Google AdSense (personalização)
+        if (consent.advertising !== false) {
+            this.enablePersonalizedAds();
+        } else {
+            this.disablePersonalizedAds();
+        }
+        
+        console.log('🍪 Preferências de cookies aplicadas:', consent);
+    },
+    
+    enableAnalytics() {
+        // Habilitar Google Analytics
+        if (window.ga) {
+            window.ga('set', 'allowAdFeatures', true);
+            console.log('📊 Analytics habilitado');
+        }
+    },
+    
+    disableAnalytics() {
+        // Desabilitar Google Analytics
+        if (window.ga) {
+            window.ga('set', 'allowAdFeatures', false);
+        }
+        // Sinalizar para o GA não rastrear
+        window['ga-disable-UA-XXXXXXXX-X'] = true;
+        console.log('📊 Analytics desabilitado');
+    },
+    
+    enablePersonalizedAds() {
+        // Habilitar anúncios personalizados
+        document.cookie = "ad_personalization=enabled; path=/; max-age=31536000; samesite=lax";
+        console.log('📢 Anúncios personalizados habilitados');
+    },
+    
+    disablePersonalizedAds() {
+        // Desabilitar anúncios personalizados
+        document.cookie = "ad_personalization=disabled; path=/; max-age=31536000; samesite=lax";
+        console.log('📢 Anúncios personalizados desabilitados');
+    },
+    
+    acceptAll() {
+        const consent = {
+            essential: true,
+            analytics: true,
+            advertising: true
+        };
+        this.saveConsent(consent);
+        this.applyConsent(consent);
+        this.hideBanner();
+        this.showToast('✅ Todos os cookies foram aceitos!');
+    },
+    
+    rejectAll() {
+        const consent = {
+            essential: true,
+            analytics: false,
+            advertising: false
+        };
+        this.saveConsent(consent);
+        this.applyConsent(consent);
+        this.hideBanner();
+        this.showToast('ℹ️ Cookies não essenciais foram recusados. Algumas funcionalidades podem ser limitadas.', 'info');
+    },
+    
+    customize() {
+        const analytics = document.getElementById('cookieAnalytics')?.checked !== false;
+        const advertising = document.getElementById('cookieAdvertising')?.checked !== false;
+        
+        const consent = {
+            essential: true,
+            analytics: analytics,
+            advertising: advertising
+        };
+        
+        this.saveConsent(consent);
+        this.applyConsent(consent);
+        this.hideBanner();
+        this.showToast('✅ Suas preferências foram salvas!', 'success');
+    },
+    
+    showToast(message, type = 'info') {
+        // Usar função showToast existente ou criar uma
+        if (typeof showToast === 'function') {
+            showToast(message, type === 'error');
+        } else {
+            // Fallback
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.textContent = message;
+                toast.style.background = type === 'error' ? '#c0392b' : 
+                                        type === 'success' ? '#27ae60' : '#2980b9';
+                toast.style.display = 'block';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 3000);
+            } else {
+                alert(message);
+            }
+        }
+    },
+    
+    // Verificar se um tipo de cookie específico é permitido
+    isAllowed(cookieType) {
+        const consent = this.getConsent();
+        if (!consent) return true; // Se não há preferência, permitir
+        return consent[cookieType] !== false;
+    },
+    
+    // Verificar se analytics está permitido
+    isAnalyticsAllowed() {
+        return this.isAllowed('analytics');
+    },
+    
+    // Verificar se publicidade personalizada está permitida
+    isAdvertisingAllowed() {
+        return this.isAllowed('advertising');
+    }
+};
+
+// ============================================
 // UTILIDADES
 // ============================================
 function escapeHtml(text) {
@@ -118,7 +317,9 @@ async function registerUser(user, isGuest = false) {
             isTeatcher: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
+            // Cookie consent preferences
+            cookiePreferences: CookieManager.getConsent() || null
         };
 
         await db.collection('users').doc(uid).set(userData, { merge: true });
@@ -627,6 +828,7 @@ function showToast(message, isError = false) {
             animation: fadeInOut 3s ease;
             max-width: 90%;
             text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         `;
         document.body.appendChild(toast);
     }
@@ -637,7 +839,7 @@ function showToast(message, isError = false) {
     
     setTimeout(() => {
         toast.style.display = 'none';
-    }, 3000);
+    }, 3500);
 }
 
 // ============================================
@@ -1023,10 +1225,12 @@ function showRedirectPage(delay, targetUrl, message) {
     const header = document.querySelector('.header');
     const container = document.querySelector('.newspaper-container');
     const footer = document.querySelector('.footer');
+    const cookieBanner = document.getElementById('cookieConsent');
     
     if (header) header.style.display = 'none';
     if (container) container.style.display = 'none';
     if (footer) footer.style.display = 'none';
+    if (cookieBanner) cookieBanner.style.display = 'none';
     
     const bannedOverlay = document.getElementById('bannedOverlay');
     if (bannedOverlay) bannedOverlay.style.display = 'none';
@@ -1140,10 +1344,12 @@ function showRedirectNotFound() {
     const header = document.querySelector('.header');
     const container = document.querySelector('.newspaper-container');
     const footer = document.querySelector('.footer');
+    const cookieBanner = document.getElementById('cookieConsent');
     
     if (header) header.style.display = 'none';
     if (container) container.style.display = 'none';
     if (footer) footer.style.display = 'none';
+    if (cookieBanner) cookieBanner.style.display = 'none';
     
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
@@ -1196,10 +1402,12 @@ function showRedirectError() {
     const header = document.querySelector('.header');
     const container = document.querySelector('.newspaper-container');
     const footer = document.querySelector('.footer');
+    const cookieBanner = document.getElementById('cookieConsent');
     
     if (header) header.style.display = 'none';
     if (container) container.style.display = 'none';
     if (footer) footer.style.display = 'none';
+    if (cookieBanner) cookieBanner.style.display = 'none';
     
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
@@ -1249,10 +1457,16 @@ function showRedirectError() {
 }
 
 // ============================================
-// INICIALIZAÇÃO (APENAS UMA VEZ)
+// INICIALIZAÇÃO
 // ============================================
 
-// PRIMEIRO: Verifica se é um redirecionamento
+// PRIMEIRO: Inicializar Cookie Manager
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar gerenciador de cookies
+    CookieManager.init();
+});
+
+// SEGUNDO: Verificar redirecionamento
 checkRedirect().then(isRedirect => {
     if (!isRedirect) {
         console.log('📍 Modo normal - carregando site');
@@ -1331,4 +1545,5 @@ function initSite() {
     console.log('📌 Notificações integradas via coleção "notifications"');
     console.log('👤 Usuário pode ver e gerenciar suas notificações');
     console.log('🔄 Redirecionamento por UID integrado');
+    console.log('🍪 Sistema de consentimento de cookies ativo');
 }
