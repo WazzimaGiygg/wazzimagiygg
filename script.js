@@ -1,304 +1,4 @@
 // ============================================
-// VERIFICADOR DE REDIRECIONAMENTO POR UID
-// ============================================
-async function checkRedirect() {
-    // Verifica se há parâmetros na URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const uid = urlParams.get('id') || urlParams.get('uid');
-    const redirectParam = urlParams.get('redirect');
-    
-    // Se tiver UID, tenta carregar o redirecionamento
-    if (uid) {
-        try {
-            console.log('🔍 Verificando redirecionamento para UID:', uid);
-            
-            // Busca o documento no Firestore
-            const docRef = db.collection('redirecionamento').doc(uid);
-            const docSnap = await docRef.get();
-            
-            if (docSnap.exists) {
-                const data = docSnap.data();
-                console.log('✅ Redirecionamento encontrado:', data);
-                
-                // Se tiver parâmetro redirect=html, mostra o HTML personalizado
-                if (redirectParam === 'html' && data.htmlCode) {
-                    // Substitui a página pelo HTML do redirecionamento
-                    document.documentElement.innerHTML = data.htmlCode;
-                    // Executa scripts do HTML gerado
-                    const scripts = document.querySelectorAll('script');
-                    scripts.forEach(script => {
-                        const newScript = document.createElement('script');
-                        newScript.textContent = script.textContent;
-                        document.body.appendChild(newScript);
-                    });
-                    return true;
-                }
-                
-                // Caso contrário, faz o redirecionamento normal
-                if (data.targetUrl) {
-                    const delay = data.delayTime || 5;
-                    const message = data.messageText || 'Você será redirecionado em {TEMPO} segundos.';
-                    const finalMessage = message.replace(/\[TEMPO\]/g, delay);
-                    
-                    // Mostra uma página de redirecionamento
-                    showRedirectPage(delay, data.targetUrl, finalMessage);
-                    return true;
-                }
-            } else {
-                console.log('❌ Redirecionamento não encontrado para UID:', uid);
-                showRedirectNotFound();
-                return false;
-            }
-        } catch (error) {
-            console.error('❌ Erro ao buscar redirecionamento:', error);
-            showRedirectError();
-            return false;
-        }
-    }
-    return false;
-}
-
-// ============================================
-// FUNÇÕES DE REDIRECIONAMENTO
-// ============================================
-function showRedirectPage(delay, targetUrl, message) {
-    // Esconde o conteúdo principal
-    const header = document.querySelector('.header');
-    const container = document.querySelector('.newspaper-container');
-    const footer = document.querySelector('.footer');
-    
-    if (header) header.style.display = 'none';
-    if (container) container.style.display = 'none';
-    if (footer) footer.style.display = 'none';
-    
-    // Remove o banner de banimento se existir
-    const bannedOverlay = document.getElementById('bannedOverlay');
-    if (bannedOverlay) bannedOverlay.style.display = 'none';
-    
-    // Cria a página de redirecionamento
-    const redirectDiv = document.createElement('div');
-    redirectDiv.id = 'redirectPage';
-    redirectDiv.innerHTML = `
-        <div style="
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            font-family: 'Lato', Arial, sans-serif;
-            padding: 20px;
-        ">
-            <div style="
-                padding: 40px;
-                background: #fff;
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                text-align: center;
-                max-width: 500px;
-                width: 90%;
-                animation: fadeIn 0.5s ease;
-            ">
-                <div style="font-size: 3em; margin-bottom: 20px;">🔄</div>
-                <h1 style="color: #1a3c5e; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
-                    Aguarde um momento...
-                </h1>
-                <p style="font-size: 1.1em; color: #555; margin-bottom: 25px; line-height: 1.6;">
-                    ${escapeHtml(message)}
-                </p>
-                <div style="margin: 25px 0; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <span style="font-size: 3em; font-weight: bold; color: #c0392b;" id="countdownDisplay">${delay}</span>
-                    <span style="font-size: 1.2em; color: #666;">segundos</span>
-                </div>
-                <div style="
-                    width: 100%;
-                    height: 4px;
-                    background: #e0e0e0;
-                    border-radius: 2px;
-                    margin: 20px 0;
-                    overflow: hidden;
-                ">
-                    <div style="
-                        width: 100%;
-                        height: 100%;
-                        background: linear-gradient(90deg, #c0392b, #e74c3c);
-                        border-radius: 2px;
-                        animation: progressBar ${delay}s linear forwards;
-                    "></div>
-                </div>
-                <a href="${targetUrl}" style="
-                    display: inline-block;
-                    padding: 14px 28px;
-                    background: #1a3c5e;
-                    color: #fff;
-                    text-decoration: none;
-                    border-radius: 30px;
-                    font-weight: 600;
-                    transition: all 0.3s;
-                    font-size: 14px;
-                    letter-spacing: 0.5px;
-                    box-shadow: 0 4px 12px rgba(26, 60, 94, 0.3);
-                " onmouseover="this.style.background='#c0392b'; this.style.transform='translateY(-2px)'" 
-                   onmouseout="this.style.background='#1a3c5e'; this.style.transform='translateY(0)'">
-                    🔗 Ir agora para o destino
-                </a>
-                <p style="margin-top: 20px; font-size: 0.8em; color: #999;">
-                    Redirecionamento automático em ${delay} segundos
-                </p>
-            </div>
-        </div>
-        <style>
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes progressBar {
-                from { width: 100%; }
-                to { width: 0%; }
-            }
-        </style>
-    `;
-    
-    document.body.appendChild(redirectDiv);
-    
-    // Adiciona o script de contagem regressiva
-    const script = document.createElement('script');
-    script.textContent = `
-        let countdown = ${delay};
-        const display = document.getElementById('countdownDisplay');
-        const interval = setInterval(() => {
-            countdown--;
-            if (display) display.textContent = countdown;
-            if (countdown <= 0) {
-                clearInterval(interval);
-                window.location.href = '${targetUrl}';
-            }
-        }, 1000);
-        
-        // Redireciona automaticamente após o tempo
-        setTimeout(() => {
-            window.location.href = '${targetUrl}';
-        }, ${delay * 1000});
-    `;
-    document.body.appendChild(script);
-}
-
-function showRedirectNotFound() {
-    // Esconde o conteúdo principal
-    const header = document.querySelector('.header');
-    const container = document.querySelector('.newspaper-container');
-    const footer = document.querySelector('.footer');
-    
-    if (header) header.style.display = 'none';
-    if (container) container.style.display = 'none';
-    if (footer) footer.style.display = 'none';
-    
-    const redirectDiv = document.createElement('div');
-    redirectDiv.id = 'redirectPage';
-    redirectDiv.innerHTML = `
-        <div style="
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            font-family: 'Lato', Arial, sans-serif;
-            padding: 20px;
-        ">
-            <div style="
-                padding: 40px;
-                background: #fff;
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                text-align: center;
-                max-width: 500px;
-                width: 90%;
-            ">
-                <div style="font-size: 4em; margin-bottom: 20px;">🔍</div>
-                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
-                    Redirecionamento não encontrado
-                </h1>
-                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
-                    O redirecionamento que você está procurando não existe ou foi removido.
-                </p>
-                <a href="/" style="
-                    display: inline-block;
-                    padding: 14px 28px;
-                    background: #6c757d;
-                    color: #fff;
-                    text-decoration: none;
-                    border-radius: 30px;
-                    font-weight: 600;
-                    transition: all 0.3s;
-                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
-                    🏠 Voltar para o início
-                </a>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(redirectDiv);
-}
-
-function showRedirectError() {
-    // Esconde o conteúdo principal
-    const header = document.querySelector('.header');
-    const container = document.querySelector('.newspaper-container');
-    const footer = document.querySelector('.footer');
-    
-    if (header) header.style.display = 'none';
-    if (container) container.style.display = 'none';
-    if (footer) footer.style.display = 'none';
-    
-    const redirectDiv = document.createElement('div');
-    redirectDiv.id = 'redirectPage';
-    redirectDiv.innerHTML = `
-        <div style="
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            font-family: 'Lato', Arial, sans-serif;
-            padding: 20px;
-        ">
-            <div style="
-                padding: 40px;
-                background: #fff;
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                text-align: center;
-                max-width: 500px;
-                width: 90%;
-            ">
-                <div style="font-size: 4em; margin-bottom: 20px;">⚠️</div>
-                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
-                    Erro ao carregar redirecionamento
-                </h1>
-                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
-                    Ocorreu um erro ao tentar carregar o redirecionamento. Por favor, tente novamente.
-                </p>
-                <a href="/" style="
-                    display: inline-block;
-                    padding: 14px 28px;
-                    background: #6c757d;
-                    color: #fff;
-                    text-decoration: none;
-                    border-radius: 30px;
-                    font-weight: 600;
-                    transition: all 0.3s;
-                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
-                    🏠 Voltar para o início
-                </a>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(redirectDiv);
-}
-
-// script.js
-// ============================================
 // FIREBASE CONFIG
 // ============================================
 const firebaseConfig = {
@@ -599,13 +299,6 @@ function toggleNotifications(event) {
     }
 }
 
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.notification-bell')) {
-        const dropdown = document.getElementById('notifDropdown');
-        if (dropdown) dropdown.classList.remove('show');
-    }
-});
-
 function listenNotifications() {
     if (notificationListener) {
         notificationListener();
@@ -888,20 +581,16 @@ async function guestLogin() {
 // ============================================
 async function logout() { 
     try {
-        // Limpa dados do convidado
         clearGuestUser();
         
-        // Se estiver logado com Google, desloga
         if (auth.currentUser) {
             await auth.signOut();
         }
         
-        // Reseta variáveis
         currentUser = null;
         isGuestUser = false;
         isAdmin = false;
         
-        // Limpa notificações
         if (notificationListener) {
             notificationListener();
             notificationListener = null;
@@ -910,13 +599,8 @@ async function logout() {
         unreadCount = 0;
         updateNotificationBadge();
         
-        // Atualiza UI
         updateUI();
-        
-        // Recarrega conteúdo público
         await loadContentPublic();
-        
-        // Recarrega a página para garantir estado limpo
         location.reload();
     } catch (error) {
         console.error('Erro ao fazer logout:', error);
@@ -924,9 +608,7 @@ async function logout() {
     }
 }
 
-// Função para mostrar toast (feedback visual)
 function showToast(message, isError = false) {
-    // Cria um elemento toast se não existir
     let toast = document.getElementById('toast');
     if (!toast) {
         toast = document.createElement('div');
@@ -1283,83 +965,296 @@ function searchContent() {
 }
 
 // ============================================
-// INICIALIZAÇÃO
+// VERIFICADOR DE REDIRECIONAMENTO POR UID
 // ============================================
-document.getElementById('currentDate').textContent = new Date().toLocaleDateString('pt-BR', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-});
-
-document.getElementById('search-btn')?.addEventListener('click', searchContent);
-document.getElementById('search-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') searchContent(); });
-document.getElementById('google-login-btn')?.addEventListener('click', loginWithGoogle);
-document.getElementById('guest-login-modal-btn')?.addEventListener('click', guestLogin);
-document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
-
-// Inicialização - carrega conteúdo independente de login
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        currentUser = user;
-        isGuestUser = false;
-        clearGuestUser();
-        
-        // Verifica banimento
-        isBanned = await checkIfUserIsBanned(user);
-        
-        // Verifica se é admin
-        isAdmin = false;
+async function checkRedirect() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get('id') || urlParams.get('uid');
+    const redirectParam = urlParams.get('redirect');
+    
+    if (uid) {
         try {
-            const userDoc = await db.collection('users').doc(user.uid).get();
-            if (userDoc.exists && userDoc.data().isAdmin === true) {
-                isAdmin = true;
+            console.log('🔍 Verificando redirecionamento para UID:', uid);
+            
+            const docRef = db.collection('redirecionamento').doc(uid);
+            const docSnap = await docRef.get();
+            
+            if (docSnap.exists) {
+                const data = docSnap.data();
+                console.log('✅ Redirecionamento encontrado:', data);
+                
+                if (redirectParam === 'html' && data.htmlCode) {
+                    document.documentElement.innerHTML = data.htmlCode;
+                    const scripts = document.querySelectorAll('script');
+                    scripts.forEach(script => {
+                        const newScript = document.createElement('script');
+                        newScript.textContent = script.textContent;
+                        document.body.appendChild(newScript);
+                    });
+                    return true;
+                }
+                
+                if (data.targetUrl) {
+                    const delay = data.delayTime || 5;
+                    const message = data.messageText || 'Você será redirecionado em {TEMPO} segundos.';
+                    const finalMessage = message.replace(/\[TEMPO\]/g, delay);
+                    
+                    showRedirectPage(delay, data.targetUrl, finalMessage);
+                    return true;
+                }
+            } else {
+                console.log('❌ Redirecionamento não encontrado para UID:', uid);
+                showRedirectNotFound();
+                return false;
             }
-        } catch (e) {}
-        
-        await registerUser(user, false);
-        
-        if (isBanned) {
-            showBannedScreen('Sua conta foi banida por violação das políticas de uso.');
-            updateUI();
-            return;
+        } catch (error) {
+            console.error('❌ Erro ao buscar redirecionamento:', error);
+            showRedirectError();
+            return false;
         }
-        
-        updateUI();
-        await loadNotifications();
-        listenNotifications();
-        loadAllContent();
-    } else {
-        const storedGuest = getStoredGuestUser();
-        if (storedGuest) {
-            currentUser = storedGuest;
-            isGuestUser = true;
-            updateUI();
-        } else {
-            currentUser = null;
-            isGuestUser = false;
-            updateUI();
-        }
-        loadAllContent();
     }
-});
+    return false;
+}
 
-// Fechar dropdown de notificações ao clicar fora
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.notification-bell')) {
-        const dropdown = document.getElementById('notifDropdown');
-        if (dropdown) dropdown.classList.remove('show');
-    }
-});
-
-console.log('🚀 WazzimaGiygg - Site Principal com Login Unificado');
-console.log('📌 Notificações integradas via coleção "notifications"');
-console.log('👤 Usuário pode ver e gerenciar suas notificações');
 // ============================================
-// INICIALIZAÇÃO MODIFICADA COM REDIRECIONAMENTO
+// FUNÇÕES DE REDIRECIONAMENTO
+// ============================================
+function showRedirectPage(delay, targetUrl, message) {
+    const header = document.querySelector('.header');
+    const container = document.querySelector('.newspaper-container');
+    const footer = document.querySelector('.footer');
+    
+    if (header) header.style.display = 'none';
+    if (container) container.style.display = 'none';
+    if (footer) footer.style.display = 'none';
+    
+    const bannedOverlay = document.getElementById('bannedOverlay');
+    if (bannedOverlay) bannedOverlay.style.display = 'none';
+    
+    const redirectDiv = document.createElement('div');
+    redirectDiv.id = 'redirectPage';
+    redirectDiv.innerHTML = `
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Lato', Arial, sans-serif;
+            padding: 20px;
+        ">
+            <div style="
+                padding: 40px;
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+                animation: fadeIn 0.5s ease;
+            ">
+                <div style="font-size: 3em; margin-bottom: 20px;">🔄</div>
+                <h1 style="color: #1a3c5e; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
+                    Aguarde um momento...
+                </h1>
+                <p style="font-size: 1.1em; color: #555; margin-bottom: 25px; line-height: 1.6;">
+                    ${escapeHtml(message)}
+                </p>
+                <div style="margin: 25px 0; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <span style="font-size: 3em; font-weight: bold; color: #c0392b;" id="countdownDisplay">${delay}</span>
+                    <span style="font-size: 1.2em; color: #666;">segundos</span>
+                </div>
+                <div style="
+                    width: 100%;
+                    height: 4px;
+                    background: #e0e0e0;
+                    border-radius: 2px;
+                    margin: 20px 0;
+                    overflow: hidden;
+                ">
+                    <div style="
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(90deg, #c0392b, #e74c3c);
+                        border-radius: 2px;
+                        animation: progressBar ${delay}s linear forwards;
+                    "></div>
+                </div>
+                <a href="${targetUrl}" style="
+                    display: inline-block;
+                    padding: 14px 28px;
+                    background: #1a3c5e;
+                    color: #fff;
+                    text-decoration: none;
+                    border-radius: 30px;
+                    font-weight: 600;
+                    transition: all 0.3s;
+                    font-size: 14px;
+                    letter-spacing: 0.5px;
+                    box-shadow: 0 4px 12px rgba(26, 60, 94, 0.3);
+                " onmouseover="this.style.background='#c0392b'; this.style.transform='translateY(-2px)'" 
+                   onmouseout="this.style.background='#1a3c5e'; this.style.transform='translateY(0)'">
+                    🔗 Ir agora para o destino
+                </a>
+                <p style="margin-top: 20px; font-size: 0.8em; color: #999;">
+                    Redirecionamento automático em ${delay} segundos
+                </p>
+            </div>
+        </div>
+        <style>
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes progressBar {
+                from { width: 100%; }
+                to { width: 0%; }
+            }
+        </style>
+    `;
+    
+    document.body.appendChild(redirectDiv);
+    
+    const script = document.createElement('script');
+    script.textContent = `
+        let countdown = ${delay};
+        const display = document.getElementById('countdownDisplay');
+        const interval = setInterval(() => {
+            countdown--;
+            if (display) display.textContent = countdown;
+            if (countdown <= 0) {
+                clearInterval(interval);
+                window.location.href = '${targetUrl}';
+            }
+        }, 1000);
+        
+        setTimeout(() => {
+            window.location.href = '${targetUrl}';
+        }, ${delay * 1000});
+    `;
+    document.body.appendChild(script);
+}
+
+function showRedirectNotFound() {
+    const header = document.querySelector('.header');
+    const container = document.querySelector('.newspaper-container');
+    const footer = document.querySelector('.footer');
+    
+    if (header) header.style.display = 'none';
+    if (container) container.style.display = 'none';
+    if (footer) footer.style.display = 'none';
+    
+    const redirectDiv = document.createElement('div');
+    redirectDiv.id = 'redirectPage';
+    redirectDiv.innerHTML = `
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Lato', Arial, sans-serif;
+            padding: 20px;
+        ">
+            <div style="
+                padding: 40px;
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+            ">
+                <div style="font-size: 4em; margin-bottom: 20px;">🔍</div>
+                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
+                    Redirecionamento não encontrado
+                </h1>
+                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
+                    O redirecionamento que você está procurando não existe ou foi removido.
+                </p>
+                <a href="/" style="
+                    display: inline-block;
+                    padding: 14px 28px;
+                    background: #6c757d;
+                    color: #fff;
+                    text-decoration: none;
+                    border-radius: 30px;
+                    font-weight: 600;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
+                    🏠 Voltar para o início
+                </a>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(redirectDiv);
+}
+
+function showRedirectError() {
+    const header = document.querySelector('.header');
+    const container = document.querySelector('.newspaper-container');
+    const footer = document.querySelector('.footer');
+    
+    if (header) header.style.display = 'none';
+    if (container) container.style.display = 'none';
+    if (footer) footer.style.display = 'none';
+    
+    const redirectDiv = document.createElement('div');
+    redirectDiv.id = 'redirectPage';
+    redirectDiv.innerHTML = `
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Lato', Arial, sans-serif;
+            padding: 20px;
+        ">
+            <div style="
+                padding: 40px;
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+            ">
+                <div style="font-size: 4em; margin-bottom: 20px;">⚠️</div>
+                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
+                    Erro ao carregar redirecionamento
+                </h1>
+                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
+                    Ocorreu um erro ao tentar carregar o redirecionamento. Por favor, tente novamente.
+                </p>
+                <a href="/" style="
+                    display: inline-block;
+                    padding: 14px 28px;
+                    background: #6c757d;
+                    color: #fff;
+                    text-decoration: none;
+                    border-radius: 30px;
+                    font-weight: 600;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
+                    🏠 Voltar para o início
+                </a>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(redirectDiv);
+}
+
+// ============================================
+// INICIALIZAÇÃO (APENAS UMA VEZ)
 // ============================================
 
 // PRIMEIRO: Verifica se é um redirecionamento
 checkRedirect().then(isRedirect => {
     if (!isRedirect) {
-        // Se NÃO for redirecionamento, carrega o site normalmente
         console.log('📍 Modo normal - carregando site');
         initSite();
     } else {
@@ -1367,3 +1262,73 @@ checkRedirect().then(isRedirect => {
     }
 });
 
+// Função de inicialização do site
+function initSite() {
+    document.getElementById('currentDate').textContent = new Date().toLocaleDateString('pt-BR', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    document.getElementById('search-btn')?.addEventListener('click', searchContent);
+    document.getElementById('search-input')?.addEventListener('keypress', (e) => { 
+        if (e.key === 'Enter') searchContent(); 
+    });
+    
+    document.getElementById('google-login-btn')?.addEventListener('click', loginWithGoogle);
+    document.getElementById('guest-login-modal-btn')?.addEventListener('click', guestLogin);
+    document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
+
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            currentUser = user;
+            isGuestUser = false;
+            clearGuestUser();
+            
+            isBanned = await checkIfUserIsBanned(user);
+            
+            isAdmin = false;
+            try {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().isAdmin === true) {
+                    isAdmin = true;
+                }
+            } catch (e) {}
+            
+            await registerUser(user, false);
+            
+            if (isBanned) {
+                showBannedScreen('Sua conta foi banida por violação das políticas de uso.');
+                updateUI();
+                return;
+            }
+            
+            updateUI();
+            await loadNotifications();
+            listenNotifications();
+            loadAllContent();
+        } else {
+            const storedGuest = getStoredGuestUser();
+            if (storedGuest) {
+                currentUser = storedGuest;
+                isGuestUser = true;
+                updateUI();
+            } else {
+                currentUser = null;
+                isGuestUser = false;
+                updateUI();
+            }
+            loadAllContent();
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.notification-bell')) {
+            const dropdown = document.getElementById('notifDropdown');
+            if (dropdown) dropdown.classList.remove('show');
+        }
+    });
+
+    console.log('🚀 WazzimaGiygg - Site Principal com Login Unificado');
+    console.log('📌 Notificações integradas via coleção "notifications"');
+    console.log('👤 Usuário pode ver e gerenciar suas notificações');
+    console.log('🔄 Redirecionamento por UID integrado');
+}
