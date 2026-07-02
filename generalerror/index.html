@@ -249,11 +249,63 @@
             background: #f1f3f4;
         }
 
+        .btn-warning {
+            background: #fbbc04;
+            color: #202124;
+        }
+
+        .btn-warning:hover {
+            background: #f9ab00;
+        }
+
         .error-code {
             font-size: 12px;
             color: #9aa0a6;
             margin-top: 24px;
             font-family: 'Courier New', monospace;
+        }
+
+        /* ===== UID BADGE ===== */
+        .uid-badge {
+            display: inline-block;
+            background: #e8eaed;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            color: #5f6368;
+            margin-top: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .uid-badge:hover {
+            background: #dadce0;
+        }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #202124;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.4s ease;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
         }
 
         /* ===== FOOTER ===== */
@@ -430,6 +482,11 @@
         </div>
     </div>
 
+    <!-- UID -->
+    <div class="uid-badge" id="uidBadge" onclick="copyUID()" title="Clique para copiar o UID">
+        🆔 <span id="uidDisplay">Gerando UID...</span>
+    </div>
+
     <!-- Detalhes Técnicos -->
     <div class="error-details" id="errorDetails">
         <span class="label">📋 Detalhes do erro</span>
@@ -438,17 +495,21 @@
 
     <!-- Ações -->
     <div class="error-actions">
-        <button class="btn btn-primary" onclick="location.reload()">
+        <button class="btn btn-primary" onclick="reloadPage()">
             <span class="material-icons" style="font-size:18px;">refresh</span>
             Tentar novamente
         </button>
-        <button class="btn btn-secondary" onclick="location.href='https://wazzimagiygg.com'">
+        <button class="btn btn-secondary" onclick="goHome()">
             <span class="material-icons" style="font-size:18px;">home</span>
             Página inicial
         </button>
         <button class="btn btn-outline" onclick="copyErrorDetails()">
             <span class="material-icons" style="font-size:18px;">content_copy</span>
             Copiar detalhes
+        </button>
+        <button class="btn btn-warning" onclick="reportError()">
+            <span class="material-icons" style="font-size:18px;">bug_report</span>
+            Reportar erro
         </button>
     </div>
 
@@ -457,6 +518,9 @@
         ERR_LOAD_FAILED_001 • <span id="timestamp"></span>
     </div>
 </div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
 <!-- Footer -->
 <div class="footer">
@@ -470,9 +534,138 @@
 </div>
 
 <script>
+    // ================================================================
+    // SISTEMA DE COLETA DE ERROS COM UID E ENVIO VIA URL
+    // ================================================================
+
+    // ===== GERADOR DE UID =====
+    function generateUID() {
+        const timestamp = Date.now().toString(36);
+        const random = Math.random().toString(36).substring(2, 10);
+        const navInfo = navigator.userAgent
+            .substring(0, 30)
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .toLowerCase()
+            .substring(0, 10);
+        const screenInfo = `${window.screen.width}x${window.screen.height}`;
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+        
+        return `${timestamp}-${random}-${navInfo}-${screenInfo}-${timezone}`.substring(0, 64);
+    }
+
+    // ===== COLETOR DE INFORMAÇÕES DO SISTEMA =====
+    function collectSystemInfo() {
+        return {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            languages: navigator.languages,
+            cookieEnabled: navigator.cookieEnabled,
+            doNotTrack: navigator.doNotTrack,
+            hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
+            deviceMemory: navigator.deviceMemory || 'unknown',
+            screenWidth: window.screen.width,
+            screenHeight: window.screen.height,
+            screenColorDepth: window.screen.colorDepth,
+            windowWidth: window.innerWidth,
+            windowHeight: window.innerHeight,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timestamp: new Date().toISOString(),
+            url: window.location.href,
+            referrer: document.referrer || 'direct',
+            resources: {
+                css: { loaded: false, error: null },
+                js: { loaded: false, error: null },
+                firebase: { loaded: false, error: null },
+                fonts: { loaded: false, error: null }
+            },
+            errors: []
+        };
+    }
+
+    // ===== GERAR LINK COM ERROS =====
+    function generateErrorURL(errorData, uid) {
+        const baseURL = 'https://wazzimagiygg.com/generalerror/';
+        const params = new URLSearchParams();
+        
+        // Adicionar UID
+        params.set('uid', uid);
+        
+        // Adicionar timestamp
+        params.set('ts', Date.now());
+        
+        // Adicionar informações de erro
+        if (errorData.errors.length > 0) {
+            params.set('errors', JSON.stringify(errorData.errors));
+        }
+        
+        // Adicionar status dos recursos
+        const resourceStatus = {};
+        for (const [key, value] of Object.entries(errorData.resources)) {
+            resourceStatus[key] = value.loaded;
+        }
+        params.set('resources', JSON.stringify(resourceStatus));
+        
+        // Adicionar informações do sistema (resumidas)
+        const systemInfo = {
+            ua: errorData.userAgent.substring(0, 100),
+            scr: `${errorData.screenWidth}x${errorData.screenHeight}`,
+            tz: errorData.timezone,
+            lang: errorData.language
+        };
+        params.set('system', JSON.stringify(systemInfo));
+        
+        // Adicionar URL de origem
+        params.set('origin', encodeURIComponent(errorData.url));
+        
+        return `${baseURL}?${params.toString()}`;
+    }
+
+    // ===== ENVIAR RELATÓRIO =====
+    function sendErrorReport(errorData, uid) {
+        try {
+            const errorURL = generateErrorURL(errorData, uid);
+            
+            // Enviar via fetch (silencioso)
+            fetch(errorURL, {
+                method: 'GET',
+                mode: 'no-cors',
+                cache: 'no-store'
+            }).catch(() => {
+                // Fallback: enviar via imagem
+                const img = new Image();
+                img.src = errorURL + '&img=1';
+            });
+            
+            // Salvar no localStorage para debug
+            try {
+                const reports = JSON.parse(localStorage.getItem('wg_error_reports') || '[]');
+                reports.push({
+                    uid: uid,
+                    timestamp: Date.now(),
+                    errors: errorData.errors,
+                    url: errorData.url
+                });
+                if (reports.length > 50) reports.shift();
+                localStorage.setItem('wg_error_reports', JSON.stringify(reports));
+            } catch(e) {}
+            
+            return errorURL;
+        } catch(e) {
+            console.error('Erro ao enviar relatório:', e);
+            return null;
+        }
+    }
+
     // ============================================
     // DETECTOR DE ARQUIVOS NÃO CARREGADOS
     // ============================================
+
+    const systemInfo = collectSystemInfo();
+    const UID = generateUID();
+
+    // Expor UID globalmente
+    window.__WG_UID = UID;
 
     const statusMap = {
         css: { loaded: false, error: null },
@@ -482,10 +675,9 @@
     };
 
     const failedResources = [];
+    const errorLogs = [];
 
-    // ============================================
-    // VERIFICAR CSS
-    // ============================================
+    // ===== VERIFICAR CSS =====
     function checkCSS() {
         try {
             const sheets = document.styleSheets;
@@ -495,13 +687,11 @@
                     found = true;
                     break;
                 }
-                // Verificar se o CSS foi aplicado (fallback)
                 if (sheet.cssRules && sheet.cssRules.length > 0) {
                     found = true;
                     break;
                 }
             }
-            // Verificar se estilos do CSS estão aplicados
             const testElement = document.createElement('div');
             testElement.style.display = 'none';
             document.body.appendChild(testElement);
@@ -517,21 +707,21 @@
                 statusMap.css.error = 'Arquivo style.css não encontrado ou não carregado';
                 updateStatus('css', false);
                 failedResources.push('style.css');
+                errorLogs.push(`CSS Error: style.css não carregado`);
             }
         } catch (e) {
             statusMap.css.loaded = false;
             statusMap.css.error = e.message;
             updateStatus('css', false);
             failedResources.push('style.css');
+            errorLogs.push(`CSS Error: ${e.message}`);
         }
+        systemInfo.resources.css = statusMap.css;
     }
 
-    // ============================================
-    // VERIFICAR JS
-    // ============================================
+    // ===== VERIFICAR JS =====
     function checkJS() {
         try {
-            // Verificar se o arquivo script.js carregou
             const scripts = document.scripts;
             let found = false;
             for (let script of scripts) {
@@ -540,7 +730,6 @@
                     break;
                 }
             }
-            // Verificar se funções específicas do script existem
             const hasFunctions = typeof showToast !== 'undefined' || 
                                 typeof loadArticles !== 'undefined' ||
                                 typeof auth !== 'undefined';
@@ -553,18 +742,19 @@
                 statusMap.js.error = 'Arquivo script.js não encontrado ou não carregado';
                 updateStatus('js', false);
                 failedResources.push('script.js');
+                errorLogs.push(`JS Error: script.js não carregado`);
             }
         } catch (e) {
             statusMap.js.loaded = false;
             statusMap.js.error = e.message;
             updateStatus('js', false);
             failedResources.push('script.js');
+            errorLogs.push(`JS Error: ${e.message}`);
         }
+        systemInfo.resources.js = statusMap.js;
     }
 
-    // ============================================
-    // VERIFICAR FIREBASE
-    // ============================================
+    // ===== VERIFICAR FIREBASE =====
     function checkFirebase() {
         try {
             const hasFirebase = typeof firebase !== 'undefined' && 
@@ -579,21 +769,21 @@
                 statusMap.firebase.error = 'Firebase SDK não carregado';
                 updateStatus('firebase', false);
                 failedResources.push('Firebase SDK');
+                errorLogs.push(`Firebase Error: SDK não carregado`);
             }
         } catch (e) {
             statusMap.firebase.loaded = false;
             statusMap.firebase.error = e.message;
             updateStatus('firebase', false);
             failedResources.push('Firebase SDK');
+            errorLogs.push(`Firebase Error: ${e.message}`);
         }
+        systemInfo.resources.firebase = statusMap.firebase;
     }
 
-    // ============================================
-    // VERIFICAR GOOGLE FONTS
-    // ============================================
+    // ===== VERIFICAR GOOGLE FONTS =====
     function checkFonts() {
         try {
-            // Verificar se as fontes estão carregadas
             const fontCheck = document.createElement('span');
             fontCheck.style.fontFamily = 'Inter, sans-serif';
             fontCheck.style.position = 'absolute';
@@ -604,10 +794,7 @@
             const fontFamily = computed.fontFamily || '';
             document.body.removeChild(fontCheck);
 
-            // Verificar se a fonte Inter está disponível
             const hasInter = fontFamily.includes('Inter') || fontFamily.includes('sans-serif');
-            
-            // Verificar se o link do Google Fonts existe
             const links = document.querySelectorAll('link[href*="fonts.googleapis.com"]');
             const hasFontLink = links.length > 0;
 
@@ -619,13 +806,60 @@
                 statusMap.fonts.error = 'Google Fonts não carregado';
                 updateStatus('fonts', false);
                 failedResources.push('Google Fonts');
+                errorLogs.push(`Fonts Error: Google Fonts não carregado`);
             }
         } catch (e) {
             statusMap.fonts.loaded = false;
             statusMap.fonts.error = e.message;
             updateStatus('fonts', false);
             failedResources.push('Google Fonts');
+            errorLogs.push(`Fonts Error: ${e.message}`);
         }
+        systemInfo.resources.fonts = statusMap.fonts;
+    }
+
+    // ===== CAPTURAR ERROS DO CONSOLE =====
+    function captureConsoleErrors() {
+        const originalError = console.error;
+        console.error = function(...args) {
+            const errorStr = args.map(a => String(a)).join(' ');
+            errorLogs.push(`Console Error: ${errorStr}`);
+            
+            // Verificar erros específicos
+            if (errorStr.includes('WebAssembly') && errorStr.includes('MIME type')) {
+                errorLogs.push('Wasm MIME Type Error: ' + errorStr);
+            }
+            if (errorStr.includes('Failed to load')) {
+                errorLogs.push('Load Error: ' + errorStr);
+            }
+            
+            originalError.apply(console, args);
+        };
+    }
+
+    // ===== CAPTURAR ERROS NÃO TRATADOS =====
+    function captureUnhandledErrors() {
+        window.addEventListener('error', function(e) {
+            const errorInfo = {
+                message: e.message,
+                filename: e.filename || 'unknown',
+                lineno: e.lineno || 0,
+                colno: e.colno || 0,
+                error: e.error ? String(e.error) : 'unknown'
+            };
+            errorLogs.push(`Unhandled Error: ${JSON.stringify(errorInfo)}`);
+            
+            // Verificar se é erro de recurso
+            if (e.target && (e.target.tagName === 'LINK' || e.target.tagName === 'SCRIPT')) {
+                const resource = e.target.src || e.target.href || 'unknown';
+                errorLogs.push(`Resource Load Error: ${resource}`);
+                failedResources.push(resource.split('/').pop() || 'unknown');
+            }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+            errorLogs.push(`Unhandled Promise Rejection: ${e.reason}`);
+        });
     }
 
     // ============================================
@@ -663,6 +897,25 @@
     }
 
     // ============================================
+    // ATUALIZAR UID
+    // ============================================
+    function updateUID() {
+        const display = document.getElementById('uidDisplay');
+        if (display) {
+            display.textContent = UID.substring(0, 20) + '...';
+            display.title = UID;
+        }
+    }
+
+    function copyUID() {
+        navigator.clipboard.writeText(UID).then(() => {
+            showToast('✅ UID copiado para a área de transferência');
+        }).catch(() => {
+            showToast('📋 UID: ' + UID);
+        });
+    }
+
+    // ============================================
     // ATUALIZAR DETALHES DO ERRO
     // ============================================
     function updateErrorDetails() {
@@ -671,6 +924,9 @@
                          statusMap.js.loaded && 
                          statusMap.firebase.loaded && 
                          statusMap.fonts.loaded;
+
+        // Atualizar systemInfo com erros
+        systemInfo.errors = errorLogs;
 
         if (allLoaded) {
             messageEl.textContent = '✅ Todos os recursos foram carregados com sucesso.';
@@ -694,6 +950,17 @@
             messageEl.textContent += '\n\n' + errors.join('\n');
         }
 
+        // Adicionar erros do console
+        if (errorLogs.length > 0) {
+            const consoleErrors = errorLogs.filter(log => log.includes('Console Error') || log.includes('Unhandled'));
+            if (consoleErrors.length > 0) {
+                messageEl.textContent += '\n\n📌 Erros detectados:\n' + consoleErrors.slice(0, 5).join('\n');
+                if (consoleErrors.length > 5) {
+                    messageEl.textContent += `\n... e mais ${consoleErrors.length - 5} erros`;
+                }
+            }
+        }
+
         // Atualizar código do erro
         const errorCode = document.getElementById('errorCode');
         if (failedResources.length > 0) {
@@ -715,12 +982,40 @@
     }
 
     // ============================================
-    // COPIAR DETALHES DO ERRO
+    // TOAST
     // ============================================
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        if (toast) {
+            toast.textContent = message;
+            toast.className = 'toast show';
+            clearTimeout(toast._timeout);
+            toast._timeout = setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+    }
+
+    // ============================================
+    // AÇÕES DOS BOTÕES
+    // ============================================
+    function reloadPage() {
+        // Enviar relatório antes de recarregar
+        reportError();
+        setTimeout(() => {
+            location.reload();
+        }, 500);
+    }
+
+    function goHome() {
+        location.href = 'https://wazzimagiygg.com';
+    }
+
     function copyErrorDetails() {
         const details = document.getElementById('errorMessage').textContent;
         const fullError = `
 === WazzimaGiygg - Relatório de Erro ===
+UID: ${UID}
 Data/Hora: ${new Date().toLocaleString('pt-BR')}
 URL: ${window.location.href}
 
@@ -730,41 +1025,77 @@ Status dos Recursos:
 - Firebase: ${statusMap.firebase.loaded ? '✅ Carregado' : '❌ Falhou'}
 - Google Fonts: ${statusMap.fonts.loaded ? '✅ Carregado' : '❌ Falhou'}
 
+Recursos com Falha: ${failedResources.join(', ') || 'Nenhum'}
+
 Detalhes:
 ${details}
+
+Erros do Console:
+${errorLogs.join('\n') || 'Nenhum erro registrado'}
 
 User Agent: ${navigator.userAgent}
 Resolução: ${window.innerWidth}x${window.innerHeight}
 `;
 
         navigator.clipboard.writeText(fullError).then(() => {
-            const btn = event.target.closest('button');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="material-icons" style="font-size:18px;">check</span> Copiado!';
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-            }, 2000);
+            showToast('✅ Detalhes copiados para a área de transferência');
         }).catch(() => {
-            alert('Copie os detalhes manualmente:\n\n' + fullError);
+            showToast('📋 Copie os detalhes manualmente (veja o console)');
+            console.log(fullError);
         });
+    }
+
+    function reportError() {
+        // Atualizar systemInfo com dados atuais
+        systemInfo.resources.css = statusMap.css;
+        systemInfo.resources.js = statusMap.js;
+        systemInfo.resources.firebase = statusMap.firebase;
+        systemInfo.resources.fonts = statusMap.fonts;
+        systemInfo.errors = errorLogs;
+
+        const errorURL = sendErrorReport(systemInfo, UID);
+        
+        if (errorURL) {
+            showToast('📤 Relatório de erro enviado! UID: ' + UID.substring(0, 12) + '...');
+            console.log('Relatório enviado para:', errorURL);
+        } else {
+            showToast('⚠️ Falha ao enviar relatório. Tente novamente.');
+        }
+
+        // Também abrir em uma nova aba para debug
+        if (errorURL) {
+            console.log('Link do erro:', errorURL);
+        }
     }
 
     // ============================================
     // INICIALIZAÇÃO
     // ============================================
     function init() {
-        // Verificar cada recurso com um pequeno delay
-        setTimeout(checkCSS, 500);
-        setTimeout(checkJS, 700);
-        setTimeout(checkFirebase, 900);
-        setTimeout(checkFonts, 1100);
+        // Atualizar UID
+        updateUID();
+        
+        // Capturar erros
+        captureConsoleErrors();
+        captureUnhandledErrors();
+        
+        // Verificar recursos com delays
+        setTimeout(checkCSS, 300);
+        setTimeout(checkJS, 500);
+        setTimeout(checkFirebase, 700);
+        setTimeout(checkFonts, 900);
 
-        // Atualizar detalhes após todas as verificações
-        setTimeout(updateErrorDetails, 1500);
-
-        // Atualizar também após 3 segundos (fallback)
+        // Atualizar detalhes após verificações
         setTimeout(() => {
-            // Verificar novamente se houve mudanças
+            updateErrorDetails();
+            // Se houver falhas, enviar relatório automaticamente
+            if (failedResources.length > 0) {
+                setTimeout(reportError, 1000);
+            }
+        }, 1500);
+
+        // Fallback após 3 segundos
+        setTimeout(() => {
             if (!statusMap.css.loaded || !statusMap.js.loaded) {
                 checkCSS();
                 checkJS();
@@ -772,14 +1103,26 @@ Resolução: ${window.innerWidth}x${window.innerHeight}
             }
         }, 3000);
 
-        console.log('🔍 Página de erro iniciada - Verificando recursos...');
+        // Expor funções globalmente
+        window.copyUID = copyUID;
+        window.reportError = reportError;
+        window.reloadPage = reloadPage;
+        window.goHome = goHome;
+        window.copyErrorDetails = copyErrorDetails;
+        window.showToast = showToast;
+
+        console.log('🔍 Página de erro iniciada');
+        console.log('🆔 UID:', UID);
+        console.log('📊 Sistema:', systemInfo);
     }
 
-    // Iniciar quando a página carregar
+    // Iniciar
     document.addEventListener('DOMContentLoaded', init);
 
-    // Expor função de cópia globalmente
-    window.copyErrorDetails = copyErrorDetails;
+    // Se o DOM já estiver carregado
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        init();
+    }
 </script>
 
 </body>
