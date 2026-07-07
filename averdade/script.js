@@ -9,4 +9,31 @@ document.addEventListener('DOMContentLoaded', function() {
             window.open(this.src, '_blank');
         });
     });
+
+    // Adiciona animação de entrada suave para os cards de artigos
+    const articleCards = document.querySelectorAll('.article-card');
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, index) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }, index * 100);
+            }
+        });
+    }, {
+        threshold: 0.1
+    });
+
+    articleCards.forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        observer.observe(card);
+    });
+
+    // Adiciona contador de artigos no console para SEO
+    console.log(`📚 Total de artigos disponíveis: ${articleCards.length}`);
+    console.log('📋 Dossiê completo carregado com sucesso!');
 });
