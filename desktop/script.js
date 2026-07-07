@@ -1,769 +1,1825 @@
-
-/**
- * material-design-lite - Material Design Components in CSS, JS and HTML
- * @version v1.3.0
- * @license Apache-2.0
- * @copyright 2015 Google, Inc.
- * @link https://github.com/google/material-design-lite
- */
-!function(){"use strict";function e(e,t){if(e){if(t.element_.classList.contains(t.CssClasses_.MDL_JS_RIPPLE_EFFECT)){var s=document.createElement("span");s.classList.add(t.CssClasses_.MDL_RIPPLE_CONTAINER),s.classList.add(t.CssClasses_.MDL_JS_RIPPLE_EFFECT);var i=document.createElement("span");i.classList.add(t.CssClasses_.MDL_RIPPLE),s.appendChild(i),e.appendChild(s)}e.addEventListener("click",function(s){if("#"===e.getAttribute("href").charAt(0)){s.preventDefault();var i=e.href.split("#")[1],n=t.element_.querySelector("#"+i);t.resetTabState_(),t.resetPanelState_(),e.classList.add(t.CssClasses_.ACTIVE_CLASS),n.classList.add(t.CssClasses_.ACTIVE_CLASS)}})}}function t(e,t,s,i){function n(){var n=e.href.split("#")[1],a=i.content_.querySelector("#"+n);i.resetTabState_(t),i.resetPanelState_(s),e.classList.add(i.CssClasses_.IS_ACTIVE),a.classList.add(i.CssClasses_.IS_ACTIVE)}if(i.tabBar_.classList.contains(i.CssClasses_.JS_RIPPLE_EFFECT)){var a=document.createElement("span");a.classList.add(i.CssClasses_.RIPPLE_CONTAINER),a.classList.add(i.CssClasses_.JS_RIPPLE_EFFECT);var l=document.createElement("span");l.classList.add(i.CssClasses_.RIPPLE),a.appendChild(l),e.appendChild(a)}i.tabBar_.classList.contains(i.CssClasses_.TAB_MANUAL_SWITCH)||e.addEventListener("click",function(t){"#"===e.getAttribute("href").charAt(0)&&(t.preventDefault(),n())}),e.show=n}var s={upgradeDom:function(e,t){},upgradeElement:function(e,t){},upgradeElements:function(e){},upgradeAllRegistered:function(){},registerUpgradedCallback:function(e,t){},register:function(e){},downgradeElements:function(e){}};s=function(){function e(e,t){for(var s=0;s<c.length;s++)if(c[s].className===e)return"undefined"!=typeof t&&(c[s]=t),c[s];return!1}function t(e){var t=e.getAttribute("data-upgraded");return null===t?[""]:t.split(",")}function s(e,s){var i=t(e);return i.indexOf(s)!==-1}function i(e,t,s){if("CustomEvent"in window&&"function"==typeof window.CustomEvent)return new CustomEvent(e,{bubbles:t,cancelable:s});var i=document.createEvent("Events");return i.initEvent(e,t,s),i}function n(t,s){if("undefined"==typeof t&&"undefined"==typeof s)for(var i=0;i<c.length;i++)n(c[i].className,c[i].cssClass);else{var l=t;if("undefined"==typeof s){var o=e(l);o&&(s=o.cssClass)}for(var r=document.querySelectorAll("."+s),_=0;_<r.length;_++)a(r[_],l)}}function a(n,a){if(!("object"==typeof n&&n instanceof Element))throw new Error("Invalid argument provided to upgrade MDL element.");var l=i("mdl-componentupgrading",!0,!0);if(n.dispatchEvent(l),!l.defaultPrevented){var o=t(n),r=[];if(a)s(n,a)||r.push(e(a));else{var _=n.classList;c.forEach(function(e){_.contains(e.cssClass)&&r.indexOf(e)===-1&&!s(n,e.className)&&r.push(e)})}for(var d,h=0,u=r.length;h<u;h++){if(d=r[h],!d)throw new Error("Unable to find a registered component for the given class.");o.push(d.className),n.setAttribute("data-upgraded",o.join(","));var E=new d.classConstructor(n);E[C]=d,p.push(E);for(var m=0,L=d.callbacks.length;m<L;m++)d.callbacks[m](n);d.widget&&(n[d.className]=E);var I=i("mdl-componentupgraded",!0,!1);n.dispatchEvent(I)}}}function l(e){Array.isArray(e)||(e=e instanceof Element?[e]:Array.prototype.slice.call(e));for(var t,s=0,i=e.length;s<i;s++)t=e[s],t instanceof HTMLElement&&(a(t),t.children.length>0&&l(t.children))}function o(t){var s="undefined"==typeof t.widget&&"undefined"==typeof t.widget,i=!0;s||(i=t.widget||t.widget);var n={classConstructor:t.constructor||t.constructor,className:t.classAsString||t.classAsString,cssClass:t.cssClass||t.cssClass,widget:i,callbacks:[]};if(c.forEach(function(e){if(e.cssClass===n.cssClass)throw new Error("The provided cssClass has already been registered: "+e.cssClass);if(e.className===n.className)throw new Error("The provided className has already been registered")}),t.constructor.prototype.hasOwnProperty(C))throw new Error("MDL component classes must not have "+C+" defined as a property.");var a=e(t.classAsString,n);a||c.push(n)}function r(t,s){var i=e(t);i&&i.callbacks.push(s)}function _(){for(var e=0;e<c.length;e++)n(c[e].className)}function d(e){if(e){var t=p.indexOf(e);p.splice(t,1);var s=e.element_.getAttribute("data-upgraded").split(","),n=s.indexOf(e[C].classAsString);s.splice(n,1),e.element_.setAttribute("data-upgraded",s.join(","));var a=i("mdl-componentdowngraded",!0,!1);e.element_.dispatchEvent(a)}}function h(e){var t=function(e){p.filter(function(t){return t.element_===e}).forEach(d)};if(e instanceof Array||e instanceof NodeList)for(var s=0;s<e.length;s++)t(e[s]);else{if(!(e instanceof Node))throw new Error("Invalid argument provided to downgrade MDL nodes.");t(e)}}var c=[],p=[],C="mdlComponentConfigInternal_";return{upgradeDom:n,upgradeElement:a,upgradeElements:l,upgradeAllRegistered:_,registerUpgradedCallback:r,register:o,downgradeElements:h}}(),s.ComponentConfigPublic,s.ComponentConfig,s.Component,s.upgradeDom=s.upgradeDom,s.upgradeElement=s.upgradeElement,s.upgradeElements=s.upgradeElements,s.upgradeAllRegistered=s.upgradeAllRegistered,s.registerUpgradedCallback=s.registerUpgradedCallback,s.register=s.register,s.downgradeElements=s.downgradeElements,window.componentHandler=s,window.componentHandler=s,window.addEventListener("load",function(){"classList"in document.createElement("div")&&"querySelector"in document&&"addEventListener"in window&&Array.prototype.forEach?(document.documentElement.classList.add("mdl-js"),s.upgradeAllRegistered()):(s.upgradeElement=function(){},s.register=function(){})}),Date.now||(Date.now=function(){return(new Date).getTime()},Date.now=Date.now);for(var i=["webkit","moz"],n=0;n<i.length&&!window.requestAnimationFrame;++n){var a=i[n];window.requestAnimationFrame=window[a+"RequestAnimationFrame"],window.cancelAnimationFrame=window[a+"CancelAnimationFrame"]||window[a+"CancelRequestAnimationFrame"],window.requestAnimationFrame=window.requestAnimationFrame,window.cancelAnimationFrame=window.cancelAnimationFrame}if(/iP(ad|hone|od).*OS 6/.test(window.navigator.userAgent)||!window.requestAnimationFrame||!window.cancelAnimationFrame){var l=0;window.requestAnimationFrame=function(e){var t=Date.now(),s=Math.max(l+16,t);return setTimeout(function(){e(l=s)},s-t)},window.cancelAnimationFrame=clearTimeout,window.requestAnimationFrame=window.requestAnimationFrame,window.cancelAnimationFrame=window.cancelAnimationFrame}var o=function(e){this.element_=e,this.init()};window.MaterialButton=o,o.prototype.Constant_={},o.prototype.CssClasses_={RIPPLE_EFFECT:"mdl-js-ripple-effect",RIPPLE_CONTAINER:"mdl-button__ripple-container",RIPPLE:"mdl-ripple"},o.prototype.blurHandler_=function(e){e&&this.element_.blur()},o.prototype.disable=function(){this.element_.disabled=!0},o.prototype.disable=o.prototype.disable,o.prototype.enable=function(){this.element_.disabled=!1},o.prototype.enable=o.prototype.enable,o.prototype.init=function(){if(this.element_){if(this.element_.classList.contains(this.CssClasses_.RIPPLE_EFFECT)){var e=document.createElement("span");e.classList.add(this.CssClasses_.RIPPLE_CONTAINER),this.rippleElement_=document.createElement("span"),this.rippleElement_.classList.add(this.CssClasses_.RIPPLE),e.appendChild(this.rippleElement_),this.boundRippleBlurHandler=this.blurHandler_.bind(this),this.rippleElement_.addEventListener("mouseup",this.boundRippleBlurHandler),this.element_.appendChild(e)}this.boundButtonBlurHandler=this.blurHandler_.bind(this),this.element_.addEventListener("mouseup",this.boundButtonBlurHandler),this.element_.addEventListener("mouseleave",this.boundButtonBlurHandler)}},s.register({constructor:o,classAsString:"MaterialButton",cssClass:"mdl-js-button",widget:!0});var r=function(e){this.element_=e,this.init()};window.MaterialCheckbox=r,r.prototype.Constant_={TINY_TIMEOUT:.001},r.prototype.CssClasses_={INPUT:"mdl-checkbox__input",BOX_OUTLINE:"mdl-checkbox__box-outline",FOCUS_HELPER:"mdl-checkbox__focus-helper",TICK_OUTLINE:"mdl-checkbox__tick-outline",RIPPLE_EFFECT:"mdl-js-ripple-effect",RIPPLE_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events",RIPPLE_CONTAINER:"mdl-checkbox__ripple-container",RIPPLE_CENTER:"mdl-ripple--center",RIPPLE:"mdl-ripple",IS_FOCUSED:"is-focused",IS_DISABLED:"is-disabled",IS_CHECKED:"is-checked",IS_UPGRADED:"is-upgraded"},r.prototype.onChange_=function(e){this.updateClasses_()},r.prototype.onFocus_=function(e){this.element_.classList.add(this.CssClasses_.IS_FOCUSED)},r.prototype.onBlur_=function(e){this.element_.classList.remove(this.CssClasses_.IS_FOCUSED)},r.prototype.onMouseUp_=function(e){this.blur_()},r.prototype.updateClasses_=function(){this.checkDisabled(),this.checkToggleState()},r.prototype.blur_=function(){window.setTimeout(function(){this.inputElement_.blur()}.bind(this),this.Constant_.TINY_TIMEOUT)},r.prototype.checkToggleState=function(){this.inputElement_.checked?this.element_.classList.add(this.CssClasses_.IS_CHECKED):this.element_.classList.remove(this.CssClasses_.IS_CHECKED)},r.prototype.checkToggleState=r.prototype.checkToggleState,r.prototype.checkDisabled=function(){this.inputElement_.disabled?this.element_.classList.add(this.CssClasses_.IS_DISABLED):this.element_.classList.remove(this.CssClasses_.IS_DISABLED)},r.prototype.checkDisabled=r.prototype.checkDisabled,r.prototype.disable=function(){this.inputElement_.disabled=!0,this.updateClasses_()},r.prototype.disable=r.prototype.disable,r.prototype.enable=function(){this.inputElement_.disabled=!1,this.updateClasses_()},r.prototype.enable=r.prototype.enable,r.prototype.check=function(){this.inputElement_.checked=!0,this.updateClasses_()},r.prototype.check=r.prototype.check,r.prototype.uncheck=function(){this.inputElement_.checked=!1,this.updateClasses_()},r.prototype.uncheck=r.prototype.uncheck,r.prototype.init=function(){if(this.element_){this.inputElement_=this.element_.querySelector("."+this.CssClasses_.INPUT);var e=document.createElement("span");e.classList.add(this.CssClasses_.BOX_OUTLINE);var t=document.createElement("span");t.classList.add(this.CssClasses_.FOCUS_HELPER);var s=document.createElement("span");if(s.classList.add(this.CssClasses_.TICK_OUTLINE),e.appendChild(s),this.element_.appendChild(t),this.element_.appendChild(e),this.element_.classList.contains(this.CssClasses_.RIPPLE_EFFECT)){this.element_.classList.add(this.CssClasses_.RIPPLE_IGNORE_EVENTS),this.rippleContainerElement_=document.createElement("span"),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_CONTAINER),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_EFFECT),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_CENTER),this.boundRippleMouseUp=this.onMouseUp_.bind(this),this.rippleContainerElement_.addEventListener("mouseup",this.boundRippleMouseUp);var i=document.createElement("span");i.classList.add(this.CssClasses_.RIPPLE),this.rippleContainerElement_.appendChild(i),this.element_.appendChild(this.rippleContainerElement_)}this.boundInputOnChange=this.onChange_.bind(this),this.boundInputOnFocus=this.onFocus_.bind(this),this.boundInputOnBlur=this.onBlur_.bind(this),this.boundElementMouseUp=this.onMouseUp_.bind(this),this.inputElement_.addEventListener("change",this.boundInputOnChange),this.inputElement_.addEventListener("focus",this.boundInputOnFocus),this.inputElement_.addEventListener("blur",this.boundInputOnBlur),this.element_.addEventListener("mouseup",this.boundElementMouseUp),this.updateClasses_(),this.element_.classList.add(this.CssClasses_.IS_UPGRADED)}},s.register({constructor:r,classAsString:"MaterialCheckbox",cssClass:"mdl-js-checkbox",widget:!0});var _=function(e){this.element_=e,this.init()};window.MaterialIconToggle=_,_.prototype.Constant_={TINY_TIMEOUT:.001},_.prototype.CssClasses_={INPUT:"mdl-icon-toggle__input",JS_RIPPLE_EFFECT:"mdl-js-ripple-effect",RIPPLE_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events",RIPPLE_CONTAINER:"mdl-icon-toggle__ripple-container",RIPPLE_CENTER:"mdl-ripple--center",RIPPLE:"mdl-ripple",IS_FOCUSED:"is-focused",IS_DISABLED:"is-disabled",IS_CHECKED:"is-checked"},_.prototype.onChange_=function(e){this.updateClasses_()},_.prototype.onFocus_=function(e){this.element_.classList.add(this.CssClasses_.IS_FOCUSED)},_.prototype.onBlur_=function(e){this.element_.classList.remove(this.CssClasses_.IS_FOCUSED)},_.prototype.onMouseUp_=function(e){this.blur_()},_.prototype.updateClasses_=function(){this.checkDisabled(),this.checkToggleState()},_.prototype.blur_=function(){window.setTimeout(function(){this.inputElement_.blur()}.bind(this),this.Constant_.TINY_TIMEOUT)},_.prototype.checkToggleState=function(){this.inputElement_.checked?this.element_.classList.add(this.CssClasses_.IS_CHECKED):this.element_.classList.remove(this.CssClasses_.IS_CHECKED)},_.prototype.checkToggleState=_.prototype.checkToggleState,_.prototype.checkDisabled=function(){this.inputElement_.disabled?this.element_.classList.add(this.CssClasses_.IS_DISABLED):this.element_.classList.remove(this.CssClasses_.IS_DISABLED)},_.prototype.checkDisabled=_.prototype.checkDisabled,_.prototype.disable=function(){this.inputElement_.disabled=!0,this.updateClasses_()},_.prototype.disable=_.prototype.disable,_.prototype.enable=function(){this.inputElement_.disabled=!1,this.updateClasses_()},_.prototype.enable=_.prototype.enable,_.prototype.check=function(){this.inputElement_.checked=!0,this.updateClasses_()},_.prototype.check=_.prototype.check,_.prototype.uncheck=function(){this.inputElement_.checked=!1,this.updateClasses_()},_.prototype.uncheck=_.prototype.uncheck,_.prototype.init=function(){if(this.element_){if(this.inputElement_=this.element_.querySelector("."+this.CssClasses_.INPUT),this.element_.classList.contains(this.CssClasses_.JS_RIPPLE_EFFECT)){this.element_.classList.add(this.CssClasses_.RIPPLE_IGNORE_EVENTS),this.rippleContainerElement_=document.createElement("span"),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_CONTAINER),this.rippleContainerElement_.classList.add(this.CssClasses_.JS_RIPPLE_EFFECT),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_CENTER),this.boundRippleMouseUp=this.onMouseUp_.bind(this),this.rippleContainerElement_.addEventListener("mouseup",this.boundRippleMouseUp);var e=document.createElement("span");e.classList.add(this.CssClasses_.RIPPLE),this.rippleContainerElement_.appendChild(e),this.element_.appendChild(this.rippleContainerElement_)}this.boundInputOnChange=this.onChange_.bind(this),this.boundInputOnFocus=this.onFocus_.bind(this),this.boundInputOnBlur=this.onBlur_.bind(this),this.boundElementOnMouseUp=this.onMouseUp_.bind(this),this.inputElement_.addEventListener("change",this.boundInputOnChange),this.inputElement_.addEventListener("focus",this.boundInputOnFocus),this.inputElement_.addEventListener("blur",this.boundInputOnBlur),this.element_.addEventListener("mouseup",this.boundElementOnMouseUp),this.updateClasses_(),this.element_.classList.add("is-upgraded")}},s.register({constructor:_,classAsString:"MaterialIconToggle",cssClass:"mdl-js-icon-toggle",widget:!0});var d=function(e){this.element_=e,this.init()};window.MaterialMenu=d,d.prototype.Constant_={TRANSITION_DURATION_SECONDS:.3,TRANSITION_DURATION_FRACTION:.8,CLOSE_TIMEOUT:150},d.prototype.Keycodes_={ENTER:13,ESCAPE:27,SPACE:32,UP_ARROW:38,DOWN_ARROW:40},d.prototype.CssClasses_={CONTAINER:"mdl-menu__container",OUTLINE:"mdl-menu__outline",ITEM:"mdl-menu__item",ITEM_RIPPLE_CONTAINER:"mdl-menu__item-ripple-container",RIPPLE_EFFECT:"mdl-js-ripple-effect",RIPPLE_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events",RIPPLE:"mdl-ripple",IS_UPGRADED:"is-upgraded",IS_VISIBLE:"is-visible",IS_ANIMATING:"is-animating",BOTTOM_LEFT:"mdl-menu--bottom-left",BOTTOM_RIGHT:"mdl-menu--bottom-right",TOP_LEFT:"mdl-menu--top-left",TOP_RIGHT:"mdl-menu--top-right",UNALIGNED:"mdl-menu--unaligned"},d.prototype.init=function(){if(this.element_){var e=document.createElement("div");e.classList.add(this.CssClasses_.CONTAINER),this.element_.parentElement.insertBefore(e,this.element_),this.element_.parentElement.removeChild(this.element_),e.appendChild(this.element_),this.container_=e;var t=document.createElement("div");t.classList.add(this.CssClasses_.OUTLINE),this.outline_=t,e.insertBefore(t,this.element_);var s=this.element_.getAttribute("for")||this.element_.getAttribute("data-mdl-for"),i=null;s&&(i=document.getElementById(s),i&&(this.forElement_=i,i.addEventListener("click",this.handleForClick_.bind(this)),i.addEventListener("keydown",this.handleForKeyboardEvent_.bind(this))));var n=this.element_.querySelectorAll("."+this.CssClasses_.ITEM);this.boundItemKeydown_=this.handleItemKeyboardEvent_.bind(this),this.boundItemClick_=this.handleItemClick_.bind(this);for(var a=0;a<n.length;a++)n[a].addEventListener("click",this.boundItemClick_),n[a].tabIndex="-1",n[a].addEventListener("keydown",this.boundItemKeydown_);if(this.element_.classList.contains(this.CssClasses_.RIPPLE_EFFECT))for(this.element_.classList.add(this.CssClasses_.RIPPLE_IGNORE_EVENTS),a=0;a<n.length;a++){var l=n[a],o=document.createElement("span");o.classList.add(this.CssClasses_.ITEM_RIPPLE_CONTAINER);var r=document.createElement("span");r.classList.add(this.CssClasses_.RIPPLE),o.appendChild(r),l.appendChild(o),l.classList.add(this.CssClasses_.RIPPLE_EFFECT)}this.element_.classList.contains(this.CssClasses_.BOTTOM_LEFT)&&this.outline_.classList.add(this.CssClasses_.BOTTOM_LEFT),this.element_.classList.contains(this.CssClasses_.BOTTOM_RIGHT)&&this.outline_.classList.add(this.CssClasses_.BOTTOM_RIGHT),this.element_.classList.contains(this.CssClasses_.TOP_LEFT)&&this.outline_.classList.add(this.CssClasses_.TOP_LEFT),this.element_.classList.contains(this.CssClasses_.TOP_RIGHT)&&this.outline_.classList.add(this.CssClasses_.TOP_RIGHT),this.element_.classList.contains(this.CssClasses_.UNALIGNED)&&this.outline_.classList.add(this.CssClasses_.UNALIGNED),e.classList.add(this.CssClasses_.IS_UPGRADED)}},d.prototype.handleForClick_=function(e){if(this.element_&&this.forElement_){var t=this.forElement_.getBoundingClientRect(),s=this.forElement_.parentElement.getBoundingClientRect();this.element_.classList.contains(this.CssClasses_.UNALIGNED)||(this.element_.classList.contains(this.CssClasses_.BOTTOM_RIGHT)?(this.container_.style.right=s.right-t.right+"px",this.container_.style.top=this.forElement_.offsetTop+this.forElement_.offsetHeight+"px"):this.element_.classList.contains(this.CssClasses_.TOP_LEFT)?(this.container_.style.left=this.forElement_.offsetLeft+"px",this.container_.style.bottom=s.bottom-t.top+"px"):this.element_.classList.contains(this.CssClasses_.TOP_RIGHT)?(this.container_.style.right=s.right-t.right+"px",this.container_.style.bottom=s.bottom-t.top+"px"):(this.container_.style.left=this.forElement_.offsetLeft+"px",this.container_.style.top=this.forElement_.offsetTop+this.forElement_.offsetHeight+"px"))}this.toggle(e)},d.prototype.handleForKeyboardEvent_=function(e){if(this.element_&&this.container_&&this.forElement_){var t=this.element_.querySelectorAll("."+this.CssClasses_.ITEM+":not([disabled])");t&&t.length>0&&this.container_.classList.contains(this.CssClasses_.IS_VISIBLE)&&(e.keyCode===this.Keycodes_.UP_ARROW?(e.preventDefault(),t[t.length-1].focus()):e.keyCode===this.Keycodes_.DOWN_ARROW&&(e.preventDefault(),t[0].focus()))}},d.prototype.handleItemKeyboardEvent_=function(e){if(this.element_&&this.container_){var t=this.element_.querySelectorAll("."+this.CssClasses_.ITEM+":not([disabled])");if(t&&t.length>0&&this.container_.classList.contains(this.CssClasses_.IS_VISIBLE)){var s=Array.prototype.slice.call(t).indexOf(e.target);if(e.keyCode===this.Keycodes_.UP_ARROW)e.preventDefault(),s>0?t[s-1].focus():t[t.length-1].focus();else if(e.keyCode===this.Keycodes_.DOWN_ARROW)e.preventDefault(),t.length>s+1?t[s+1].focus():t[0].focus();else if(e.keyCode===this.Keycodes_.SPACE||e.keyCode===this.Keycodes_.ENTER){e.preventDefault();var i=new MouseEvent("mousedown");e.target.dispatchEvent(i),i=new MouseEvent("mouseup"),e.target.dispatchEvent(i),e.target.click()}else e.keyCode===this.Keycodes_.ESCAPE&&(e.preventDefault(),this.hide())}}},d.prototype.handleItemClick_=function(e){e.target.hasAttribute("disabled")?e.stopPropagation():(this.closing_=!0,window.setTimeout(function(e){this.hide(),this.closing_=!1}.bind(this),this.Constant_.CLOSE_TIMEOUT))},d.prototype.applyClip_=function(e,t){this.element_.classList.contains(this.CssClasses_.UNALIGNED)?this.element_.style.clip="":this.element_.classList.contains(this.CssClasses_.BOTTOM_RIGHT)?this.element_.style.clip="rect(0 "+t+"px 0 "+t+"px)":this.element_.classList.contains(this.CssClasses_.TOP_LEFT)?this.element_.style.clip="rect("+e+"px 0 "+e+"px 0)":this.element_.classList.contains(this.CssClasses_.TOP_RIGHT)?this.element_.style.clip="rect("+e+"px "+t+"px "+e+"px "+t+"px)":this.element_.style.clip=""},d.prototype.removeAnimationEndListener_=function(e){e.target.classList.remove(d.prototype.CssClasses_.IS_ANIMATING)},d.prototype.addAnimationEndListener_=function(){this.element_.addEventListener("transitionend",this.removeAnimationEndListener_),this.element_.addEventListener("webkitTransitionEnd",this.removeAnimationEndListener_)},d.prototype.show=function(e){if(this.element_&&this.container_&&this.outline_){var t=this.element_.getBoundingClientRect().height,s=this.element_.getBoundingClientRect().width;this.container_.style.width=s+"px",this.container_.style.height=t+"px",this.outline_.style.width=s+"px",this.outline_.style.height=t+"px";for(var i=this.Constant_.TRANSITION_DURATION_SECONDS*this.Constant_.TRANSITION_DURATION_FRACTION,n=this.element_.querySelectorAll("."+this.CssClasses_.ITEM),a=0;a<n.length;a++){var l=null;l=this.element_.classList.contains(this.CssClasses_.TOP_LEFT)||this.element_.classList.contains(this.CssClasses_.TOP_RIGHT)?(t-n[a].offsetTop-n[a].offsetHeight)/t*i+"s":n[a].offsetTop/t*i+"s",n[a].style.transitionDelay=l}this.applyClip_(t,s),window.requestAnimationFrame(function(){this.element_.classList.add(this.CssClasses_.IS_ANIMATING),this.element_.style.clip="rect(0 "+s+"px "+t+"px 0)",this.container_.classList.add(this.CssClasses_.IS_VISIBLE)}.bind(this)),this.addAnimationEndListener_();var o=function(t){t===e||this.closing_||t.target.parentNode===this.element_||(document.removeEventListener("click",o),this.hide())}.bind(this);document.addEventListener("click",o)}},d.prototype.show=d.prototype.show,d.prototype.hide=function(){if(this.element_&&this.container_&&this.outline_){for(var e=this.element_.querySelectorAll("."+this.CssClasses_.ITEM),t=0;t<e.length;t++)e[t].style.removeProperty("transition-delay");var s=this.element_.getBoundingClientRect(),i=s.height,n=s.width;this.element_.classList.add(this.CssClasses_.IS_ANIMATING),this.applyClip_(i,n),this.container_.classList.remove(this.CssClasses_.IS_VISIBLE),this.addAnimationEndListener_()}},d.prototype.hide=d.prototype.hide,d.prototype.toggle=function(e){this.container_.classList.contains(this.CssClasses_.IS_VISIBLE)?this.hide():this.show(e)},d.prototype.toggle=d.prototype.toggle,s.register({constructor:d,classAsString:"MaterialMenu",cssClass:"mdl-js-menu",widget:!0});var h=function(e){this.element_=e,this.init()};window.MaterialProgress=h,h.prototype.Constant_={},h.prototype.CssClasses_={INDETERMINATE_CLASS:"mdl-progress__indeterminate"},h.prototype.setProgress=function(e){this.element_.classList.contains(this.CssClasses_.INDETERMINATE_CLASS)||(this.progressbar_.style.width=e+"%")},h.prototype.setProgress=h.prototype.setProgress,h.prototype.setBuffer=function(e){this.bufferbar_.style.width=e+"%",this.auxbar_.style.width=100-e+"%"},h.prototype.setBuffer=h.prototype.setBuffer,h.prototype.init=function(){if(this.element_){var e=document.createElement("div");e.className="progressbar bar bar1",this.element_.appendChild(e),this.progressbar_=e,e=document.createElement("div"),e.className="bufferbar bar bar2",this.element_.appendChild(e),this.bufferbar_=e,e=document.createElement("div"),e.className="auxbar bar bar3",this.element_.appendChild(e),this.auxbar_=e,this.progressbar_.style.width="0%",this.bufferbar_.style.width="100%",this.auxbar_.style.width="0%",this.element_.classList.add("is-upgraded")}},s.register({constructor:h,classAsString:"MaterialProgress",cssClass:"mdl-js-progress",widget:!0});var c=function(e){this.element_=e,this.init()};window.MaterialRadio=c,c.prototype.Constant_={TINY_TIMEOUT:.001},c.prototype.CssClasses_={IS_FOCUSED:"is-focused",IS_DISABLED:"is-disabled",IS_CHECKED:"is-checked",IS_UPGRADED:"is-upgraded",JS_RADIO:"mdl-js-radio",RADIO_BTN:"mdl-radio__button",RADIO_OUTER_CIRCLE:"mdl-radio__outer-circle",RADIO_INNER_CIRCLE:"mdl-radio__inner-circle",RIPPLE_EFFECT:"mdl-js-ripple-effect",RIPPLE_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events",RIPPLE_CONTAINER:"mdl-radio__ripple-container",RIPPLE_CENTER:"mdl-ripple--center",RIPPLE:"mdl-ripple"},c.prototype.onChange_=function(e){for(var t=document.getElementsByClassName(this.CssClasses_.JS_RADIO),s=0;s<t.length;s++){var i=t[s].querySelector("."+this.CssClasses_.RADIO_BTN);i.getAttribute("name")===this.btnElement_.getAttribute("name")&&"undefined"!=typeof t[s].MaterialRadio&&t[s].MaterialRadio.updateClasses_()}},c.prototype.onFocus_=function(e){this.element_.classList.add(this.CssClasses_.IS_FOCUSED)},c.prototype.onBlur_=function(e){this.element_.classList.remove(this.CssClasses_.IS_FOCUSED)},c.prototype.onMouseup_=function(e){this.blur_()},c.prototype.updateClasses_=function(){this.checkDisabled(),this.checkToggleState()},c.prototype.blur_=function(){window.setTimeout(function(){this.btnElement_.blur()}.bind(this),this.Constant_.TINY_TIMEOUT)},c.prototype.checkDisabled=function(){this.btnElement_.disabled?this.element_.classList.add(this.CssClasses_.IS_DISABLED):this.element_.classList.remove(this.CssClasses_.IS_DISABLED)},c.prototype.checkDisabled=c.prototype.checkDisabled,c.prototype.checkToggleState=function(){this.btnElement_.checked?this.element_.classList.add(this.CssClasses_.IS_CHECKED):this.element_.classList.remove(this.CssClasses_.IS_CHECKED)},c.prototype.checkToggleState=c.prototype.checkToggleState,c.prototype.disable=function(){this.btnElement_.disabled=!0,this.updateClasses_()},c.prototype.disable=c.prototype.disable,c.prototype.enable=function(){this.btnElement_.disabled=!1,this.updateClasses_()},c.prototype.enable=c.prototype.enable,c.prototype.check=function(){this.btnElement_.checked=!0,this.onChange_(null)},c.prototype.check=c.prototype.check,c.prototype.uncheck=function(){this.btnElement_.checked=!1,this.onChange_(null)},c.prototype.uncheck=c.prototype.uncheck,c.prototype.init=function(){if(this.element_){this.btnElement_=this.element_.querySelector("."+this.CssClasses_.RADIO_BTN),this.boundChangeHandler_=this.onChange_.bind(this),this.boundFocusHandler_=this.onChange_.bind(this),this.boundBlurHandler_=this.onBlur_.bind(this),this.boundMouseUpHandler_=this.onMouseup_.bind(this);var e=document.createElement("span");e.classList.add(this.CssClasses_.RADIO_OUTER_CIRCLE);var t=document.createElement("span");t.classList.add(this.CssClasses_.RADIO_INNER_CIRCLE),this.element_.appendChild(e),this.element_.appendChild(t);var s;if(this.element_.classList.contains(this.CssClasses_.RIPPLE_EFFECT)){this.element_.classList.add(this.CssClasses_.RIPPLE_IGNORE_EVENTS),s=document.createElement("span"),s.classList.add(this.CssClasses_.RIPPLE_CONTAINER),s.classList.add(this.CssClasses_.RIPPLE_EFFECT),s.classList.add(this.CssClasses_.RIPPLE_CENTER),s.addEventListener("mouseup",this.boundMouseUpHandler_);var i=document.createElement("span");i.classList.add(this.CssClasses_.RIPPLE),s.appendChild(i),this.element_.appendChild(s)}this.btnElement_.addEventListener("change",this.boundChangeHandler_),this.btnElement_.addEventListener("focus",this.boundFocusHandler_),this.btnElement_.addEventListener("blur",this.boundBlurHandler_),this.element_.addEventListener("mouseup",this.boundMouseUpHandler_),this.updateClasses_(),this.element_.classList.add(this.CssClasses_.IS_UPGRADED)}},s.register({constructor:c,classAsString:"MaterialRadio",cssClass:"mdl-js-radio",widget:!0});var p=function(e){this.element_=e,this.isIE_=window.navigator.msPointerEnabled,this.init()};window.MaterialSlider=p,p.prototype.Constant_={},p.prototype.CssClasses_={IE_CONTAINER:"mdl-slider__ie-container",SLIDER_CONTAINER:"mdl-slider__container",BACKGROUND_FLEX:"mdl-slider__background-flex",BACKGROUND_LOWER:"mdl-slider__background-lower",BACKGROUND_UPPER:"mdl-slider__background-upper",IS_LOWEST_VALUE:"is-lowest-value",IS_UPGRADED:"is-upgraded"},p.prototype.onInput_=function(e){this.updateValueStyles_()},p.prototype.onChange_=function(e){this.updateValueStyles_()},p.prototype.onMouseUp_=function(e){e.target.blur()},p.prototype.onContainerMouseDown_=function(e){if(e.target===this.element_.parentElement){e.preventDefault();var t=new MouseEvent("mousedown",{target:e.target,buttons:e.buttons,clientX:e.clientX,clientY:this.element_.getBoundingClientRect().y});this.element_.dispatchEvent(t)}},p.prototype.updateValueStyles_=function(){var e=(this.element_.value-this.element_.min)/(this.element_.max-this.element_.min);0===e?this.element_.classList.add(this.CssClasses_.IS_LOWEST_VALUE):this.element_.classList.remove(this.CssClasses_.IS_LOWEST_VALUE),this.isIE_||(this.backgroundLower_.style.flex=e,this.backgroundLower_.style.webkitFlex=e,this.backgroundUpper_.style.flex=1-e,this.backgroundUpper_.style.webkitFlex=1-e)},p.prototype.disable=function(){this.element_.disabled=!0},p.prototype.disable=p.prototype.disable,p.prototype.enable=function(){this.element_.disabled=!1},p.prototype.enable=p.prototype.enable,p.prototype.change=function(e){"undefined"!=typeof e&&(this.element_.value=e),this.updateValueStyles_()},p.prototype.change=p.prototype.change,p.prototype.init=function(){if(this.element_){if(this.isIE_){var e=document.createElement("div");e.classList.add(this.CssClasses_.IE_CONTAINER),this.element_.parentElement.insertBefore(e,this.element_),this.element_.parentElement.removeChild(this.element_),e.appendChild(this.element_)}else{var t=document.createElement("div");t.classList.add(this.CssClasses_.SLIDER_CONTAINER),this.element_.parentElement.insertBefore(t,this.element_),this.element_.parentElement.removeChild(this.element_),t.appendChild(this.element_);var s=document.createElement("div");s.classList.add(this.CssClasses_.BACKGROUND_FLEX),t.appendChild(s),this.backgroundLower_=document.createElement("div"),this.backgroundLower_.classList.add(this.CssClasses_.BACKGROUND_LOWER),s.appendChild(this.backgroundLower_),this.backgroundUpper_=document.createElement("div"),this.backgroundUpper_.classList.add(this.CssClasses_.BACKGROUND_UPPER),s.appendChild(this.backgroundUpper_)}this.boundInputHandler=this.onInput_.bind(this),this.boundChangeHandler=this.onChange_.bind(this),this.boundMouseUpHandler=this.onMouseUp_.bind(this),this.boundContainerMouseDownHandler=this.onContainerMouseDown_.bind(this),this.element_.addEventListener("input",this.boundInputHandler),this.element_.addEventListener("change",this.boundChangeHandler),this.element_.addEventListener("mouseup",this.boundMouseUpHandler),this.element_.parentElement.addEventListener("mousedown",this.boundContainerMouseDownHandler),this.updateValueStyles_(),this.element_.classList.add(this.CssClasses_.IS_UPGRADED)}},s.register({constructor:p,classAsString:"MaterialSlider",cssClass:"mdl-js-slider",widget:!0});var C=function(e){if(this.element_=e,this.textElement_=this.element_.querySelector("."+this.cssClasses_.MESSAGE),this.actionElement_=this.element_.querySelector("."+this.cssClasses_.ACTION),!this.textElement_)throw new Error("There must be a message element for a snackbar.");if(!this.actionElement_)throw new Error("There must be an action element for a snackbar.");this.active=!1,this.actionHandler_=void 0,this.message_=void 0,this.actionText_=void 0,this.queuedNotifications_=[],this.setActionHidden_(!0)};window.MaterialSnackbar=C,C.prototype.Constant_={ANIMATION_LENGTH:250},C.prototype.cssClasses_={SNACKBAR:"mdl-snackbar",MESSAGE:"mdl-snackbar__text",ACTION:"mdl-snackbar__action",ACTIVE:"mdl-snackbar--active"},C.prototype.displaySnackbar_=function(){this.element_.setAttribute("aria-hidden","true"),
-this.actionHandler_&&(this.actionElement_.textContent=this.actionText_,this.actionElement_.addEventListener("click",this.actionHandler_),this.setActionHidden_(!1)),this.textElement_.textContent=this.message_,this.element_.classList.add(this.cssClasses_.ACTIVE),this.element_.setAttribute("aria-hidden","false"),setTimeout(this.cleanup_.bind(this),this.timeout_)},C.prototype.showSnackbar=function(e){if(void 0===e)throw new Error("Please provide a data object with at least a message to display.");if(void 0===e.message)throw new Error("Please provide a message to be displayed.");if(e.actionHandler&&!e.actionText)throw new Error("Please provide action text with the handler.");this.active?this.queuedNotifications_.push(e):(this.active=!0,this.message_=e.message,e.timeout?this.timeout_=e.timeout:this.timeout_=2750,e.actionHandler&&(this.actionHandler_=e.actionHandler),e.actionText&&(this.actionText_=e.actionText),this.displaySnackbar_())},C.prototype.showSnackbar=C.prototype.showSnackbar,C.prototype.checkQueue_=function(){this.queuedNotifications_.length>0&&this.showSnackbar(this.queuedNotifications_.shift())},C.prototype.cleanup_=function(){this.element_.classList.remove(this.cssClasses_.ACTIVE),setTimeout(function(){this.element_.setAttribute("aria-hidden","true"),this.textElement_.textContent="",Boolean(this.actionElement_.getAttribute("aria-hidden"))||(this.setActionHidden_(!0),this.actionElement_.textContent="",this.actionElement_.removeEventListener("click",this.actionHandler_)),this.actionHandler_=void 0,this.message_=void 0,this.actionText_=void 0,this.active=!1,this.checkQueue_()}.bind(this),this.Constant_.ANIMATION_LENGTH)},C.prototype.setActionHidden_=function(e){e?this.actionElement_.setAttribute("aria-hidden","true"):this.actionElement_.removeAttribute("aria-hidden")},s.register({constructor:C,classAsString:"MaterialSnackbar",cssClass:"mdl-js-snackbar",widget:!0});var u=function(e){this.element_=e,this.init()};window.MaterialSpinner=u,u.prototype.Constant_={MDL_SPINNER_LAYER_COUNT:4},u.prototype.CssClasses_={MDL_SPINNER_LAYER:"mdl-spinner__layer",MDL_SPINNER_CIRCLE_CLIPPER:"mdl-spinner__circle-clipper",MDL_SPINNER_CIRCLE:"mdl-spinner__circle",MDL_SPINNER_GAP_PATCH:"mdl-spinner__gap-patch",MDL_SPINNER_LEFT:"mdl-spinner__left",MDL_SPINNER_RIGHT:"mdl-spinner__right"},u.prototype.createLayer=function(e){var t=document.createElement("div");t.classList.add(this.CssClasses_.MDL_SPINNER_LAYER),t.classList.add(this.CssClasses_.MDL_SPINNER_LAYER+"-"+e);var s=document.createElement("div");s.classList.add(this.CssClasses_.MDL_SPINNER_CIRCLE_CLIPPER),s.classList.add(this.CssClasses_.MDL_SPINNER_LEFT);var i=document.createElement("div");i.classList.add(this.CssClasses_.MDL_SPINNER_GAP_PATCH);var n=document.createElement("div");n.classList.add(this.CssClasses_.MDL_SPINNER_CIRCLE_CLIPPER),n.classList.add(this.CssClasses_.MDL_SPINNER_RIGHT);for(var a=[s,i,n],l=0;l<a.length;l++){var o=document.createElement("div");o.classList.add(this.CssClasses_.MDL_SPINNER_CIRCLE),a[l].appendChild(o)}t.appendChild(s),t.appendChild(i),t.appendChild(n),this.element_.appendChild(t)},u.prototype.createLayer=u.prototype.createLayer,u.prototype.stop=function(){this.element_.classList.remove("is-active")},u.prototype.stop=u.prototype.stop,u.prototype.start=function(){this.element_.classList.add("is-active")},u.prototype.start=u.prototype.start,u.prototype.init=function(){if(this.element_){for(var e=1;e<=this.Constant_.MDL_SPINNER_LAYER_COUNT;e++)this.createLayer(e);this.element_.classList.add("is-upgraded")}},s.register({constructor:u,classAsString:"MaterialSpinner",cssClass:"mdl-js-spinner",widget:!0});var E=function(e){this.element_=e,this.init()};window.MaterialSwitch=E,E.prototype.Constant_={TINY_TIMEOUT:.001},E.prototype.CssClasses_={INPUT:"mdl-switch__input",TRACK:"mdl-switch__track",THUMB:"mdl-switch__thumb",FOCUS_HELPER:"mdl-switch__focus-helper",RIPPLE_EFFECT:"mdl-js-ripple-effect",RIPPLE_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events",RIPPLE_CONTAINER:"mdl-switch__ripple-container",RIPPLE_CENTER:"mdl-ripple--center",RIPPLE:"mdl-ripple",IS_FOCUSED:"is-focused",IS_DISABLED:"is-disabled",IS_CHECKED:"is-checked"},E.prototype.onChange_=function(e){this.updateClasses_()},E.prototype.onFocus_=function(e){this.element_.classList.add(this.CssClasses_.IS_FOCUSED)},E.prototype.onBlur_=function(e){this.element_.classList.remove(this.CssClasses_.IS_FOCUSED)},E.prototype.onMouseUp_=function(e){this.blur_()},E.prototype.updateClasses_=function(){this.checkDisabled(),this.checkToggleState()},E.prototype.blur_=function(){window.setTimeout(function(){this.inputElement_.blur()}.bind(this),this.Constant_.TINY_TIMEOUT)},E.prototype.checkDisabled=function(){this.inputElement_.disabled?this.element_.classList.add(this.CssClasses_.IS_DISABLED):this.element_.classList.remove(this.CssClasses_.IS_DISABLED)},E.prototype.checkDisabled=E.prototype.checkDisabled,E.prototype.checkToggleState=function(){this.inputElement_.checked?this.element_.classList.add(this.CssClasses_.IS_CHECKED):this.element_.classList.remove(this.CssClasses_.IS_CHECKED)},E.prototype.checkToggleState=E.prototype.checkToggleState,E.prototype.disable=function(){this.inputElement_.disabled=!0,this.updateClasses_()},E.prototype.disable=E.prototype.disable,E.prototype.enable=function(){this.inputElement_.disabled=!1,this.updateClasses_()},E.prototype.enable=E.prototype.enable,E.prototype.on=function(){this.inputElement_.checked=!0,this.updateClasses_()},E.prototype.on=E.prototype.on,E.prototype.off=function(){this.inputElement_.checked=!1,this.updateClasses_()},E.prototype.off=E.prototype.off,E.prototype.init=function(){if(this.element_){this.inputElement_=this.element_.querySelector("."+this.CssClasses_.INPUT);var e=document.createElement("div");e.classList.add(this.CssClasses_.TRACK);var t=document.createElement("div");t.classList.add(this.CssClasses_.THUMB);var s=document.createElement("span");if(s.classList.add(this.CssClasses_.FOCUS_HELPER),t.appendChild(s),this.element_.appendChild(e),this.element_.appendChild(t),this.boundMouseUpHandler=this.onMouseUp_.bind(this),this.element_.classList.contains(this.CssClasses_.RIPPLE_EFFECT)){this.element_.classList.add(this.CssClasses_.RIPPLE_IGNORE_EVENTS),this.rippleContainerElement_=document.createElement("span"),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_CONTAINER),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_EFFECT),this.rippleContainerElement_.classList.add(this.CssClasses_.RIPPLE_CENTER),this.rippleContainerElement_.addEventListener("mouseup",this.boundMouseUpHandler);var i=document.createElement("span");i.classList.add(this.CssClasses_.RIPPLE),this.rippleContainerElement_.appendChild(i),this.element_.appendChild(this.rippleContainerElement_)}this.boundChangeHandler=this.onChange_.bind(this),this.boundFocusHandler=this.onFocus_.bind(this),this.boundBlurHandler=this.onBlur_.bind(this),this.inputElement_.addEventListener("change",this.boundChangeHandler),this.inputElement_.addEventListener("focus",this.boundFocusHandler),this.inputElement_.addEventListener("blur",this.boundBlurHandler),this.element_.addEventListener("mouseup",this.boundMouseUpHandler),this.updateClasses_(),this.element_.classList.add("is-upgraded")}},s.register({constructor:E,classAsString:"MaterialSwitch",cssClass:"mdl-js-switch",widget:!0});var m=function(e){this.element_=e,this.init()};window.MaterialTabs=m,m.prototype.Constant_={},m.prototype.CssClasses_={TAB_CLASS:"mdl-tabs__tab",PANEL_CLASS:"mdl-tabs__panel",ACTIVE_CLASS:"is-active",UPGRADED_CLASS:"is-upgraded",MDL_JS_RIPPLE_EFFECT:"mdl-js-ripple-effect",MDL_RIPPLE_CONTAINER:"mdl-tabs__ripple-container",MDL_RIPPLE:"mdl-ripple",MDL_JS_RIPPLE_EFFECT_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events"},m.prototype.initTabs_=function(){this.element_.classList.contains(this.CssClasses_.MDL_JS_RIPPLE_EFFECT)&&this.element_.classList.add(this.CssClasses_.MDL_JS_RIPPLE_EFFECT_IGNORE_EVENTS),this.tabs_=this.element_.querySelectorAll("."+this.CssClasses_.TAB_CLASS),this.panels_=this.element_.querySelectorAll("."+this.CssClasses_.PANEL_CLASS);for(var t=0;t<this.tabs_.length;t++)new e(this.tabs_[t],this);this.element_.classList.add(this.CssClasses_.UPGRADED_CLASS)},m.prototype.resetTabState_=function(){for(var e=0;e<this.tabs_.length;e++)this.tabs_[e].classList.remove(this.CssClasses_.ACTIVE_CLASS)},m.prototype.resetPanelState_=function(){for(var e=0;e<this.panels_.length;e++)this.panels_[e].classList.remove(this.CssClasses_.ACTIVE_CLASS)},m.prototype.init=function(){this.element_&&this.initTabs_()},s.register({constructor:m,classAsString:"MaterialTabs",cssClass:"mdl-js-tabs"});var L=function(e){this.element_=e,this.maxRows=this.Constant_.NO_MAX_ROWS,this.init()};window.MaterialTextfield=L,L.prototype.Constant_={NO_MAX_ROWS:-1,MAX_ROWS_ATTRIBUTE:"maxrows"},L.prototype.CssClasses_={LABEL:"mdl-textfield__label",INPUT:"mdl-textfield__input",IS_DIRTY:"is-dirty",IS_FOCUSED:"is-focused",IS_DISABLED:"is-disabled",IS_INVALID:"is-invalid",IS_UPGRADED:"is-upgraded",HAS_PLACEHOLDER:"has-placeholder"},L.prototype.onKeyDown_=function(e){var t=e.target.value.split("\n").length;13===e.keyCode&&t>=this.maxRows&&e.preventDefault()},L.prototype.onFocus_=function(e){this.element_.classList.add(this.CssClasses_.IS_FOCUSED)},L.prototype.onBlur_=function(e){this.element_.classList.remove(this.CssClasses_.IS_FOCUSED)},L.prototype.onReset_=function(e){this.updateClasses_()},L.prototype.updateClasses_=function(){this.checkDisabled(),this.checkValidity(),this.checkDirty(),this.checkFocus()},L.prototype.checkDisabled=function(){this.input_.disabled?this.element_.classList.add(this.CssClasses_.IS_DISABLED):this.element_.classList.remove(this.CssClasses_.IS_DISABLED)},L.prototype.checkDisabled=L.prototype.checkDisabled,L.prototype.checkFocus=function(){Boolean(this.element_.querySelector(":focus"))?this.element_.classList.add(this.CssClasses_.IS_FOCUSED):this.element_.classList.remove(this.CssClasses_.IS_FOCUSED)},L.prototype.checkFocus=L.prototype.checkFocus,L.prototype.checkValidity=function(){this.input_.validity&&(this.input_.validity.valid?this.element_.classList.remove(this.CssClasses_.IS_INVALID):this.element_.classList.add(this.CssClasses_.IS_INVALID))},L.prototype.checkValidity=L.prototype.checkValidity,L.prototype.checkDirty=function(){this.input_.value&&this.input_.value.length>0?this.element_.classList.add(this.CssClasses_.IS_DIRTY):this.element_.classList.remove(this.CssClasses_.IS_DIRTY)},L.prototype.checkDirty=L.prototype.checkDirty,L.prototype.disable=function(){this.input_.disabled=!0,this.updateClasses_()},L.prototype.disable=L.prototype.disable,L.prototype.enable=function(){this.input_.disabled=!1,this.updateClasses_()},L.prototype.enable=L.prototype.enable,L.prototype.change=function(e){this.input_.value=e||"",this.updateClasses_()},L.prototype.change=L.prototype.change,L.prototype.init=function(){if(this.element_&&(this.label_=this.element_.querySelector("."+this.CssClasses_.LABEL),this.input_=this.element_.querySelector("."+this.CssClasses_.INPUT),this.input_)){this.input_.hasAttribute(this.Constant_.MAX_ROWS_ATTRIBUTE)&&(this.maxRows=parseInt(this.input_.getAttribute(this.Constant_.MAX_ROWS_ATTRIBUTE),10),isNaN(this.maxRows)&&(this.maxRows=this.Constant_.NO_MAX_ROWS)),this.input_.hasAttribute("placeholder")&&this.element_.classList.add(this.CssClasses_.HAS_PLACEHOLDER),this.boundUpdateClassesHandler=this.updateClasses_.bind(this),this.boundFocusHandler=this.onFocus_.bind(this),this.boundBlurHandler=this.onBlur_.bind(this),this.boundResetHandler=this.onReset_.bind(this),this.input_.addEventListener("input",this.boundUpdateClassesHandler),this.input_.addEventListener("focus",this.boundFocusHandler),this.input_.addEventListener("blur",this.boundBlurHandler),this.input_.addEventListener("reset",this.boundResetHandler),this.maxRows!==this.Constant_.NO_MAX_ROWS&&(this.boundKeyDownHandler=this.onKeyDown_.bind(this),this.input_.addEventListener("keydown",this.boundKeyDownHandler));var e=this.element_.classList.contains(this.CssClasses_.IS_INVALID);this.updateClasses_(),this.element_.classList.add(this.CssClasses_.IS_UPGRADED),e&&this.element_.classList.add(this.CssClasses_.IS_INVALID),this.input_.hasAttribute("autofocus")&&(this.element_.focus(),this.checkFocus())}},s.register({constructor:L,classAsString:"MaterialTextfield",cssClass:"mdl-js-textfield",widget:!0});var I=function(e){this.element_=e,this.init()};window.MaterialTooltip=I,I.prototype.Constant_={},I.prototype.CssClasses_={IS_ACTIVE:"is-active",BOTTOM:"mdl-tooltip--bottom",LEFT:"mdl-tooltip--left",RIGHT:"mdl-tooltip--right",TOP:"mdl-tooltip--top"},I.prototype.handleMouseEnter_=function(e){var t=e.target.getBoundingClientRect(),s=t.left+t.width/2,i=t.top+t.height/2,n=-1*(this.element_.offsetWidth/2),a=-1*(this.element_.offsetHeight/2);this.element_.classList.contains(this.CssClasses_.LEFT)||this.element_.classList.contains(this.CssClasses_.RIGHT)?(s=t.width/2,i+a<0?(this.element_.style.top="0",this.element_.style.marginTop="0"):(this.element_.style.top=i+"px",this.element_.style.marginTop=a+"px")):s+n<0?(this.element_.style.left="0",this.element_.style.marginLeft="0"):(this.element_.style.left=s+"px",this.element_.style.marginLeft=n+"px"),this.element_.classList.contains(this.CssClasses_.TOP)?this.element_.style.top=t.top-this.element_.offsetHeight-10+"px":this.element_.classList.contains(this.CssClasses_.RIGHT)?this.element_.style.left=t.left+t.width+10+"px":this.element_.classList.contains(this.CssClasses_.LEFT)?this.element_.style.left=t.left-this.element_.offsetWidth-10+"px":this.element_.style.top=t.top+t.height+10+"px",this.element_.classList.add(this.CssClasses_.IS_ACTIVE)},I.prototype.hideTooltip_=function(){this.element_.classList.remove(this.CssClasses_.IS_ACTIVE)},I.prototype.init=function(){if(this.element_){var e=this.element_.getAttribute("for")||this.element_.getAttribute("data-mdl-for");e&&(this.forElement_=document.getElementById(e)),this.forElement_&&(this.forElement_.hasAttribute("tabindex")||this.forElement_.setAttribute("tabindex","0"),this.boundMouseEnterHandler=this.handleMouseEnter_.bind(this),this.boundMouseLeaveAndScrollHandler=this.hideTooltip_.bind(this),this.forElement_.addEventListener("mouseenter",this.boundMouseEnterHandler,!1),this.forElement_.addEventListener("touchend",this.boundMouseEnterHandler,!1),this.forElement_.addEventListener("mouseleave",this.boundMouseLeaveAndScrollHandler,!1),window.addEventListener("scroll",this.boundMouseLeaveAndScrollHandler,!0),window.addEventListener("touchstart",this.boundMouseLeaveAndScrollHandler))}},s.register({constructor:I,classAsString:"MaterialTooltip",cssClass:"mdl-tooltip"});var f=function(e){this.element_=e,this.init()};window.MaterialLayout=f,f.prototype.Constant_={MAX_WIDTH:"(max-width: 1024px)",TAB_SCROLL_PIXELS:100,RESIZE_TIMEOUT:100,MENU_ICON:"&#xE5D2;",CHEVRON_LEFT:"chevron_left",CHEVRON_RIGHT:"chevron_right"},f.prototype.Keycodes_={ENTER:13,ESCAPE:27,SPACE:32},f.prototype.Mode_={STANDARD:0,SEAMED:1,WATERFALL:2,SCROLL:3},f.prototype.CssClasses_={CONTAINER:"mdl-layout__container",HEADER:"mdl-layout__header",DRAWER:"mdl-layout__drawer",CONTENT:"mdl-layout__content",DRAWER_BTN:"mdl-layout__drawer-button",ICON:"material-icons",JS_RIPPLE_EFFECT:"mdl-js-ripple-effect",RIPPLE_CONTAINER:"mdl-layout__tab-ripple-container",RIPPLE:"mdl-ripple",RIPPLE_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events",HEADER_SEAMED:"mdl-layout__header--seamed",HEADER_WATERFALL:"mdl-layout__header--waterfall",HEADER_SCROLL:"mdl-layout__header--scroll",FIXED_HEADER:"mdl-layout--fixed-header",OBFUSCATOR:"mdl-layout__obfuscator",TAB_BAR:"mdl-layout__tab-bar",TAB_CONTAINER:"mdl-layout__tab-bar-container",TAB:"mdl-layout__tab",TAB_BAR_BUTTON:"mdl-layout__tab-bar-button",TAB_BAR_LEFT_BUTTON:"mdl-layout__tab-bar-left-button",TAB_BAR_RIGHT_BUTTON:"mdl-layout__tab-bar-right-button",TAB_MANUAL_SWITCH:"mdl-layout__tab-manual-switch",PANEL:"mdl-layout__tab-panel",HAS_DRAWER:"has-drawer",HAS_TABS:"has-tabs",HAS_SCROLLING_HEADER:"has-scrolling-header",CASTING_SHADOW:"is-casting-shadow",IS_COMPACT:"is-compact",IS_SMALL_SCREEN:"is-small-screen",IS_DRAWER_OPEN:"is-visible",IS_ACTIVE:"is-active",IS_UPGRADED:"is-upgraded",IS_ANIMATING:"is-animating",ON_LARGE_SCREEN:"mdl-layout--large-screen-only",ON_SMALL_SCREEN:"mdl-layout--small-screen-only"},f.prototype.contentScrollHandler_=function(){if(!this.header_.classList.contains(this.CssClasses_.IS_ANIMATING)){var e=!this.element_.classList.contains(this.CssClasses_.IS_SMALL_SCREEN)||this.element_.classList.contains(this.CssClasses_.FIXED_HEADER);this.content_.scrollTop>0&&!this.header_.classList.contains(this.CssClasses_.IS_COMPACT)?(this.header_.classList.add(this.CssClasses_.CASTING_SHADOW),this.header_.classList.add(this.CssClasses_.IS_COMPACT),e&&this.header_.classList.add(this.CssClasses_.IS_ANIMATING)):this.content_.scrollTop<=0&&this.header_.classList.contains(this.CssClasses_.IS_COMPACT)&&(this.header_.classList.remove(this.CssClasses_.CASTING_SHADOW),this.header_.classList.remove(this.CssClasses_.IS_COMPACT),e&&this.header_.classList.add(this.CssClasses_.IS_ANIMATING))}},f.prototype.keyboardEventHandler_=function(e){e.keyCode===this.Keycodes_.ESCAPE&&this.drawer_.classList.contains(this.CssClasses_.IS_DRAWER_OPEN)&&this.toggleDrawer()},f.prototype.screenSizeHandler_=function(){this.screenSizeMediaQuery_.matches?this.element_.classList.add(this.CssClasses_.IS_SMALL_SCREEN):(this.element_.classList.remove(this.CssClasses_.IS_SMALL_SCREEN),this.drawer_&&(this.drawer_.classList.remove(this.CssClasses_.IS_DRAWER_OPEN),this.obfuscator_.classList.remove(this.CssClasses_.IS_DRAWER_OPEN)))},f.prototype.drawerToggleHandler_=function(e){if(e&&"keydown"===e.type){if(e.keyCode!==this.Keycodes_.SPACE&&e.keyCode!==this.Keycodes_.ENTER)return;e.preventDefault()}this.toggleDrawer()},f.prototype.headerTransitionEndHandler_=function(){this.header_.classList.remove(this.CssClasses_.IS_ANIMATING)},f.prototype.headerClickHandler_=function(){this.header_.classList.contains(this.CssClasses_.IS_COMPACT)&&(this.header_.classList.remove(this.CssClasses_.IS_COMPACT),this.header_.classList.add(this.CssClasses_.IS_ANIMATING))},f.prototype.resetTabState_=function(e){for(var t=0;t<e.length;t++)e[t].classList.remove(this.CssClasses_.IS_ACTIVE)},f.prototype.resetPanelState_=function(e){for(var t=0;t<e.length;t++)e[t].classList.remove(this.CssClasses_.IS_ACTIVE)},f.prototype.toggleDrawer=function(){var e=this.element_.querySelector("."+this.CssClasses_.DRAWER_BTN);this.drawer_.classList.toggle(this.CssClasses_.IS_DRAWER_OPEN),this.obfuscator_.classList.toggle(this.CssClasses_.IS_DRAWER_OPEN),this.drawer_.classList.contains(this.CssClasses_.IS_DRAWER_OPEN)?(this.drawer_.setAttribute("aria-hidden","false"),e.setAttribute("aria-expanded","true")):(this.drawer_.setAttribute("aria-hidden","true"),e.setAttribute("aria-expanded","false"))},f.prototype.toggleDrawer=f.prototype.toggleDrawer,f.prototype.init=function(){if(this.element_){var e=document.createElement("div");e.classList.add(this.CssClasses_.CONTAINER);var s=this.element_.querySelector(":focus");this.element_.parentElement.insertBefore(e,this.element_),this.element_.parentElement.removeChild(this.element_),e.appendChild(this.element_),s&&s.focus();for(var i=this.element_.childNodes,n=i.length,a=0;a<n;a++){var l=i[a];l.classList&&l.classList.contains(this.CssClasses_.HEADER)&&(this.header_=l),l.classList&&l.classList.contains(this.CssClasses_.DRAWER)&&(this.drawer_=l),l.classList&&l.classList.contains(this.CssClasses_.CONTENT)&&(this.content_=l)}window.addEventListener("pageshow",function(e){e.persisted&&(this.element_.style.overflowY="hidden",requestAnimationFrame(function(){this.element_.style.overflowY=""}.bind(this)))}.bind(this),!1),this.header_&&(this.tabBar_=this.header_.querySelector("."+this.CssClasses_.TAB_BAR));var o=this.Mode_.STANDARD;if(this.header_&&(this.header_.classList.contains(this.CssClasses_.HEADER_SEAMED)?o=this.Mode_.SEAMED:this.header_.classList.contains(this.CssClasses_.HEADER_WATERFALL)?(o=this.Mode_.WATERFALL,this.header_.addEventListener("transitionend",this.headerTransitionEndHandler_.bind(this)),this.header_.addEventListener("click",this.headerClickHandler_.bind(this))):this.header_.classList.contains(this.CssClasses_.HEADER_SCROLL)&&(o=this.Mode_.SCROLL,e.classList.add(this.CssClasses_.HAS_SCROLLING_HEADER)),o===this.Mode_.STANDARD?(this.header_.classList.add(this.CssClasses_.CASTING_SHADOW),this.tabBar_&&this.tabBar_.classList.add(this.CssClasses_.CASTING_SHADOW)):o===this.Mode_.SEAMED||o===this.Mode_.SCROLL?(this.header_.classList.remove(this.CssClasses_.CASTING_SHADOW),this.tabBar_&&this.tabBar_.classList.remove(this.CssClasses_.CASTING_SHADOW)):o===this.Mode_.WATERFALL&&(this.content_.addEventListener("scroll",this.contentScrollHandler_.bind(this)),this.contentScrollHandler_())),this.drawer_){var r=this.element_.querySelector("."+this.CssClasses_.DRAWER_BTN);if(!r){r=document.createElement("div"),r.setAttribute("aria-expanded","false"),r.setAttribute("role","button"),r.setAttribute("tabindex","0"),r.classList.add(this.CssClasses_.DRAWER_BTN);var _=document.createElement("i");_.classList.add(this.CssClasses_.ICON),_.innerHTML=this.Constant_.MENU_ICON,r.appendChild(_)}this.drawer_.classList.contains(this.CssClasses_.ON_LARGE_SCREEN)?r.classList.add(this.CssClasses_.ON_LARGE_SCREEN):this.drawer_.classList.contains(this.CssClasses_.ON_SMALL_SCREEN)&&r.classList.add(this.CssClasses_.ON_SMALL_SCREEN),r.addEventListener("click",this.drawerToggleHandler_.bind(this)),r.addEventListener("keydown",this.drawerToggleHandler_.bind(this)),this.element_.classList.add(this.CssClasses_.HAS_DRAWER),this.element_.classList.contains(this.CssClasses_.FIXED_HEADER)?this.header_.insertBefore(r,this.header_.firstChild):this.element_.insertBefore(r,this.content_);var d=document.createElement("div");d.classList.add(this.CssClasses_.OBFUSCATOR),this.element_.appendChild(d),d.addEventListener("click",this.drawerToggleHandler_.bind(this)),this.obfuscator_=d,this.drawer_.addEventListener("keydown",this.keyboardEventHandler_.bind(this)),this.drawer_.setAttribute("aria-hidden","true")}if(this.screenSizeMediaQuery_=window.matchMedia(this.Constant_.MAX_WIDTH),this.screenSizeMediaQuery_.addListener(this.screenSizeHandler_.bind(this)),this.screenSizeHandler_(),this.header_&&this.tabBar_){this.element_.classList.add(this.CssClasses_.HAS_TABS);var h=document.createElement("div");h.classList.add(this.CssClasses_.TAB_CONTAINER),this.header_.insertBefore(h,this.tabBar_),this.header_.removeChild(this.tabBar_);var c=document.createElement("div");c.classList.add(this.CssClasses_.TAB_BAR_BUTTON),c.classList.add(this.CssClasses_.TAB_BAR_LEFT_BUTTON);var p=document.createElement("i");p.classList.add(this.CssClasses_.ICON),p.textContent=this.Constant_.CHEVRON_LEFT,c.appendChild(p),c.addEventListener("click",function(){this.tabBar_.scrollLeft-=this.Constant_.TAB_SCROLL_PIXELS}.bind(this));var C=document.createElement("div");C.classList.add(this.CssClasses_.TAB_BAR_BUTTON),C.classList.add(this.CssClasses_.TAB_BAR_RIGHT_BUTTON);var u=document.createElement("i");u.classList.add(this.CssClasses_.ICON),u.textContent=this.Constant_.CHEVRON_RIGHT,C.appendChild(u),C.addEventListener("click",function(){this.tabBar_.scrollLeft+=this.Constant_.TAB_SCROLL_PIXELS}.bind(this)),h.appendChild(c),h.appendChild(this.tabBar_),h.appendChild(C);var E=function(){this.tabBar_.scrollLeft>0?c.classList.add(this.CssClasses_.IS_ACTIVE):c.classList.remove(this.CssClasses_.IS_ACTIVE),this.tabBar_.scrollLeft<this.tabBar_.scrollWidth-this.tabBar_.offsetWidth?C.classList.add(this.CssClasses_.IS_ACTIVE):C.classList.remove(this.CssClasses_.IS_ACTIVE)}.bind(this);this.tabBar_.addEventListener("scroll",E),E();var m=function(){this.resizeTimeoutId_&&clearTimeout(this.resizeTimeoutId_),this.resizeTimeoutId_=setTimeout(function(){E(),this.resizeTimeoutId_=null}.bind(this),this.Constant_.RESIZE_TIMEOUT)}.bind(this);window.addEventListener("resize",m),this.tabBar_.classList.contains(this.CssClasses_.JS_RIPPLE_EFFECT)&&this.tabBar_.classList.add(this.CssClasses_.RIPPLE_IGNORE_EVENTS);for(var L=this.tabBar_.querySelectorAll("."+this.CssClasses_.TAB),I=this.content_.querySelectorAll("."+this.CssClasses_.PANEL),f=0;f<L.length;f++)new t(L[f],L,I,this)}this.element_.classList.add(this.CssClasses_.IS_UPGRADED)}},window.MaterialLayoutTab=t,s.register({constructor:f,classAsString:"MaterialLayout",cssClass:"mdl-js-layout"});var b=function(e){this.element_=e,this.init()};window.MaterialDataTable=b,b.prototype.Constant_={},b.prototype.CssClasses_={DATA_TABLE:"mdl-data-table",SELECTABLE:"mdl-data-table--selectable",SELECT_ELEMENT:"mdl-data-table__select",IS_SELECTED:"is-selected",IS_UPGRADED:"is-upgraded"},b.prototype.selectRow_=function(e,t,s){return t?function(){e.checked?t.classList.add(this.CssClasses_.IS_SELECTED):t.classList.remove(this.CssClasses_.IS_SELECTED)}.bind(this):s?function(){var t,i;if(e.checked)for(t=0;t<s.length;t++)i=s[t].querySelector("td").querySelector(".mdl-checkbox"),i.MaterialCheckbox.check(),s[t].classList.add(this.CssClasses_.IS_SELECTED);else for(t=0;t<s.length;t++)i=s[t].querySelector("td").querySelector(".mdl-checkbox"),i.MaterialCheckbox.uncheck(),s[t].classList.remove(this.CssClasses_.IS_SELECTED)}.bind(this):void 0},b.prototype.createCheckbox_=function(e,t){var i=document.createElement("label"),n=["mdl-checkbox","mdl-js-checkbox","mdl-js-ripple-effect",this.CssClasses_.SELECT_ELEMENT];i.className=n.join(" ");var a=document.createElement("input");return a.type="checkbox",a.classList.add("mdl-checkbox__input"),e?(a.checked=e.classList.contains(this.CssClasses_.IS_SELECTED),a.addEventListener("change",this.selectRow_(a,e))):t&&a.addEventListener("change",this.selectRow_(a,null,t)),i.appendChild(a),s.upgradeElement(i,"MaterialCheckbox"),i},b.prototype.init=function(){if(this.element_){var e=this.element_.querySelector("th"),t=Array.prototype.slice.call(this.element_.querySelectorAll("tbody tr")),s=Array.prototype.slice.call(this.element_.querySelectorAll("tfoot tr")),i=t.concat(s);if(this.element_.classList.contains(this.CssClasses_.SELECTABLE)){var n=document.createElement("th"),a=this.createCheckbox_(null,i);n.appendChild(a),e.parentElement.insertBefore(n,e);for(var l=0;l<i.length;l++){var o=i[l].querySelector("td");if(o){var r=document.createElement("td");if("TBODY"===i[l].parentNode.nodeName.toUpperCase()){var _=this.createCheckbox_(i[l]);r.appendChild(_)}i[l].insertBefore(r,o)}}this.element_.classList.add(this.CssClasses_.IS_UPGRADED)}}},s.register({constructor:b,classAsString:"MaterialDataTable",cssClass:"mdl-js-data-table"});var S=function(e){this.element_=e,this.init()};window.MaterialRipple=S,S.prototype.Constant_={INITIAL_SCALE:"scale(0.0001, 0.0001)",INITIAL_SIZE:"1px",INITIAL_OPACITY:"0.4",FINAL_OPACITY:"0",FINAL_SCALE:""},S.prototype.CssClasses_={RIPPLE_CENTER:"mdl-ripple--center",RIPPLE_EFFECT_IGNORE_EVENTS:"mdl-js-ripple-effect--ignore-events",RIPPLE:"mdl-ripple",IS_ANIMATING:"is-animating",IS_VISIBLE:"is-visible"},S.prototype.downHandler_=function(e){if(!this.rippleElement_.style.width&&!this.rippleElement_.style.height){var t=this.element_.getBoundingClientRect();this.boundHeight=t.height,this.boundWidth=t.width,this.rippleSize_=2*Math.sqrt(t.width*t.width+t.height*t.height)+2,this.rippleElement_.style.width=this.rippleSize_+"px",this.rippleElement_.style.height=this.rippleSize_+"px"}if(this.rippleElement_.classList.add(this.CssClasses_.IS_VISIBLE),"mousedown"===e.type&&this.ignoringMouseDown_)this.ignoringMouseDown_=!1;else{"touchstart"===e.type&&(this.ignoringMouseDown_=!0);var s=this.getFrameCount();if(s>0)return;this.setFrameCount(1);var i,n,a=e.currentTarget.getBoundingClientRect();if(0===e.clientX&&0===e.clientY)i=Math.round(a.width/2),n=Math.round(a.height/2);else{var l=void 0!==e.clientX?e.clientX:e.touches[0].clientX,o=void 0!==e.clientY?e.clientY:e.touches[0].clientY;i=Math.round(l-a.left),n=Math.round(o-a.top)}this.setRippleXY(i,n),this.setRippleStyles(!0),window.requestAnimationFrame(this.animFrameHandler.bind(this))}},S.prototype.upHandler_=function(e){e&&2!==e.detail&&window.setTimeout(function(){this.rippleElement_.classList.remove(this.CssClasses_.IS_VISIBLE)}.bind(this),0)},S.prototype.init=function(){if(this.element_){var e=this.element_.classList.contains(this.CssClasses_.RIPPLE_CENTER);this.element_.classList.contains(this.CssClasses_.RIPPLE_EFFECT_IGNORE_EVENTS)||(this.rippleElement_=this.element_.querySelector("."+this.CssClasses_.RIPPLE),this.frameCount_=0,this.rippleSize_=0,this.x_=0,this.y_=0,this.ignoringMouseDown_=!1,this.boundDownHandler=this.downHandler_.bind(this),this.element_.addEventListener("mousedown",this.boundDownHandler),this.element_.addEventListener("touchstart",this.boundDownHandler),this.boundUpHandler=this.upHandler_.bind(this),this.element_.addEventListener("mouseup",this.boundUpHandler),this.element_.addEventListener("mouseleave",this.boundUpHandler),this.element_.addEventListener("touchend",this.boundUpHandler),this.element_.addEventListener("blur",this.boundUpHandler),this.getFrameCount=function(){return this.frameCount_},this.setFrameCount=function(e){this.frameCount_=e},this.getRippleElement=function(){return this.rippleElement_},this.setRippleXY=function(e,t){this.x_=e,this.y_=t},this.setRippleStyles=function(t){if(null!==this.rippleElement_){var s,i,n,a="translate("+this.x_+"px, "+this.y_+"px)";t?(i=this.Constant_.INITIAL_SCALE,n=this.Constant_.INITIAL_SIZE):(i=this.Constant_.FINAL_SCALE,n=this.rippleSize_+"px",e&&(a="translate("+this.boundWidth/2+"px, "+this.boundHeight/2+"px)")),s="translate(-50%, -50%) "+a+i,this.rippleElement_.style.webkitTransform=s,this.rippleElement_.style.msTransform=s,this.rippleElement_.style.transform=s,t?this.rippleElement_.classList.remove(this.CssClasses_.IS_ANIMATING):this.rippleElement_.classList.add(this.CssClasses_.IS_ANIMATING)}},this.animFrameHandler=function(){this.frameCount_-- >0?window.requestAnimationFrame(this.animFrameHandler.bind(this)):this.setRippleStyles(!1)})}},s.register({constructor:S,classAsString:"MaterialRipple",cssClass:"mdl-js-ripple-effect",widget:!1})}();
-//# sourceMappingURL=material.min.js.map
-
-
-
-
-
-
-
-
-
-
-
-    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-analytics-compat.js"></script>
-
-// --- Configuração do Firebase ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0", // Use sua própria chave!
-            authDomain: "wzzm-ce3fc.firebaseapp.com",
-            projectId: "wzzm-ce3fc",
-            storageBucket: "wzzm-ce3fc.appspot.com",
-            messagingSenderId: "249427877153",
-            appId: "1:249427877153:web:0e4297294794a5aadeb260",
-            measurementId: "G-PLKNZNFCQ8"
-        };
-        // Inicialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const firestore = firebase.firestore();
-        firebase.analytics();
-
-        // Variáveis globais para estado do usuário
-        let currentUser = null;
-        let isCurrentUserBanned = false;
-
-        // --- Funções Auxiliares (Antiga loadPage foi substituída pela nova que cria janelas flutuantes) ---
-        // A função loadPage original que manipulava 'contentFrame' não é mais usada diretamente para links de navegação.
-        // Ela ainda é referenciada em outras partes do código para manipulação de mensagens de acesso/banimento,
-        // mas a navegação principal usará a nova createFloatingWindow.
-
-        // Função para ativar/desativar links de navegação com base no status de login
-        function setNavLinksEnabled(enabled) {
-            const navLinks = document.querySelectorAll('.mdl-navigation__link[data-requires-auth="true"]');
-            navLinks.forEach(link => {
-                if (enabled) {
-                    link.style.pointerEvents = 'auto';
-                    link.style.color = '#424242'; // Cor padrão
-                } else {
-                    link.style.pointerEvents = 'none';
-                    link.style.color = '#9e9e9e';
-                }
-            });
-        }
-
-        // Função para criar/atualizar o documento do perfil do usuário no Firestore
-        async function createUserProfileDocument(user) {
-            if (!user) return;
-            const userRef = firestore.doc(`users/${user.uid}`);
-            const snapshot = await userRef.get();
-
-            if (!snapshot.exists) {
-                const { displayName, email, photoURL } = user;
-                const createdAt = new Date();
-
-                try {
-                    await userRef.set({
-                        displayName,
-                        email,
-                        photoURL,
-                        createdAt,
-                        isAdmin: false, // Define como false por padrão
-                        isBan: false // Define como false por padrão
-                    });
-                    console.log("Perfil do usuário criado no Firestore.");
-                } catch (error) {
-                    console.error("Erro ao criar perfil do usuário:", error);
-                }
-            }
-        }
-
-        // Função para carregar e aplicar CSS de aplicativos específicos do usuário
-        async function loadAndApplyUserAppsCSS(userId) {
-            const customAppCssStyleTag = document.getElementById('custom-app-css');
-            if (!customAppCssStyleTag) return;
-
-            try {
-                const userAppsSnapshot = await firestore.collection('userApps').doc(userId).get();
-                if (userAppsSnapshot.exists) {
-                    const appData = userAppsSnapshot.data();
-                    let cssContent = '';
-                    if (appData && appData.apps) {
-                        appData.apps.forEach(app => {
-                            if (app.css) {
-                                cssContent += app.css + '\n';
-                            }
-                        });
-                    }
-                    customAppCssStyleTag.innerHTML = cssContent;
-                } else {
-                    customAppCssStyleTag.innerHTML = '';
-                }
-            } catch (error) {
-                console.error("Erro ao carregar CSS de aplicativos do usuário:", error);
-                customAppCssStyleTag.innerHTML = '';
-            }
-        }
-
-        // --- FUNÇÕES PARA O POPUP DE NOTÍCIAS (MANTIDAS) ---
-        function showNewsPopup() {
-            const newsCenterPopup = document.getElementById('news-center-popup');
-            if (newsCenterPopup) {
-                newsCenterPopup.style.display = 'flex';
-                fetchLatestNews(); // Fetch news when popup is shown
-            }
-        }
-
-        function hideNewsPopup() {
-            const newsCenterPopup = document.getElementById('news-center-popup');
-            if (newsCenterPopup) {
-                newsCenterPopup.style.display = 'none';
-            }
-        }
-
-        // Função para buscar as últimas notícias e exibi-las no popup
-        async function fetchLatestNews() {
-            const newsPopupContent = document.getElementById('news-popup-content');
-            newsPopupContent.innerHTML = '<p>Carregando últimas notícias...</p>';
-            try {
-                const newsSnapshot = await firestore.collection('news')
-                    .orderBy('createdAt', 'desc')
-                    .limit(5) // Limita a 5 notícias para o popup
-                    .get();
-                if (newsSnapshot.empty) {
-                    newsPopupContent.innerHTML = '<p>Nenhuma notícia encontrada.</p>';
-                    return;
-                }
-
-                newsPopupContent.innerHTML = '';
-                // Limpa o conteúdo existente
-                newsSnapshot.forEach(doc => {
-                    const news = doc.data();
-                    const newsItem = document.createElement('div');
-                    newsItem.classList.add('news-popup-item');
-
-                    const timestampDate = news.createdAt ? news.createdAt.toDate() : new Date();
-                    const timeString = timestampDate.toLocaleString([], {
-                        year: 'numeric', month: 'numeric', day: 'numeric',
-                        hour: '2-digit', minute: '2-digit'
-                    });
-
-                    newsItem.innerHTML = `
-                        <h3>${news.title}</h3>
-                        <p>${news.description}</p>
-                        <small>Categoria: ${news.category}</small><br> ${news.tags && news.tags.length > 0 ? `<small>Tags: ${news.tags.join(', ')}</small><br>` : ''}
-                        <small>Publicado em: ${timeString}</small>
-                        ${news.imageUrl ? `<img src="${news.imageUrl}" alt="Imagem da Notícia">` : ''} `;
-                    newsPopupContent.appendChild(newsItem);
-                });
-
-            } catch (error) {
-                console.error("Erro ao buscar últimas notícias para o popup:", error);
-                newsPopupContent.innerHTML = `<p style="color: red;">Erro ao carregar notícias: ${error.message}</p>`;
-            }
-        }
-
-        // --- Funções de Autenticação (EXISTENTES) ---
-        const providerGoogle = new firebase.auth.GoogleAuthProvider();
-        const providerGitHub = new firebase.auth.GithubAuthProvider();
-
-        document.getElementById('login-google').addEventListener('click', () => {
-            auth.signInWithPopup(providerGoogle)
-                .catch(error => {
-                    console.error("Erro no login com Google:", error);
-                });
-        });
-        document.getElementById('login-github').addEventListener('click', () => {
-            auth.signInWithPopup(providerGitHub)
-                .catch(error => {
-                    console.error("Erro no login com GitHub:", error);
-                });
-        });
-        function handleLogout() {
-            auth.signOut().then(() => {
-                console.log("Usuário deslogado.");
-            }).catch((error) => {
-                console.error("Erro ao deslogar:", error);
-            });
-        }
-        const logoutButton = document.getElementById('logout-button');
-        if (logoutButton) {
-            logoutButton.addEventListener('click', handleLogout);
-        }
-
-        // --- Gerenciamento de Estado de Autenticação ---
-        auth.onAuthStateChanged(async (user) => {
-            currentUser = user; // Define o currentUser globalmente
-            const userInfo = document.getElementById('user-info');
-            const loginGoogleButton = document.getElementById('login-google');
-            const loginGitHubButton = document.getElementById('login-github');
-            const logoutButton = document.getElementById('logout-button');
-            const userProfilePic = document.getElementById('user-profile-pic');
-            const googleAppsButton = document.getElementById('google-apps-button');
-            const userInfoContainer = document.getElementById('user-info-container');
-            const googleAppsPopup = document.getElementById('google-apps-popup');
-            const customAppCssStyleTag = document.getElementById('custom-app-css');
-            const contentFrame = document.getElementById('contentFrame');
-            const accessDeniedMessage = document.getElementById('access-denied-message');
-            const bannedMessage = document.getElementById('banned-message');
-            const newsButton = document.getElementById('news-button');
-            const newsCenterPopup = document.getElementById('news-center-popup');
-
-
-            if (user) {
-                if (userInfo) userInfo.textContent = `Olá, ${user.displayName || user.email}!`;
-                if (loginGoogleButton) loginGoogleButton.style.display = 'none';
-                if (loginGitHubButton) loginGitHubButton.style.display = 'none';
-                if (user.photoURL) {
-                    if (userProfilePic) {
-                        userProfilePic.src = user.photoURL;
-                        userProfilePic.style.display = 'inline-block';
-                    }
-                } else {
-                    if (userProfilePic) userProfilePic.style.display = 'none';
-                }
-                if (googleAppsButton) googleAppsButton.style.display = 'inline-block';
-                if (userInfoContainer) userInfoContainer.style.display = 'flex';
-
-                await createUserProfileDocument(user);
-
-                let isUserBanned = false;
-                try {
-                    const userProfileRef = firestore.collection('users').doc(user.uid);
-                    const doc = await userProfileRef.get();
-
-                    if (doc.exists && doc.data()) {
-                        isUserBanned = doc.data().isBan || false;
-                    }
-                } catch (error) {
-                    console.error("Erro ao verificar perfil de usuário ou status de banimento:", error);
-                    isUserBanned = false;
-                }
-
-                isCurrentUserBanned = isUserBanned;
-                if (isUserBanned) {
-                    console.warn(`Usuário ${user.uid} está banido.`);
-                    setNavLinksEnabled(false);
-                    if (logoutButton) {
-                        logoutButton.style.display = 'none';
-                        logoutButton.removeEventListener('click', handleLogout);
-                    }
-                    if (contentFrame) {
-                        contentFrame.style.display = 'none';
-                    }
-                    if (bannedMessage) bannedMessage.style.display = 'block';
-                    if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
-
-                    document.querySelectorAll('.floating-window').forEach(win => win.remove());
-
-                    if (googleAppsButton) {
-                        googleAppsButton.style.pointerEvents = 'none';
-                        googleAppsButton.style.opacity = '0.6';
-                    }
-                    if (googleAppsPopup) googleAppsPopup.style.display = 'none';
-                    if (newsButton) newsButton.style.display = 'none';
-                    if (newsCenterPopup) newsCenterPopup.style.display = 'none';
-                } else { // User is not banned
-                    if (logoutButton) logoutButton.style.display = 'inline-block';
-                    setNavLinksEnabled(true); // Enable all links if not banned
-                    if (bannedMessage) bannedMessage.style.display = 'none';
-                    if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
-
-                    if (googleAppsButton) {
-                        googleAppsButton.style.pointerEvents = 'auto';
-                        googleAppsButton.style.opacity = '1';
-                    }
-                    if (newsButton) newsButton.style.display = 'inline-block';
-
-                    await loadAndApplyUserAppsCSS(user.uid);
-
-                    // Carregar a página inicial na primeira janela flutuante se não houver nenhuma
-                    if (!document.querySelector('.floating-window')) {
-                        createFloatingWindow('recepcao.html', 'Recepção', false);
-                    }
-                }
-
-            } else { // Usuário deslogado
-                currentUser = null;
-                if (userInfo) userInfo.textContent = '';
-                if (loginGoogleButton) loginGoogleButton.style.display = 'inline-block';
-                if (loginGitHubButton) loginGitHubButton.style.display = 'inline-block';
-                if (logoutButton) logoutButton.style.display = 'none';
-                isCurrentUserBanned = false;
-                if (bannedMessage) bannedMessage.style.display = 'none';
-                setNavLinksEnabled(false);
-
-                document.querySelectorAll('.floating-window').forEach(win => win.remove());
-                if (contentFrame) contentFrame.style.display = 'none';
-                if (accessDeniedMessage) accessDeniedMessage.style.display = 'none';
-
-                if (!document.querySelector('.floating-window')) {
-                    createFloatingWindow('recepcao.html', 'Recepção', false);
-                }
-
-                if (userProfilePic) {
-                    userProfilePic.style.display = 'none';
-                    userProfilePic.src = '';
-                }
-                if (googleAppsButton) googleAppsButton.style.display = 'none';
-                if (userInfoContainer) userInfoContainer.style.display = 'none';
-                if (googleAppsPopup) googleAppsPopup.style.display = 'none';
-                if (customAppCssStyleTag) customAppCssStyleTag.innerHTML = '';
-                if (contentFrame) contentFrame.style.display = 'block';
-                if (newsButton) newsButton.style.display = 'none';
-                if (newsCenterPopup) newsCenterPopup.style.display = 'none';
-                hideNewsPopup();
-            }
-            if (componentHandler) {
-                componentHandler.upgradeDom();
-            }
-        });
-
-        // --- Event Listeners DOMContentLoaded ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // Re-obter referências aos elementos DOM dentro deste escopo
-            const googleAppsButton = document.getElementById('google-apps-button');
-            const googleAppsPopup = document.getElementById('google-apps-popup');
-
-            const navLinks = document.querySelectorAll('.mdl-navigation__link');
-
-            // Get references for news popup elements (kept)
-            const newsButton = document.getElementById('news-button');
-            const newsCenterPopup = document.getElementById('news-center-popup');
-            const closeNewsPopupButton = document.getElementById('close-news-popup-button');
-            const viewAllNewsButton = document.getElementById('view-all-news-button');
-
-            // --- Adicionar Event Listeners ---
-
-            // Botão Google Apps (mantido, mas modificado)
-            if (googleAppsButton) {
-                googleAppsButton.addEventListener('click', (event) => {
-                    event.stopPropagation(); // Evita que o clique se propague para o document
-                    if (googleAppsPopup.style.display === 'block') {
-                        googleAppsPopup.style.display = 'none';
-                    } else {
-                        googleAppsPopup.style.display = 'block';
-                        // Carregar apps dinamicamente (MODIFIED: hardcoded apps)
-                        const appGrid = document.getElementById('app-grid');
-                        appGrid.innerHTML = ''; // Clear existing content
-
-                        // MODIFIED: Hardcoded list of WZZM services
-                        const wzzmServices = [
-                            { name: 'Office WZZM', url: 'https://office.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                            { name: 'Escolar WZZM', url: 'https://escolar.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                            { name: 'Minha Persona WZZM', url: 'https://minhapersona.wzzm.org', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                            { name: 'Wiki Zero', url: 'https://wikizero.wzzm.org/', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                            { name: 'UWG Wikidot', url: 'https://uwg.wikidot.com', iconUrl: 'https://wzzm.org/iconmagic.png' },
-                            { name: 'Wiki Metro SP', url: 'https://wikimetrosp.miraheze.org', iconUrl: 'https://wzzm.org/wikimetrosp.png' }
-                        ];
-                        wzzmServices.forEach(app => {
-                            const appItem = document.createElement('div');
-                            appItem.classList.add('app-item');
-                            appItem.innerHTML = `
-                                <img src="${app.iconUrl}" alt="${app.name}"> <span>${app.name}</span> `;
-                            appItem.addEventListener('click', () => {
-                                window.open(app.url, '_blank'); // Opens in a new tab for external services
-                                googleAppsPopup.style.display = 'none'; // Close the popup
-                            });
-                            appGrid.appendChild(appItem);
-                        });
-                    }
-                });
-            }
-
-            // Event Listeners for News Button and Popup (mantidos)
-            if (newsButton) {
-                newsButton.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    if (newsCenterPopup.style.display === 'flex') {
-                        hideNewsPopup();
-                    } else {
-                        showNewsPopup();
-                    }
-                });
-            }
-
-            if (closeNewsPopupButton) {
-                closeNewsPopupButton.addEventListener('click', () => {
-                    hideNewsPopup();
-                });
-            }
-
-            if (viewAllNewsButton) {
-                viewAllNewsButton.addEventListener('click', () => {
-                    createFloatingWindow('visualizarnoticias.html', 'Todas as Notícias'); // Carrega em nova janela
-                    hideNewsPopup(); // Hide the popup
-                });
-            }
-
-            // Listener global para fechar popups ao clicar fora (ajustado)
-            document.addEventListener('click', (event) => {
-                // Fecha o popup de apps se clicar fora dele
-                if (googleAppsPopup && googleAppsPopup.style.display === 'block' &&
-                    !googleAppsButton.contains(event.target) &&
-                    !googleAppsPopup.contains(event.target)) {
-                    googleAppsPopup.style.display = 'none';
-                }
-
-                // Fecha o popup de notícias se clicar fora dele (mantido)
-                if (newsCenterPopup && newsCenterPopup.style.display === 'flex' &&
-                    !newsButton.contains(event.target) &&
-                    !newsCenterPopup.contains(event.target)) {
-                    newsCenterPopup.style.display = 'none';
-                }
-            });
-
-            // Adiciona event listener para links de navegação no drawer (ajustado)
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(event) {
-                    const pageSrc = this.getAttribute('onclick'); // Get the raw onclick attribute
-                    let actualPageSrc = '';
-                    let requiresAuth = false;
-
-                    // Extract actual page source and requiresAuth
-                    if (pageSrc && pageSrc.includes("loadPage(")) {
-                        const match = pageSrc.match(/loadPage\('([^']*)', (true|false)\)/);
-                        if (match) {
-                            actualPageSrc = match[1];
-                            requiresAuth = match[2] === 'true';
-                        }
-                    }
-
-                    if (isCurrentUserBanned && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                        event.preventDefault();
-                        return;
-                    }
-
-                    if (this.classList.contains('disabled') && !actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                        event.preventDefault();
-                        return;
-                    }
-
-                    if (actualPageSrc.includes('POL%C3%8DTICAS%20GERAIS%20DO%20WIKI%20ZONE%20ZERO%20MOD.pdf')) {
-                        // Se for o link das políticas, abre em nova aba/janela do navegador para PDF
-                        window.open(actualPageSrc, '_blank');
-                        event.preventDefault(); // Previna o comportamento padrão para não carregar em janela flutuante
-                        return;
-                    }
-
-                    event.preventDefault();
-                    createFloatingWindow(actualPageSrc, null, requiresAuth); // Usar createFloatingWindow
-                    // Fecha o drawer do MDL se estiver aberto
-                    if (document.querySelector('.mdl-layout__drawer.is-visible')) {
-                        document.querySelector('.mdl-layout__obfuscator').classList.remove('is-visible');
-                        document.querySelector('.mdl-layout__drawer').classList.remove('is-visible');
-                    }
-                });
-            });
-            // Inicializa componentes MDL
-            if (componentHandler) {
-                componentHandler.upgradeDom();
-            }
-        });
-
-        // Utilitário para gerar IDs únicos
-        function uniqueID() {
-            return 'win_' + Math.random().toString(36).substr(2, 9);
-        }
-
-        // Função para criar uma nova janela flutuante
-        // Adicionamos um histórico para cada iframe para os botões de navegação
-        const windowHistory = {}; // Armazena o histórico para cada janela (key: winId, value: array de URLs)
-        const windowHistoryIndex = {}; // Armazena o índice atual do histórico para cada janela
-
-        function createFloatingWindow(src, customTitle = null, requiresAuth = false) {
-            const container = document.getElementById('window-container');
-
-            // Verifica as regras de acesso antes de criar a janela
-            if (isCurrentUserBanned && src !== 'recepcao.html' && src !== 'POLÍTICAS GERAIS DO WIKI ZONE ZERO MOD.pdf') {
-                document.getElementById('banned-message').style.display = 'block';
-                return;
-            }
-            if (requiresAuth && !currentUser) {
-                document.getElementById('access-denied-message').style.display = 'block';
-                return;
-            }
-
-            const existing = Array.from(document.querySelectorAll('.floating-window'))
-                .find(win => win.getAttribute('data-src') === src);
-            if (existing) {
-                bringWindowToFront(existing);
-                return;
-            }
-
-            const winId = uniqueID();
-            windowHistory[winId] = [];
-            windowHistoryIndex[winId] = -1;
-
-            // Elemento da janela
-            const win = document.createElement('div');
-            win.className = 'floating-window';
-            win.setAttribute('data-winid', winId);
-            win.setAttribute('data-src', src); // Armazena o SRC original para verificação de existência
-
-            // Cabeçalho da janela
-            const header = document.createElement('div');
-            header.className = 'window-header';
-
-            // Função para extrair o nome do arquivo da URL para o título
-            function getFileNameFromUrl(url) {
-                try {
-                    const urlObj = new URL(url, window.location.origin);
-                    let path = urlObj.pathname.split('/').pop();
-                    if (path.includes('.')) {
-                        path = path.split('.')[0]; // Remove a extensão
-                    }
-                    path = path.replace(/%20/g, ' '); // Decodifica espaços
-                    return path || 'Nova Janela'; // Retorna o nome do arquivo ou "Nova Janela" se vazio
-                } catch (e) {
-                    return url; // Em caso de erro (URL inválida), retorna a URL completa
-                }
-            }
-
-            const titleText = customTitle || getFileNameFromUrl(src);
-
-            header.innerHTML = `
-                <div style="display: flex; align-items: center;">
-                    <button title="Voltar" onclick="historyBack('${winId}')" class="mdl-button mdl-js-button mdl-button--icon mdl-button--colored window-nav-back">
-                        <i class="material-icons">arrow_back</i>
-                    </button>
-                    <button title="Avançar" onclick="historyForward('${winId}')" class="mdl-button mdl-js-button mdl-button--icon mdl-button--colored window-nav-forward">
-                        <i class="material-icons">arrow_forward</i>
-                    </button>
-                    <span style="margin-left: 8px;">${titleText}</span>
-                </div>
-                <span class="window-controls">
-                    <button title="Fechar" onclick="closeWindow('${winId}')">&times;</button>
-                </span>
-            `;
-
-            // Corpo da janela com iframe
-            const body = document.createElement('div');
-            body.className = 'window-body';
-            const iframe = document.createElement('iframe');
-            iframe.src = src;
-            iframe.setAttribute('data-winid', winId); // Adiciona o winId ao iframe
-            body.appendChild(iframe);
-
-            win.appendChild(header);
-            win.appendChild(body);
-            container.appendChild(win);
-
-            // Torna a janela arrastável
-            makeWindowDraggable(win, header);
-            // Foca a janela ao clicar
-            win.addEventListener('mousedown', () => {
-                bringWindowToFront(win);
-            });
-            // Coloca no topo ao criar
-            bringWindowToFront(win);
-
-            // Adiciona a URL inicial ao histórico da nova janela
-            addToWindowHistory(winId, src);
-
-            // Adiciona listener para atualizações de URL dentro do iframe
-            iframe.addEventListener('load', function() {
-                try {
-                    // Para mesma origem, atualiza o histórico e o título
-                    if (iframe.contentWindow.location.origin === window.location.origin) {
-                        const currentIframeSrc = iframe.contentWindow.location.href;
-                        if (windowHistory[winId][windowHistoryIndex[winId]] !== currentIframeSrc) {
-                            addToWindowHistory(winId, currentIframeSrc);
-                            const newTitle = getFileNameFromUrl(currentIframeSrc);
-                            win.querySelector('.window-header span:last-of-type').textContent = newTitle; // Atualiza o texto do título
-                        }
-                    }
-                } catch (e) {
-                    // Ignora erros de Same-Origin Policy
-                    console.warn("Same-Origin Policy previne acesso ao conteúdo do iframe para atualização do histórico.", e);
-                }
-                updateNavigationButtons(winId); // Atualiza o estado dos botões Voltar/Avançar
-            });
-        }
-
-        // Função para adicionar URL ao histórico da janela
-        function addToWindowHistory(winId, url) {
-            if (!windowHistory[winId]) {
-                windowHistory[winId] = [];
-                windowHistoryIndex[winId] = -1;
-            }
-
-            // Remove URLs à frente do índice atual se navegarmos para trás e depois para uma nova página
-            if (windowHistoryIndex[winId] < windowHistory[winId].length - 1) {
-                windowHistory[winId] = windowHistory[winId].slice(0, windowHistoryIndex[winId] + 1);
-            }
-
-            windowHistory[winId].push(url);
-            windowHistoryIndex[winId]++;
-            updateNavigationButtons(winId);
-        }
-
-        // Função para navegar para trás no histórico da janela
-        function historyBack(winId) {
-            if (windowHistory[winId] && windowHistoryIndex[winId] > 0) {
-                windowHistoryIndex[winId]--;
-                const iframe = document.querySelector(`.floating-window[data-winid="${winId}"] iframe`);
-                if (iframe) {
-                    iframe.src = windowHistory[winId][windowHistoryIndex[winId]];
-                    const newTitle = getFileNameFromUrl(iframe.src);
-                    iframe.closest('.floating-window').querySelector('.window-header span:last-of-type').textContent = newTitle; // Atualiza o título
-                }
-                updateNavigationButtons(winId);
-            }
-        }
-
-        // Função para navegar para frente no histórico da janela
-        function historyForward(winId) {
-            if (windowHistory[winId] && windowHistoryIndex[winId] < windowHistory[winId].length - 1) {
-                windowHistoryIndex[winId]++;
-                const iframe = document.querySelector(`.floating-window[data-winid="${winId}"] iframe`);
-                if (iframe) {
-                    iframe.src = windowHistory[winId][windowHistoryIndex[winId]];
-                    const newTitle = getFileNameFromUrl(iframe.src);
-                    iframe.closest('.floating-window').querySelector('.window-header span:last-of-type').textContent = newTitle; // Atualiza o título
-                }
-                updateNavigationButtons(winId);
-            }
-        }
-
-        // Função para atualizar o estado (disabled) dos botões de navegação
-        function updateNavigationButtons(winId) {
-            const win = document.querySelector(`.floating-window[data-winid="${winId}"]`);
-            if (!win) return;
-            const backButton = win.querySelector('.window-nav-back');
-            const forwardButton = win.querySelector('.window-nav-forward');
-
-            if (backButton) {
-                backButton.disabled = !(windowHistory[winId] && windowHistoryIndex[winId] > 0);
-                backButton.style.opacity = backButton.disabled ? '0.5' : '1';
-                backButton.style.cursor = backButton.disabled ? 'not-allowed' : 'pointer';
-            }
-            if (forwardButton) {
-                forwardButton.disabled = !(windowHistory[winId] && windowHistoryIndex[winId] < windowHistory[winId].length - 1);
-                forwardButton.style.opacity = forwardButton.disabled ? '0.5' : '1';
-                forwardButton.style.cursor = forwardButton.disabled ? 'not-allowed' : 'pointer';
-            }
-        }
-
-        // Deixe a janela arrastável
-        function makeWindowDraggable(win, handle) {
-            let offsetX = 0, offsetY = 0, dragging = false;
-            handle.addEventListener('mousedown', function (e) {
-                dragging = true;
-                offsetX = e.clientX - win.offsetLeft;
-                offsetY = e.clientY - win.offsetTop;
-                win.style.zIndex = getNextZIndex();
-                document.body.style.userSelect = 'none';
-            });
-            document.addEventListener('mousemove', function (e) {
-                if (dragging) {
-                    win.style.left = (e.clientX - offsetX) + 'px';
-                    win.style.top = (e.clientY - offsetY) + 'px';
-                }
-            });
-            document.addEventListener('mouseup', function () {
-                dragging = false;
-                document.body.style.userSelect = '';
-            });
-        }
-
-        // Função para fechar janela
-        function closeWindow(winId) {
-            const win = document.querySelector(`.floating-window[data-winid="${winId}"]`);
-            if (win) {
-                delete windowHistory[winId];
-                delete windowHistoryIndex[winId];
-                win.remove();
-            }
-        }
-
-        // Z-Index para trazer para frente
-        let topZ = 1000;
-        function getNextZIndex() {
-            return ++topZ;
-        }
-        function bringWindowToFront(win) {
-            win.style.zIndex = getNextZIndex();
-        }
-
-        // Substitua a função loadPage para usar createFloatingWindow
-        function loadPage(src, requiresAuth = false) {
-            createFloatingWindow(src, null, requiresAuth);
-        }
-
-        // ========== CAPTURA E EXIBE ERROS DO CONSOLE ==========
-        // Array para armazenar os erros capturados
-        window._wzzmErrorLog = [];
-        // Captura erros globais de JavaScript
-        window.addEventListener('error', function(e) {
-            window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] ${e.message} (${e.filename}:${e.lineno})`);
-        });
-        // Captura rejeições de Promise não tratadas
-        window.addEventListener('unhandledrejection', function(e) {
-            window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] Unhandled Promise: ${e.reason}`);
-        });
-        // Intercepta console.error e armazena as mensagens
-        (function() {
-            const originalError = console.error;
-            console.error = function(...args) {
-                window._wzzmErrorLog.push(`[${new Date().toLocaleTimeString()}] console.error: ${args.join(' ')}`);
-                originalError.apply(console, args);
-            };
-        })();
-        // Mostra o popup com a lista de erros ao clicar no botão
-        document.addEventListener('DOMContentLoaded', function() {
-            var btn = document.getElementById('error-log-button');
-            if (!btn) return;
-            btn.addEventListener('click', function() {
-                var logList = document.getElementById('error-log-list');
-                logList.innerHTML = '';
-                if (window._wzzmErrorLog.length === 0) {
-                    logList.innerHTML = '<li style="color:green;">Nenhum erro registrado nesta sessão.</li>';
-                } else {
-                    window._wzzmErrorLog.slice(-100).forEach(function(msg) {
-                        var li = document.createElement('li');
-                        li.textContent = msg;
-                        logList.appendChild(li);
-                    });
-                }
-                document.getElementById('error-log-popup').style.display = 'block';
-            });
-        });
-
-	     document.addEventListener('DOMContentLoaded', function () {
-    fetch('menu.json')
-        .then(response => response.json())
-        .then(menuItems => {
-            const drawerMenu = document.getElementById('drawer-menu');
-            if (!drawerMenu) return;
-            drawerMenu.innerHTML = ''; // Limpa itens antigos, se houver
-
-            menuItems.forEach(item => {
-                const a = document.createElement('a');
-                a.className = 'mdl-navigation__link';
-                a.href = '#'; // A navegação será controlada pelo onclick
-                a.setAttribute('onclick', `loadPage('${item.href}', ${item.requiresAuth})`);
-                if (item.requiresAuth) {
-                    a.setAttribute('data-requires-auth', 'true');
-                }
-                a.textContent = item.label;
-                drawerMenu.appendChild(a);
-            });
-        })
-        .catch(err => {
-            console.error('Erro ao carregar menu.json:', err);
-        });
+// ============================================
+// SISTEMA DE COOKIES OBRIGATÓRIOS
+// ============================================
+const cookieOverlay = document.getElementById('cookieOverlay');
+const acceptCookiesBtn = document.getElementById('acceptCookies');
+const rejectCookiesBtn = document.getElementById('rejectCookies');
+
+// Verificar se o usuário já aceitou os cookies
+function hasAcceptedCookies() {
+    return localStorage.getItem('cookiesAccepted') === 'true' || 
+           sessionStorage.getItem('cookiesAccepted') === 'true';
+}
+
+// Aceitar cookies e continuar
+function acceptCookies() {
+    // Armazenar consentimento (em localStorage e sessionStorage para redundância)
+    localStorage.setItem('cookiesAccepted', 'true');
+    sessionStorage.setItem('cookiesAccepted', 'true');
+    
+    // Ocultar o aviso com animação
+    cookieOverlay.style.animation = 'fadeOut 0.3s ease';
+    setTimeout(() => {
+        cookieOverlay.style.display = 'none';
+        
+        // Mostrar tela de login
+        document.getElementById('login-screen').style.display = 'flex';
+    }, 300);
+    
+    console.log('🍪 Cookies aceitos pelo usuário');
+}
+
+// Inicializar verificação de cookies
+function initializeCookieCheck() {
+    // Se já aceitou, ocultar aviso e mostrar login diretamente
+    if (hasAcceptedCookies()) {
+        cookieOverlay.style.display = 'none';
+        document.getElementById('login-screen').style.display = 'flex';
+        console.log('🍪 Consentimento de cookies já existente');
+    } else {
+        // Mostrar aviso de cookies
+        cookieOverlay.style.display = 'flex';
+        document.getElementById('login-screen').style.display = 'none';
+        console.log('🍪 Aguardando consentimento de cookies');
+    }
+}
+
+// Event listeners para botões de cookies
+acceptCookiesBtn.addEventListener('click', acceptCookies);
+
+// Botão de rejeitar permanece desabilitado visualmente
+rejectCookiesBtn.addEventListener('click', () => {
+    alert('⚠️ Os cookies são obrigatórios para o funcionamento do sistema. Por favor, clique em "Entendi e Continuar" para prosseguir.');
 });
+
+// Bloquear interação com o resto da página até aceitar cookies
+document.addEventListener('click', function(e) {
+    if (!hasAcceptedCookies() && !e.target.closest('.cookie-notice')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }
+}, true);
+
+// ============================================
+// CONFIGURAÇÃO DO FIREBASE
+// ============================================
+import { initializeApp } from "firebase/app";
+import { 
+    getAuth, 
+    signInWithPopup, 
+    GoogleAuthProvider, 
+    onAuthStateChanged, 
+    signOut 
+} from "firebase/auth";
+import { 
+    getFirestore, 
+    doc, 
+    getDoc,
+    setDoc,
+    updateDoc
+} from "firebase/firestore";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+    authDomain: "wzzm-ce3fc.firebaseapp.com",
+    projectId: "wzzm-ce3fc",
+    storageBucket: "wzzm-ce3fc.appspot.com",
+    messagingSenderId: "249427877153",
+    appId: "1:249427877153:web:0e4297294794a5aadeb260",
+    measurementId: "G-PLKNZNFCQ8"
+};
+
+try {
+    const app = initializeApp(firebaseConfig);
+    console.log("✅ Firebase inicializado com sucesso");
+} catch (error) {
+    console.error("❌ Erro ao inicializar Firebase:", error);
+}
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+// ============================================
+// CONSTANTES E CONFIGURAÇÕES
+// ============================================
+const KEY_ARRAY_FIELD = "itens_menu";
+const JSON_URL = 'https://wazzimagiygg.com/cidades_sancionadas.json';
+const GRID_SIZE = 16;
+const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
+const DESKTOP_COLLECTION = "desktop";
+
+// ============================================
+// LINKS ESTÁTICOS COM IDENTIFICADORES
+// ============================================
+const staticStartLinks = [
+    { 
+        id: 'termos-servico',
+        name: '📄 Termos de Serviço', 
+        url: 'https://wazzimagiygg.com/pdf/?uid=Termos%20de%20Servi%C3%A7o.pdf',
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'menu_iniciar' 
+    },
+    { 
+        id: 'politica-privacidade',
+        name: '🔒 Política de Privacidade', 
+        url: 'https://wazzimagiygg.com/pdf/?uid=Pol%C3%ADtica%20de%20Privacidade.pdf', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'menu_iniciar' 
+    },
+    { 
+        id: 'fale-admin',
+        name: '💬 Fale com a Administração', 
+        url: 'html/?uid=a13IwrEoc1Jmdi2I3Hve', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'menu_iniciar' 
+    },
+    { 
+        id: 'gerenciador-gespai',
+        name: '⚙️ Gerenciador GESPAI', 
+        url: 'https://wazzimagiygg.com/gespai/', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'menu_iniciar' 
+    },
+    { 
+        id: 'doacao',
+        name: '📄 Faça uma doação! ', 
+        url: 'https://wazzimagiygg.com/donate/', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'menu_iniciar' 
+    },
+    { 
+        id: 'privacidade',
+        name: '🚪 Compromisso com sua privacidade. O que não te contaram sobre a Wikipédia', 
+        url: 'https://wazzimagiygg.com/admin/privacidade/compromisso/', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'menu_iniciar' 
+    },
+    { 
+        id: 'logout',
+        name: '🚪 Sair do Sistema', 
+        action: 'logout', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'menu_iniciar' 
+    }
+];
+
+const staticAdminLinks = [
+    { 
+        id: 'criptografia-texto',
+        name: '📝 Criptografia de Texto', 
+        url: 'https://ciphersafex.wazzimagiygg.com', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'wiki_pedia' 
+    },
+    { 
+        id: 'editor-quill',
+        name: '📄 Editor Quill Sync', 
+        url: 'https://quill-sync.wazzimagiygg.com/', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'wiki_pedia' 
+    },
+    { 
+        id: 'tab-writer',
+        name: '📊 Tab Writer', 
+        url: 'https://tabwriter.wazzimagiygg.com/', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'wiki_pedia' 
+    },
+    { 
+        id: 'encrypto-json',
+        name: '🔒 Encrypto JSON', 
+        url: 'https://encryptojson.wazzimagiygg.com/', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'wiki_pedia' 
+    },
+    { 
+        id: 'bibliotecas-estudo',
+        name: '📚 Bibliotecas de Estudo', 
+        url: 'https://wazzimagiygg.com/bibliotecas/', 
+        iconUrl: 'https://wazzimagiygg.com/iconmagic.png', 
+        menu_target: 'wiki_pedia' 
+    },
+    { 
+        id: 'chat-contato',
+        name: "💬 Chat (Contato)", 
+        url: "html/?uid=a13IwrEoc1Jmdi2I3Hve", 
+        menu_target: 'wiki_pedia' 
+    }
+];
+
+// ============================================
+// ELEMENTOS DO DOM
+// ============================================
+const loginScreen = document.getElementById("login-screen");
+const loginBtn = document.getElementById("loginBtn");
+const desktop = document.getElementById("desktop");
+const desktopArea = document.getElementById("desktop-area");
+
+// Menus e taskbar
+const startMenu = document.getElementById("startMenu");
+const adminMenu = document.getElementById("adminMenu");
+const toolsMenu = document.getElementById("toolsMenu");
+const userMenu = document.getElementById("userMenu");
+const notificationIcon = document.getElementById("notificationIcon");
+const notificationPopup = document.getElementById("notificationPopup");
+const menuOverlay = document.getElementById("menuOverlay");
+const taskbarIcons = document.getElementById("taskbarIcons");
+const showAllBtn = document.getElementById("showAllBtn");
+const clockElement = document.getElementById("clock");
+
+// Botões da taskbar
+const startBtn = document.getElementById("startBtn");
+const adminBtn = document.getElementById("adminBtn");
+const toolsBtn = document.getElementById("toolsBtn");
+
+// ============================================
+// VARIÁVEIS GLOBAIS
+// ============================================
+let currentUser = null;
+let desktopIcons = [];
+let draggedIconId = null;
+let saveTimeout = null;
+let hasUnsavedChanges = false;
+let dynamicLinks = {
+    all: [],
+    iniciar: [],
+    admin: [],
+    ferramentas: []
+};
+
+// ============================================
+// GESTOR DE CARREGAMENTO ASSÍNCRONO
+// ============================================
+const loadingManager = {
+    isFirebaseLoaded: false,
+    uidQueue: null,
+    onFirebaseLoadedCallbacks: [],
+    
+    markFirebaseLoaded: function() {
+        this.isFirebaseLoaded = true;
+        console.log("✅ Firebase carregado, processando callbacks...");
+        
+        this.onFirebaseLoadedCallbacks.forEach(callback => callback());
+        this.onFirebaseLoadedCallbacks = [];
+        
+        if (this.uidQueue) {
+            this.processQueuedUid();
+        }
+    },
+    
+    onFirebaseLoaded: function(callback) {
+        if (this.isFirebaseLoaded) {
+            callback();
+        } else {
+            this.onFirebaseLoadedCallbacks.push(callback);
+        }
+    },
+    
+    queueUid: function(uidValue) {
+        this.uidQueue = uidValue;
+        console.log(`📥 UID enfileirado: ${uidValue}`);
+        
+        if (this.isFirebaseLoaded) {
+            this.processQueuedUid();
+        } else {
+            console.log("⏳ Aguardando carregamento do Firebase...");
+        }
+    },
+    
+    processQueuedUid: function() {
+        if (!this.uidQueue) return;
+        
+        const uidValue = this.uidQueue;
+        console.log(`🎯 Processando UID da fila: ${uidValue}`);
+        
+        urlParamsProcessor.processUidParam(uidValue);
+        this.uidQueue = null;
+    }
+};
+
+// ============================================
+// PROCESSADOR DE PARÂMETROS URL
+// ============================================
+const urlParamsProcessor = {
+    getUidParam: function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('uid');
+    },
+    
+    processUidParam: function(uidValue) {
+        if (!uidValue) return false;
+        
+        console.log(`🔍 Processando UID: ${uidValue}`);
+        
+        const staticLink = this.findInStaticLinks(uidValue);
+        if (staticLink) {
+            this.openLink(staticLink);
+            return true;
+        }
+        
+        const dynamicLink = this.findInDynamicLinks(uidValue);
+        if (dynamicLink) {
+            this.openLink(dynamicLink);
+            return true;
+        }
+        
+        console.log(`❓ UID não encontrado em links, tentando como URL...`);
+        this.openAsDirectUrl(uidValue);
+        return false;
+    },
+    
+    findInStaticLinks: function(uidValue) {
+        const allStaticLinks = [
+            ...staticStartLinks,
+            ...staticAdminLinks
+        ];
+        
+        return allStaticLinks.find(link => {
+            if (link.id && link.id === uidValue) return true;
+            
+            if (link.url && this.extractUidFromUrl(link.url) === uidValue) return true;
+            
+            if (link.name && this.normalizeString(link.name) === this.normalizeString(uidValue)) {
+                return true;
+            }
+            
+            if (link.name && this.normalizeString(link.name).includes(this.normalizeString(uidValue))) {
+                return true;
+            }
+            
+            return false;
+        });
+    },
+    
+    findInDynamicLinks: function(uidValue) {
+        if (!dynamicLinks.all || dynamicLinks.all.length === 0) {
+            console.log("⚠️ Nenhum link dinâmico carregado ainda");
+            return null;
+        }
+        
+        console.log(`🔎 Buscando em ${dynamicLinks.all.length} links dinâmicos...`);
+        
+        return dynamicLinks.all.find(link => {
+            if (link.name && this.normalizeString(link.name) === this.normalizeString(uidValue)) {
+                console.log(`✅ Encontrado por título: ${link.name}`);
+                return true;
+            }
+            
+            if (link.url) {
+                const extractedUid = this.extractUidFromUrl(link.url);
+                if (extractedUid && extractedUid === uidValue) {
+                    console.log(`✅ Encontrado por UID na URL: ${link.url}`);
+                    return true;
+                }
+            }
+            
+            if (link.name && this.normalizeString(link.name).includes(this.normalizeString(uidValue))) {
+                console.log(`✅ Encontrado por título parcial: ${link.name}`);
+                return true;
+            }
+            
+            if (link.url) {
+                const fileName = this.extractFileNameFromUrl(link.url);
+                if (fileName && this.normalizeString(fileName).includes(this.normalizeString(uidValue))) {
+                    console.log(`✅ Encontrado por nome do arquivo: ${fileName}`);
+                    return true;
+                }
+            }
+            
+            return false;
+        });
+    },
+    
+    extractUidFromUrl: function(url) {
+        if (!url) return null;
+        
+        const uidMatch1 = url.match(/[?&]uid=([^&]+)/i);
+        if (uidMatch1) return decodeURIComponent(uidMatch1[1]);
+        
+        const uidMatch2 = url.match(/\/(?:pdf|html)\/\?uid=([^&]+)/i);
+        if (uidMatch2) return decodeURIComponent(uidMatch2[1]);
+        
+        const lastSegment = url.split('/').pop();
+        if (lastSegment && lastSegment.includes('?')) {
+            return lastSegment.split('?')[0];
+        }
+        
+        return lastSegment || null;
+    },
+    
+    extractFileNameFromUrl: function(url) {
+        if (!url) return null;
+        
+        const urlObj = new URL(url, window.location.origin);
+        const pathname = urlObj.pathname;
+        const fileName = pathname.split('/').pop();
+        
+        return fileName.replace(/\.[^/.]+$/, '');
+    },
+    
+    normalizeString: function(str) {
+        return str.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^\w\s]/gi, '')
+            .replace(/\s+/g, '-')
+            .trim();
+    },
+    
+    openLink: function(link) {
+        setTimeout(() => {
+            windowManager.createWindow(
+                link.name, 
+                link.url, 
+                link.iconUrl || 'https://wazzimagiygg.com/iconmagic.png'
+            );
+            console.log(`✅ Janela aberta: ${link.name}`);
+            
+            closeAllMenus();
+        }, 300);
+    },
+    
+    openAsDirectUrl: function(uidValue) {
+        let finalUrl = uidValue;
+        let windowTitle = 'Link Externo';
+        
+        if (!uidValue.startsWith('http')) {
+            if (uidValue.includes('.pdf') || uidValue.includes('.html') || uidValue.includes('/')) {
+                finalUrl = `https://wazzimagiygg.com/${uidValue}`;
+                windowTitle = 'Documento';
+            } else {
+                finalUrl = `https://wazzimagiygg.com/pdf/?uid=${uidValue}`;
+                windowTitle = 'Documento PDF';
+            }
+        }
+        
+        console.log(`🌐 Aberto como URL direta: ${finalUrl}`);
+        
+        setTimeout(() => {
+            windowManager.createWindow(windowTitle, finalUrl, 'https://wazzimagiygg.com/iconmagic.png');
+        }, 300);
+    }
+};
+
+// ============================================
+// VERIFICAR UID NA INICIALIZAÇÃO
+// ============================================
+const initialUid = urlParamsProcessor.getUidParam();
+if (initialUid) {
+    console.log(`🎯 UID detectado na inicialização: ${initialUid}`);
+    
+    const staticLink = urlParamsProcessor.findInStaticLinks(initialUid);
+    
+    if (staticLink) {
+        console.log(`⚡ UID corresponde a link estático, será aberto após login`);
+    } else {
+        loadingManager.queueUid(initialUid);
+    }
+}
+
+// ============================================
+// GERENCIADOR DE DESKTOP
+// ============================================
+const desktopManager = {
+    loadIcons: async function(userId) {
+        try {
+            const userDesktopRef = doc(db, DESKTOP_COLLECTION, userId);
+            const userDocSnap = await getDoc(userDesktopRef);
+            
+            if (userDocSnap.exists()) {
+                desktopIcons = userDocSnap.data().shortcuts || [];
+                console.log(`📁 Carregados ${desktopIcons.length} atalhos do desktop`);
+            } else {
+                desktopIcons = [];
+                await setDoc(userDesktopRef, { shortcuts: [] });
+                console.log("📁 Criado novo desktop para usuário");
+            }
+            
+            this.renderIcons();
+        } catch (error) {
+            console.error("❌ Erro ao carregar atalhos do desktop:", error);
+            desktopIcons = [];
+            this.renderIcons();
+        }
+    },
+    
+    saveIcons: async function() {
+        if (!currentUser) {
+            console.log("⚠️ Usuário não autenticado, não é possível salvar");
+            return;
+        }
+        
+        try {
+            const userDesktopRef = doc(db, DESKTOP_COLLECTION, currentUser.uid);
+            await updateDoc(userDesktopRef, { shortcuts: desktopIcons });
+            console.log("💾 Atalhos do desktop salvos");
+            hasUnsavedChanges = false;
+            
+            this.showSaveNotification("Desktop salvo!");
+        } catch (error) {
+            console.error("❌ Erro ao salvar atalhos:", error);
+            this.showSaveNotification("Erro ao salvar!", true);
+        }
+    },
+    
+    showSaveNotification: function(message = "Salvando...", isError = false) {
+        const existingNotification = document.querySelector('.save-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        const notification = document.createElement('div');
+        notification.className = `save-notification ${isError ? 'error' : ''}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            background: ${isError ? '#ff6b6b' : '#4CAF50'};
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideDown 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 2000);
+    },
+    
+    renderIcons: function() {
+        desktopArea.innerHTML = '';
+        
+        for (let y = 0; y < GRID_SIZE; y++) {
+            for (let x = 0; x < GRID_SIZE; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'desktop-cell';
+                cell.dataset.x = x;
+                cell.dataset.y = y;
+                cell.style.gridColumn = x + 1;
+                cell.style.gridRow = y + 1;
+                
+                const icon = desktopIcons.find(icon => 
+                    icon.position && 
+                    icon.position.x === x && 
+                    icon.position.y === y
+                );
+                
+                if (icon) {
+                    const iconElement = document.createElement('div');
+                    iconElement.className = 'desktop-icon';
+                    iconElement.draggable = true;
+                    iconElement.dataset.id = icon.id;
+                    iconElement.innerHTML = `
+                        <img src="${icon.icon || 'https://wazzimagiygg.com/iconmagic.png'}" alt="${icon.title}">
+                        <span>${icon.title}</span>
+                    `;
+                    
+                    iconElement.addEventListener('dragstart', (e) => {
+                        draggedIconId = icon.id;
+                        iconElement.classList.add('dragging');
+                        e.dataTransfer.setData('text/plain', icon.id);
+                    });
+                    
+                    iconElement.addEventListener('dragend', () => {
+                        iconElement.classList.remove('dragging');
+                        draggedIconId = null;
+                    });
+                    
+                    iconElement.addEventListener('click', (e) => {
+                        if (e.button === 0) {
+                            this.openShortcut(icon);
+                        }
+                    });
+                    
+                    iconElement.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.showIconContextMenu(e, icon);
+                    });
+                    
+                    cell.appendChild(iconElement);
+                }
+                
+                desktopArea.appendChild(cell);
+            }
+        }
+    },
+    
+    addEmptyShortcut: function() {
+        const emptyPosition = this.findEmptyPosition();
+        if (!emptyPosition) {
+            alert("❌ Não há espaço disponível no desktop (16x16 slots ocupados)");
+            return;
+        }
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal">
+                <h3>➕ Adicionar Novo Atalho</h3>
+                <input type="text" id="shortcutTitle" class="modal-input" placeholder="Título do Atalho" autofocus>
+                <input type="text" id="shortcutUrl" class="modal-input" placeholder="URL (ex: https://...)">
+                <input type="text" id="shortcutIcon" class="modal-input" placeholder="URL do Ícone (opcional)">
+                
+                <div class="modal-buttons">
+                    <button class="modal-button secondary" id="cancelBtn">Cancelar</button>
+                    <button class="modal-button primary" id="saveBtn">Salvar Atalho</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        modal.style.display = 'flex';
+        
+        modal.querySelector('#cancelBtn').onclick = () => {
+            modal.remove();
+        };
+        
+        modal.querySelector('#saveBtn').onclick = () => {
+            const title = modal.querySelector('#shortcutTitle').value.trim();
+            const url = modal.querySelector('#shortcutUrl').value.trim();
+            const icon = modal.querySelector('#shortcutIcon').value.trim() || 'https://wazzimagiygg.com/iconmagic.png';
+            
+            if (!title || !url) {
+                alert("❌ Por favor, preencha título e URL");
+                return;
+            }
+            
+            this.addShortcutFromUrl(title, url, icon);
+            modal.remove();
+        };
+        
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        };
+    },
+    
+    addShortcutFromUrl: function(title, url, iconUrl = 'https://wazzimagiygg.com/iconmagic.png') {
+        const emptyPosition = this.findEmptyPosition();
+        if (!emptyPosition) {
+            alert("❌ Não há espaço disponível no desktop");
+            return;
+        }
+        
+        const newIcon = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            title: title,
+            url: url,
+            icon: iconUrl,
+            position: emptyPosition,
+            createdAt: new Date().toISOString(),
+            type: 'custom'
+        };
+        
+        desktopIcons.push(newIcon);
+        this.saveIcons();
+        this.renderIcons();
+        
+        console.log(`➕ Atalho customizado adicionado: ${title}`);
+    },
+    
+    addDynamicShortcut: function(link) {
+        const emptyPosition = this.findEmptyPosition();
+        if (!emptyPosition) {
+            alert("❌ Não há espaço disponível no desktop");
+            return;
+        }
+        
+        const newIcon = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            title: link.name,
+            url: link.url,
+            icon: link.iconUrl || 'https://wazzimagiygg.com/iconmagic.png',
+            position: emptyPosition,
+            createdAt: new Date().toISOString(),
+            type: 'dynamic',
+            originalData: link
+        };
+        
+        desktopIcons.push(newIcon);
+        this.saveIcons();
+        this.renderIcons();
+        
+        console.log(`➕ Atalho dinâmico adicionado: ${link.name}`);
+    },
+    
+    findEmptyPosition: function() {
+        const occupiedPositions = desktopIcons
+            .filter(icon => icon.position)
+            .map(icon => `${icon.position.x},${icon.position.y}`);
+        
+        for (let y = 0; y < GRID_SIZE; y++) {
+            for (let x = 0; x < GRID_SIZE; x++) {
+                if (!occupiedPositions.includes(`${x},${y}`)) {
+                    return { x, y };
+                }
+            }
+        }
+        return null;
+    },
+    
+    moveIcon: function(iconId, newPosition) {
+        const iconIndex = desktopIcons.findIndex(icon => icon.id === iconId);
+        if (iconIndex !== -1) {
+            const occupied = desktopIcons.some((icon, index) => 
+                index !== iconIndex &&
+                icon.position && 
+                icon.position.x === newPosition.x && 
+                icon.position.y === newPosition.y
+            );
+            
+            if (!occupied) {
+                desktopIcons[iconIndex].position = newPosition;
+                this.saveIcons();
+                this.renderIcons();
+                console.log(`➡️ Ícone movido para ${newPosition.x},${newPosition.y}`);
+                return true;
+            } else {
+                console.log("❌ Posição já ocupada");
+                return false;
+            }
+        }
+        return false;
+    },
+    
+    removeIcon: function(iconId) {
+        desktopIcons = desktopIcons.filter(icon => icon.id !== iconId);
+        this.saveIcons();
+        this.renderIcons();
+        console.log("🗑️ Ícone removido");
+    },
+    
+    openShortcut: function(icon) {
+        if (icon.url) {
+            windowManager.createWindow(icon.title, icon.url, icon.icon);
+        } else {
+            const url = `https://wazzimagiygg.com/central/uid/?uid=${icon.uid}&collection=${icon.collection}`;
+            windowManager.createWindow(icon.title, url, icon.icon);
+        }
+    },
+    
+    showDesktopContextMenu: function(e, x, y) {
+        e.preventDefault();
+        
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.innerHTML = `
+            <div class="context-menu-item" id="addCustomShortcutBtn">
+                <img src="https://wazzimagiygg.com/iconmagic.png" alt="➕"> Adicionar Atalho Customizado
+            </div>
+            <div class="context-menu-item" id="addDynamicShortcutBtn">
+                <img src="https://wazzimagiygg.com/iconmagic.png" alt="📚"> Adicionar dos Links Dinâmicos
+            </div>
+            <hr style="margin: 5px 0; border-color: rgba(255,255,255,0.1);">
+            <div class="context-menu-item" id="refreshDesktopBtn">
+                <img src="https://wazzimagiygg.com/iconmagic.png" alt="🔄"> Atualizar Desktop
+            </div>
+        `;
+        
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+        menu.style.display = 'block';
+        
+        document.body.appendChild(menu);
+        
+        menu.querySelector('#addCustomShortcutBtn').onclick = () => {
+            this.addEmptyShortcut();
+            menu.remove();
+        };
+        
+        menu.querySelector('#addDynamicShortcutBtn').onclick = async () => {
+            await this.showDynamicLinksModal();
+            menu.remove();
+        };
+        
+        menu.querySelector('#refreshDesktopBtn').onclick = () => {
+            this.renderIcons();
+            menu.remove();
+        };
+        
+        setTimeout(() => {
+            const closeMenu = () => {
+                if (menu.parentNode) {
+                    menu.remove();
+                }
+                document.removeEventListener('click', closeMenu);
+            };
+            document.addEventListener('click', closeMenu, { once: true });
+        }, 100);
+    },
+    
+    showIconContextMenu: function(e, icon) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const iconContextMenu = document.createElement('div');
+        iconContextMenu.className = 'context-menu';
+        iconContextMenu.innerHTML = `
+            <div class="context-menu-item open-icon">
+                <img src="https://wazzimagiygg.com/iconmagic.png" alt="▶️"> Abrir
+            </div>
+            <div class="context-menu-item remove-icon">
+                <img src="https://wazzimagiygg.com/iconmagic.png" alt="🗑️"> Remover
+            </div>
+        `;
+        
+        iconContextMenu.style.left = e.clientX + 'px';
+        iconContextMenu.style.top = e.clientY + 'px';
+        iconContextMenu.style.display = 'block';
+        
+        iconContextMenu.querySelector('.open-icon').onclick = () => {
+            this.openShortcut(icon);
+            iconContextMenu.remove();
+        };
+        
+        iconContextMenu.querySelector('.remove-icon').onclick = () => {
+            this.removeIcon(icon.id);
+            iconContextMenu.remove();
+        };
+        
+        document.body.appendChild(iconContextMenu);
+        
+        setTimeout(() => {
+            const removeMenu = () => {
+                if (iconContextMenu.parentNode) {
+                    iconContextMenu.remove();
+                }
+                document.removeEventListener('click', removeMenu);
+            };
+            document.addEventListener('click', removeMenu, { once: true });
+        }, 100);
+    },
+    
+    showDynamicLinksModal: async function() {
+        try {
+            if (dynamicLinks.all.length === 0) {
+                alert("⚠️ Nenhum link dinâmico disponível no momento");
+                return;
+            }
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal" style="max-width: 600px; max-height: 70vh; overflow: hidden; display: flex; flex-direction: column;">
+                    <h3>📚 Adicionar Atalho dos Links Dinâmicos</h3>
+                    <div style="flex: 1; overflow-y: auto; margin-bottom: 20px;">
+                        <div id="dynamicLinksList" style="display: grid; gap: 8px;"></div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="modal-button secondary" id="cancelModalBtn">Cancelar</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.style.display = 'flex';
+            
+            const linksList = modal.querySelector('#dynamicLinksList');
+            dynamicLinks.all.forEach(link => {
+                const linkElement = document.createElement('div');
+                linkElement.className = 'context-menu-item';
+                linkElement.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    padding: 10px;
+                    cursor: pointer;
+                    border-radius: 8px;
+                    margin: 2px 0;
+                    background: rgba(255,255,255,0.05);
+                `;
+                linkElement.innerHTML = `
+                    <img src="${link.iconUrl || 'https://wazzimagiygg.com/iconmagic.png'}" alt="icon" style="width: 24px; height: 24px; margin-right: 10px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500;">${link.name}</div>
+                        <div style="font-size: 12px; opacity: 0.7; word-break: break-all;">${link.url.substring(0, 60)}${link.url.length > 60 ? '...' : ''}</div>
+                        <div style="font-size: 11px; opacity: 0.5;">Categoria: ${link.menu_target}</div>
+                    </div>
+                    <button class="add-link-btn" style="background: #0078d7; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        Adicionar
+                    </button>
+                `;
+                
+                linkElement.querySelector('.add-link-btn').onclick = (e) => {
+                    e.stopPropagation();
+                    this.addDynamicShortcut(link);
+                    modal.remove();
+                };
+                
+                linkElement.onclick = (e) => {
+                    if (!e.target.closest('.add-link-btn')) {
+                        windowManager.createWindow(link.name, link.url, link.iconUrl);
+                        modal.remove();
+                    }
+                };
+                
+                linksList.appendChild(linkElement);
+            });
+            
+            modal.querySelector('#cancelModalBtn').onclick = () => {
+                modal.remove();
+            };
+            
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+            
+        } catch (error) {
+            console.error("❌ Erro ao carregar links dinâmicos:", error);
+            alert("❌ Erro ao carregar links dinâmicos");
+        }
+    },
+    
+    forceSave: function() {
+        return this.saveIcons();
+    }
+};
+
+// ============================================
+// EVENTOS DE DRAG AND DROP DO DESKTOP
+// ============================================
+desktopArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    const cell = e.target.closest('.desktop-cell');
+    if (cell) {
+        document.querySelectorAll('.desktop-cell').forEach(c => {
+            c.classList.remove('drag-over');
+        });
+        cell.classList.add('drag-over');
+    }
+});
+
+desktopArea.addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget || !desktopArea.contains(e.relatedTarget)) {
+        document.querySelectorAll('.desktop-cell').forEach(c => {
+            c.classList.remove('drag-over');
+        });
+    }
+});
+
+desktopArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    
+    document.querySelectorAll('.desktop-cell').forEach(c => {
+        c.classList.remove('drag-over');
+    });
+    
+    if (!draggedIconId) return;
+    
+    const cell = e.target.closest('.desktop-cell');
+    if (cell) {
+        const newX = parseInt(cell.dataset.x);
+        const newY = parseInt(cell.dataset.y);
+        
+        const moved = desktopManager.moveIcon(draggedIconId, { x: newX, y: newY });
+        
+        if (!moved) {
+            cell.style.animation = 'shake 0.5s';
+            setTimeout(() => {
+                cell.style.animation = '';
+            }, 500);
+        }
+    }
+});
+
+desktopArea.addEventListener('contextmenu', (e) => {
+    const cell = e.target.closest('.desktop-cell');
+    if (cell && !e.target.closest('.desktop-icon')) {
+        const x = parseInt(cell.dataset.x);
+        const y = parseInt(cell.dataset.y);
+        desktopManager.showDesktopContextMenu(e, x, y);
+    }
+});
+
+// ============================================
+// GERENCIADOR DE JANELAS
+// ============================================
+const windowManager = {
+    windows: [],
+    activeWindow: null,
+    
+    createWindow: function(title, url, icon = 'https://wazzimagiygg.com/iconmagic.png') {
+        const win = document.createElement("div");
+        win.className = "window";
+        win.innerHTML = `
+            <div class="window-header">
+                <span>${title}</span>
+                <div class="window-controls">
+                    <button class="minimize" title="Minimizar">—</button>
+                    <button class="maximize" title="Maximizar">⬜</button>
+                    <button class="close" title="Fechar">✖</button>
+                </div>
+            </div>
+            <iframe src="${url}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+        `;
+        
+        document.body.appendChild(win);
+
+        const header = win.querySelector(".window-header");
+        let isDragging = false;
+        let offsetX, offsetY;
+        let maximized = false;
+        let prevState = {};
+
+        const windowId = this.addWindow(win, title, icon, url);
+        
+        win.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.setActiveWindow(windowId);
+            this.bringToFront(win);
+        });
+
+        header.addEventListener("mousedown", (e) => {
+            if (maximized) return;
+            isDragging = true;
+            offsetX = e.clientX - win.offsetLeft;
+            offsetY = e.clientY - win.offsetTop;
+            e.stopPropagation();
+            this.setActiveWindow(windowId);
+            this.bringToFront(win);
+        });
+
+        document.addEventListener("mousemove", (e) => {
+            if (isDragging && !maximized) {
+                win.style.left = (e.clientX - offsetX) + "px";
+                win.style.top = (e.clientY - offsetY) + "px";
+            }
+        });
+
+        document.addEventListener("mouseup", () => {
+            isDragging = false;
+        });
+
+        win.querySelector(".close").onclick = (e) => {
+            e.stopPropagation();
+            this.removeWindow(windowId);
+            win.remove();
+        };
+        
+        win.querySelector(".minimize").onclick = (e) => {
+            e.stopPropagation();
+            this.minimizeWindow(windowId);
+        };
+        
+        win.querySelector(".maximize").onclick = (e) => {
+            e.stopPropagation();
+            if (!maximized) {
+                prevState = {
+                    top: win.offsetTop,
+                    left: win.offsetLeft,
+                    width: win.offsetWidth,
+                    height: win.offsetHeight
+                };
+                
+                win.style.top = "0";
+                win.style.left = "0";
+                win.style.width = "100%";
+                win.style.height = "calc(100% - 40px)";
+                maximized = true;
+            } else {
+                win.style.top = prevState.top + "px";
+                win.style.left = prevState.left + "px";
+                win.style.width = prevState.width + "px";
+                win.style.height = prevState.height + "px";
+                maximized = false;
+            }
+            this.bringToFront(win);
+        };
+        
+        return windowId;
+    },
+    
+    addWindow: function(windowElement, title, icon = 'https://wazzimagiygg.com/iconmagic.png', url) {
+        const windowId = 'window_' + Date.now() + Math.random().toString(36).substr(2, 9);
+        windowElement.dataset.windowId = windowId;
+        
+        const windowData = {
+            id: windowId,
+            element: windowElement,
+            title: title,
+            icon: icon,
+            url: url,
+            minimized: false,
+            taskbarIcon: null
+        };
+        
+        this.windows.push(windowData);
+        this.setActiveWindow(windowId);
+        this.createTaskbarIcon(windowData);
+        
+        return windowId;
+    },
+    
+    removeWindow: function(windowId) {
+        const index = this.windows.findIndex(w => w.id === windowId);
+        if (index !== -1) {
+            const windowData = this.windows[index];
+            
+            if (windowData.taskbarIcon) {
+                windowData.taskbarIcon.remove();
+            }
+            
+            this.windows.splice(index, 1);
+            
+            if (this.activeWindow === windowId) {
+                this.activeWindow = this.windows.length > 0 ? this.windows[this.windows.length - 1].id : null;
+                this.updateActiveWindow();
+            }
+        }
+    },
+    
+    minimizeWindow: function(windowId) {
+        const windowData = this.windows.find(w => w.id === windowId);
+        if (windowData) {
+            windowData.minimized = true;
+            windowData.element.classList.add('minimized');
+            this.updateTaskbarIcon(windowData);
+            
+            if (this.activeWindow === windowId) {
+                const visibleWindows = this.windows.filter(w => !w.minimized && w.id !== windowId);
+                if (visibleWindows.length > 0) {
+                    this.setActiveWindow(visibleWindows[0].id);
+                } else {
+                    this.activeWindow = null;
+                    this.updateActiveWindow();
+                }
+            }
+        }
+    },
+    
+    restoreWindow: function(windowId) {
+        const windowData = this.windows.find(w => w.id === windowId);
+        if (windowData) {
+            windowData.minimized = false;
+            windowData.element.classList.remove('minimized');
+            this.setActiveWindow(windowId);
+            this.updateTaskbarIcon(windowData);
+            this.bringToFront(windowData.element);
+        }
+    },
+    
+    setActiveWindow: function(windowId) {
+        this.activeWindow = windowId;
+        this.updateActiveWindow();
+        
+        this.windows.forEach(windowData => {
+            this.updateTaskbarIcon(windowData);
+        });
+    },
+    
+    updateActiveWindow: function() {
+        this.windows.forEach(windowData => {
+            const isActive = windowData.id === this.activeWindow;
+            windowData.element.classList.toggle('active', isActive);
+            if (windowData.taskbarIcon) {
+                windowData.taskbarIcon.classList.toggle('active', isActive);
+            }
+        });
+    },
+    
+    createTaskbarIcon: function(windowData) {
+        const icon = document.createElement('button');
+        icon.className = 'taskbar-icon';
+        icon.title = windowData.title;
+        icon.innerHTML = `<img src="${windowData.icon}" alt="icon"> <span>${windowData.title.substring(0, 20)}${windowData.title.length > 20 ? '...' : ''}</span>`;
+        
+        icon.onclick = (e) => {
+            e.stopPropagation();
+            if (windowData.minimized) {
+                this.restoreWindow(windowData.id);
+            } else {
+                if (this.activeWindow === windowData.id) {
+                    this.minimizeWindow(windowData.id);
+                } else {
+                    this.setActiveWindow(windowData.id);
+                }
+            }
+        };
+        
+        icon.ondblclick = (e) => {
+            e.stopPropagation();
+            if (windowData.minimized) {
+                this.restoreWindow(windowData.id);
+            } else {
+                this.minimizeWindow(windowData.id);
+            }
+        };
+        
+        taskbarIcons.appendChild(icon);
+        windowData.taskbarIcon = icon;
+        this.updateTaskbarIcon(windowData);
+    },
+    
+    updateTaskbarIcon: function(windowData) {
+        if (windowData.taskbarIcon) {
+            windowData.taskbarIcon.style.opacity = windowData.minimized ? '0.7' : '1';
+        }
+    },
+    
+    bringToFront: function(windowElement) {
+        const allWindows = document.querySelectorAll('.window');
+        let maxZIndex = 100;
+        
+        allWindows.forEach(win => {
+            const zIndex = parseInt(window.getComputedStyle(win).zIndex) || 100;
+            if (zIndex > maxZIndex) maxZIndex = zIndex;
+        });
+        
+        windowElement.style.zIndex = maxZIndex + 1;
+    },
+    
+    showAllWindows: function() {
+        this.windows.forEach(windowData => {
+            if (windowData.minimized) {
+                this.restoreWindow(windowData.id);
+            }
+        });
+    },
+    
+    minimizeAllWindows: function() {
+        this.windows.forEach(windowData => {
+            if (!windowData.minimized) {
+                this.minimizeWindow(windowData.id);
+            }
+        });
+    },
+    
+    closeAllWindows: function() {
+        const windowsToClose = [...this.windows];
+        windowsToClose.forEach(windowData => {
+            windowData.element.remove();
+        });
+        this.windows = [];
+        this.activeWindow = null;
+        taskbarIcons.innerHTML = '';
+    }
+};
+
+// ============================================
+// FUNÇÕES DE UTILIDADE
+// ============================================
+function closeAllMenus() {
+    const menus = [startMenu, adminMenu, toolsMenu, notificationPopup, userMenu];
+    menus.forEach(menu => {
+        menu.style.display = "none";
+        menu.classList.remove('active');
+    });
+    menuOverlay.style.display = "none";
+}
+
+function setupMenuClickOutside(menuElement) {
+    menuElement.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    menuOverlay.addEventListener('click', function() {
+        closeAllMenus();
+    });
+}
+
+// ============================================
+// AUTENTICAÇÃO E LOGIN
+// ============================================
+loginBtn.addEventListener("click", async () => {
+    // Verificar se já aceitou os cookies
+    if (!hasAcceptedCookies()) {
+        alert('⚠️ Você precisa aceitar o aviso de cookies para continuar.');
+        return;
+    }
+    
+    try {
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const result = await signInWithPopup(auth, provider);
+        console.log("✅ Login bem-sucedido:", result.user.email);
+    } catch (error) {
+        console.error("❌ Erro no login:", error);
+        alert(`Erro no login: ${error.message}`);
+    }
+});
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        console.log("👤 Usuário autenticado:", user.email);
+        
+        loginScreen.style.display = "none";
+        desktop.style.display = "block";
+        
+        await desktopManager.loadIcons(user.uid);
+        
+        updateClock();
+        await loadDynamicLinks(user.uid);
+        populateUserMenu(user.displayName, user.email, user.photoURL);
+        
+        await checkNotifications();
+        
+        desktopManager.saveIcons();
+        
+    } else {
+        currentUser = null;
+        // Só mostrar login se já aceitou cookies
+        if (hasAcceptedCookies()) {
+            loginScreen.style.display = "flex";
+        } else {
+            loginScreen.style.display = "none";
+        }
+        desktop.style.display = "none";
+        desktopIcons = [];
+        notificationPopup.innerHTML = '';
+        notificationIcon.style.color = 'white';
+        closeAllMenus();
+        windowManager.closeAllWindows();
+        hasUnsavedChanges = false;
+    }
+});
+
+async function handleLogout() {
+    try {
+        if (hasUnsavedChanges) {
+            await desktopManager.forceSave();
+        }
+        await signOut(auth);
+        console.log("✅ Logout realizado");
+    } catch (error) {
+        console.error("❌ Erro no logout:", error);
+    }
+}
+
+async function handleSwitchAccount() {
+    try {
+        if (hasUnsavedChanges) {
+            await desktopManager.forceSave();
+        }
+        await signOut(auth);
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        console.error("❌ Erro ao trocar conta:", error);
+    }
+}
+
+// ============================================
+// INTERFACE DO USUÁRIO
+// ============================================
+function populateUserMenu(userName, userEmail, photoURL) {
+    userMenu.innerHTML = '';
+    
+    const userHeader = document.createElement('div');
+    userHeader.className = 'user-info-header';
+    userHeader.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+            ${photoURL 
+                ? `<img src="${photoURL}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1);">` 
+                : '<div style="width: 40px; height: 40px; background: linear-gradient(135deg, #0078d7, #00b4d8); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">' + (userName?.charAt(0) || 'U') + '</div>'}
+            <div>
+                <div class="user-name">${userName || 'Usuário'}</div>
+                <div class="user-email">${userEmail || ''}</div>
+            </div>
+        </div>
+        <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+            ${hasUnsavedChanges ? '⚠️ Alterações não salvas' : '✓ Tudo salvo'}
+        </div>
+    `;
+    userMenu.appendChild(userHeader);
+    
+    const separator = document.createElement('hr');
+    separator.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;';
+    userMenu.appendChild(separator);
+    
+    const switchAccountItem = document.createElement('div');
+    switchAccountItem.className = 'menu-item';
+    switchAccountItem.innerHTML = `<img src="https://wazzimagiygg.com/iconmagic.png" alt="icon"> 🔄 Trocar de Conta`;
+    switchAccountItem.onclick = handleSwitchAccount;
+    userMenu.appendChild(switchAccountItem);
+    
+    const logoutItem = document.createElement('div');
+    logoutItem.className = 'menu-item';
+    logoutItem.innerHTML = `<img src="https://wazzimagiygg.com/iconmagic.png" alt="icon"> 🚪 Sair`;
+    logoutItem.onclick = handleLogout;
+    userMenu.appendChild(logoutItem);
+}
+
+// ============================================
+// FUNÇÕES DE MENU E LINKS DINÂMICOS
+// ============================================
+async function loadDynamicLinks(userId) {
+    try {
+        const SITE_ID = "wazzimagiygg";
+        const KEY_DOCUMENT_ID = `${SITE_ID}_menu_list`;
+        const docRef = doc(db, "keymenulista", KEY_DOCUMENT_ID);
+        const docSnap = await getDoc(docRef);
+
+        let allLinksFromDB = [];
+
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data[KEY_ARRAY_FIELD] && Array.isArray(data[KEY_ARRAY_FIELD])) {
+                allLinksFromDB = data[KEY_ARRAY_FIELD].map((item, index) => ({
+                    name: item.titulo,
+                    url: item.link_url,
+                    iconUrl: item.url_imagem || 'https://wazzimagiygg.com/iconmagic.png',
+                    menu_target: item.menu_target || 'outros',
+                    normalizedName: urlParamsProcessor.normalizeString(item.titulo),
+                    extractedUid: urlParamsProcessor.extractUidFromUrl(item.link_url),
+                    fileName: urlParamsProcessor.extractFileNameFromUrl(item.link_url)
+                }));
+                
+                console.log(`📥 ${allLinksFromDB.length} links carregados do Firebase`);
+            }
+        }
+
+        const linksParaIniciar = allLinksFromDB.filter(item => item.menu_target === 'menu_iniciar');
+        const linksParaAdmin = allLinksFromDB.filter(item => item.menu_target === 'wiki_pedia');
+        const linksParaFerramentas = allLinksFromDB.filter(item => item.menu_target === 'ferramentas');
+
+        dynamicLinks = {
+            all: allLinksFromDB,
+            iniciar: linksParaIniciar,
+            admin: linksParaAdmin,
+            ferramentas: linksParaFerramentas
+        };
+
+        populateMenu(startMenu, [...staticStartLinks, ...linksParaIniciar]);
+        populateMenu(adminMenu, [...staticAdminLinks, ...linksParaAdmin]);
+        populateToolsMenu(linksParaFerramentas);
+
+        loadingManager.markFirebaseLoaded();
+
+    } catch (error) {
+        console.error("❌ Erro ao carregar links do Firebase:", error);
+        
+        populateMenu(startMenu, staticStartLinks);
+        populateMenu(adminMenu, staticAdminLinks);
+        populateToolsMenu([]);
+        
+        loadingManager.markFirebaseLoaded();
+    }
+}
+
+function populateMenu(menuElement, linksArray) {
+    menuElement.innerHTML = '';
+    
+    linksArray.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "menu-item";
+        div.innerHTML = `<img src="${item.iconUrl || 'https://wazzimagiygg.com/iconmagic.png'}" alt="icon"> ${item.name}`;
+        
+        div.onclick = () => {
+            if (item.action === 'logout') {
+                handleLogout();
+            } else {
+                windowManager.createWindow(item.name, item.url, item.iconUrl);
+            }
+            closeAllMenus();
+        };
+        
+        menuElement.appendChild(div);
+    });
+}
+
+function populateToolsMenu(linksArray) {
+    toolsMenu.innerHTML = '';
+    
+    const filteredLinks = linksArray.filter(link => 
+        !link.url.includes('base44.app') && !link.url.includes('base44.com')
+    );
+    
+    filteredLinks.forEach(link => {
+        const a = document.createElement("a");
+        a.textContent = link.name;
+        a.href = "#";
+        a.style.cssText = `
+            display: block;
+            color: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        `;
+        
+        a.onmouseover = () => {
+            a.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.1))';
+            a.style.borderColor = 'rgba(255,255,255,0.1)';
+        };
+        
+        a.onmouseout = () => {
+            a.style.background = 'transparent';
+            a.style.borderColor = 'transparent';
+        };
+        
+        a.onclick = (e) => {
+            e.preventDefault();
+            windowManager.createWindow(link.name, link.url, link.iconUrl);
+            closeAllMenus();
+        };
+        
+        toolsMenu.appendChild(a);
+    });
+}
+
+// ============================================
+// SISTEMA DE NOTIFICAÇÕES
+// ============================================
+async function checkNotifications() {
+    try {
+        const response = await fetch(JSON_URL);
+        if (!response.ok) throw new Error('Erro ao carregar notificações');
+        
+        const data = await response.json();
+        const userLocation = await getUserLocation();
+        
+        updateNotifications(data, userLocation);
+        
+    } catch (error) {
+        console.warn("⚠️ Aviso: Não foi possível carregar notificações", error);
+        addNotification('ℹ️ Sistema de notificações carregado', 'info');
+    }
+}
+
+async function getUserLocation() {
+    try {
+        const response = await fetch('https://ipinfo.io/json');
+        const data = await response.json();
+        return {
+            city: data.city || 'Desconhecida',
+            region: data.region || 'Desconhecido',
+            country: data.country || 'Desconhecido',
+            ip: data.ip || 'N/A'
+        };
+    } catch (error) {
+        return {
+            city: 'Desconhecida',
+            region: 'Desconhecido',
+            country: 'Desconhecido',
+            ip: 'N/A'
+        };
+    }
+}
+
+function updateNotifications(sancaoData, userLocation) {
+    notificationPopup.innerHTML = '';
+    
+    addNotification(`📍 <strong>Localização Detectada:</strong><br>${userLocation.city}, ${userLocation.region}, ${userLocation.country}`, 'info');
+    addNotification(`🌐 <strong>IP Público:</strong> ${userLocation.ip}`, 'info');
+    
+    if (sancaoData?.cidades_sancionadas) {
+        const cidadeUsuario = userLocation.city.toLowerCase();
+        const paisUsuario = userLocation.country.toLowerCase();
+        
+        const sancao = sancaoData.cidades_sancionadas.find(item => 
+            item.cidade.toLowerCase() === cidadeUsuario || 
+            item.cidade.toLowerCase() === paisUsuario
+        );
+        
+        if (sancao) {
+            addNotification(`
+                🚨 <strong>ALERTA DE SANÇÃO!</strong><br>
+                Região com possível atividade suspeita.<br>
+                <small>Moderador: ${sancao.moderador}</small>
+            `, 'error');
+            notificationIcon.style.color = '#ff6b6b';
+        } else {
+            addNotification('✅ <strong>Status:</strong> Nenhuma sanção detectada na sua região', 'success');
+        }
+    }
+    
+    addNotification(`👤 <strong>Usuário:</strong> ${currentUser?.displayName || 'Convidado'}`, 'info');
+}
+
+function addNotification(message, type = 'info') {
+    const div = document.createElement("div");
+    div.className = `notification-item ${type === 'error' ? 'sancao-alerta' : ''}`;
+    div.innerHTML = message;
+    notificationPopup.prepend(div);
+}
+
+// ============================================
+// EVENT LISTENERS E INICIALIZAÇÃO
+// ============================================
+[startMenu, adminMenu, toolsMenu, notificationPopup, userMenu].forEach(setupMenuClickOutside);
+
+startBtn.onclick = (e) => {
+    e.stopPropagation();
+    const isVisible = startMenu.style.display === "block";
+    closeAllMenus();
+    if (!isVisible) {
+        startMenu.style.display = "block";
+        startMenu.style.left = "10px";
+        startMenu.style.bottom = "45px";
+        menuOverlay.style.display = "block";
+    }
+};
+
+adminBtn.onclick = (e) => {
+    e.stopPropagation();
+    const isVisible = adminMenu.style.display === "block";
+    closeAllMenus();
+    if (!isVisible) {
+        adminMenu.style.display = "block";
+        adminMenu.style.left = "120px";
+        adminMenu.style.bottom = "45px";
+        menuOverlay.style.display = "block";
+    }
+};
+
+toolsBtn.onclick = (e) => {
+    e.stopPropagation();
+    const isVisible = toolsMenu.style.display === "block";
+    closeAllMenus();
+    if (!isVisible) {
+        toolsMenu.style.display = "block";
+        toolsMenu.style.left = "230px";
+        toolsMenu.style.bottom = "45px";
+        menuOverlay.style.display = "block";
+    }
+};
+
+notificationIcon.onclick = (e) => {
+    e.stopPropagation();
+    const isVisible = notificationPopup.style.display === "block";
+    closeAllMenus();
+    if (!isVisible) {
+        notificationPopup.style.display = "block";
+        notificationPopup.style.right = "60px";
+        notificationPopup.style.bottom = "50px";
+        menuOverlay.style.display = "block";
+    }
+};
+
+clockElement.onclick = (e) => {
+    e.stopPropagation();
+    const isVisible = userMenu.style.display === "block";
+    closeAllMenus();
+    if (!isVisible) {
+        userMenu.style.display = "block";
+        userMenu.style.right = "10px";
+        userMenu.style.bottom = "45px";
+        menuOverlay.style.display = "block";
+    }
+};
+
+showAllBtn.onclick = () => {
+    windowManager.showAllWindows();
+};
+
+taskbarIcons.parentElement.ondblclick = (e) => {
+    if (e.target === taskbarIcons.parentElement || e.target === taskbarIcons) {
+        const allMinimized = windowManager.windows.every(w => w.minimized);
+        if (allMinimized) {
+            windowManager.showAllWindows();
+        } else {
+            windowManager.minimizeAllWindows();
+        }
+    }
+};
+
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+function updateClock() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+    });
+    
+    const dateString = now.toLocaleDateString('pt-BR', { 
+        weekday: 'short',
+        day: '2-digit', 
+        month: '2-digit',
+        year: 'numeric'
+    });
+    
+    clockElement.innerHTML = `
+        <span>${timeString}</span><br>
+        <span style="font-size: 0.8em; opacity: 0.9;">${dateString}</span>
+    `;
+    
+    setTimeout(updateClock, 1000);
+}
+
+// ============================================
+// PROTEÇÃO E BLOQUEIO DE TECLAS
+// ============================================
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+        (e.ctrlKey && e.shiftKey && e.key === 'J') || 
+        (e.ctrlKey && e.key === 'U')) {
+        e.preventDefault();
+        return false;
+    }
+    
+    if (e.key === 'Escape') {
+        closeAllMenus();
+    }
+    
+    if (e.ctrlKey && e.key === 'm') {
+        if (windowManager.activeWindow) {
+            windowManager.minimizeWindow(windowManager.activeWindow);
+        }
+    }
+    
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        desktopManager.forceSave();
+    }
+});
+
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+});
+
+desktopArea.addEventListener('contextmenu', function(e) {
+    return true;
+});
+
+// ============================================
+// SISTEMA DE SALVAMENTO AUTOMÁTICO
+// ============================================
+window.addEventListener('beforeunload', (e) => {
+    if (hasUnsavedChanges && currentUser) {
+        e.preventDefault();
+        e.returnValue = 'Você tem alterações não salvas no desktop. Deseja sair mesmo assim?';
+        return e.returnValue;
+    }
+});
+
+window.addEventListener('blur', () => {
+    if (hasUnsavedChanges) {
+        desktopManager.forceSave();
+    }
+});
+
+setInterval(() => {
+    if (hasUnsavedChanges && currentUser) {
+        console.log("⏰ Salvamento periódico...");
+        desktopManager.forceSave();
+    }
+}, 30000);
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && hasUnsavedChanges) {
+        desktopManager.forceSave();
+    }
+});
+
+// ============================================
+// INICIALIZAÇÃO DO SISTEMA
+// ============================================
+console.log("🚀 Sistema Wiki Not Pedia WZZM com Desktop Dinâmico inicializado");
+
+const animationsStyle = document.createElement('style');
+animationsStyle.textContent = `
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+    }
+    
+    .desktop-icon {
+        animation: fadeIn 0.3s ease;
+    }
+`;
+document.head.appendChild(animationsStyle);
+
+// Inicializar verificação de cookies
+initializeCookieCheck();
+
+// Função para detectar se é um dispositivo móvel (incluindo tablets)
+function isMobileDevice() {
+    return (typeof window.orientation !== "undefined") || (window.innerWidth <= 800) ||
+        (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+}
+
+// Se for um dispositivo móvel e não estiver já na pasta mobile, redireciona
+if (isMobileDevice() && !window.location.pathname.includes('/mobile/')) {
+    window.location.href = "/mobile/";
+}
