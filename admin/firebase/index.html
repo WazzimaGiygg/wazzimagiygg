@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - WazzimaGiygg</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+    
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5; 
+            padding: 20px; 
+        }
+        
+        .container { 
+            max-width: 1300px; 
+            margin: 0 auto; 
+        }
+        
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header .user-info span {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        /* CARDS */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        
+        .card h2 {
+            color: #1a73e8;
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card h2 .badge {
+            background: #e8f0fe;
+            color: #1a73e8;
+            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+        
+        /* FORMULÁRIOS */
+        .form-group {
+            margin-bottom: 18px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .form-group input, 
+        .form-group textarea, 
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+        
+        .form-group input:focus, 
+        .form-group textarea:focus, 
+        .form-group select:focus {
+            outline: none;
+            border-color: #1a73e8;
+        }
+        
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* BOTÕES */
+        .btn {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(26,115,232,0.3);
+        }
+        
+        .btn-danger { 
+            background: #dc3545; 
+        }
+        .btn-danger:hover {
+            box-shadow: 0 4px 12px rgba(220,53,69,0.3);
+        }
+        
+        .btn-success { 
+            background: #28a745; 
+        }
+        .btn-success:hover {
+            box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .btn-warning:hover {
+            box-shadow: 0 4px 12px rgba(255,193,7,0.3);
+        }
+        
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 12px;
+        }
+        
+        /* TABELA */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .table th {
+            background: #f8f9fa;
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+        }
+        
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .table .doc-id {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #6c757d;
+            background: #f8f9fa;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        .table .doc-data {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #f1f3f5;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 0;
+            white-space: pre-wrap;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        
+        .table .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        /* LOGIN */
+        .login-form {
+            max-width: 420px;
+            margin: 80px auto;
+        }
+        
+        .login-form .card {
+            padding: 40px;
+        }
+        
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1a73e8;
+        }
+        
+        .login-form .logo {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .login-form .subtitle {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .login-error {
+            color: #dc3545;
+            margin-top: 12px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        /* STATUS / ALERTAS */
+        .alert {
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        /* UTILITÁRIOS */
+        .hidden { display: none !important; }
+        .mt-10 { margin-top: 10px; }
+        .mb-10 { margin-bottom: 10px; }
+        .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        
+        /* BADGE DE STATUS */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-badge.active { background: #d4edda; color: #155724; }
+        .status-badge.inactive { background: #f8d7da; color: #721c24; }
+        
+        /* LOADING */
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+        }
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        
+        <!-- ======================================== -->
+        <!-- TELA DE LOGIN                            -->
+        <!-- ======================================== -->
+        <div id="loginScreen" class="login-form">
+            <div class="card">
+                <div class="logo">🚀</div>
+                <h2>WazzimaGiygg</h2>
+                <p class="subtitle">Painel Administrativo</p>
+                
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" id="email" placeholder="admin@wazzimagiygg.com" value="admin@wazzimagiygg.com">
+                </div>
+                <div class="form-group">
+                    <label>🔒 Senha</label>
+                    <input type="password" id="password" placeholder="••••••••">
+                </div>
+                <button class="btn" onclick="login()" style="width:100%; justify-content:center; padding:12px;">
+                    🔑 Entrar no Painel
+                </button>
+                <div id="loginError" class="login-error"></div>
+            </div>
+        </div>
+
+        <!-- ======================================== -->
+        <!-- PAINEL PRINCIPAL                         -->
+        <!-- ======================================== -->
+        <div id="dashboardScreen" class="hidden">
+            
+            <!-- HEADER -->
+            <div class="header">
+                <h1>🚀 WazzimaGiygg <span style="font-size:14px; font-weight:400; opacity:0.8;">Admin Panel</span></h1>
+                <div class="user-info">
+                    <span>👤 <span id="userEmail"></span></span>
+                    <button class="btn btn-danger btn-sm" onclick="logout()">🚪 Sair</button>
+                </div>
+            </div>
+
+            <!-- ======================================== -->
+            <!-- CARD: ADICIONAR DOCUMENTO                -->
+            <!-- ======================================== -->
+            <div class="card">
+                <h2>📝 Adicionar Documento <span class="badge">CRUD</span></h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>📂 Coleção</label>
+                        <input type="text" id="collectionName" placeholder="Ex: usuarios, produtos, posts" value="testes">
+                    </div>
+                    <div class="form-group">
+                        <label>🆔 ID (opcional)</label>
+                        <input type="text" id="docId" placeholder="Deixe em branco para automático">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>📦 Dados (JSON)</label>
+                    <textarea id="docData" rows="4">{"nome": "João Silva", "email": "joao@teste.com", "ativo": true, "criadoEm": "2026-07-12"}</textarea>
+                </div>
+                <button class="btn btn-success" onclick="addDocument()">💾 Salvar Documento</button>
+                <span id="addStatus" style="margin-left:15px; font-size:14px;"></span>
+            </div>
+
+            <!-- ======================================== -->
+            <!-- CARD: LISTAR DOCUMENTOS                  -->
+            <!-- ======================================== -->
+            <div class="card">
+                <h2>📋 Documentos da Coleção <span class="badge">Listagem</span></h2>
+                <div class="flex mb-10">
+                    <div style="flex:1; min-width:200px;">
+                        <input type="text" id="listCollection" placeholder="📂 Nome da coleção" value="testes" style="width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:8px;">
+                    </div>
+                    <button class="btn" onclick="listDocuments()">🔍 Listar</button>
+                    <button class="btn btn-warning" onclick="refreshList()">🔄 Recarregar</button>
+                </div>
+                <div id="documentsList">
+                    <div class="alert alert-info">Clique em <strong>"Listar"</strong> para carregar os documentos.</div>
+                </div>
+            </div>
+
+            <!-- ======================================== -->
+            <!-- CARD: ESTATÍSTICAS (OPCIONAL)            -->
+            <!-- ======================================== -->
+            <div class="card">
+                <h2>📊 Estatísticas Rápidas</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Coleção para contar</label>
+                        <input type="text" id="statsCollection" placeholder="Ex: usuarios" value="testes">
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button class="btn" onclick="getStats()">📈 Contar Documentos</button>
+                    </div>
+                </div>
+                <div id="statsResult" class="alert alert-info" style="margin-top:10px;">
+                    Aguardando consulta...
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ======================================== -->
+    <!-- CONFIGURAÇÃO DO FIREBASE                 -->
+    <!-- ======================================== -->
+    <script>
+        // 🔥 SUA CONFIGURAÇÃO DO FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+            authDomain: "wzzm-ce3fc.firebaseapp.com",
+            projectId: "wzzm-ce3fc",
+            storageBucket: "wzzm-ce3fc.appspot.com",
+            messagingSenderId: "249427877153",
+            appId: "1:249427877153:web:0e4297294794a5aadeb260"
+        };
+
+        // Inicializa Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ⚠️ ATENÇÃO: Configure as regras de segurança no Firebase Console!
+        // rules_version = '2';
+        // service cloud.firestore {
+        //   match /databases/{database}/documents {
+        //     match /{document=**} {
+        //       allow read, write: if request.auth != null;
+        //     }
+        //   }
+        // }
+
+        // ========================================
+        //  AUTENTICAÇÃO
+        // ========================================
+
+        // Verifica estado do usuário
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('dashboardScreen').classList.remove('hidden');
+                document.getElementById('userEmail').textContent = user.email;
+                // Carrega lista automaticamente
+                setTimeout(() => listDocuments(), 300);
+            } else {
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('dashboardScreen').classList.add('hidden');
+            }
+        });
+
+        function login() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('loginError');
+            
+            if (!email || !password) {
+                errorEl.textContent = '⚠️ Preencha email e senha.';
+                return;
+            }
+
+            errorEl.textContent = '⏳ Entrando...';
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => {
+                    errorEl.textContent = '';
+                })
+                .catch(error => {
+                    let msg = '❌ ';
+                    if (error.code === 'auth/user-not-found') {
+                        msg += 'Usuário não encontrado.';
+                    } else if (error.code === 'auth/wrong-password') {
+                        msg += 'Senha incorreta.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        msg += 'Email inválido.';
+                    } else {
+                        msg += error.message;
+                    }
+                    errorEl.textContent = msg;
+                });
+        }
+
+        function logout() {
+            auth.signOut();
+        }
+
+        // Permite login com Enter
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('password').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') login();
+            });
+            document.getElementById('email').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') login();
+            });
+        });
+
+        // ========================================
+        //  CRUD - FIRESTORE
+        // ========================================
+
+        // ADICIONAR DOCUMENTO
+        async function addDocument() {
+            const collection = document.getElementById('collectionName').value.trim();
+            const docId = document.getElementById('docId').value.trim();
+            const dataText = document.getElementById('docData').value;
+            const statusEl = document.getElementById('addStatus');
+            
+            if (!collection) {
+                statusEl.innerHTML = '⚠️ Informe o nome da coleção.';
+                return;
+            }
+
+            try {
+                const data = JSON.parse(dataText);
+                
+                let ref;
+                if (docId) {
+                    ref = db.collection(collection).doc(docId);
+                    await ref.set(data);
+                } else {
+                    ref = await db.collection(collection).add(data);
+                }
+                
+                statusEl.innerHTML = '✅ Documento salvo com sucesso! ID: ' + (docId || ref.id);
+                document.getElementById('docData').value = '';
+                document.getElementById('docId').value = '';
+                // Recarrega lista se for a mesma coleção
+                const listCol = document.getElementById('listCollection').value;
+                if (listCol === collection) {
+                    listDocuments();
+                }
+            } catch (error) {
+                statusEl.innerHTML = '❌ Erro: ' + error.message;
+            }
+        }
+
+        // LISTAR DOCUMENTOS
+        async function listDocuments() {
+            const collection = document.getElementById('listCollection').value.trim();
+            const container = document.getElementById('documentsList');
+            
+            if (!collection) {
+                container.innerHTML = '<div class="alert alert-danger">⚠️ Informe o nome da coleção.</div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="loading">Carregando</div>';
+
+            try {
+                const snapshot = await db.collection(collection).get();
+                
+                if (snapshot.empty) {
+                    container.innerHTML = '<div class="alert alert-info">📭 Nenhum documento encontrado na coleção <strong>"' + collection + '"</strong>.</div>';
+                    return;
+                }
+
+                let html = `<div style="margin-bottom:10px; font-size:13px; color:#6c757d;">
+                    📄 <strong>${snapshot.size}</strong> documento(s) encontrado(s)
+                </div>
+                <div class="table-wrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width:15%;">ID</th>
+                            <th style="width:55%;">Dados</th>
+                            <th style="width:30%;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const dataStr = JSON.stringify(data, null, 2);
+                    
+                    // Verifica se tem campo 'ativo' para badge
+                    let statusBadge = '';
+                    if (data.ativo === true) {
+                        statusBadge = '<span class="status-badge active">● Ativo</span>';
+                    } else if (data.ativo === false) {
+                        statusBadge = '<span class="status-badge inactive">● Inativo</span>';
+                    }
+
+                    html += `
+                        <tr>
+                            <td>
+                                <span class="doc-id">${doc.id}</span>
+                                ${statusBadge}
+                            </td>
+                            <td><pre class="doc-data">${dataStr}</pre></td>
+                            <td>
+                                <div class="actions">
+                                    <button class="btn btn-danger btn-sm" onclick="deleteDocument('${collection}', '${doc.id}')">🗑️</button>
+                                    <button class="btn btn-warning btn-sm" onclick="editDocument('${collection}', '${doc.id}')">✏️</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `</tbody></table></div>`;
+                container.innerHTML = html;
+                
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-danger">❌ Erro: ${error.message}</div>`;
+            }
+        }
+
+        // DELETAR DOCUMENTO
+        async function deleteDocument(collection, docId) {
+            if (!confirm(`🗑️ Tem certeza que quer deletar o documento "${docId}"?`)) return;
+            
+            try {
+                await db.collection(collection).doc(docId).delete();
+                alert('✅ Documento deletado com sucesso!');
+                listDocuments();
+            } catch (error) {
+                alert('❌ Erro: ' + error.message);
+            }
+        }
+
+        // EDITAR DOCUMENTO (carrega os dados no formulário)
+        async function editDocument(collection, docId) {
+            try {
+                const doc = await db.collection(collection).doc(docId).get();
+                if (!doc.exists) {
+                    alert('Documento não encontrado!');
+                    return;
+                }
+                
+                document.getElementById('collectionName').value = collection;
+                document.getElementById('docId').value = docId;
+                document.getElementById('docData').value = JSON.stringify(doc.data(), null, 2);
+                
+                // Rola para o formulário
+                document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+                
+                document.getElementById('addStatus').innerHTML = '✏️ Editando documento: ' + docId;
+            } catch (error) {
+                alert('❌ Erro: ' + error.message);
+            }
+        }
+
+        // RECARREGAR LISTA
+        function refreshList() {
+            listDocuments();
+        }
+
+        // ========================================
+        //  ESTATÍSTICAS
+        // ========================================
+
+        async function getStats() {
+            const collection = document.getElementById('statsCollection').value.trim();
+            const resultEl = document.getElementById('statsResult');
+            
+            if (!collection) {
+                resultEl.innerHTML = '⚠️ Informe o nome da coleção.';
+                return;
+            }
+
+            try {
+                const snapshot = await db.collection(collection).get();
+                resultEl.innerHTML = `
+                    📊 Coleção <strong>"${collection}"</strong> possui <strong>${snapshot.size}</strong> documento(s).
+                `;
+            } catch (error) {
+                resultEl.innerHTML = '❌ Erro: ' + error.message;
+            }
+        }
+
+        // ========================================
+        //  KEYBOARD SHORTCUTS
+        // ========================================
+
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+Enter no textarea para salvar
+            if (e.ctrlKey && e.key === 'Enter' && document.activeElement?.id === 'docData') {
+                addDocument();
+            }
+            // F5 para recarregar lista
+            if (e.key === 'F5' && !document.getElementById('dashboardScreen').classList.contains('hidden')) {
+                e.preventDefault();
+                refreshList();
+            }
+        });
+
+        console.log('🚀 Painel WazzimaGiygg carregado!');
+        console.log('📌 Atalhos: Ctrl+Enter para salvar | F5 para recarregar lista');
+    </script>
+</body>
+</html>
