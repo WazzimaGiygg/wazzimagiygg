@@ -88,14 +88,6 @@
         .toolbar button.primary:hover {
             background: #143a5c;
         }
-        .toolbar button.encrypted {
-            background: #2d7a4e;
-            border-color: #2d7a4e;
-            color: white;
-        }
-        .toolbar button.encrypted:hover {
-            background: #1e5a39;
-        }
         .main {
             display: flex;
             flex: 1;
@@ -216,6 +208,15 @@
             background: #e9f0f8;
             padding: 0.1rem 0.6rem;
             border-radius: 30px;
+            font-weight: 600;
+        }
+        .line-row .char-count.valid {
+            color: #1d7a4e;
+            background: #e0f5e8;
+        }
+        .line-row .char-count.invalid {
+            color: #b33c3c;
+            background: #fce8e8;
         }
         .add-line {
             display: flex;
@@ -236,6 +237,10 @@
             border-color: #1d4e7a;
             box-shadow: 0 0 0 2px rgba(29, 78, 122, 0.2);
         }
+        .add-line input.limit-exceeded {
+            border-color: #b33c3c;
+            background: #fff5f5;
+        }
         .add-line button {
             background: #1d4e7a;
             border: none;
@@ -248,6 +253,10 @@
         }
         .add-line button:hover {
             background: #123a5a;
+        }
+        .add-line button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         .btn-sm {
             background: transparent;
@@ -324,9 +333,18 @@
             font-size: 0.7rem;
             padding: 0.1rem 0.5rem;
         }
-        .lock-icon {
+        .bits-indicator {
             font-size: 0.8rem;
-            margin-left: 0.3rem;
+            color: #5d7f9e;
+            margin-top: 0.3rem;
+        }
+        .bits-indicator .valid {
+            color: #1d7a4e;
+            font-weight: 600;
+        }
+        .bits-indicator .invalid {
+            color: #b33c3c;
+            font-weight: 600;
         }
         @media (max-width: 780px) {
             .tree-panel { width: 200px; min-width: 160px; padding: 0.6rem; }
@@ -363,6 +381,18 @@
         let data = { projetos: [] };
         let selectedPath = [];
 
+        // ---------- UTILITÁRIO DE BITS ----------
+        // Calcula o tamanho em bits de uma string (UTF-8)
+        function getBits(str) {
+            const encoder = new TextEncoder();
+            return encoder.encode(str).length * 8; // 8 bits por byte
+        }
+
+        // Verifica se ID + Descrição cabem em 16 bits
+        function isValidBitSize(id, desc) {
+            return getBits(id + desc) <= 16;
+        }
+
         // ---------- CRIPTOGRAFIA (AES-GCM) ----------
         async function encryptData(plaintext, password) {
             const encoder = new TextEncoder();
@@ -388,7 +418,6 @@
                 key,
                 encoded
             );
-            // Combina salt + iv + ciphertext
             const result = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
             result.set(salt, 0);
             result.set(iv, salt.length);
@@ -666,21 +695,25 @@
                     linhas.forEach((linha, idx) => {
                         const id = linha.id || `L${idx+1}`;
                         const desc = linha.desc || '';
-                        const charCount = (id+desc).length;
+                        const bits = getBits(id + desc);
+                        const valid = bits <= 16;
                         html += `<div class="line-row">
                             <span class="id">${id}</span>
                             <span class="desc">${desc}</span>
-                            <span class="char-count">${charCount} / 16 bits</span>
+                            <span class="char-count ${valid ? 'valid' : 'invalid'}">${bits} bits ${valid ? '✅' : '❌'}</span>
                             <button class="btn-sm danger" data-action="removeLinha" data-idx="${idx}">✕</button>
                         </div>`;
                     });
                     html += `</div>`;
                     html += `<div class="add-line">
-                        <input type="text" id="newLineId" placeholder="Identificação (ex: L1)" maxlength="16" />
-                        <input type="text" id="newLineDesc" placeholder="Descrição (máx 16 caracteres)" maxlength="16" />
+                        <input type="text" id="newLineId" placeholder="Identificação (ex: L1)" />
+                        <input type="text" id="newLineDesc" placeholder="Descrição" />
                         <button id="btnAddLinha">➕ Adicionar linha</button>
                     </div>`;
-                    html += `<p style="font-size:0.8rem;color:#5d7f9e;">⚠️ Cada linha (ID + descrição) deve ter no máximo 16 caracteres.</p>`;
+                    
+                    // Indicador de bits ao vivo
+                    html += `<div class="bits-indicator" id="bitsIndicator">📏 Tamanho em bits: <span id="bitsCount">0</span> / 16 bits</div>`;
+                    html += `<p style="font-size:0.8rem;color:#5d7f9e;margin-top:0.3rem;">⚠️ A soma de ID + descrição deve ocupar no máximo 16 bits (ex: ~2 caracteres ASCII).</p>`;
                 } else {
                     const childTypeMap = {
                         'projeto': 'solução',
@@ -701,6 +734,37 @@
             }
 
             panel.innerHTML = html;
+
+            // Evento de atualização de bits ao vivo
+            const idInput = document.getElementById('newLineId');
+            const descInput = document.getElementById('newLineDesc');
+            const bitsSpan = document.getElementById('bitsCount');
+            const bitsIndicator = document.getElementById('bitsIndicator');
+            const addBtn = document.getElementById('btnAddLinha');
+
+            function updateBitsIndicator() {
+                if (idInput && descInput && bitsSpan) {
+                    const combined = (idInput.value || '') + (descInput.value || '');
+                    const bits = getBits(combined);
+                    bitsSpan.textContent = bits;
+                    bitsSpan.className = bits <= 16 ? 'valid' : 'invalid';
+                    if (addBtn) {
+                        addBtn.disabled = bits > 16;
+                    }
+                    if (idInput) {
+                        idInput.classList.toggle('limit-exceeded', bits > 16);
+                    }
+                    if (descInput) {
+                        descInput.classList.toggle('limit-exceeded', bits > 16);
+                    }
+                }
+            }
+
+            if (idInput && descInput) {
+                idInput.addEventListener('input', updateBitsIndicator);
+                descInput.addEventListener('input', updateBitsIndicator);
+                setTimeout(updateBitsIndicator, 50);
+            }
 
             const btnAddChild = document.getElementById('btnAddChild');
             if (btnAddChild) {
@@ -738,7 +802,10 @@
                     const id = idInput.value.trim();
                     const desc = descInput.value.trim();
                     if (!id || !desc) { showToast('Preencha ID e descrição.'); return; }
-                    if ((id+desc).length > 16) { showToast('ID + descrição devem ter no máximo 16 caracteres.'); return; }
+                    if (!isValidBitSize(id, desc)) {
+                        showToast(`❌ ID + descrição excedem 16 bits (atual: ${getBits(id+desc)} bits).`);
+                        return;
+                    }
                     const pagina = getItemByPath(selectedPath);
                     if (!pagina || !pagina.linhas) { showToast('Página inválida.'); return; }
                     pagina.linhas.push({ id, desc });
@@ -830,7 +897,6 @@
                     const content = e.target.result;
                     let jsonData;
                     
-                    // Tenta interpretar como JSON puro
                     try {
                         jsonData = JSON.parse(content);
                         if (jsonData && jsonData.projetos && Array.isArray(jsonData.projetos)) {
@@ -843,7 +909,6 @@
                         }
                     } catch (_) {}
 
-                    // Se não for JSON, tenta descriptografar
                     const password = prompt('🔐 Digite a senha para descriptografar o arquivo:');
                     if (password === null) {
                         showToast('❌ Importação cancelada.');
@@ -887,15 +952,15 @@
 
         // ---------- init ----------
         document.addEventListener('DOMContentLoaded', () => {
-            addProject('Projeto Exemplo MASPIA');
+            addProject('MASPIA');
             const proj = data.projetos[0];
             proj.solucoes = [
                 { nome: 'Sistema de Autenticação', regras: [
                     { nome: 'Regra de Senha', documentos: [
                         { nome: 'Política de Senhas', paginas: [
                             { nome: 'Página 1', linhas: [
-                                { id: 'R01', desc: 'Mínimo 8 caracteres' },
-                                { id: 'R02', desc: 'Letras e números' }
+                                { id: 'R01', desc: 'Min 8' },
+                                { id: 'R02', desc: 'Letras' }
                             ]}
                         ]}
                     ]}
@@ -904,7 +969,7 @@
                     { nome: 'Normalização', documentos: [
                         { nome: '3FN', paginas: [
                             { nome: 'Página 1', linhas: [
-                                { id: 'N01', desc: 'Evitar redundância' }
+                                { id: 'N01', desc: 'Evitar' }
                             ]}
                         ]}
                     ]}
