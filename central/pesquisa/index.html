@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
     <title>Diagnóstico Organizacional - Sistema Completo</title>
     <style>
-        /* ===== ESTILOS COMPLETOS ===== */
+        /* ===== ESTILOS COMPLETOS (mesmo da versão anterior) ===== */
         * {
             margin: 0;
             padding: 0;
@@ -202,7 +204,6 @@
             margin-bottom: 15px;
         }
 
-        /* ===== TABS ===== */
         .tabs {
             display: flex;
             gap: 10px;
@@ -1075,6 +1076,35 @@
             background: #1e293b;
             color: #e2e8f0;
         }
+
+        .error-message {
+            color: #dc2626;
+            background: #fee2e2;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #fca5a5;
+        }
+
+        .loading-text {
+            color: #94a3b8;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #334155;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
@@ -1093,8 +1123,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <!-- ===== CONTEÚDO HTML (mesmo da versão anterior) ===== -->
     <div class="container" id="app">
-        <!-- ===== HEADER ===== -->
+        <!-- Header -->
         <div class="header">
             <div class="header-left">
                 <div class="logo">📊</div>
@@ -1117,7 +1148,7 @@
             </div>
         </div>
 
-        <!-- ===== TABS ===== -->
+        <!-- Tabs -->
         <div class="tabs" id="mainTabs">
             <button class="tab active" data-tab="home" onclick="switchTab('home')">
                 <i class="fas fa-home"></i> Início
@@ -1600,7 +1631,7 @@
         };
 
         // ============================================================
-        // AUTENTICAÇÃO
+        // AUTENTICAÇÃO - VERSÃO CORRIGIDA
         // ============================================================
 
         function updateUI(user) {
@@ -1619,6 +1650,7 @@
                 currentUser = user;
                 loadUserSurveys();
                 loadPublicSurveys();
+                console.log('✅ Usuário autenticado:', user.email);
             } else {
                 loginBtn.classList.remove('hidden');
                 logoutBtn.classList.add('hidden');
@@ -1628,21 +1660,32 @@
                     `<p style="color: #64748b;">Faça login para ver as pesquisas disponíveis.</p>`;
                 document.getElementById('mySurveysList').innerHTML =
                     `<p style="color: #64748b;">Faça login para ver suas pesquisas.</p>`;
+                console.log('👤 Usuário não autenticado');
             }
         }
 
+        // Versão corrigida - usa redirect em vez de popup
         function loginWithGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.setCustomParameters({ prompt: 'select_account' });
-            auth.signInWithPopup(provider)
-                .then(result => {
-                    showToast('✅ Login realizado com sucesso!', 'success');
-                    updateUI(result.user);
-                })
-                .catch(error => {
-                    showToast('❌ Erro ao fazer login: ' + error.message, 'error');
-                });
+
+            // Usa redirect em vez de popup para evitar problemas de COOP
+            auth.signInWithRedirect(provider);
         }
+
+        // Versão corrigida - processa o redirect
+        auth.getRedirectResult().then(function(result) {
+            if (result.user) {
+                showToast('✅ Login realizado com sucesso!', 'success');
+                updateUI(result.user);
+            }
+        }).catch(function(error) {
+            console.error('Erro no login:', error);
+            // Não mostrar erro para o usuário se for apenas o COOP
+            if (!error.message.includes('Cross-Origin-Opener-Policy')) {
+                showToast('❌ Erro ao fazer login: ' + error.message, 'error');
+            }
+        });
 
         function logoutUser() {
             auth.signOut().then(() => {
@@ -2162,6 +2205,7 @@
                 loadUserSurveys();
 
             } catch (error) {
+                console.error('Erro ao criar pesquisa:', error);
                 showToast('❌ Erro ao criar pesquisa: ' + error.message, 'error');
             }
         }
@@ -2403,6 +2447,7 @@
                 container.scrollIntoView({ behavior: 'smooth' });
 
             } catch (error) {
+                console.error('Erro ao carregar detalhes:', error);
                 showToast('Erro ao carregar detalhes: ' + error.message, 'error');
             }
         }
@@ -2472,6 +2517,7 @@
                 document.body.appendChild(modal);
 
             } catch (error) {
+                console.error('Erro ao carregar resposta:', error);
                 showToast('Erro ao carregar resposta: ' + error.message, 'error');
             }
         }
@@ -2508,6 +2554,7 @@
                 loadPublicSurveys();
 
             } catch (error) {
+                console.error('Erro ao excluir:', error);
                 showToast('❌ Erro ao excluir: ' + error.message, 'error');
             }
         }
@@ -2559,6 +2606,7 @@
                 renderSurveyToRespond(survey);
 
             } catch (error) {
+                console.error('Erro ao carregar pesquisa:', error);
                 showToast('Erro ao carregar: ' + error.message, 'error');
             }
         }
@@ -2806,6 +2854,7 @@
                 resetRespondForm();
 
             } catch (error) {
+                console.error('Erro ao enviar resposta:', error);
                 showToast('❌ Erro ao enviar: ' + error.message, 'error');
             }
 
@@ -2851,7 +2900,7 @@
                 renderDimensionSummary();
 
             } catch (error) {
-                console.error('Erro ao carregar dados:', error);
+                console.error('Erro ao carregar resultados:', error);
                 showToast('Erro ao carregar dados: ' + error.message, 'error');
             }
         }
@@ -3503,6 +3552,7 @@
                 showToast('✅ Imagem exportada com sucesso!', 'success');
                 fecharModalExportacao();
             }).catch(error => {
+                console.error('Erro ao gerar PNG:', error);
                 showToast('❌ Erro ao gerar imagem: ' + error.message, 'error');
             });
         }
@@ -3743,6 +3793,7 @@
             }
         }
 
+        // Inicializar
         auth.onAuthStateChanged(user => {
             updateUI(user);
             if (user) {
