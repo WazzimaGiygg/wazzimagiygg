@@ -3169,316 +3169,312 @@
             document.getElementById('userDetailsContainer').insertAdjacentHTML('afterend', html);
         }
 
-        // ============================================================
-        // GRÁFICOS
-        // ============================================================
+       // ============================================================
+// GRÁFICOS - VERSÃO CORRIGIDA (POR PERGUNTA)
+// ============================================================
 
-        function renderCharts() {
-            if (allResponses.length === 0) {
-                showToast('Nenhum dado para gerar gráficos', 'info');
-                return;
-            }
+function renderCharts() {
+    if (allResponses.length === 0) {
+        showToast('Nenhum dado para gerar gráficos', 'info');
+        return;
+    }
 
-            renderDimensionChart();
-            renderDistributionChart();
-            renderBurnoutChart();
-            renderTimelineChart();
+    renderQuestionBarChart();
+    renderQuestionPieChart();
+    renderBurnoutChart();
+    renderTimelineChart();
+}
+
+function renderQuestionBarChart() {
+    const ctx = document.getElementById('dimensionChart').getContext('2d');
+
+    // Pegar todas as perguntas fechadas da pesquisa
+    const closedQuestions = surveyData?.questions?.filter(q => q.type === 'closed') || [];
+    
+    if (closedQuestions.length === 0) {
+        // Se não houver perguntas fechadas, mostrar mensagem
+        if (chartInstances.dimension) {
+            chartInstances.dimension.destroy();
         }
-
-        function renderDimensionChart() {
-            const ctx = document.getElementById('dimensionChart').getContext('2d');
-
-            const dims = ['clima', 'lideranca', 'comunicacao', 'organizacao', 'saude', 'produtividade'];
-            const labels = dims.map(d => DIMENSION_LABELS[d] || d);
-            const values = dims.map(dim => {
-                let sum = 0,
-                    count = 0;
-                allResponses.forEach(r => {
-                    if (r.dimensionAverages && r.dimensionAverages[dim] !== undefined) {
-                        sum += r.dimensionAverages[dim];
-                        count++;
-                    }
-                });
-                return count > 0 ? (sum / count) : 0;
-            });
-            const colors = dims.map(d => DIMENSION_COLORS[d] || '#64748b');
-
-            if (chartInstances.dimension) {
-                chartInstances.dimension.destroy();
-            }
-
-            chartInstances.dimension = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Média',
-                        data: values,
-                        backgroundColor: colors.map(c => c + '80'),
-                        borderColor: colors,
-                        borderWidth: 2,
-                        borderRadius: 4
-                    }]
+        chartInstances.dimension = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Nenhuma pergunta fechada'],
+                datasets: [{
+                    label: 'Média',
+                    data: [0],
+                    backgroundColor: ['#64748b'],
+                    borderColor: ['#64748b'],
+                    borderWidth: 2,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 5,
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' }
                     },
-                    scales: {
-                        y: {
-                            min: 0,
-                            max: 5,
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#334155' }
-                        },
-                        x: {
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#334155' }
+                    x: {
+                        ticks: { color: '#94a3b8', maxRotation: 45 },
+                        grid: { color: '#334155' }
+                    }
+                }
+            }
+        });
+        return;
+    }
+
+    // Calcular média de cada pergunta
+    const labels = closedQuestions.map(q => `Q${q.id}`);
+    const values = closedQuestions.map(q => {
+        let sum = 0;
+        let count = 0;
+        allResponses.forEach(r => {
+            if (r.answers && r.answers[`q${q.id}`] !== null && r.answers[`q${q.id}`] !== undefined) {
+                sum += r.answers[`q${q.id}`];
+                count++;
+            }
+        });
+        return count > 0 ? (sum / count) : 0;
+    });
+
+    // Cores gradientes para cada barra
+    const colors = values.map(v => {
+        if (v >= 4) return '#22c55e';
+        if (v >= 3) return '#f59e0b';
+        if (v >= 2) return '#f97316';
+        return '#dc2626';
+    });
+
+    if (chartInstances.dimension) {
+        chartInstances.dimension.destroy();
+    }
+
+    chartInstances.dimension = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Média por Pergunta',
+                data: values,
+                backgroundColor: colors.map(c => c + '80'),
+                borderColor: colors,
+                borderWidth: 2,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const q = closedQuestions[context.dataIndex];
+                            return q ? q.text : '';
                         }
                     }
                 }
-            });
-        }
-
-        function renderDistributionChart() {
-            const ctx = document.getElementById('distributionChart').getContext('2d');
-
-            const values = [1, 2, 3, 4, 5];
-            const counts = values.map(v => {
-                let count = 0;
-                allResponses.forEach(r => {
-                    if (r.answers) {
-                        Object.values(r.answers).forEach(a => {
-                            if (a === v) count++;
-                        });
-                    }
-                });
-                return count;
-            });
-
-            if (chartInstances.distribution) {
-                chartInstances.distribution.destroy();
-            }
-
-            chartInstances.distribution = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['1 - Discordo totalmente', '2 - Discordo parcialmente', '3 - Neutro',
-                        '4 - Concordo parcialmente', '5 - Concordo totalmente'
-                    ],
-                    datasets: [{
-                        data: counts,
-                        backgroundColor: ['#dc2626', '#f59e0b', '#fcd34d', '#06b6d4', '#22c55e'],
-                        borderColor: '#1e293b',
-                        borderWidth: 2
-                    }]
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    max: 5,
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#334155' }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: '#94a3b8',
-                                font: { size: 10 },
-                                boxWidth: 12
-                            }
+                x: {
+                    ticks: { color: '#94a3b8', maxRotation: 45 },
+                    grid: { color: '#334155' }
+                }
+            }
+        }
+    });
+}
+
+function renderQuestionPieChart() {
+    const ctx = document.getElementById('distributionChart').getContext('2d');
+
+    // Pegar todas as perguntas fechadas
+    const closedQuestions = surveyData?.questions?.filter(q => q.type === 'closed') || [];
+
+    if (closedQuestions.length === 0) {
+        if (chartInstances.distribution) {
+            chartInstances.distribution.destroy();
+        }
+        chartInstances.distribution = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Sem dados'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ['#64748b'],
+                    borderColor: '#1e293b',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#94a3b8',
+                            font: { size: 10 },
+                            boxWidth: 12
                         }
                     }
                 }
-            });
-        }
-
-        function renderBurnoutChart() {
-            const ctx = document.getElementById('burnoutChart').getContext('2d');
-
-            const levels = ['Baixo (1-2)', 'Moderado (2-3)', 'Alto (3-4)', 'Crítico (4-5)'];
-            const counts = [0, 0, 0, 0];
-
-            allResponses.forEach(r => {
-                if (r.burnoutScore !== undefined) {
-                    const score = r.burnoutScore;
-                    if (score < 2) counts[0]++;
-                    else if (score < 3) counts[1]++;
-                    else if (score < 4) counts[2]++;
-                    else counts[3]++;
-                }
-            });
-
-            if (chartInstances.burnout) {
-                chartInstances.burnout.destroy();
             }
+        });
+        return;
+    }
 
-            chartInstances.burnout = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: levels,
-                    datasets: [{
-                        label: 'Número de Respondentes',
-                        data: counts,
-                        backgroundColor: ['#22c55e', '#f59e0b', '#f97316', '#dc2626'],
-                        borderColor: ['#16a34a', '#d97706', '#ea580c', '#b91c1c'],
-                        borderWidth: 2,
-                        borderRadius: 4
-                    }]
+    // Calcular média de cada pergunta para a pizza
+    const labels = closedQuestions.map(q => `Q${q.id}`);
+    const values = closedQuestions.map(q => {
+        let sum = 0;
+        let count = 0;
+        allResponses.forEach(r => {
+            if (r.answers && r.answers[`q${q.id}`] !== null && r.answers[`q${q.id}`] !== undefined) {
+                sum += r.answers[`q${q.id}`];
+                count++;
+            }
+        });
+        return count > 0 ? (sum / count) : 0;
+    });
+
+    const colors = values.map(v => {
+        if (v >= 4) return '#22c55e';
+        if (v >= 3) return '#f59e0b';
+        if (v >= 2) return '#f97316';
+        return '#dc2626';
+    });
+
+    if (chartInstances.distribution) {
+        chartInstances.distribution.destroy();
+    }
+
+    chartInstances.distribution = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels.map((label, i) => `${label} - ${closedQuestions[i].text.substring(0, 30)}${closedQuestions[i].text.length > 30 ? '...' : ''}`),
+            datasets: [{
+                data: values,
+                backgroundColor: colors.map(c => c + '80'),
+                borderColor: colors,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#94a3b8',
+                        font: { size: 9 },
+                        boxWidth: 10,
+                        padding: 8
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: {
-                            ticks: { color: '#94a3b8', stepSize: 1 },
-                            grid: { color: '#334155' }
-                        },
-                        x: {
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#334155' }
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            return `${label}: ${value.toFixed(2)}`;
                         }
                     }
                 }
-            });
-        }
-
-        function renderTimelineChart() {
-            const ctx = document.getElementById('timelineChart').getContext('2d');
-
-            const dateMap = {};
-            allResponses.forEach(r => {
-                if (r.timestamp) {
-                    const key = r.timestamp.toISOString().split('T')[0];
-                    if (!dateMap[key]) {
-                        dateMap[key] = { count: 0, sum: 0 };
-                    }
-                    dateMap[key].count++;
-                    if (r.overallAverage) dateMap[key].sum += r.overallAverage;
-                }
-            });
-
-            const dates = Object.keys(dateMap).sort();
-            const counts = dates.map(d => dateMap[d].count);
-            const averages = dates.map(d => dateMap[d].count > 0 ? (dateMap[d].sum / dateMap[d].count) : 0);
-
-            if (chartInstances.timeline) {
-                chartInstances.timeline.destroy();
             }
-
-            chartInstances.timeline = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates.map(d => d.split('-').reverse().join('/')),
-                    datasets: [{
-                        label: 'Respostas por Dia',
-                        data: counts,
-                        borderColor: '#4f46e5',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        yAxisID: 'y'
-                    }, {
-                        label: 'Média Diária',
-                        data: averages,
-                        borderColor: '#22c55e',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        yAxisID: 'y1'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: '#94a3b8',
-                                font: { size: 10 }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            ticks: { color: '#94a3b8', stepSize: 1 },
-                            grid: { color: '#334155' }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            min: 0,
-                            max: 5,
-                            ticks: { color: '#94a3b8' },
-                            grid: { display: false }
-                        },
-                        x: {
-                            ticks: { color: '#94a3b8', maxRotation: 45 },
-                            grid: { color: '#334155' }
-                        }
-                    }
-                }
-            });
         }
+    });
+}
 
-        // ============================================================
-        // RESUMO POR DIMENSÃO
-        // ============================================================
+// ============================================================
+// RESUMO POR PERGUNTA (substituindo o resumo por dimensão)
+// ============================================================
 
-        function renderDimensionSummary() {
-            const container = document.getElementById('dimensionSummary');
+function renderDimensionSummary() {
+    const container = document.getElementById('dimensionSummary');
 
-            if (allResponses.length === 0) {
-                container.innerHTML = `<p style="color: #64748b;">Nenhum dado disponível</p>`;
-                return;
+    if (allResponses.length === 0) {
+        container.innerHTML = `<p style="color: #64748b;">Nenhum dado disponível</p>`;
+        return;
+    }
+
+    const closedQuestions = surveyData?.questions?.filter(q => q.type === 'closed') || [];
+
+    if (closedQuestions.length === 0) {
+        container.innerHTML = `<p style="color: #64748b;">Nenhuma pergunta fechada encontrada</p>`;
+        return;
+    }
+
+    let html = `
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                    <tr style="background: #0f172a; color: #94a3b8; border-bottom: 2px solid #334155;">
+                        <th style="padding: 10px; text-align: left;">Pergunta</th>
+                        <th style="padding: 10px; text-align: center;">Média</th>
+                        <th style="padding: 10px; text-align: center;">Status</th>
+                        <th style="padding: 10px; text-align: center;">Respostas</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    closedQuestions.forEach(q => {
+        let sum = 0;
+        let count = 0;
+        allResponses.forEach(r => {
+            if (r.answers && r.answers[`q${q.id}`] !== null && r.answers[`q${q.id}`] !== undefined) {
+                sum += r.answers[`q${q.id}`];
+                count++;
             }
+        });
+        const avg = count > 0 ? (sum / count) : 0;
+        const status = avg >= 4 ? '🟢 Favorável' : avg >= 3 ? '🟡 Atenção' : '🔴 Crítico';
+        const statusColor = avg >= 4 ? '#22c55e' : avg >= 3 ? '#f59e0b' : '#dc2626';
 
-            const dims = ['clima', 'lideranca', 'comunicacao', 'organizacao', 'saude', 'produtividade'];
-            let html = `<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">`;
+        html += `
+            <tr style="border-bottom: 1px solid #334155;">
+                <td style="padding: 10px; color: #e2e8f0;">
+                    <strong>Q${q.id}</strong>: ${q.text}
+                </td>
+                <td style="padding: 10px; text-align: center; color: #4f46e5; font-weight: 700; font-size: 1.1rem;">
+                    ${avg.toFixed(2)}
+                </td>
+                <td style="padding: 10px; text-align: center;">
+                    <span style="color: ${statusColor}; font-weight: 600;">${status}</span>
+                </td>
+                <td style="padding: 10px; text-align: center; color: #94a3b8;">
+                    ${count}
+                </td>
+            </tr>
+        `;
+    });
 
-            dims.forEach(dim => {
-                const label = DIMENSION_LABELS[dim] || dim;
-                const color = DIMENSION_COLORS[dim] || '#64748b';
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
 
-                let sum = 0,
-                    count = 0;
-                allResponses.forEach(r => {
-                    if (r.dimensionAverages && r.dimensionAverages[dim] !== undefined) {
-                        sum += r.dimensionAverages[dim];
-                        count++;
-                    }
-                });
-                const avg = count > 0 ? (sum / count) : 0;
-
-                const status = avg >= 4 ? '🟢 Favorável' : avg >= 3 ? '🟡 Atenção' : '🔴 Crítico';
-                const statusColor = avg >= 4 ? '#22c55e' : avg >= 3 ? '#f59e0b' : '#dc2626';
-
-                html += `
-                    <div style="background: #0f172a; padding: 15px; border-radius: 10px; border-left: 4px solid ${color};">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: #e2e8f0; font-weight: 600;">${label}</span>
-                            <span style="color: ${color}; font-weight: 700; font-size: 1.2rem;">${avg.toFixed(2)}</span>
-                        </div>
-                        <div style="margin-top: 4px;">
-                            <span style="color: ${statusColor}; font-size: 0.8rem;">${status}</span>
-                            <span style="color: #64748b; font-size: 0.7rem; margin-left: 8px;">(${count} respostas)</span>
-                        </div>
-                        <div style="width: 100%; height: 4px; background: #334155; border-radius: 2px; margin-top: 8px; overflow: hidden;">
-                            <div style="height: 100%; width: ${(avg/5)*100}%; background: ${color}; border-radius: 2px;"></div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += `</div>`;
-            container.innerHTML = html;
-        }
+    container.innerHTML = html;
+}
 
         // ============================================================
         // NAVEGAÇÃO ENTRE TABS
