@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecionamento - Verificação de Segurança</title>
     <style>
+        /* ===== ESTILOS COMPLETOS ===== */
         * {
             margin: 0;
             padding: 0;
@@ -808,7 +809,7 @@
         let currentTargetUrl = '';
         let currentDomain = '';
         let redirectId = '';
-        let reportData = null;
+        let currentReportData = null; // ALTERADO: de const para let
         let safetyStatus = 'unknown';
         let userIpHash = '';
         let hasUserReported = false;
@@ -882,7 +883,6 @@
 
         async function checkSiteSafety(domain, ipHash) {
             try {
-                // Buscar sinalizações para este domínio
                 const snapshot = await db.collection('site_reports')
                     .where('domain', '==', domain)
                     .orderBy('timestamp', 'desc')
@@ -894,7 +894,6 @@
                     reports.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Buscar status de moderação
                 const modSnapshot = await db.collection('site_moderation')
                     .where('domain', '==', domain)
                     .limit(1)
@@ -920,13 +919,11 @@
                     };
                 }
 
-                // Verificar se o usuário já reportou
                 if (ipHash) {
                     const userReport = reports.find(r => r.ipHash === ipHash);
                     hasUserReported = !!userReport;
                 }
 
-                // Analisar sinalizações
                 let fakeNewsCount = 0;
                 let maliciousCount = 0;
                 let brokenCount = 0;
@@ -955,7 +952,6 @@
                     }
                 });
 
-                // Se já foi verificado pela moderação
                 if (moderationStatus === 'verified') {
                     return {
                         status: 'verified',
@@ -976,7 +972,6 @@
                     };
                 }
 
-                // Se foi bloqueado pela moderação
                 if (moderationStatus === 'blocked') {
                     return {
                         status: 'danger',
@@ -997,7 +992,6 @@
                     };
                 }
 
-                // Determinar status baseado nas sinalizações
                 let status = 'safe';
                 let message = '';
 
@@ -1079,7 +1073,6 @@
             const reportBtn = document.getElementById('reportBtn');
             const alreadyReported = document.getElementById('alreadyReported');
 
-            // Resetar classes
             icon.className = 'warning-icon';
             title.className = '';
             badge.className = 'status-badge';
@@ -1111,7 +1104,6 @@
 
             badge.textContent = getStatusLabel(status);
 
-            // Mensagem especial para verificado
             if (status === 'verified' && statusData.moderationNotes) {
                 warningText.innerHTML = `
                     <p>
@@ -1131,7 +1123,6 @@
                 `;
             }
 
-            // Atualizar checkbox
             if (status === 'verified') {
                 confirmLabel.textContent = '✅ Site verificado pela moderação. Deseja continuar?';
             } else if (status === 'danger') {
@@ -1144,7 +1135,6 @@
                 confirmLabel.textContent = 'Eu confio neste site e desejo continuar';
             }
 
-            // Atualizar botão
             redirectBtn.className = 'btn';
             if (status === 'danger') {
                 redirectBtn.classList.add('btn-danger');
@@ -1158,7 +1148,6 @@
                 redirectBtn.classList.add('btn-primary');
             }
 
-            // Mostrar relatório se houver sinalizações
             if (statusData.reports && statusData.reports.length > 0) {
                 reportInfo.classList.remove('hidden');
 
@@ -1196,7 +1185,6 @@
                 `;
                 reportContent.innerHTML = html;
 
-                // Mostrar comentários
                 const commentsList = document.getElementById('commentsList');
                 const commentsContainer = document.getElementById('reportComments');
                 const comments = statusData.reports.filter(r => r.comment && r.comment.trim());
@@ -1219,7 +1207,6 @@
                 reportInfo.classList.add('hidden');
             }
 
-            // Mostrar/ocultar botão de reportar
             if (status === 'verified' || status === 'danger' && isBlocked) {
                 reportBtn.classList.add('disabled');
                 reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Site já verificado pela moderação';
@@ -1238,7 +1225,6 @@
                 alreadyReported.classList.add('hidden');
             }
 
-            // Se for perigoso ou bloqueado, desabilitar redirecionamento
             if (status === 'danger' && isBlocked) {
                 document.querySelector('.countdown-label').textContent = '⛔ Redirecionamento bloqueado';
                 document.getElementById('countdown').textContent = '⛔';
@@ -1282,7 +1268,6 @@
             redirectId = Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
             document.getElementById('redirectId').textContent = redirectId;
 
-            // Registrar no Firebase
             try {
                 const docData = {
                     targetUrl: formattedUrl,
@@ -1298,15 +1283,12 @@
                 console.error('❌ Erro ao salvar no Firebase:', error);
             }
 
-            // Obter hash do IP
             userIpHash = await getIpHash();
 
-            // Verificar segurança do site
             const statusData = await checkSiteSafety(domain, userIpHash);
-            reportData = statusData;
+            currentReportData = statusData; // ALTERADO: agora usa a variável let
             updateUIWithStatus(statusData);
 
-            // Configurar contagem regressiva
             const delayTime = statusData.status === 'danger' ? 0 : statusData.status === 'verified' ? 5 : 10;
             let countdown = delayTime;
             const countdownElement = document.getElementById('countdown');
@@ -1355,7 +1337,6 @@
             let countdownInterval = setInterval(updateCountdown, 1000);
             progressFill.style.width = '0%';
 
-            // Evento do checkbox
             confirmCheck.addEventListener('change', function() {
                 if (this.checked && countdown <= 0 && safetyStatus !== 'danger') {
                     performRedirect();
@@ -1377,7 +1358,6 @@
                 }
             });
 
-            // Evento do botão
             redirectBtn.addEventListener('click', function(e) {
                 if (!confirmCheck.checked && safetyStatus !== 'danger') {
                     e.preventDefault();
@@ -1400,7 +1380,6 @@
                 performRedirect();
             });
 
-            // Carregar FontAwesome
             if (!document.querySelector('link[href*="font-awesome"]')) {
                 const faLink = document.createElement('link');
                 faLink.rel = 'stylesheet';
@@ -1473,7 +1452,6 @@
             const comment = document.getElementById('reportComment').value.trim();
 
             try {
-                // Verificar se o IP já reportou este domínio
                 const existingSnapshot = await db.collection('site_reports')
                     .where('domain', '==', currentDomain)
                     .where('ipHash', '==', userIpHash)
@@ -1486,7 +1464,7 @@
                     return;
                 }
 
-                const reportData = {
+                const newReportData = {
                     domain: currentDomain,
                     targetUrl: currentTargetUrl,
                     reasons: reasons,
@@ -1497,13 +1475,13 @@
                     redirectId: redirectId
                 };
 
-                await db.collection('site_reports').add(reportData);
+                await db.collection('site_reports').add(newReportData);
                 showToast('✅ Sinalização enviada com sucesso! Obrigado por ajudar a comunidade.', 'success');
                 closeReportModal();
 
                 hasUserReported = true;
                 const newStatus = await checkSiteSafety(currentDomain, userIpHash);
-                reportData = newStatus;
+                currentReportData = newStatus; // ALTERADO: usa a variável let
                 updateUIWithStatus(newStatus);
 
             } catch (error) {
