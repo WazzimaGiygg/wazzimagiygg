@@ -450,6 +450,16 @@
             transform: none;
         }
 
+        .btn-login-required {
+            background: #f59e0b;
+            color: #1f2937;
+        }
+
+        .btn-login-required:hover {
+            background: #d97706;
+            transform: translateY(-2px);
+        }
+
         .countdown-container {
             margin: 20px 0 10px;
         }
@@ -669,6 +679,16 @@
             color: #dc2626;
         }
 
+        .report-btn.login-required {
+            color: #f59e0b;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .report-btn.login-required:hover {
+            color: #d97706;
+        }
+
         .already-reported {
             display: inline-block;
             background: #fef2f2;
@@ -684,6 +704,18 @@
             background: #1f2937;
             color: #f87171;
             border-color: #dc2626;
+        }
+
+        .login-required-badge {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: 1px solid #fcd34d;
+            margin-left: 8px;
         }
 
         @media (max-width: 768px) {
@@ -791,11 +823,14 @@
 
         <!-- Botão para sinalizar -->
         <div style="margin-top: 15px;">
-            <button class="report-btn" id="reportBtn" onclick="openReportModal()">
+            <button class="report-btn" id="reportBtn" onclick="handleReportClick()">
                 <i class="fas fa-flag"></i> Sinalizar este site como problemático
             </button>
             <span id="alreadyReported" class="already-reported hidden">
                 <i class="fas fa-check-circle"></i> Você já sinalizou este site
+            </span>
+            <span id="loginRequiredBadge" class="login-required-badge hidden">
+                <i class="fas fa-lock"></i> Login necessário
             </span>
         </div>
 
@@ -826,13 +861,32 @@
                 <button onclick="closeReportModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #6b7280;">&times;</button>
             </div>
 
+            <!-- Mensagem de login obrigatório -->
+            <div id="loginRequiredMessage" style="display: none; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px; padding: 20px; margin-bottom: 15px; text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🔐</div>
+                <h3 style="color: #92400e; margin-bottom: 10px;">Login Obrigatório</h3>
+                <p style="color: #78350f; font-size: 0.95rem; line-height: 1.6;">
+                    Para sinalizar um site como problemático, você precisa estar logado com sua conta Google.
+                    <br><br>
+                    Isso ajuda a prevenir sinalizações falsas e manter a comunidade segura.
+                </p>
+                <button onclick="loginWithGoogle()" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 15px;">
+                    <i class="fab fa-google"></i> Entrar com Google
+                </button>
+                <button onclick="closeReportModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                    Cancelar
+                </button>
+            </div>
+
+            <!-- Mensagem de banimento -->
             <div id="bannedReportMessage" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; padding: 15px; margin-bottom: 15px; text-align: center;">
                 <div style="font-size: 2rem; margin-bottom: 10px;">🚫</div>
-                <h3 style="color: #991b1b; margin-bottom: 5px;">Conta ou IP Banido</h3>
-                <p style="color: #7f1d1d; font-size: 0.9rem;">Sua conta ou endereço IP foi banido e você não pode sinalizar sites.</p>
+                <h3 style="color: #991b1b; margin-bottom: 5px;">Conta Banida</h3>
+                <p style="color: #7f1d1d; font-size: 0.9rem;">Sua conta foi banida e você não pode sinalizar sites.</p>
                 <button onclick="closeReportModal()" class="btn btn-secondary" style="margin-top: 10px;">Fechar</button>
             </div>
 
+            <!-- Formulário de sinalização -->
             <div id="reportFormContent">
                 <p style="color: #6b7280; margin-bottom: 15px;">
                     Ajude a comunidade sinalizando sites problemáticos. Selecione os motivos abaixo:
@@ -877,13 +931,30 @@
         </div>
     </div>
 
+    <!-- ===== MODAL DE LOGIN ===== -->
+    <div id="loginModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 20px;">
+        <div style="background: white; border-radius: 20px; padding: 35px; max-width: 450px; width: 100%; text-align: center; animation: slideUp 0.3s ease;">
+            <div style="font-size: 3rem; margin-bottom: 15px;">🔐</div>
+            <h2 style="color: #1f2937; margin-bottom: 10px;">Login Necessário</h2>
+            <p style="color: #6b7280; margin-bottom: 20px; line-height: 1.6;">
+                Para sinalizar um site, você precisa estar logado com sua conta Google.
+            </p>
+            <button onclick="loginWithGoogle()" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                <i class="fab fa-google"></i> Entrar com Google
+            </button>
+            <button onclick="closeLoginModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                Cancelar
+            </button>
+        </div>
+    </div>
+
     <!-- ===== BANNED OVERLAY ===== -->
     <div id="bannedOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center; padding: 20px;">
         <div style="background: white; border-radius: 24px; padding: 45px 40px; max-width: 500px; width: 100%; text-align: center; animation: slideUp 0.5s ease;">
             <div style="font-size: 4rem; margin-bottom: 20px;">🚫</div>
-            <h2 style="color: #dc2626; margin-bottom: 10px;">⚠️ Conta ou IP Banido</h2>
+            <h2 style="color: #dc2626; margin-bottom: 10px;">⚠️ Conta Banida</h2>
             <p style="color: #6b7280; margin-bottom: 15px; line-height: 1.6;">
-                Sua conta ou endereço IP foi banido permanentemente do sistema.
+                Sua conta foi banida permanentemente do sistema.
             </p>
             <div id="banDetails" style="background: #fef2f2; padding: 12px; border-radius: 10px; color: #991b1b; margin-bottom: 15px; border: 1px solid #fca5a5;">
                 Motivo: Violação das políticas de uso
@@ -931,19 +1002,52 @@
         let currentUser = null;
         let banDetails = '';
         let banReason = '';
+        let isLoggedIn = false;
 
         // ============================================================
-        // FUNÇÕES DE BANIMENTO - CORRIGIDAS COM CACHE
+        // FUNÇÕES DE AUTENTICAÇÃO
         // ============================================================
 
-        // Cache de banimento para evitar múltiplas consultas
+        function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: 'select_account' });
+            auth.signInWithPopup(provider)
+                .then(result => {
+                    currentUser = result.user;
+                    isLoggedIn = true;
+                    showToast('✅ Login realizado com sucesso!', 'success');
+                    closeLoginModal();
+                    closeReportModal();
+                    // Reabrir o modal de report após login
+                    setTimeout(() => {
+                        openReportModal();
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error('Erro ao fazer login:', error);
+                    showToast('❌ Erro ao fazer login: ' + error.message, 'error');
+                });
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+        }
+
+        function showLoginModal() {
+            document.getElementById('loginModal').style.display = 'flex';
+        }
+
+        // ============================================================
+        // FUNÇÕES DE BANIMENTO
+        // ============================================================
+
+        // Cache de banimento
         let banCheckCache = {};
 
         // Verifica banimento por UID (conta Google)
         async function checkUserBanStatus(user) {
             if (!user) return false;
 
-            // Verificar cache
             const cacheKey = 'user_' + user.uid;
             if (banCheckCache[cacheKey] !== undefined) {
                 return banCheckCache[cacheKey];
@@ -970,7 +1074,6 @@
         async function checkIpBanStatus(ipHash) {
             if (!ipHash || ipHash === 'unknown') return false;
 
-            // Verificar cache
             const cacheKey = 'ip_' + ipHash;
             if (banCheckCache[cacheKey] !== undefined) {
                 return banCheckCache[cacheKey];
@@ -1000,44 +1103,11 @@
 
         // Verifica banimento combinado (UID + IP)
         async function checkBanStatus(user, ipHash) {
-            // Primeiro verifica por UID
             const userBanned = await checkUserBanStatus(user);
             if (userBanned) return true;
 
-            // Depois verifica por IP
             const ipBanned = await checkIpBanStatus(ipHash);
             if (ipBanned) return true;
-
-            return false;
-        }
-
-        // ============================================================
-        // FUNÇÃO DE VERIFICAÇÃO FORÇADA DE BANIMENTO
-        // ============================================================
-
-        async function forceCheckBanStatus() {
-            // Limpar cache
-            banCheckCache = {};
-
-            // Verificar se o usuário está autenticado
-            if (currentUser) {
-                const banned = await checkBanStatus(currentUser, userIpHash);
-                if (banned) {
-                    showBannedOverlay();
-                    updateUIWithStatus({ status: 'banned', message: 'Conta ou IP banido', reports: [] });
-                    return true;
-                }
-            }
-
-            // Verificar IP mesmo sem usuário
-            if (userIpHash) {
-                const ipBanned = await checkIpBanStatus(userIpHash);
-                if (ipBanned) {
-                    showBannedOverlay();
-                    updateUIWithStatus({ status: 'banned', message: 'IP banido', reports: [] });
-                    return true;
-                }
-            }
 
             return false;
         }
@@ -1046,10 +1116,8 @@
             const overlay = document.getElementById('bannedOverlay');
             const details = document.getElementById('banDetails');
             overlay.style.display = 'flex';
-
             const reasonText = banReason === 'ip' ? 'endereço IP' : 'conta';
             details.textContent = `${banDetails || 'Motivo: Violação das políticas de uso'} (${reasonText} banido)`;
-
             document.body.style.overflow = 'hidden';
         }
 
@@ -1320,6 +1388,7 @@
             const reportContent = document.getElementById('reportContent');
             const reportBtn = document.getElementById('reportBtn');
             const alreadyReported = document.getElementById('alreadyReported');
+            const loginRequiredBadge = document.getElementById('loginRequiredBadge');
 
             icon.className = 'warning-icon';
             title.className = '';
@@ -1368,6 +1437,7 @@
                 alreadyReported.className = 'already-reported banned';
                 alreadyReported.classList.remove('hidden');
                 alreadyReported.innerHTML = `🚫 ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} banido - Ação bloqueada`;
+                loginRequiredBadge.classList.add('hidden');
 
                 document.querySelector('.countdown-label').textContent = '⛔ Acesso bloqueado';
                 document.getElementById('countdown').textContent = '⛔';
@@ -1496,8 +1566,7 @@
                 reportInfo.classList.add('hidden');
             }
 
-            // ===== CONTROLE DO BOTÃO DE REPORTAR - CORRIGIDO =====
-            // Verificar novamente se o usuário está banido antes de habilitar o botão
+            // ===== CONTROLE DO BOTÃO DE REPORTAR - COM LOGIN OBRIGATÓRIO =====
             if (isBanned) {
                 const reasonText = banReason === 'ip' ? 'IP' : 'Conta';
                 reportBtn.className = 'report-btn banned';
@@ -1507,6 +1576,16 @@
                 alreadyReported.className = 'already-reported banned';
                 alreadyReported.classList.remove('hidden');
                 alreadyReported.innerHTML = `🚫 ${reasonText} banido - Ação bloqueada`;
+                loginRequiredBadge.classList.add('hidden');
+            } else if (!isLoggedIn) {
+                // USUÁRIO NÃO LOGADO - Exige login
+                reportBtn.className = 'report-btn login-required';
+                reportBtn.innerHTML = '<i class="fas fa-lock"></i> Faça login para sinalizar';
+                reportBtn.style.pointerEvents = 'auto';
+                reportBtn.disabled = false;
+                alreadyReported.classList.add('hidden');
+                loginRequiredBadge.classList.remove('hidden');
+                loginRequiredBadge.innerHTML = '<i class="fas fa-lock"></i> Login necessário';
             } else if (status === 'verified' || (status === 'danger' && isBlocked)) {
                 reportBtn.className = 'report-btn disabled';
                 reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Site já verificado pela moderação';
@@ -1514,18 +1593,21 @@
                 reportBtn.disabled = true;
                 alreadyReported.classList.remove('hidden');
                 alreadyReported.innerHTML = '<i class="fas fa-check-circle"></i> Site verificado pela moderação';
+                loginRequiredBadge.classList.add('hidden');
             } else if (hasUserReported) {
                 reportBtn.className = 'report-btn disabled';
                 reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Você já sinalizou este site';
                 reportBtn.style.pointerEvents = 'none';
                 reportBtn.disabled = true;
                 alreadyReported.classList.remove('hidden');
+                loginRequiredBadge.classList.add('hidden');
             } else {
                 reportBtn.className = 'report-btn';
                 reportBtn.innerHTML = '<i class="fas fa-flag"></i> Sinalizar este site como problemático';
                 reportBtn.style.pointerEvents = 'auto';
                 reportBtn.disabled = false;
                 alreadyReported.classList.add('hidden');
+                loginRequiredBadge.classList.add('hidden');
             }
 
             if (status === 'danger' && isBlocked) {
@@ -1545,13 +1627,15 @@
         }
 
         // ============================================================
-        // FUNÇÃO PRINCIPAL
+        // FUNÇÃO PRINCIPAL - COM LOGIN OBRIGATÓRIO PARA SINALIZAR
         // ============================================================
 
         async function initRedirectWarning() {
             // Verificar banimento antes de qualquer coisa
-            const isBannedNow = await forceCheckBanStatus();
+            const isBannedNow = await checkBanStatus(currentUser, userIpHash);
             if (isBannedNow) {
+                showBannedOverlay();
+                updateUIWithStatus({ status: 'banned', message: 'Conta ou IP banido', reports: [] });
                 return;
             }
 
@@ -1744,14 +1828,46 @@
         }
 
         // ============================================================
+        // FUNÇÃO PARA MANIPULAR CLIQUE NO BOTÃO DE REPORTAR
+        // ============================================================
+
+        function handleReportClick() {
+            // Verificar se o usuário está banido
+            if (isBanned) {
+                const reasonText = banReason === 'ip' ? 'IP' : 'conta';
+                showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
+                return;
+            }
+
+            // Verificar se o usuário está logado
+            if (!isLoggedIn) {
+                // Mostrar modal de login obrigatório
+                document.getElementById('loginRequiredMessage').style.display = 'block';
+                document.getElementById('bannedReportMessage').style.display = 'none';
+                document.getElementById('reportFormContent').style.display = 'none';
+                document.getElementById('reportModal').style.display = 'flex';
+                return;
+            }
+
+            // Se estiver logado, abre o formulário normal
+            openReportModal();
+        }
+
+        // ============================================================
         // FUNÇÕES DO MODAL DE SINALIZAÇÃO
         // ============================================================
 
         function openReportModal() {
-            // Verificar banimento novamente antes de abrir o modal
+            // Verificar banimento
             if (isBanned) {
                 const reasonText = banReason === 'ip' ? 'IP' : 'conta';
                 showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
+                return;
+            }
+
+            // Verificar login
+            if (!isLoggedIn) {
+                showToast('🔐 Faça login para sinalizar sites.', 'warning');
                 return;
             }
 
@@ -1761,8 +1877,9 @@
             }
 
             // Mostrar o modal com o conteúdo normal
-            document.getElementById('reportFormContent').style.display = 'block';
+            document.getElementById('loginRequiredMessage').style.display = 'none';
             document.getElementById('bannedReportMessage').style.display = 'none';
+            document.getElementById('reportFormContent').style.display = 'block';
             document.getElementById('reportModal').style.display = 'flex';
             document.getElementById('reportFakeNews').checked = false;
             document.getElementById('reportMalicious').checked = false;
@@ -1777,10 +1894,17 @@
         }
 
         async function submitReport() {
-            // Verificar banimento novamente antes de enviar
+            // Verificar banimento
             if (isBanned) {
                 const reasonText = banReason === 'ip' ? 'IP' : 'conta';
                 showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
+                closeReportModal();
+                return;
+            }
+
+            // Verificar login
+            if (!isLoggedIn) {
+                showToast('🔐 Faça login para sinalizar sites.', 'warning');
                 closeReportModal();
                 return;
             }
@@ -1806,9 +1930,10 @@
             const comment = document.getElementById('reportComment').value.trim();
 
             try {
+                // Verificar se o usuário já sinalizou este site (por UID do Google)
                 const existingSnapshot = await db.collection('site_reports')
                     .where('domain', '==', currentDomain)
-                    .where('ipHash', '==', userIpHash)
+                    .where('userId', '==', currentUser.uid)
                     .limit(1)
                     .get();
 
@@ -1824,6 +1949,9 @@
                     reasons: reasons,
                     comment: comment || '',
                     ipHash: userIpHash,
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    userName: currentUser.displayName || currentUser.email,
                     userAgent: navigator.userAgent,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     redirectId: redirectId
@@ -1894,18 +2022,33 @@
             `;
             document.head.appendChild(style);
 
-            // Verificar autenticação antes de inicializar
+            // Verificar autenticação
             auth.onAuthStateChanged(async function(user) {
                 currentUser = user;
-                userIpHash = await getIpHash();
+                isLoggedIn = !!user;
 
-                // Verificar banimento antes de qualquer coisa
-                const isBannedNow = await forceCheckBanStatus();
-                if (isBannedNow) {
-                    return;
+                if (user) {
+                    userIpHash = await getIpHash();
+                    // Verificar banimento
+                    const userBanned = await checkUserBanStatus(user);
+                    if (userBanned) {
+                        showBannedOverlay();
+                        updateUIWithStatus({ status: 'banned', message: 'Conta banida', reports: [] });
+                        return;
+                    }
+                } else {
+                    // Usuário não logado - gerar IP hash para verificação
+                    userIpHash = await getIpHash();
+                    // Verificar banimento por IP
+                    const ipBanned = await checkIpBanStatus(userIpHash);
+                    if (ipBanned) {
+                        showBannedOverlay();
+                        updateUIWithStatus({ status: 'banned', message: 'IP banido', reports: [] });
+                        return;
+                    }
                 }
 
-                // Se não estiver banido, inicializa normalmente
+                // Inicializar normalmente
                 initRedirectWarning();
             });
         });
@@ -1913,6 +2056,7 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeReportModal();
+                closeLoginModal();
             }
         });
     </script>
