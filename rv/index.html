@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecionamento - Verificação de Segurança</title>
     <style>
-        /* ===== ESTILOS COMPLETOS ===== */
+        /* ===== ESTILOS COMPLETOS (mantidos) ===== */
         * {
             margin: 0;
             padding: 0;
@@ -828,8 +828,8 @@
 
             <div id="bannedReportMessage" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; padding: 15px; margin-bottom: 15px; text-align: center;">
                 <div style="font-size: 2rem; margin-bottom: 10px;">🚫</div>
-                <h3 style="color: #991b1b; margin-bottom: 5px;">Conta Banida</h3>
-                <p style="color: #7f1d1d; font-size: 0.9rem;">Sua conta foi banida e você não pode sinalizar sites.</p>
+                <h3 style="color: #991b1b; margin-bottom: 5px;">Conta ou IP Banido</h3>
+                <p style="color: #7f1d1d; font-size: 0.9rem;">Sua conta ou endereço IP foi banido e você não pode sinalizar sites.</p>
                 <button onclick="closeReportModal()" class="btn btn-secondary" style="margin-top: 10px;">Fechar</button>
             </div>
 
@@ -881,9 +881,9 @@
     <div id="bannedOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center; padding: 20px;">
         <div style="background: white; border-radius: 24px; padding: 45px 40px; max-width: 500px; width: 100%; text-align: center; animation: slideUp 0.5s ease;">
             <div style="font-size: 4rem; margin-bottom: 20px;">🚫</div>
-            <h2 style="color: #dc2626; margin-bottom: 10px;">⚠️ Conta Banida</h2>
+            <h2 style="color: #dc2626; margin-bottom: 10px;">⚠️ Conta ou IP Banido</h2>
             <p style="color: #6b7280; margin-bottom: 15px; line-height: 1.6;">
-                Sua conta foi banida permanentemente do sistema.
+                Sua conta ou endereço IP foi banido permanentemente do sistema.
             </p>
             <div id="banDetails" style="background: #fef2f2; padding: 12px; border-radius: 10px; color: #991b1b; margin-bottom: 15px; border: 1px solid #fca5a5;">
                 Motivo: Violação das políticas de uso
@@ -930,11 +930,13 @@
         let isBanned = false;
         let currentUser = null;
         let banDetails = '';
+        let banReason = '';
 
         // ============================================================
-        // FUNÇÕES DE AUTENTICAÇÃO E BANIMENTO
+        // FUNÇÕES DE BANIMENTO
         // ============================================================
 
+        // Verifica banimento por UID (conta Google)
         async function checkUserBanStatus(user) {
             if (!user) return false;
 
@@ -943,20 +945,61 @@
                 if (userDoc.exists && userDoc.data().isBanned === true) {
                     isBanned = true;
                     banDetails = userDoc.data().banDetails || 'Motivo: Violação das políticas de uso';
+                    banReason = 'conta';
                     return true;
                 }
                 return false;
             } catch (error) {
-                console.error('Erro ao verificar banimento:', error);
+                console.error('Erro ao verificar banimento de usuário:', error);
                 return false;
             }
+        }
+
+        // Verifica banimento por IP
+        async function checkIpBanStatus(ipHash) {
+            if (!ipHash || ipHash === 'unknown') return false;
+
+            try {
+                const snapshot = await db.collection('ip_bans')
+                    .where('ipHash', '==', ipHash)
+                    .limit(1)
+                    .get();
+
+                if (!snapshot.empty) {
+                    const banData = snapshot.docs[0].data();
+                    isBanned = true;
+                    banDetails = banData.banDetails || 'Motivo: Violação das políticas de uso';
+                    banReason = 'ip';
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Erro ao verificar banimento por IP:', error);
+                return false;
+            }
+        }
+
+        // Verifica banimento combinado (UID + IP)
+        async function checkBanStatus(user, ipHash) {
+            // Primeiro verifica por UID
+            const userBanned = await checkUserBanStatus(user);
+            if (userBanned) return true;
+
+            // Depois verifica por IP
+            const ipBanned = await checkIpBanStatus(ipHash);
+            if (ipBanned) return true;
+
+            return false;
         }
 
         function showBannedOverlay() {
             const overlay = document.getElementById('bannedOverlay');
             const details = document.getElementById('banDetails');
             overlay.style.display = 'flex';
-            details.textContent = banDetails || 'Motivo: Violação das políticas de uso';
+
+            const reasonText = banReason === 'ip' ? 'endereço IP' : 'conta';
+            details.textContent = `${banDetails || 'Motivo: Violação das políticas de uso'} (${reasonText} banido)`;
+
             document.body.style.overflow = 'hidden';
         }
 
@@ -964,7 +1007,6 @@
             auth.signOut().then(() => {
                 document.getElementById('bannedOverlay').style.display = 'none';
                 document.body.style.overflow = 'auto';
-                // Recarregar a página para limpar o estado
                 window.location.reload();
             }).catch(error => {
                 console.error('Erro ao sair:', error);
@@ -1028,7 +1070,7 @@
                 broken: '🔗 Link Quebrado - Site Inacessível',
                 verified: '🔵 Verificado pela Moderação',
                 unknown: '🔍 Verificando...',
-                banned: '🚫 Conta Banida'
+                banned: '🚫 Conta ou IP Banido'
             };
             return labels[status] || '🔍 Verificando...';
         }
@@ -1246,19 +1288,20 @@
             progressFill.classList.add(status);
 
             if (isBanned) {
+                const reasonText = banReason === 'ip' ? 'endereço IP' : 'conta';
                 icon.textContent = '🚫';
-                title.textContent = '🚫 Conta Banida';
+                title.textContent = `🚫 ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} Banido`;
                 badge.textContent = '🚫 ACESSO BLOQUEADO';
 
                 warningText.innerHTML = `
                     <p>
-                        <strong>🔴 Sua conta foi banida permanentemente!</strong><br>
+                        <strong>🔴 Seu ${reasonText} foi banido permanentemente!</strong><br>
                         ${banDetails || 'Motivo: Violação das políticas de uso'}<br><br>
                         <small>Entre em contato com o suporte se acreditar que isso é um erro.</small>
                     </p>
                 `;
 
-                confirmLabel.textContent = '⛔ Acesso bloqueado - Conta banida';
+                confirmLabel.textContent = '⛔ Acesso bloqueado - Conta/IP banido';
                 confirmSection.style.opacity = '0.5';
                 document.getElementById('confirmCheck').disabled = true;
 
@@ -1269,11 +1312,11 @@
                 redirectBtn.disabled = true;
 
                 reportBtn.className = 'report-btn banned';
-                reportBtn.innerHTML = '<i class="fas fa-ban"></i> Conta banida - Não pode sinalizar';
+                reportBtn.innerHTML = `<i class="fas fa-ban"></i> ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} banido - Não pode sinalizar`;
                 reportBtn.style.pointerEvents = 'none';
                 alreadyReported.className = 'already-reported banned';
                 alreadyReported.classList.remove('hidden');
-                alreadyReported.innerHTML = '🚫 Conta banida - Ação bloqueada';
+                alreadyReported.innerHTML = `🚫 ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} banido - Ação bloqueada`;
 
                 document.querySelector('.countdown-label').textContent = '⛔ Acesso bloqueado';
                 document.getElementById('countdown').textContent = '⛔';
@@ -1404,12 +1447,13 @@
 
             // Controle do botão de reportar
             if (isBanned) {
+                const reasonText = banReason === 'ip' ? 'IP' : 'Conta';
                 reportBtn.className = 'report-btn banned';
-                reportBtn.innerHTML = '<i class="fas fa-ban"></i> Conta banida - Não pode sinalizar';
+                reportBtn.innerHTML = `<i class="fas fa-ban"></i> ${reasonText} banido - Não pode sinalizar`;
                 reportBtn.style.pointerEvents = 'none';
                 alreadyReported.className = 'already-reported banned';
                 alreadyReported.classList.remove('hidden');
-                alreadyReported.innerHTML = '🚫 Conta banida - Ação bloqueada';
+                alreadyReported.innerHTML = `🚫 ${reasonText} banido - Ação bloqueada`;
             } else if (status === 'verified' || status === 'danger' && isBlocked) {
                 reportBtn.classList.add('disabled');
                 reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Site já verificado pela moderação';
@@ -1449,13 +1493,12 @@
         // ============================================================
 
         async function initRedirectWarning() {
-            // Verificar se o usuário está banido
+            // Verificar se o usuário está banido (UID + IP)
             if (currentUser) {
-                const banned = await checkUserBanStatus(currentUser);
+                const banned = await checkBanStatus(currentUser, userIpHash);
                 if (banned) {
                     showBannedOverlay();
-                    // Atualizar UI para estado banido
-                    updateUIWithStatus({ status: 'banned', message: 'Conta banida', reports: [] });
+                    updateUIWithStatus({ status: 'banned', message: 'Conta ou IP banido', reports: [] });
                     return;
                 }
             }
@@ -1499,6 +1542,14 @@
 
             userIpHash = await getIpHash();
 
+            // Verifica banimento por IP novamente (para usuários não autenticados)
+            const ipBanned = await checkIpBanStatus(userIpHash);
+            if (ipBanned) {
+                showBannedOverlay();
+                updateUIWithStatus({ status: 'banned', message: 'IP banido', reports: [] });
+                return;
+            }
+
             const statusData = await checkSiteSafety(domain, userIpHash);
             currentReportData = statusData;
             updateUIWithStatus(statusData);
@@ -1537,7 +1588,7 @@
                         progressFill.style.width = '100%';
                     } else if (isBanned) {
                         countdownElement.textContent = '⛔';
-                        document.querySelector('.countdown-label').textContent = 'Conta banida';
+                        document.querySelector('.countdown-label').textContent = 'Conta/IP banido';
                         progressFill.style.width = '100%';
                     } else {
                         countdownElement.textContent = '⏸';
@@ -1558,7 +1609,8 @@
             confirmCheck.addEventListener('change', function() {
                 if (isBanned) {
                     this.checked = false;
-                    showToast('⚠️ Sua conta está banida. Não é possível continuar.', 'error');
+                    const reasonText = banReason === 'ip' ? 'IP' : 'conta';
+                    showToast(`⚠️ Seu ${reasonText} está banido. Não é possível continuar.`, 'error');
                     return;
                 }
 
@@ -1585,7 +1637,8 @@
             redirectBtn.addEventListener('click', function(e) {
                 if (isBanned) {
                     e.preventDefault();
-                    showToast('⚠️ Sua conta está banida. Não é possível continuar.', 'error');
+                    const reasonText = banReason === 'ip' ? 'IP' : 'conta';
+                    showToast(`⚠️ Seu ${reasonText} está banido. Não é possível continuar.`, 'error');
                     return;
                 }
 
@@ -1644,7 +1697,8 @@
 
         function openReportModal() {
             if (isBanned) {
-                showToast('🚫 Sua conta está banida. Você não pode sinalizar sites.', 'error');
+                const reasonText = banReason === 'ip' ? 'IP' : 'conta';
+                showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
                 return;
             }
 
@@ -1671,7 +1725,8 @@
 
         async function submitReport() {
             if (isBanned) {
-                showToast('🚫 Sua conta está banida. Você não pode sinalizar sites.', 'error');
+                const reasonText = banReason === 'ip' ? 'IP' : 'conta';
+                showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
                 closeReportModal();
                 return;
             }
@@ -1788,14 +1843,26 @@
             // Verificar autenticação antes de inicializar
             auth.onAuthStateChanged(async function(user) {
                 currentUser = user;
+                userIpHash = await getIpHash();
+
                 if (user) {
-                    const banned = await checkUserBanStatus(user);
-                    if (banned) {
+                    // Verifica banimento por UID
+                    const userBanned = await checkUserBanStatus(user);
+                    if (userBanned) {
                         showBannedOverlay();
                         updateUIWithStatus({ status: 'banned', message: 'Conta banida', reports: [] });
                         return;
                     }
                 }
+
+                // Verifica banimento por IP
+                const ipBanned = await checkIpBanStatus(userIpHash);
+                if (ipBanned) {
+                    showBannedOverlay();
+                    updateUIWithStatus({ status: 'banned', message: 'IP banido', reports: [] });
+                    return;
+                }
+
                 initRedirectWarning();
             });
         });
