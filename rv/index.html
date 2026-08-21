@@ -27,7 +27,7 @@
             padding: 45px 40px;
             text-align: center;
             box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-            max-width: 700px;
+            max-width: 750px;
             width: 100%;
             animation: slideUp 0.6s ease-out;
         }
@@ -75,6 +75,11 @@
             color: #7c3aed;
         }
 
+        .warning-icon.verified {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
         @keyframes pulse {
             0%, 100% {
                 transform: scale(1);
@@ -104,6 +109,10 @@
 
         h1.broken {
             color: #5b21b6;
+        }
+
+        h1.verified {
+            color: #1e40af;
         }
 
         .status-badge {
@@ -142,6 +151,11 @@
             color: #6b7280;
         }
 
+        .status-badge.verified {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
         .warning-text {
             padding: 15px 20px;
             border-radius: 8px;
@@ -169,6 +183,11 @@
             border-left: 4px solid #8b5cf6;
         }
 
+        .warning-text.verified {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+        }
+
         .warning-text p {
             font-size: 1rem;
             line-height: 1.6;
@@ -190,6 +209,10 @@
             color: #5b21b6;
         }
 
+        .warning-text.verified p {
+            color: #1e40af;
+        }
+
         .warning-text strong {
             font-weight: 700;
         }
@@ -208,6 +231,10 @@
 
         .warning-text.safe strong {
             color: #16a34a;
+        }
+
+        .warning-text.verified strong {
+            color: #2563eb;
         }
 
         .url-box {
@@ -272,6 +299,27 @@
 
         .report-info .report-item .value.safe {
             color: #16a34a;
+        }
+
+        .report-comments {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .report-comments .comment {
+            background: #f3f4f6;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .report-comments .comment .comment-meta {
+            font-size: 0.7rem;
+            color: #6b7280;
+            display: flex;
+            justify-content: space-between;
         }
 
         .btn-group {
@@ -353,6 +401,16 @@
             transform: translateY(-2px);
         }
 
+        .btn-verified {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-verified:hover {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+        }
+
         .countdown-container {
             margin: 20px 0 10px;
         }
@@ -375,6 +433,10 @@
 
         .countdown.safe {
             color: #16a34a;
+        }
+
+        .countdown.verified {
+            color: #2563eb;
         }
 
         .countdown-label {
@@ -409,6 +471,10 @@
 
         .progress-fill.safe {
             background: linear-gradient(90deg, #22c55e, #16a34a);
+        }
+
+        .progress-fill.verified {
+            background: linear-gradient(90deg, #3b82f6, #2563eb);
         }
 
         .info-box {
@@ -467,6 +533,11 @@
             background: #fffbeb;
         }
 
+        .confirm-section.verified {
+            border-color: #93c5fd;
+            background: #eff6ff;
+        }
+
         .confirm-section input[type="checkbox"] {
             width: 18px;
             height: 18px;
@@ -476,6 +547,10 @@
 
         .confirm-section.danger input[type="checkbox"] {
             accent-color: #dc2626;
+        }
+
+        .confirm-section.verified input[type="checkbox"] {
+            accent-color: #2563eb;
         }
 
         .confirm-section label {
@@ -492,6 +567,10 @@
             color: #92400e;
         }
 
+        .confirm-section.verified label {
+            color: #1e40af;
+        }
+
         .report-btn {
             background: none;
             border: none;
@@ -504,6 +583,27 @@
 
         .report-btn:hover {
             color: #7c3aed;
+        }
+
+        .report-btn.disabled {
+            color: #9ca3af;
+            cursor: not-allowed;
+            text-decoration: none;
+        }
+
+        .report-btn.disabled:hover {
+            color: #9ca3af;
+        }
+
+        .already-reported {
+            display: inline-block;
+            background: #fef2f2;
+            color: #991b1b;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid #fca5a5;
         }
 
         @media (max-width: 768px) {
@@ -572,6 +672,12 @@
                 📋 Relatório de Sinalizações
             </div>
             <div id="reportContent"></div>
+            <div id="reportComments" class="report-comments hidden">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #374151; font-size: 0.85rem;">
+                    💬 Comentários dos usuários:
+                </div>
+                <div id="commentsList"></div>
+            </div>
         </div>
 
         <!-- Confirmação -->
@@ -603,9 +709,12 @@
 
         <!-- Botão para sinalizar -->
         <div style="margin-top: 15px;">
-            <button class="report-btn" onclick="openReportModal()">
+            <button class="report-btn" id="reportBtn" onclick="openReportModal()">
                 <i class="fas fa-flag"></i> Sinalizar este site como problemático
             </button>
+            <span id="alreadyReported" class="already-reported hidden">
+                <i class="fas fa-check-circle"></i> Você já sinalizou este site
+            </span>
         </div>
 
         <!-- Informações adicionais -->
@@ -700,7 +809,11 @@
         let currentDomain = '';
         let redirectId = '';
         let reportData = null;
-        let safetyStatus = 'unknown'; // safe, warning, danger, broken
+        let safetyStatus = 'unknown';
+        let userIpHash = '';
+        let hasUserReported = false;
+        let isVerified = false;
+        let isBlocked = false;
 
         // ============================================================
         // FUNÇÕES AUXILIARES
@@ -751,23 +864,13 @@
             document.getElementById('redirectBtn').disabled = true;
         }
 
-        function getStatusColor(status) {
-            const colors = {
-                safe: '#22c55e',
-                warning: '#f59e0b',
-                danger: '#dc2626',
-                broken: '#8b5cf6',
-                unknown: '#6b7280'
-            };
-            return colors[status] || '#6b7280';
-        }
-
         function getStatusLabel(status) {
             const labels = {
                 safe: '✅ Site Verificado - Seguro',
                 warning: '⚠️ Atenção - Sinalizações Recentes',
                 danger: '🚨 Perigo - Site Sinalizado como Malicioso',
                 broken: '🔗 Link Quebrado - Site Inacessível',
+                verified: '🔵 Verificado pela Moderação',
                 unknown: '🔍 Verificando...'
             };
             return labels[status] || '🔍 Verificando...';
@@ -777,13 +880,13 @@
         // FUNÇÃO PARA VERIFICAR SEGURANÇA DO SITE
         // ============================================================
 
-        async function checkSiteSafety(domain) {
+        async function checkSiteSafety(domain, ipHash) {
             try {
                 // Buscar sinalizações para este domínio
                 const snapshot = await db.collection('site_reports')
                     .where('domain', '==', domain)
                     .orderBy('timestamp', 'desc')
-                    .limit(50)
+                    .limit(100)
                     .get();
 
                 const reports = [];
@@ -791,8 +894,36 @@
                     reports.push({ id: doc.id, ...doc.data() });
                 });
 
-                if (reports.length === 0) {
-                    return { status: 'safe', reports: [], message: 'Nenhuma sinalização encontrada para este site.' };
+                // Buscar status de moderação
+                const modSnapshot = await db.collection('site_moderation')
+                    .where('domain', '==', domain)
+                    .limit(1)
+                    .get();
+
+                let moderationStatus = 'pending';
+                let moderationNotes = '';
+                modSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    moderationStatus = data.status || 'pending';
+                    moderationNotes = data.notes || '';
+                    isVerified = data.status === 'verified';
+                    isBlocked = data.status === 'blocked';
+                });
+
+                if (reports.length === 0 && moderationStatus === 'pending') {
+                    return { 
+                        status: 'safe', 
+                        reports: [], 
+                        message: 'Nenhuma sinalização encontrada para este site.',
+                        moderationStatus: 'pending',
+                        isVerified: false
+                    };
+                }
+
+                // Verificar se o usuário já reportou
+                if (ipHash) {
+                    const userReport = reports.find(r => r.ipHash === ipHash);
+                    hasUserReported = !!userReport;
                 }
 
                 // Analisar sinalizações
@@ -803,7 +934,6 @@
                 let lgpdCount = 0;
                 let totalReports = reports.length;
 
-                // Verificar sinalizações recentes (últimos 30 dias)
                 const thirtyDaysAgo = new Date();
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -825,11 +955,52 @@
                     }
                 });
 
-                // Determinar status
+                // Se já foi verificado pela moderação
+                if (moderationStatus === 'verified') {
+                    return {
+                        status: 'verified',
+                        reports: reports,
+                        message: '✅ Este site foi verificado pela moderação e confirmado como seguro.',
+                        summary: {
+                            total: totalReports,
+                            fakeNews: fakeNewsCount,
+                            malicious: maliciousCount,
+                            broken: brokenCount,
+                            inappropriate: inappropriateCount,
+                            lgpd: lgpdCount,
+                            recent: recentReports.length
+                        },
+                        moderationStatus: 'verified',
+                        isVerified: true,
+                        moderationNotes: moderationNotes
+                    };
+                }
+
+                // Se foi bloqueado pela moderação
+                if (moderationStatus === 'blocked') {
+                    return {
+                        status: 'danger',
+                        reports: reports,
+                        message: '🚨 Este site foi BLOQUEADO pela moderação por violações graves.',
+                        summary: {
+                            total: totalReports,
+                            fakeNews: fakeNewsCount,
+                            malicious: maliciousCount,
+                            broken: brokenCount,
+                            inappropriate: inappropriateCount,
+                            lgpd: lgpdCount,
+                            recent: recentReports.length
+                        },
+                        moderationStatus: 'blocked',
+                        isVerified: false,
+                        moderationNotes: moderationNotes
+                    };
+                }
+
+                // Determinar status baseado nas sinalizações
                 let status = 'safe';
                 let message = '';
 
-                // Se mais de 50% das sinalizações recentes são para "broken", considera link quebrado
                 if (recentReports.length > 0) {
                     const brokenRecent = recentReports.filter(r => r.reasons && r.reasons.includes('broken')).length;
                     if (brokenRecent / recentReports.length > 0.5) {
@@ -838,31 +1009,26 @@
                     }
                 }
 
-                // Se mais de 30% das sinalizações são "malicious" ou "inappropriate"
                 if (maliciousCount / totalReports > 0.3 || inappropriateCount / totalReports > 0.3) {
                     status = 'danger';
                     message = 'Este site foi sinalizado como malicioso ou contém conteúdo impróprio. Evite acessar.';
                 }
 
-                // Se mais de 50% das sinalizações são "fake_news"
                 if (fakeNewsCount / totalReports > 0.5 && status !== 'danger') {
                     status = 'warning';
                     message = 'Este site foi sinalizado como disseminador de Fake News. Verifique as informações antes de confiar.';
                 }
 
-                // Se mais de 30% são "lgpd_violation"
                 if (lgpdCount / totalReports > 0.3 && status !== 'danger') {
                     status = 'warning';
                     message = message || 'Este site foi sinalizado por possíveis violações da LGPD. Cuidado com seus dados.';
                 }
 
-                // Se houver sinalizações mistas, mas não suficientes para classificar
                 if (status === 'safe' && totalReports > 0) {
                     status = 'warning';
                     message = 'Este site possui sinalizações. Recomenda-se cautela ao acessar.';
                 }
 
-                // Se não houver mensagem definida
                 if (!message && status !== 'safe') {
                     message = 'Este site possui sinalizações de usuários. Acesse com cautela.';
                 }
@@ -879,7 +1045,10 @@
                         inappropriate: inappropriateCount,
                         lgpd: lgpdCount,
                         recent: recentReports.length
-                    }
+                    },
+                    moderationStatus: moderationStatus,
+                    isVerified: false,
+                    moderationNotes: moderationNotes
                 };
 
             } catch (error) {
@@ -889,7 +1058,7 @@
         }
 
         // ============================================================
-        // FUNÇÃO PARA ATUALIZAR A INTERFACE COM O STATUS
+        // FUNÇÃO PARA ATUALIZAR A INTERFACE
         // ============================================================
 
         function updateUIWithStatus(statusData) {
@@ -907,6 +1076,8 @@
             const redirectBtn = document.getElementById('redirectBtn');
             const reportInfo = document.getElementById('reportInfo');
             const reportContent = document.getElementById('reportContent');
+            const reportBtn = document.getElementById('reportBtn');
+            const alreadyReported = document.getElementById('alreadyReported');
 
             // Resetar classes
             icon.className = 'warning-icon';
@@ -917,7 +1088,6 @@
             countdownEl.className = 'countdown';
             progressFill.className = 'progress-fill';
 
-            // Aplicar classes baseadas no status
             icon.classList.add(status);
             title.classList.add(status);
             badge.classList.add(status);
@@ -926,50 +1096,66 @@
             countdownEl.classList.add(status);
             progressFill.classList.add(status);
 
-            // Atualizar conteúdo
-            icon.textContent = status === 'safe' ? '✅' : status === 'warning' ? '⚠️' : status === 'danger' ? '🚨' : status ===
-                'broken' ? '🔗' : '❓';
+            icon.textContent = status === 'safe' ? '✅' : 
+                              status === 'warning' ? '⚠️' : 
+                              status === 'danger' ? '🚨' : 
+                              status === 'broken' ? '🔗' : 
+                              status === 'verified' ? '🔵' : '❓';
 
             title.textContent = status === 'safe' ? '✅ Site Seguro' :
                 status === 'warning' ? '⚠️ Atenção - Site com Sinalizações' :
                 status === 'danger' ? '🚨 PERIGO - Site Sinalizado como Malicioso' :
                 status === 'broken' ? '🔗 Link Quebrado' :
+                status === 'verified' ? '🔵 Site Verificado pela Moderação' :
                 '🔍 Verificando...';
 
             badge.textContent = getStatusLabel(status);
 
-            warningText.innerHTML = `
-                <p>
-                    <strong>${status === 'safe' ? '🟢' : status === 'warning' ? '🟡' : status === 'danger' ? '🔴' : status === 'broken' ? '🟣' : '🔵'}</strong>
-                    ${statusData.message}
-                    ${status !== 'safe' ? '<br><br><small>Baseado em sinalizações de usuários da comunidade.</small>' : ''}
-                </p>
-            `;
+            // Mensagem especial para verificado
+            if (status === 'verified' && statusData.moderationNotes) {
+                warningText.innerHTML = `
+                    <p>
+                        <strong>🔵 Verificado pela Moderação</strong><br>
+                        ${statusData.message}
+                        <br><br>
+                        <small>📝 Nota do moderador: ${statusData.moderationNotes}</small>
+                    </p>
+                `;
+            } else {
+                warningText.innerHTML = `
+                    <p>
+                        <strong>${status === 'safe' ? '🟢' : status === 'warning' ? '🟡' : status === 'danger' ? '🔴' : status === 'broken' ? '🟣' : status === 'verified' ? '🔵' : '🔵'}</strong>
+                        ${statusData.message}
+                        ${status !== 'safe' && status !== 'verified' ? '<br><br><small>Baseado em sinalizações de usuários da comunidade.</small>' : ''}
+                    </p>
+                `;
+            }
 
             // Atualizar checkbox
-            confirmLabel.textContent = status === 'safe' ?
-                'Eu confio neste site e desejo continuar' :
-                status === 'warning' ?
-                'Estou ciente das sinalizações e desejo prosseguir sob minha responsabilidade' :
-                status === 'danger' ?
-                '⚠️ Estou ciente do alto risco e assumo total responsabilidade pelo acesso' :
-                status === 'broken' ?
-                'Estou ciente que o link pode estar quebrado e desejo tentar mesmo assim' :
-                'Eu confio neste site e desejo continuar';
+            if (status === 'verified') {
+                confirmLabel.textContent = '✅ Site verificado pela moderação. Deseja continuar?';
+            } else if (status === 'danger') {
+                confirmLabel.textContent = '⚠️ Estou ciente do alto risco e assumo total responsabilidade pelo acesso';
+            } else if (status === 'warning') {
+                confirmLabel.textContent = 'Estou ciente das sinalizações e desejo prosseguir sob minha responsabilidade';
+            } else if (status === 'broken') {
+                confirmLabel.textContent = 'Estou ciente que o link pode estar quebrado e desejo tentar mesmo assim';
+            } else {
+                confirmLabel.textContent = 'Eu confio neste site e desejo continuar';
+            }
 
             // Atualizar botão
+            redirectBtn.className = 'btn';
             if (status === 'danger') {
                 redirectBtn.classList.add('btn-danger');
-                redirectBtn.classList.remove('btn-primary', 'btn-warning', 'btn-success');
             } else if (status === 'warning') {
                 redirectBtn.classList.add('btn-warning');
-                redirectBtn.classList.remove('btn-primary', 'btn-danger', 'btn-success');
             } else if (status === 'safe') {
                 redirectBtn.classList.add('btn-success');
-                redirectBtn.classList.remove('btn-primary', 'btn-danger', 'btn-warning');
+            } else if (status === 'verified') {
+                redirectBtn.classList.add('btn-verified');
             } else {
                 redirectBtn.classList.add('btn-primary');
-                redirectBtn.classList.remove('btn-danger', 'btn-warning', 'btn-success');
             }
 
             // Mostrar relatório se houver sinalizações
@@ -1009,22 +1195,63 @@
                     </div>
                 `;
                 reportContent.innerHTML = html;
+
+                // Mostrar comentários
+                const commentsList = document.getElementById('commentsList');
+                const commentsContainer = document.getElementById('reportComments');
+                const comments = statusData.reports.filter(r => r.comment && r.comment.trim());
+
+                if (comments.length > 0) {
+                    commentsContainer.classList.remove('hidden');
+                    commentsList.innerHTML = comments.map(c => `
+                        <div class="comment">
+                            <div>${c.comment}</div>
+                            <div class="comment-meta">
+                                <span>📅 ${c.timestamp ? new Date(c.timestamp.toDate ? c.timestamp.toDate() : c.timestamp).toLocaleDateString('pt-BR') : 'Data desconhecida'}</span>
+                                <span>🔒 ${c.ipHash ? c.ipHash.substring(0, 8) + '...' : 'Anônimo'}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    commentsContainer.classList.add('hidden');
+                }
             } else {
                 reportInfo.classList.add('hidden');
             }
 
-            // Se for perigoso, desabilitar redirecionamento automático
-            if (status === 'danger') {
-                document.querySelector('.countdown-label').textContent = '⚠️ Redirecionamento bloqueado';
+            // Mostrar/ocultar botão de reportar
+            if (status === 'verified' || status === 'danger' && isBlocked) {
+                reportBtn.classList.add('disabled');
+                reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Site já verificado pela moderação';
+                reportBtn.style.pointerEvents = 'none';
+                alreadyReported.classList.remove('hidden');
+                alreadyReported.innerHTML = '<i class="fas fa-check-circle"></i> Site verificado pela moderação';
+            } else if (hasUserReported) {
+                reportBtn.classList.add('disabled');
+                reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Você já sinalizou este site';
+                reportBtn.style.pointerEvents = 'none';
+                alreadyReported.classList.remove('hidden');
+            } else {
+                reportBtn.classList.remove('disabled');
+                reportBtn.innerHTML = '<i class="fas fa-flag"></i> Sinalizar este site como problemático';
+                reportBtn.style.pointerEvents = 'auto';
+                alreadyReported.classList.add('hidden');
+            }
+
+            // Se for perigoso ou bloqueado, desabilitar redirecionamento
+            if (status === 'danger' && isBlocked) {
+                document.querySelector('.countdown-label').textContent = '⛔ Redirecionamento bloqueado';
                 document.getElementById('countdown').textContent = '⛔';
                 document.getElementById('progressFill').style.width = '100%';
                 redirectBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Acesso bloqueado';
                 redirectBtn.href = '#';
                 redirectBtn.style.pointerEvents = 'none';
                 redirectBtn.disabled = true;
+                document.getElementById('confirmCheck').disabled = true;
             } else {
                 redirectBtn.disabled = false;
                 redirectBtn.style.pointerEvents = 'auto';
+                document.getElementById('confirmCheck').disabled = false;
             }
         }
 
@@ -1033,7 +1260,6 @@
         // ============================================================
 
         async function initRedirectWarning() {
-            // 1. Obtém a URL de destino
             let targetUrl = getUrlParameter('uid') || getUrlParameter('url');
 
             if (!targetUrl) {
@@ -1051,14 +1277,12 @@
             currentTargetUrl = formattedUrl;
             currentDomain = domain;
 
-            // 2. Exibe URL
             document.getElementById('targetUrlDisplay').textContent = formattedUrl;
 
-            // 3. Gera ID único
             redirectId = Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
             document.getElementById('redirectId').textContent = redirectId;
 
-            // 4. Registra no Firebase
+            // Registrar no Firebase
             try {
                 const docData = {
                     targetUrl: formattedUrl,
@@ -1066,7 +1290,6 @@
                     userAgent: navigator.userAgent,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     referrer: document.referrer || 'direct',
-                    ipHash: await getIpHash(),
                     status: 'pending'
                 };
                 await db.collection('redirectwarning').doc(redirectId).set(docData);
@@ -1075,13 +1298,16 @@
                 console.error('❌ Erro ao salvar no Firebase:', error);
             }
 
-            // 5. Verifica segurança do site
-            const statusData = await checkSiteSafety(domain);
+            // Obter hash do IP
+            userIpHash = await getIpHash();
+
+            // Verificar segurança do site
+            const statusData = await checkSiteSafety(domain, userIpHash);
             reportData = statusData;
             updateUIWithStatus(statusData);
 
-            // 6. Configura contagem regressiva
-            const delayTime = statusData.status === 'danger' ? 0 : statusData.status === 'warning' ? 15 : 10;
+            // Configurar contagem regressiva
+            const delayTime = statusData.status === 'danger' ? 0 : statusData.status === 'verified' ? 5 : 10;
             let countdown = delayTime;
             const countdownElement = document.getElementById('countdown');
             const progressFill = document.getElementById('progressFill');
@@ -1109,7 +1335,7 @@
                     clearInterval(countdownInterval);
                     if (confirmCheck.checked && safetyStatus !== 'danger') {
                         performRedirect();
-                    } else if (safetyStatus === 'danger') {
+                    } else if (safetyStatus === 'danger' && isBlocked) {
                         countdownElement.textContent = '⛔';
                         document.querySelector('.countdown-label').textContent = 'Acesso bloqueado';
                         progressFill.style.width = '100%';
@@ -1129,30 +1355,29 @@
             let countdownInterval = setInterval(updateCountdown, 1000);
             progressFill.style.width = '0%';
 
-            // 7. Evento do checkbox
+            // Evento do checkbox
             confirmCheck.addEventListener('change', function() {
                 if (this.checked && countdown <= 0 && safetyStatus !== 'danger') {
                     performRedirect();
                 } else if (this.checked && safetyStatus !== 'danger') {
                     document.querySelector('.countdown-label').textContent = 'Redirecionando em';
-                    redirectBtn.classList.remove('btn-danger', 'btn-warning');
-                    redirectBtn.classList.add('btn-primary');
+                    redirectBtn.className = 'btn';
+                    if (safetyStatus === 'verified') {
+                        redirectBtn.classList.add('btn-verified');
+                    } else {
+                        redirectBtn.classList.add('btn-primary');
+                    }
                     redirectBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> Continuar';
                     redirectBtn.href = formattedUrl;
                     redirectBtn.style.pointerEvents = 'auto';
                     redirectBtn.disabled = false;
                 } else if (safetyStatus === 'danger') {
-                    // Não permite desmarcar se for perigoso
                     this.checked = true;
                     showToast('⚠️ Este site é perigoso. O acesso não é recomendado.');
-                } else {
-                    if (countdown > 0) {
-                        // Não faz nada
-                    }
                 }
             });
 
-            // 8. Evento do botão
+            // Evento do botão
             redirectBtn.addEventListener('click', function(e) {
                 if (!confirmCheck.checked && safetyStatus !== 'danger') {
                     e.preventDefault();
@@ -1160,22 +1385,22 @@
                     document.querySelector('.confirm-section').style.background = '#fef2f2';
                     setTimeout(() => {
                         document.querySelector('.confirm-section').style.borderColor = safetyStatus ===
-                            'warning' ? '#fcd34d' : '#bbf7d0';
+                            'warning' ? '#fcd34d' : safetyStatus === 'verified' ? '#93c5fd' : '#bbf7d0';
                         document.querySelector('.confirm-section').style.background = safetyStatus ===
-                            'warning' ? '#fffbeb' : '#f0fdf4';
+                            'warning' ? '#fffbeb' : safetyStatus === 'verified' ? '#eff6ff' : '#f0fdf4';
                     }, 2000);
                     return;
                 }
-                if (safetyStatus === 'danger') {
+                if (safetyStatus === 'danger' && isBlocked) {
                     e.preventDefault();
-                    showToast('⚠️ Este site é perigoso e foi bloqueado por segurança.');
+                    showToast('⚠️ Este site foi bloqueado pela moderação.');
                     return;
                 }
                 clearInterval(countdownInterval);
                 performRedirect();
             });
 
-            // 9. Carrega FontAwesome
+            // Carregar FontAwesome
             if (!document.querySelector('link[href*="font-awesome"]')) {
                 const faLink = document.createElement('link');
                 faLink.rel = 'stylesheet';
@@ -1209,6 +1434,10 @@
         // ============================================================
 
         function openReportModal() {
+            if (hasUserReported || isVerified) {
+                showToast('⚠️ Você já sinalizou este site ou ele foi verificado pela moderação.', 'warning');
+                return;
+            }
             document.getElementById('reportModal').style.display = 'flex';
             document.getElementById('reportFakeNews').checked = false;
             document.getElementById('reportMalicious').checked = false;
@@ -1223,6 +1452,12 @@
         }
 
         async function submitReport() {
+            if (hasUserReported) {
+                showToast('⚠️ Você já sinalizou este site.', 'warning');
+                closeReportModal();
+                return;
+            }
+
             const reasons = [];
             if (document.getElementById('reportFakeNews').checked) reasons.push('fake_news');
             if (document.getElementById('reportMalicious').checked) reasons.push('malicious');
@@ -1238,12 +1473,25 @@
             const comment = document.getElementById('reportComment').value.trim();
 
             try {
+                // Verificar se o IP já reportou este domínio
+                const existingSnapshot = await db.collection('site_reports')
+                    .where('domain', '==', currentDomain)
+                    .where('ipHash', '==', userIpHash)
+                    .limit(1)
+                    .get();
+
+                if (!existingSnapshot.empty) {
+                    showToast('⚠️ Você já sinalizou este site anteriormente.', 'warning');
+                    closeReportModal();
+                    return;
+                }
+
                 const reportData = {
                     domain: currentDomain,
                     targetUrl: currentTargetUrl,
                     reasons: reasons,
                     comment: comment || '',
-                    ipHash: await getIpHash(),
+                    ipHash: userIpHash,
                     userAgent: navigator.userAgent,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     redirectId: redirectId
@@ -1253,8 +1501,8 @@
                 showToast('✅ Sinalização enviada com sucesso! Obrigado por ajudar a comunidade.', 'success');
                 closeReportModal();
 
-                // Atualizar verificação
-                const newStatus = await checkSiteSafety(currentDomain);
+                hasUserReported = true;
+                const newStatus = await checkSiteSafety(currentDomain, userIpHash);
                 reportData = newStatus;
                 updateUIWithStatus(newStatus);
 
@@ -1302,7 +1550,6 @@
         // ============================================================
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Adicionar animação de slideUp para o toast
             const style = document.createElement('style');
             style.textContent = `
                 @keyframes slideUp {
@@ -1318,7 +1565,6 @@
             initRedirectWarning();
         });
 
-        // Fechar modal com ESC
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeReportModal();
