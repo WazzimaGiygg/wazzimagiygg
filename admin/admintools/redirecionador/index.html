@@ -530,7 +530,7 @@
             background: white;
             border-radius: 20px;
             padding: 30px;
-            max-width: 900px;
+            max-width: 950px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
@@ -589,12 +589,29 @@
         .modal .site-info .label {
             font-weight: 600;
             color: #6b7280;
-            min-width: 100px;
+            min-width: 120px;
         }
 
         .modal .site-info .value {
             color: #1f2937;
             word-break: break-all;
+        }
+
+        .modal .site-info .value .ip-hash {
+            font-family: monospace;
+            color: #4f46e5;
+            font-size: 0.85rem;
+        }
+
+        .modal .site-info .value .user-id {
+            font-family: monospace;
+            color: #dc2626;
+            font-size: 0.85rem;
+        }
+
+        .modal .site-info .value .user-email {
+            color: #16a34a;
+            font-size: 0.85rem;
         }
 
         .modal .access-list {
@@ -661,6 +678,62 @@
         .modal .access-item .access-status.confirmed {
             background: #dbeafe;
             color: #1e40af;
+        }
+
+        .modal .access-item .access-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+            padding: 4px 8px;
+            background: #eff6ff;
+            border-radius: 6px;
+            font-size: 0.75rem;
+        }
+
+        .modal .access-item .access-user .user-label {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .modal .access-item .access-user .user-email {
+            color: #16a34a;
+            font-weight: 600;
+        }
+
+        .modal .access-item .access-user .user-id {
+            font-family: monospace;
+            color: #dc2626;
+            font-size: 0.7rem;
+        }
+
+        .modal .access-item .access-ip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+            padding: 4px 8px;
+            background: #fef3c7;
+            border-radius: 6px;
+            font-size: 0.75rem;
+        }
+
+        .modal .access-item .access-ip .ip-label {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .modal .access-item .access-ip .ip-hash {
+            font-family: monospace;
+            color: #4f46e5;
+        }
+
+        .modal .access-item .access-ip .ip-original {
+            font-family: monospace;
+            color: #dc2626;
+            font-size: 0.8rem;
         }
 
         .modal .access-item .access-comment {
@@ -742,6 +815,17 @@
 
         .expand-btn:hover {
             color: #7c3aed;
+        }
+
+        .reporter-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
         }
 
         @media (max-width: 768px) {
@@ -826,6 +910,16 @@
             }
 
             .modal .access-item .access-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .modal .access-item .access-user {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .modal .access-item .access-ip {
                 flex-direction: column;
                 align-items: flex-start;
             }
@@ -943,7 +1037,7 @@
 
         <!-- Filters -->
         <div class="filters">
-            <input type="text" id="searchInput" placeholder="🔍 Buscar por URL ou domínio..." oninput="applyFilters()">
+            <input type="text" id="searchInput" placeholder="🔍 Buscar por URL, domínio, usuário ou IP..." oninput="applyFilters()">
             <div class="filter-group">
                 <select id="statusFilter" onchange="applyFilters()">
                     <option value="">Todos os status</option>
@@ -1107,7 +1201,13 @@
                         moderationStatus: data.moderationStatus || 'pending',
                         moderationNotes: data.moderationNotes || '',
                         moderatedBy: data.moderatedBy || '',
-                        moderatedAt: data.moderatedAt ? data.moderatedAt.toDate() : null
+                        moderatedAt: data.moderatedAt ? data.moderatedAt.toDate() : null,
+                        // Novos campos para rastrear quem sinalizou
+                        userId: data.userId || '',
+                        userEmail: data.userEmail || '',
+                        userName: data.userName || '',
+                        ipHash: data.ipHash || '',
+                        ipOriginal: data.ipOriginal || ''
                     });
                 });
 
@@ -1156,7 +1256,12 @@
                             riskFlags: item.riskFlags,
                             moderationStatus: item.moderationStatus,
                             timestamp: item.timestamp,
-                            comment: item.userComment || ''
+                            comment: item.userComment || '',
+                            userId: item.userId || '',
+                            userEmail: item.userEmail || '',
+                            userName: item.userName || '',
+                            ipHash: item.ipHash || '',
+                            ipOriginal: item.ipOriginal || ''
                         });
                     }
 
@@ -1271,12 +1376,16 @@
                 // Filtro de moderação
                 if (moderationFilter && item.moderationStatus !== moderationFilter) return false;
 
-                // Filtro de busca
+                // Filtro de busca (incluindo userId, userEmail, ipHash)
                 if (searchTerm) {
                     const searchable = [
                         item.domain || '',
                         item.targetUrl || '',
-                        item.moderationNotes || ''
+                        item.moderationNotes || '',
+                        ...item.accesses.map(a => a.userId || ''),
+                        ...item.accesses.map(a => a.userEmail || ''),
+                        ...item.accesses.map(a => a.ipHash || ''),
+                        ...item.accesses.map(a => a.ipOriginal || '')
                     ].join(' ').toLowerCase();
                     if (!searchable.includes(searchTerm)) return false;
                 }
@@ -1490,6 +1599,32 @@
                         `;
                     }
 
+                    // Informações do usuário que sinalizou
+                    let userHtml = '';
+                    if (access.userId || access.userEmail) {
+                        userHtml = `
+                            <div class="access-user">
+                                <span class="user-label">👤 Reportado por:</span>
+                                ${access.userEmail ? `<span class="user-email">${access.userEmail}</span>` : ''}
+                                ${access.userName ? `<span style="color:#374151;font-weight:500;">(${access.userName})</span>` : ''}
+                                ${access.userId ? `<span class="user-id">🔑 ${access.userId.substring(0, 12)}...</span>` : ''}
+                                ${!access.userId && !access.userEmail ? '<span style="color:#6b7280;">Anônimo</span>' : ''}
+                            </div>
+                        `;
+                    }
+
+                    // Informações do IP
+                    let ipHtml = '';
+                    if (access.ipHash || access.ipOriginal) {
+                        ipHtml = `
+                            <div class="access-ip">
+                                <span class="ip-label">🌐 IP Hash:</span>
+                                <span class="ip-hash">${access.ipHash || 'N/A'}</span>
+                                ${access.ipOriginal ? `<span style="color:#6b7280;margin-left:4px;">(Original: <span class="ip-original">${access.ipOriginal}</span>)</span>` : ''}
+                            </div>
+                        `;
+                    }
+
                     // Comentário
                     let commentHtml = '';
                     if (access.userComment) {
@@ -1518,6 +1653,7 @@
                                 <div>
                                     <span class="access-id">#${index + 1} - ${access.id}</span>
                                     ${modBadge}
+                                    ${access.alertType && access.alertType !== 'none' ? `<span class="reporter-badge">🚨 Sinalizado</span>` : ''}
                                 </div>
                                 <span class="access-date">📅 ${date}</span>
                             </div>
@@ -1525,6 +1661,8 @@
                                 <span class="access-status ${statusClass}">${statusLabel.toUpperCase()}</span>
                                 ${reasonsHtml}
                             </div>
+                            ${userHtml}
+                            ${ipHtml}
                             ${commentHtml}
                             ${access.moderationNotes ? `
                                 <div style="margin-top:4px;padding:4px 10px;background:#eff6ff;border-radius:6px;font-size:0.75rem;color:#1e40af;border-left:3px solid #3b82f6;">
@@ -1587,11 +1725,16 @@
                 'Domínio', 'URL', 'Total Acessos', 'Status', 'Tipo Alerta',
                 'Fake News', 'Viés Político', 'Violação LGPD', 'Violação Marco Civil',
                 'Link Quebrado', 'Conteúdo Impróprio', 'Status Moderação', 'Notas Moderação',
-                'Primeiro Acesso', 'Último Acesso'
+                'Primeiro Acesso', 'Último Acesso', 'Reportado por (Email)', 'Reportado por (ID)', 'IP Hash'
             ];
 
             const rows = dataToExport.map(item => {
                 const flags = item.riskFlags || {};
+                const reporters = item.accesses.filter(a => a.userId || a.userEmail);
+                const reporterEmails = reporters.map(a => a.userEmail || '').join('; ');
+                const reporterIds = reporters.map(a => a.userId || '').join('; ');
+                const ipHashes = item.accesses.map(a => a.ipHash || '').join('; ');
+                
                 return [
                     item.domain || '',
                     item.targetUrl || '',
@@ -1607,7 +1750,10 @@
                     item.moderationStatus || 'pending',
                     (item.moderationNotes || '').replace(/,/g, ';'),
                     item.firstAccess ? item.firstAccess.toISOString() : '',
-                    item.lastAccess ? item.lastAccess.toISOString() : ''
+                    item.lastAccess ? item.lastAccess.toISOString() : '',
+                    reporterEmails || 'N/A',
+                    reporterIds || 'N/A',
+                    ipHashes || 'N/A'
                 ];
             });
 
