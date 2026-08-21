@@ -1,0 +1,85 @@
+Web Redirect Safety Verification System: Technical Briefing
+
+Executive Summary
+
+The provided source documentation details a robust web-based redirect safety verification system designed to protect users from malicious or low-quality destinations. The system operates by cross-referencing target URLs against a community reporting database and an administrative moderation layer. Key functionalities include real-time safety status classification, community-driven sinalization (reporting), automated redirection logic based on risk levels, and security measures such as IP hashing and persistent activity logging via Firebase.
+
+The system classifies websites into distinct categories—ranging from "Safe" and "Verified" to "Danger" and "Broken"—using specific mathematical thresholds derived from user reports. It enforces security protocols by requiring user confirmation for risky sites and outright blocking access to domains flagged by administrators.
+
+1. Site Safety Status Classification
+
+The system evaluates the domain of a target URL to determine its safety status. This status dictates the visual interface, warning messages, and the behavior of the redirection timer.
+
+Status Definitions and Logic
+
+The system applies the following classifications based on data retrieved from the site_reports and site_moderation collections:
+
+Status	Label	Logic/Threshold	User Impact
+Verified	Site Verificado pela Moderação	Specifically flagged as "verified" in the moderation database.	5-second countdown; considered highly trustworthy.
+Safe	Site Verificado - Seguro	Zero reports found and no pending moderation issues.	10-second countdown; standard access.
+Warning	Atenção - Sinalizações Recentes	>50% reports for Fake News; OR >30% for LGPD violations; OR general reports exist but don't meet "Danger" thresholds.	15-second countdown (in early versions); requires explicit confirmation.
+Danger	Perigo - Site Malicioso	>30% reports for "malicious" or "inappropriate" content; OR administrative status is "blocked."	Redirection may be blocked entirely; requires high-risk acknowledgment.
+Broken	Link Quebrado	>50% of recent reports (last 30 days) indicate the link is inaccessible.	User warned of potential technical failure.
+Unknown	Verificando...	Initial state during database lookup.	Redirection paused until check completes.
+
+2. Community Reporting Mechanism
+
+A central feature of the system is the community reporting modal, which allows users to contribute to the safety database.
+
+Reporting Categories
+
+Users can signal a site for five specific reasons:
+
+* Fake News: Sites disseminating false information.
+* Malicious: Sites containing malware or phishing attempts.
+* Link Quebrado: Broken or inaccessible links.
+* Conteúdo Impróprio: Offensive or inappropriate content.
+* Violação LGPD: Sites collecting data without consent or violating privacy regulations.
+
+Data Collection and Integrity
+
+To prevent spam and ensure report quality, the system implements several technical safeguards:
+
+* IP Hashing: The system captures the user's IP, appends a salt (wazzim-salt-2024), and generates a SHA-256 hash. This allows the system to identify if a specific user has already reported a domain without storing the raw IP address.
+* Optional Comments: Users can provide detailed descriptions of the issue, which are then displayed to future visitors in the "Comentários dos usuários" section.
+* Recent Activity Filter: The system prioritizes "Recent Reports" (defined as those occurring within the last 30 days) to calculate current site health.
+
+3. Moderation and Administrative Controls
+
+The system includes a moderation layer that overrides community reports. This is managed through a site_moderation collection in Firebase.
+
+* Verified Status: Administrators can mark a site as "verified." This replaces community warnings with a blue "Verified by Moderation" badge and can include specific "Moderator Notes" explaining why the site is deemed safe.
+* Blocked Status: If a site is marked as "blocked" by a moderator due to grave violations, the system disables the redirection entirely. The interface displays a "Redirecionamento bloqueado" message, and the "Continue" button is deactivated.
+* Pending Status: Sites that have not yet been reviewed by an administrator are evaluated solely based on community reporting thresholds.
+
+4. User Experience and Redirection Logic
+
+The system utilizes a progressive disclosure interface to inform users of risks before they leave the current environment.
+
+Redirection Workflow
+
+1. Initialization: The system extracts the destination URL from the uid or url parameter.
+2. Safety Check: The system queries Firebase for reports and moderation status while displaying a "Verificando..." badge.
+3. UI Adaptation: The interface colors, icons (shield, warning triangle, or error X), and warning text update dynamically based on the results.
+4. Countdown and Progress Bar:
+  * Safe/Default: 10-second countdown.
+  * Verified: 5-second countdown.
+  * Warning: Can be up to 15 seconds.
+  * Danger/Blocked: Countdown is replaced by a "⛔" symbol.
+5. Confirmation Requirement: A checkbox is provided for users to confirm they trust the site. If the countdown reaches zero but the checkbox is not marked, the system pauses and requires manual interaction.
+
+Feedback Systems
+
+* Toast Notifications: The system uses color-coded "Toasts" (Success/Green, Warning/Amber, Info/Blue) to provide immediate feedback when a report is submitted or when a user attempts to access a blocked site.
+* URL Box: Displays the full destination URL with a "word-break" style to ensure long or obfuscated URLs are fully visible to the user.
+
+5. Technical Infrastructure
+
+The system is built on a modern web stack utilizing the following components:
+
+* Firebase Integration: Uses Firebase App and Firestore for real-time data storage and retrieval. Key collections include redirectwarning (for tracking redirect events), site_reports (for user feedback), and site_moderation (for admin overrides).
+* Security & Tracking:
+  * Redirect IDs: Every redirect attempt is assigned a unique ID (timestamp + random string) for logging.
+  * Metadata Logging: The system records the user agent, referrer, and timestamp for every redirect event.
+* Styling & Assets: Utilizes CSS linear gradients for the background, Segoe UI for typography, and FontAwesome (v6.4.0) for iconography.
+* Responsive Design: Implements Media Queries to ensure the redirect container and buttons are optimized for mobile devices (adjusting padding, font sizes, and button layouts).
