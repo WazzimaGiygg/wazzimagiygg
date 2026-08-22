@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecionamento - Verificação de Segurança</title>
+    <title id="pageTitle">Redirecionamento - Verificação de Segurança</title>
     <style>
         /* ===== ESTILOS COMPLETOS (mantidos) ===== */
         * {
@@ -718,9 +718,50 @@
             margin-left: 8px;
         }
 
+        /* Language Selector */
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .lang-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .lang-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: scale(1.05);
+        }
+
+        .lang-btn.active {
+            background: rgba(79, 70, 229, 0.4);
+            border-color: #4f46e5;
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .redirect-container {
+            position: relative;
+            padding-top: 70px;
+        }
+
         @media (max-width: 768px) {
             .redirect-container {
                 padding: 25px 20px;
+                padding-top: 65px;
             }
 
             h1 {
@@ -749,6 +790,22 @@
             .report-info {
                 font-size: 0.75rem;
             }
+
+            .language-selector {
+                top: 10px;
+                right: 10px;
+                gap: 4px;
+            }
+
+            .lang-btn {
+                padding: 4px 10px;
+                font-size: 0.7rem;
+            }
+        }
+
+        /* Animação para mudança de idioma */
+        .fade-transition {
+            transition: opacity 0.3s ease;
         }
     </style>
     <!-- Firebase SDKs -->
@@ -761,6 +818,13 @@
 </head>
 <body>
     <div class="redirect-container" id="app">
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <button class="lang-btn active" data-lang="pt" onclick="setLanguage('pt')">🇧🇷 PT</button>
+            <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">🇺🇸 EN</button>
+            <button class="lang-btn" data-lang="es" onclick="setLanguage('es')">🇪🇸 ES</button>
+        </div>
+
         <!-- Ícone de aviso -->
         <div class="warning-icon" id="warningIcon">⚠️</div>
 
@@ -776,18 +840,18 @@
 
         <!-- URL de destino -->
         <div class="url-box">
-            <span class="label">🌐 Destino:</span>
+            <span class="label" id="urlLabel">🌐 Destino:</span>
             <span id="targetUrlDisplay">Carregando...</span>
         </div>
 
         <!-- Relatório de sinalizações -->
         <div id="reportInfo" class="report-info hidden">
-            <div style="font-weight: 600; margin-bottom: 8px; color: #374151;">
+            <div style="font-weight: 600; margin-bottom: 8px; color: #374151;" id="reportTitle">
                 📋 Relatório de Sinalizações
             </div>
             <div id="reportContent"></div>
             <div id="reportComments" class="report-comments hidden">
-                <div style="font-weight: 600; margin-bottom: 6px; color: #374151; font-size: 0.85rem;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #374151; font-size: 0.85rem;" id="commentsTitle">
                     💬 Comentários dos usuários:
                 </div>
                 <div id="commentsList"></div>
@@ -802,9 +866,9 @@
 
         <!-- Contagem regressiva -->
         <div class="countdown-container">
-            <span class="countdown-label">Redirecionando em</span>
+            <span class="countdown-label" id="countdownLabel">Redirecionando em</span>
             <div class="countdown" id="countdown">10</div>
-            <span class="countdown-label">segundos</span>
+            <span class="countdown-label" id="countdownSecondsLabel">segundos</span>
         </div>
 
         <div class="progress-bar">
@@ -814,29 +878,29 @@
         <!-- Botões -->
         <div class="btn-group">
             <a href="#" id="redirectBtn" class="btn btn-primary">
-                <i class="fas fa-external-link-alt"></i> Continuar
+                <i class="fas fa-external-link-alt"></i> <span id="continueBtnText">Continuar</span>
             </a>
             <button onclick="history.back()" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Voltar
+                <i class="fas fa-arrow-left"></i> <span id="backBtnText">Voltar</span>
             </button>
         </div>
 
         <!-- Botão para sinalizar -->
         <div style="margin-top: 15px;">
             <button class="report-btn" id="reportBtn" onclick="handleReportClick()">
-                <i class="fas fa-flag"></i> Sinalizar este site como problemático
+                <i class="fas fa-flag"></i> <span id="reportBtnText">Sinalizar este site como problemático</span>
             </button>
             <span id="alreadyReported" class="already-reported hidden">
-                <i class="fas fa-check-circle"></i> Você já sinalizou este site
+                <i class="fas fa-check-circle"></i> <span id="alreadyReportedText">Você já sinalizou este site</span>
             </span>
             <span id="loginRequiredBadge" class="login-required-badge hidden">
-                <i class="fas fa-lock"></i> Login necessário
+                <i class="fas fa-lock"></i> <span id="loginRequiredText">Login necessário</span>
             </span>
         </div>
 
         <!-- Informações adicionais -->
         <div class="info-box">
-            <p>
+            <p id="infoText">
                 <i class="fas fa-shield-alt"></i>
                 Este redirecionamento está sendo registrado para sua segurança.
                 <br>
@@ -855,8 +919,8 @@
     <div id="reportModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 20px;">
         <div style="background: white; border-radius: 20px; padding: 35px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; animation: slideUp 0.3s ease;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #1f2937; font-size: 1.3rem;">
-                    <i class="fas fa-flag" style="color: #dc2626;"></i> Sinalizar Site
+                <h2 style="color: #1f2937; font-size: 1.3rem;" id="modalTitle">
+                    <i class="fas fa-flag" style="color: #dc2626;"></i> <span id="modalTitleText">Sinalizar Site</span>
                 </h2>
                 <button onclick="closeReportModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #6b7280;">&times;</button>
             </div>
@@ -864,69 +928,71 @@
             <!-- Mensagem de login obrigatório -->
             <div id="loginRequiredMessage" style="display: none; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px; padding: 20px; margin-bottom: 15px; text-align: center;">
                 <div style="font-size: 3rem; margin-bottom: 10px;">🔐</div>
-                <h3 style="color: #92400e; margin-bottom: 10px;">Login Obrigatório</h3>
-                <p style="color: #78350f; font-size: 0.95rem; line-height: 1.6;">
+                <h3 style="color: #92400e; margin-bottom: 10px;" id="loginRequiredTitle">Login Obrigatório</h3>
+                <p style="color: #78350f; font-size: 0.95rem; line-height: 1.6;" id="loginRequiredDesc">
                     Para sinalizar um site como problemático, você precisa estar logado com sua conta Google.
                     <br><br>
                     Isso ajuda a prevenir sinalizações falsas e manter a comunidade segura.
                 </p>
                 <button onclick="loginWithGoogle()" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 15px;">
-                    <i class="fab fa-google"></i> Entrar com Google
+                    <i class="fab fa-google"></i> <span id="loginGoogleBtn">Entrar com Google</span>
                 </button>
                 <button onclick="closeReportModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
-                    Cancelar
+                    <span id="cancelBtnText">Cancelar</span>
                 </button>
             </div>
 
             <!-- Mensagem de banimento -->
             <div id="bannedReportMessage" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; padding: 15px; margin-bottom: 15px; text-align: center;">
                 <div style="font-size: 2rem; margin-bottom: 10px;">🚫</div>
-                <h3 style="color: #991b1b; margin-bottom: 5px;">Conta Banida</h3>
-                <p style="color: #7f1d1d; font-size: 0.9rem;">Sua conta foi banida e você não pode sinalizar sites.</p>
-                <button onclick="closeReportModal()" class="btn btn-secondary" style="margin-top: 10px;">Fechar</button>
+                <h3 style="color: #991b1b; margin-bottom: 5px;" id="bannedTitle">Conta Banida</h3>
+                <p style="color: #7f1d1d; font-size: 0.9rem;" id="bannedDesc">Sua conta foi banida e você não pode sinalizar sites.</p>
+                <button onclick="closeReportModal()" class="btn btn-secondary" style="margin-top: 10px;">
+                    <span id="closeBtnText">Fechar</span>
+                </button>
             </div>
 
             <!-- Formulário de sinalização -->
             <div id="reportFormContent">
-                <p style="color: #6b7280; margin-bottom: 15px;">
+                <p style="color: #6b7280; margin-bottom: 15px;" id="reportFormDesc">
                     Ajude a comunidade sinalizando sites problemáticos. Selecione os motivos abaixo:
                 </p>
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 8px; cursor: pointer;">
                         <input type="checkbox" id="reportFakeNews" value="fake_news">
-                        <span>📰 <strong>Fake News</strong> - Site que dissemina notícias falsas</span>
+                        <span>📰 <strong id="labelFakeNews">Fake News</strong> - <span id="labelFakeNewsDesc">Site que dissemina notícias falsas</span></span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 8px; cursor: pointer;">
                         <input type="checkbox" id="reportMalicious" value="malicious">
-                        <span>⚠️ <strong>Malicioso</strong> - Site que contém malware ou phishing</span>
+                        <span>⚠️ <strong id="labelMalicious">Malicioso</strong> - <span id="labelMaliciousDesc">Site que contém malware ou phishing</span></span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 8px; cursor: pointer;">
                         <input type="checkbox" id="reportBroken" value="broken">
-                        <span>🔗 <strong>Link Quebrado</strong> - O link não funciona ou está inacessível</span>
+                        <span>🔗 <strong id="labelBroken">Link Quebrado</strong> - <span id="labelBrokenDesc">O link não funciona ou está inacessível</span></span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 8px; cursor: pointer;">
                         <input type="checkbox" id="reportInappropriate" value="inappropriate">
-                        <span>🔞 <strong>Conteúdo Impróprio</strong> - Conteúdo ofensivo ou inadequado</span>
+                        <span>🔞 <strong id="labelInappropriate">Conteúdo Impróprio</strong> - <span id="labelInappropriateDesc">Conteúdo ofensivo ou inadequado</span></span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 8px; cursor: pointer;">
                         <input type="checkbox" id="reportLgpd" value="lgpd_violation">
-                        <span>⚖️ <strong>Violacão LGPD</strong> - Coleta dados sem consentimento</span>
+                        <span>⚖️ <strong id="labelLgpd">Violação LGPD</strong> - <span id="labelLgpdDesc">Coleta dados sem consentimento</span></span>
                     </label>
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label style="color: #374151; font-weight: 600; display: block; margin-bottom: 5px;">Comentário adicional (opcional):</label>
+                    <label style="color: #374151; font-weight: 600; display: block; margin-bottom: 5px;" id="commentLabel">Comentário adicional (opcional):</label>
                     <textarea id="reportComment" rows="3" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; resize: vertical; font-family: inherit;" placeholder="Descreva o problema..."></textarea>
                 </div>
 
-                <button onclick="submitReport()" class="btn btn-danger" style="width: 100%; justify-content: center;">
-                    <i class="fas fa-paper-plane"></i> Enviar Sinalização
+                <button onclick="submitReport()" class="btn btn-danger" style="width: 100%; justify-content: center;" id="submitReportBtn">
+                    <i class="fas fa-paper-plane"></i> <span id="submitReportText">Enviar Sinalização</span>
                 </button>
             </div>
 
             <button onclick="closeReportModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
-                Cancelar
+                <span id="modalCancelText">Cancelar</span>
             </button>
         </div>
     </div>
@@ -935,15 +1001,15 @@
     <div id="loginModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 20px;">
         <div style="background: white; border-radius: 20px; padding: 35px; max-width: 450px; width: 100%; text-align: center; animation: slideUp 0.3s ease;">
             <div style="font-size: 3rem; margin-bottom: 15px;">🔐</div>
-            <h2 style="color: #1f2937; margin-bottom: 10px;">Login Necessário</h2>
-            <p style="color: #6b7280; margin-bottom: 20px; line-height: 1.6;">
+            <h2 style="color: #1f2937; margin-bottom: 10px;" id="loginModalTitle">Login Necessário</h2>
+            <p style="color: #6b7280; margin-bottom: 20px; line-height: 1.6;" id="loginModalDesc">
                 Para sinalizar um site, você precisa estar logado com sua conta Google.
             </p>
             <button onclick="loginWithGoogle()" class="btn btn-primary" style="width: 100%; justify-content: center;">
-                <i class="fab fa-google"></i> Entrar com Google
+                <i class="fab fa-google"></i> <span id="loginModalGoogleBtn">Entrar com Google</span>
             </button>
             <button onclick="closeLoginModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
-                Cancelar
+                <span id="loginModalCancelBtn">Cancelar</span>
             </button>
         </div>
     </div>
@@ -952,23 +1018,531 @@
     <div id="bannedOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center; padding: 20px;">
         <div style="background: white; border-radius: 24px; padding: 45px 40px; max-width: 500px; width: 100%; text-align: center; animation: slideUp 0.5s ease;">
             <div style="font-size: 4rem; margin-bottom: 20px;">🚫</div>
-            <h2 style="color: #dc2626; margin-bottom: 10px;">⚠️ Conta Banida</h2>
-            <p style="color: #6b7280; margin-bottom: 15px; line-height: 1.6;">
+            <h2 style="color: #dc2626; margin-bottom: 10px;" id="bannedOverlayTitle">⚠️ Conta Banida</h2>
+            <p style="color: #6b7280; margin-bottom: 15px; line-height: 1.6;" id="bannedOverlayDesc">
                 Sua conta foi banida permanentemente do sistema.
             </p>
             <div id="banDetails" style="background: #fef2f2; padding: 12px; border-radius: 10px; color: #991b1b; margin-bottom: 15px; border: 1px solid #fca5a5;">
                 Motivo: Violação das políticas de uso
             </div>
-            <p style="color: #9ca3af; font-size: 0.85rem; margin-bottom: 20px;">
+            <p style="color: #9ca3af; font-size: 0.85rem; margin-bottom: 20px;" id="bannedOverlayHelp">
                 Se você acredita que isso é um erro, entre em contato com o suporte.
             </p>
-            <button onclick="logoutBanned()" style="background: #dc2626; color: white; border: none; padding: 12px 30px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+            <button onclick="logoutBanned()" style="background: #dc2626; color: white; border: none; padding: 12px 30px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s;" id="bannedLogoutBtn">
                 🚪 Sair da conta
             </button>
         </div>
     </div>
 
     <script>
+        // ============================================================
+        // SISTEMA DE TRADUÇÃO - MULTI IDIOMAS
+        // ============================================================
+
+        const translations = {
+            pt: {
+                // Geral
+                pageTitle: 'Redirecionamento - Verificação de Segurança',
+                verifying: 'Verificando segurança do site...',
+                checking: 'Aguardando verificação de segurança...',
+                target: '🌐 Destino:',
+                loading: 'Carregando...',
+                redirectingIn: 'Redirecionando em',
+                seconds: 'segundos',
+                continue: 'Continuar',
+                back: 'Voltar',
+                cancel: 'Cancelar',
+                close: 'Fechar',
+
+                // Status
+                statusSafe: '✅ Site Verificado - Seguro',
+                statusWarning: '⚠️ Atenção - Sinalizações Recentes',
+                statusDanger: '🚨 Perigo - Site Sinalizado como Malicioso',
+                statusBroken: '🔗 Link Quebrado - Site Inacessível',
+                statusVerified: '🔵 Verificado pela Moderação',
+                statusUnknown: '🔍 Verificando...',
+                statusBanned: '🚫 Conta ou IP Banido',
+
+                // Mensagens
+                msgSafe: 'Nenhuma sinalização encontrada para este site.',
+                msgWarning: 'Este site possui sinalizações de usuários. Acesse com cautela.',
+                msgDanger: 'Este site foi sinalizado como malicioso ou contém conteúdo impróprio. Evite acessar.',
+                msgBroken: 'Este site foi sinalizado por múltiplos usuários como tendo link quebrado ou inacessível.',
+                msgVerified: '✅ Este site foi verificado pela moderação e confirmado como seguro.',
+                msgBlocked: '🚨 Este site foi BLOQUEADO pela moderação por violações graves.',
+                msgFakeNews: 'Este site foi sinalizado como disseminador de Fake News. Verifique as informações antes de confiar.',
+                msgLgpd: 'Este site foi sinalizado por possíveis violações da LGPD. Cuidado com seus dados.',
+
+                // Report
+                reportTitle: '📋 Relatório de Sinalizações',
+                commentsTitle: '💬 Comentários dos usuários:',
+                reportBtn: 'Sinalizar este site como problemático',
+                alreadyReported: 'Você já sinalizou este site',
+                loginRequired: 'Login necessário',
+                reportModalTitle: 'Sinalizar Site',
+                reportFormDesc: 'Ajude a comunidade sinalizando sites problemáticos. Selecione os motivos abaixo:',
+                labelFakeNews: 'Fake News',
+                labelFakeNewsDesc: 'Site que dissemina notícias falsas',
+                labelMalicious: 'Malicioso',
+                labelMaliciousDesc: 'Site que contém malware ou phishing',
+                labelBroken: 'Link Quebrado',
+                labelBrokenDesc: 'O link não funciona ou está inacessível',
+                labelInappropriate: 'Conteúdo Impróprio',
+                labelInappropriateDesc: 'Conteúdo ofensivo ou inadequado',
+                labelLgpd: 'Violação LGPD',
+                labelLgpdDesc: 'Coleta dados sem consentimento',
+                commentLabel: 'Comentário adicional (opcional):',
+                submitReport: 'Enviar Sinalização',
+                loginRequiredTitle: 'Login Obrigatório',
+                loginRequiredDesc: 'Para sinalizar um site como problemático, você precisa estar logado com sua conta Google.\n\nIsso ajuda a prevenir sinalizações falsas e manter a comunidade segura.',
+                loginGoogle: 'Entrar com Google',
+                bannedTitle: 'Conta Banida',
+                bannedDesc: 'Sua conta foi banida e você não pode sinalizar sites.',
+                loginModalTitle: 'Login Necessário',
+                loginModalDesc: 'Para sinalizar um site, você precisa estar logado com sua conta Google.',
+                bannedOverlayTitle: '⚠️ Conta Banida',
+                bannedOverlayDesc: 'Sua conta foi banida permanentemente do sistema.',
+                bannedOverlayHelp: 'Se você acredita que isso é um erro, entre em contato com o suporte.',
+                bannedLogout: '🚪 Sair da conta',
+
+                // Confirm
+                confirmSafe: 'Eu confio neste site e desejo continuar',
+                confirmVerified: '✅ Site verificado pela moderação. Deseja continuar?',
+                confirmDanger: '⚠️ Estou ciente do alto risco e assumo total responsabilidade pelo acesso',
+                confirmWarning: 'Estou ciente das sinalizações e desejo prosseguir sob minha responsabilidade',
+                confirmBroken: 'Estou ciente que o link pode estar quebrado e desejo tentar mesmo assim',
+
+                // Info
+                infoText: 'Este redirecionamento está sendo registrado para sua segurança.',
+                idLabel: 'ID:',
+
+                // Error
+                errorDefault: 'Erro ao carregar o redirecionamento.',
+                errorNoTarget: 'Nenhum destino especificado. Use ?uid=URL',
+                errorInvalidUrl: 'URL de destino inválida: ',
+
+                // Banned
+                bannedReason: 'Motivo: Violação das políticas de uso',
+                bannedAccount: 'conta',
+                bannedIP: 'endereço IP',
+
+                // Counts
+                totalReports: 'Total de Sinalizações:',
+                fakeNewsCount: '📰 Fake News:',
+                maliciousCount: '⚠️ Malicioso:',
+                brokenCount: '🔗 Link Quebrado:',
+                inappropriateCount: '🔞 Conteúdo Impróprio:',
+                lgpdCount: '⚖️ Violação LGPD:',
+                recentReports: '📅 Sinalizações Recentes (30 dias):',
+
+                // Buttons
+                continueBtn: 'Continuar',
+                backBtn: 'Voltar',
+                cancelBtn: 'Cancelar'
+            },
+            en: {
+                // Geral
+                pageTitle: 'Redirect - Security Verification',
+                verifying: 'Verifying site security...',
+                checking: 'Awaiting security verification...',
+                target: '🌐 Destination:',
+                loading: 'Loading...',
+                redirectingIn: 'Redirecting in',
+                seconds: 'seconds',
+                continue: 'Continue',
+                back: 'Back',
+                cancel: 'Cancel',
+                close: 'Close',
+
+                // Status
+                statusSafe: '✅ Verified Site - Safe',
+                statusWarning: '⚠️ Attention - Recent Reports',
+                statusDanger: '🚨 Danger - Site Reported as Malicious',
+                statusBroken: '🔗 Broken Link - Site Unavailable',
+                statusVerified: '🔵 Verified by Moderation',
+                statusUnknown: '🔍 Verifying...',
+                statusBanned: '🚫 Account or IP Banned',
+
+                // Mensagens
+                msgSafe: 'No reports found for this site.',
+                msgWarning: 'This site has user reports. Proceed with caution.',
+                msgDanger: 'This site has been reported as malicious or contains inappropriate content. Avoid visiting.',
+                msgBroken: 'This site has been reported by multiple users as having a broken or inaccessible link.',
+                msgVerified: '✅ This site has been verified by moderation and confirmed safe.',
+                msgBlocked: '🚨 This site has been BLOCKED by moderation for serious violations.',
+                msgFakeNews: 'This site has been reported as spreading Fake News. Verify information before trusting.',
+                msgLgpd: 'This site has been reported for possible GDPR violations. Be careful with your data.',
+
+                // Report
+                reportTitle: '📋 Reports Summary',
+                commentsTitle: '💬 User comments:',
+                reportBtn: 'Report this site as problematic',
+                alreadyReported: 'You have already reported this site',
+                loginRequired: 'Login required',
+                reportModalTitle: 'Report Site',
+                reportFormDesc: 'Help the community by reporting problematic sites. Select the reasons below:',
+                labelFakeNews: 'Fake News',
+                labelFakeNewsDesc: 'Site that spreads fake news',
+                labelMalicious: 'Malicious',
+                labelMaliciousDesc: 'Site contains malware or phishing',
+                labelBroken: 'Broken Link',
+                labelBrokenDesc: 'Link does not work or is inaccessible',
+                labelInappropriate: 'Inappropriate Content',
+                labelInappropriateDesc: 'Offensive or inappropriate content',
+                labelLgpd: 'GDPR Violation',
+                labelLgpdDesc: 'Collects data without consent',
+                commentLabel: 'Additional comment (optional):',
+                submitReport: 'Submit Report',
+                loginRequiredTitle: 'Login Required',
+                loginRequiredDesc: 'To report a site as problematic, you need to be logged in with your Google account.\n\nThis helps prevent false reports and keep the community safe.',
+                loginGoogle: 'Login with Google',
+                bannedTitle: 'Banned Account',
+                bannedDesc: 'Your account has been banned and you cannot report sites.',
+                loginModalTitle: 'Login Required',
+                loginModalDesc: 'To report a site, you need to be logged in with your Google account.',
+                bannedOverlayTitle: '⚠️ Banned Account',
+                bannedOverlayDesc: 'Your account has been permanently banned from the system.',
+                bannedOverlayHelp: 'If you believe this is a mistake, please contact support.',
+                bannedLogout: '🚪 Logout',
+
+                // Confirm
+                confirmSafe: 'I trust this site and want to continue',
+                confirmVerified: '✅ Site verified by moderation. Continue?',
+                confirmDanger: '⚠️ I am aware of the high risk and assume full responsibility for accessing',
+                confirmWarning: 'I am aware of the reports and wish to proceed at my own risk',
+                confirmBroken: 'I am aware the link may be broken and want to try anyway',
+
+                // Info
+                infoText: 'This redirect is being logged for your security.',
+                idLabel: 'ID:',
+
+                // Error
+                errorDefault: 'Error loading redirect.',
+                errorNoTarget: 'No destination specified. Use ?uid=URL',
+                errorInvalidUrl: 'Invalid destination URL: ',
+
+                // Banned
+                bannedReason: 'Reason: Violation of usage policies',
+                bannedAccount: 'account',
+                bannedIP: 'IP address',
+
+                // Counts
+                totalReports: 'Total Reports:',
+                fakeNewsCount: '📰 Fake News:',
+                maliciousCount: '⚠️ Malicious:',
+                brokenCount: '🔗 Broken Link:',
+                inappropriateCount: '🔞 Inappropriate Content:',
+                lgpdCount: '⚖️ GDPR Violation:',
+                recentReports: '📅 Recent Reports (30 days):',
+
+                // Buttons
+                continueBtn: 'Continue',
+                backBtn: 'Back',
+                cancelBtn: 'Cancel'
+            },
+            es: {
+                // Geral
+                pageTitle: 'Redireccionamiento - Verificación de Seguridad',
+                verifying: 'Verificando seguridad del sitio...',
+                checking: 'Esperando verificación de seguridad...',
+                target: '🌐 Destino:',
+                loading: 'Cargando...',
+                redirectingIn: 'Redirigiendo en',
+                seconds: 'segundos',
+                continue: 'Continuar',
+                back: 'Volver',
+                cancel: 'Cancelar',
+                close: 'Cerrar',
+
+                // Status
+                statusSafe: '✅ Sitio Verificado - Seguro',
+                statusWarning: '⚠️ Atención - Señalizaciones Recientes',
+                statusDanger: '🚨 Peligro - Sitio Señalizado como Malicioso',
+                statusBroken: '🔗 Enlace Roto - Sitio Inaccesible',
+                statusVerified: '🔵 Verificado por Moderación',
+                statusUnknown: '🔍 Verificando...',
+                statusBanned: '🚫 Cuenta o IP Baneado',
+
+                // Mensajes
+                msgSafe: 'No se encontraron señalizaciones para este sitio.',
+                msgWarning: 'Este sitio tiene señalizaciones de usuarios. Acceda con precaución.',
+                msgDanger: 'Este sitio ha sido señalizado como malicioso o contiene contenido inapropiado. Evite acceder.',
+                msgBroken: 'Este sitio ha sido señalizado por múltiples usuarios como teniendo un enlace roto o inaccesible.',
+                msgVerified: '✅ Este sitio ha sido verificado por la moderación y confirmado como seguro.',
+                msgBlocked: '🚨 Este sitio ha sido BLOQUEADO por la moderación por violaciones graves.',
+                msgFakeNews: 'Este sitio ha sido señalizado como difusor de Fake News. Verifique la información antes de confiar.',
+                msgLgpd: 'Este sitio ha sido señalizado por posibles violaciones de la LGPD. Tenga cuidado con sus datos.',
+
+                // Report
+                reportTitle: '📋 Informe de Señalizaciones',
+                commentsTitle: '💬 Comentarios de usuarios:',
+                reportBtn: 'Señalizar este sitio como problemático',
+                alreadyReported: 'Ya has señalizado este sitio',
+                loginRequired: 'Inicio de sesión requerido',
+                reportModalTitle: 'Señalizar Sitio',
+                reportFormDesc: 'Ayude a la comunidad señalizando sitios problemáticos. Seleccione los motivos a continuación:',
+                labelFakeNews: 'Fake News',
+                labelFakeNewsDesc: 'Sitio que difunde noticias falsas',
+                labelMalicious: 'Malicioso',
+                labelMaliciousDesc: 'Sitio que contiene malware o phishing',
+                labelBroken: 'Enlace Roto',
+                labelBrokenDesc: 'El enlace no funciona o es inaccesible',
+                labelInappropriate: 'Contenido Inapropiado',
+                labelInappropriateDesc: 'Contenido ofensivo o inapropiado',
+                labelLgpd: 'Violación LGPD',
+                labelLgpdDesc: 'Recolecta datos sin consentimiento',
+                commentLabel: 'Comentario adicional (opcional):',
+                submitReport: 'Enviar Señalización',
+                loginRequiredTitle: 'Inicio de Sesión Requerido',
+                loginRequiredDesc: 'Para señalizar un sitio como problemático, debe iniciar sesión con su cuenta de Google.\n\nEsto ayuda a prevenir señalizaciones falsas y mantener la comunidad segura.',
+                loginGoogle: 'Iniciar sesión con Google',
+                bannedTitle: 'Cuenta Baneada',
+                bannedDesc: 'Su cuenta ha sido baneada y no puede señalizar sitios.',
+                loginModalTitle: 'Inicio de Sesión Requerido',
+                loginModalDesc: 'Para señalizar un sitio, debe iniciar sesión con su cuenta de Google.',
+                bannedOverlayTitle: '⚠️ Cuenta Baneada',
+                bannedOverlayDesc: 'Su cuenta ha sido baneada permanentemente del sistema.',
+                bannedOverlayHelp: 'Si cree que esto es un error, póngase en contacto con el soporte.',
+                bannedLogout: '🚪 Cerrar sesión',
+
+                // Confirm
+                confirmSafe: 'Confío en este sitio y deseo continuar',
+                confirmVerified: '✅ Sitio verificado por moderación. ¿Desea continuar?',
+                confirmDanger: '⚠️ Soy consciente del alto riesgo y asumo toda la responsabilidad por el acceso',
+                confirmWarning: 'Soy consciente de las señalizaciones y deseo proceder bajo mi responsabilidad',
+                confirmBroken: 'Soy consciente de que el enlace puede estar roto y deseo intentarlo de todos modos',
+
+                // Info
+                infoText: 'Este redireccionamiento está siendo registrado para su seguridad.',
+                idLabel: 'ID:',
+
+                // Error
+                errorDefault: 'Error al cargar el redireccionamiento.',
+                errorNoTarget: 'Ningún destino especificado. Use ?uid=URL',
+                errorInvalidUrl: 'URL de destino inválida: ',
+
+                // Banned
+                bannedReason: 'Motivo: Violación de las políticas de uso',
+                bannedAccount: 'cuenta',
+                bannedIP: 'dirección IP',
+
+                // Counts
+                totalReports: 'Total de Señalizaciones:',
+                fakeNewsCount: '📰 Fake News:',
+                maliciousCount: '⚠️ Malicioso:',
+                brokenCount: '🔗 Enlace Roto:',
+                inappropriateCount: '🔞 Contenido Inapropiado:',
+                lgpdCount: '⚖️ Violación LGPD:',
+                recentReports: '📅 Señalizaciones Recientes (30 días):',
+
+                // Buttons
+                continueBtn: 'Continuar',
+                backBtn: 'Volver',
+                cancelBtn: 'Cancelar'
+            }
+        };
+
+        // ============================================================
+        // SISTEMA DE IDIOMAS
+        // ============================================================
+
+        let currentLang = 'pt';
+        let pendingTranslations = [];
+
+        function getBrowserLanguage() {
+            const lang = navigator.language || navigator.languages[0] || 'pt';
+            if (lang.startsWith('pt')) return 'pt';
+            if (lang.startsWith('es')) return 'es';
+            return 'en';
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+
+            // Atualizar botões
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === lang);
+            });
+
+            // Aplicar traduções
+            applyTranslations(lang);
+
+            // Salvar preferência
+            try {
+                localStorage.setItem('preferred_language', lang);
+            } catch (e) { /* ignora */ }
+
+            // Atualizar página se já carregada
+            if (typeof updateUIWithStatus === 'function' && currentReportData) {
+                updateUIWithStatus(currentReportData);
+            }
+        }
+
+        function applyTranslations(lang) {
+            const t = translations[lang] || translations.pt;
+
+            // Atualizar elementos com data-translate
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.dataset.translate;
+                const parts = key.split('.');
+                let value = t;
+                for (const part of parts) {
+                    if (value && value[part] !== undefined) {
+                        value = value[part];
+                    } else {
+                        value = null;
+                        break;
+                    }
+                }
+                if (value !== null) {
+                    if (el.tagName === 'INPUT' && el.type === 'text') {
+                        el.placeholder = value;
+                    } else if (el.tagName === 'TEXTAREA') {
+                        el.placeholder = value;
+                    } else {
+                        el.textContent = value;
+                    }
+                }
+            });
+
+            // Atualizar título da página
+            if (t.pageTitle) {
+                document.title = t.pageTitle;
+                const titleEl = document.getElementById('pageTitle');
+                if (titleEl) titleEl.textContent = t.pageTitle;
+            }
+
+            // Elementos especiais que precisam de atualização dinâmica
+            const elementsToUpdate = [
+                { id: 'title', key: 'verifying' },
+                { id: 'statusBadge', key: 'statusUnknown' },
+                { id: 'urlLabel', key: 'target' },
+                { id: 'countdownLabel', key: 'redirectingIn' },
+                { id: 'countdownSecondsLabel', key: 'seconds' },
+                { id: 'continueBtnText', key: 'continue' },
+                { id: 'backBtnText', key: 'back' },
+                { id: 'reportBtnText', key: 'reportBtn' },
+                { id: 'alreadyReportedText', key: 'alreadyReported' },
+                { id: 'loginRequiredText', key: 'loginRequired' },
+                { id: 'reportTitle', key: 'reportTitle' },
+                { id: 'commentsTitle', key: 'commentsTitle' },
+                { id: 'modalTitleText', key: 'reportModalTitle' },
+                { id: 'reportFormDesc', key: 'reportFormDesc' },
+                { id: 'labelFakeNews', key: 'labelFakeNews' },
+                { id: 'labelFakeNewsDesc', key: 'labelFakeNewsDesc' },
+                { id: 'labelMalicious', key: 'labelMalicious' },
+                { id: 'labelMaliciousDesc', key: 'labelMaliciousDesc' },
+                { id: 'labelBroken', key: 'labelBroken' },
+                { id: 'labelBrokenDesc', key: 'labelBrokenDesc' },
+                { id: 'labelInappropriate', key: 'labelInappropriate' },
+                { id: 'labelInappropriateDesc', key: 'labelInappropriateDesc' },
+                { id: 'labelLgpd', key: 'labelLgpd' },
+                { id: 'labelLgpdDesc', key: 'labelLgpdDesc' },
+                { id: 'commentLabel', key: 'commentLabel' },
+                { id: 'submitReportText', key: 'submitReport' },
+                { id: 'loginRequiredTitle', key: 'loginRequiredTitle' },
+                { id: 'loginRequiredDesc', key: 'loginRequiredDesc' },
+                { id: 'loginGoogleBtn', key: 'loginGoogle' },
+                { id: 'bannedTitle', key: 'bannedTitle' },
+                { id: 'bannedDesc', key: 'bannedDesc' },
+                { id: 'loginModalTitle', key: 'loginModalTitle' },
+                { id: 'loginModalDesc', key: 'loginModalDesc' },
+                { id: 'bannedOverlayTitle', key: 'bannedOverlayTitle' },
+                { id: 'bannedOverlayDesc', key: 'bannedOverlayDesc' },
+                { id: 'bannedOverlayHelp', key: 'bannedOverlayHelp' },
+                { id: 'bannedLogoutBtn', key: 'bannedLogout' },
+                { id: 'infoText', key: 'infoText' },
+                { id: 'cancelBtnText', key: 'cancel' },
+                { id: 'closeBtnText', key: 'close' },
+                { id: 'modalCancelText', key: 'cancel' },
+                { id: 'loginModalGoogleBtn', key: 'loginGoogle' },
+                { id: 'loginModalCancelBtn', key: 'cancel' },
+                { id: 'submitReportBtn', key: 'submitReport' },
+            ];
+
+            for (const el of elementsToUpdate) {
+                const element = document.getElementById(el.id);
+                if (element) {
+                    const parts = el.key.split('.');
+                    let value = t;
+                    for (const part of parts) {
+                        if (value && value[part] !== undefined) {
+                            value = value[part];
+                        } else {
+                            value = null;
+                            break;
+                        }
+                    }
+                    if (value !== null) {
+                        // Verificar se o elemento tem placeholder ou textContent
+                        if (element.tagName === 'INPUT' && element.type === 'text') {
+                            element.placeholder = value;
+                        } else if (element.tagName === 'TEXTAREA') {
+                            element.placeholder = value;
+                        } else if (element.tagName === 'BUTTON') {
+                            // Verificar se não tem innerHTML com ícone
+                            if (element.querySelector('i')) {
+                                const icon = element.querySelector('i');
+                                const textNode = element.childNodes[element.childNodes.length - 1];
+                                if (textNode && textNode.nodeType === 3) {
+                                    textNode.textContent = value;
+                                } else {
+                                    element.innerHTML = `<i class="${icon.className}"></i> ${value}`;
+                                }
+                            } else {
+                                element.textContent = value;
+                            }
+                        } else {
+                            element.textContent = value;
+                        }
+                    }
+                }
+            }
+
+            // Atualizar confirmLabel separadamente (depende do status)
+            const confirmLabel = document.getElementById('confirmLabel');
+            if (confirmLabel && currentReportData) {
+                const status = currentReportData.status || 'unknown';
+                const confirmKey = {
+                    'safe': 'confirmSafe',
+                    'verified': 'confirmVerified',
+                    'danger': 'confirmDanger',
+                    'warning': 'confirmWarning',
+                    'broken': 'confirmBroken'
+                } [status] || 'confirmSafe';
+                confirmLabel.textContent = t[confirmKey] || t.confirmSafe;
+            }
+
+            // Aplicar textos do modal de report se estiver aberto
+            if (document.getElementById('reportModal').style.display === 'flex') {
+                const modal = document.getElementById('reportModal');
+                const loginMessage = modal.querySelector('#loginRequiredMessage');
+                if (loginMessage.style.display !== 'none') {
+                    document.getElementById('loginRequiredTitle').textContent = t.loginRequiredTitle;
+                    document.getElementById('loginRequiredDesc').textContent = t.loginRequiredDesc;
+                    document.getElementById('loginGoogleBtn').textContent = t.loginGoogle;
+                    document.getElementById('cancelBtnText').textContent = t.cancel;
+                }
+            }
+        }
+
+        // Inicializar idioma
+        function initLanguage() {
+            // Tentar carregar preferência salva
+            let preferredLang = null;
+            try {
+                preferredLang = localStorage.getItem('preferred_language');
+            } catch (e) { /* ignora */ }
+
+            // Se não tiver preferência, usar idioma do navegador
+            if (!preferredLang || !translations[preferredLang]) {
+                preferredLang = getBrowserLanguage();
+            }
+
+            setLanguage(preferredLang);
+        }
+
         // ============================================================
         // CONFIGURAÇÃO DO FIREBASE
         // ============================================================
@@ -1015,17 +1589,16 @@
                 .then(result => {
                     currentUser = result.user;
                     isLoggedIn = true;
-                    showToast('✅ Login realizado com sucesso!', 'success');
+                    showToast(getTranslation('loginSuccess'), 'success');
                     closeLoginModal();
                     closeReportModal();
-                    // Reabrir o modal de report após login
                     setTimeout(() => {
                         openReportModal();
                     }, 500);
                 })
                 .catch(error => {
                     console.error('Erro ao fazer login:', error);
-                    showToast('❌ Erro ao fazer login: ' + error.message, 'error');
+                    showToast(getTranslation('loginError') + error.message, 'error');
                 });
         }
 
@@ -1038,13 +1611,30 @@
         }
 
         // ============================================================
+        // FUNÇÃO PARA OBTER TRADUÇÃO
+        // ============================================================
+
+        function getTranslation(key) {
+            const t = translations[currentLang] || translations.pt;
+            const parts = key.split('.');
+            let value = t;
+            for (const part of parts) {
+                if (value && value[part] !== undefined) {
+                    value = value[part];
+                } else {
+                    value = null;
+                    break;
+                }
+            }
+            return value || key;
+        }
+
+        // ============================================================
         // FUNÇÕES DE BANIMENTO
         // ============================================================
 
-        // Cache de banimento
         let banCheckCache = {};
 
-        // Verifica banimento por UID (conta Google)
         async function checkUserBanStatus(user) {
             if (!user) return false;
 
@@ -1057,7 +1647,7 @@
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists && userDoc.data().isBanned === true) {
                     isBanned = true;
-                    banDetails = userDoc.data().banDetails || 'Motivo: Violação das políticas de uso';
+                    banDetails = userDoc.data().banDetails || getTranslation('bannedReason');
                     banReason = 'conta';
                     banCheckCache[cacheKey] = true;
                     return true;
@@ -1070,7 +1660,6 @@
             }
         }
 
-        // Verifica banimento por IP
         async function checkIpBanStatus(ipHash) {
             if (!ipHash || ipHash === 'unknown') return false;
 
@@ -1088,7 +1677,7 @@
                 if (!snapshot.empty) {
                     const banData = snapshot.docs[0].data();
                     isBanned = true;
-                    banDetails = banData.banDetails || 'Motivo: Violação das políticas de uso';
+                    banDetails = banData.banDetails || getTranslation('bannedReason');
                     banReason = 'ip';
                     banCheckCache[cacheKey] = true;
                     return true;
@@ -1101,7 +1690,6 @@
             }
         }
 
-        // Verifica banimento combinado (UID + IP)
         async function checkBanStatus(user, ipHash) {
             const userBanned = await checkUserBanStatus(user);
             if (userBanned) return true;
@@ -1116,8 +1704,8 @@
             const overlay = document.getElementById('bannedOverlay');
             const details = document.getElementById('banDetails');
             overlay.style.display = 'flex';
-            const reasonText = banReason === 'ip' ? 'endereço IP' : 'conta';
-            details.textContent = `${banDetails || 'Motivo: Violação das políticas de uso'} (${reasonText} banido)`;
+            const reasonText = banReason === 'ip' ? getTranslation('bannedIP') : getTranslation('bannedAccount');
+            details.textContent = `${banDetails || getTranslation('bannedReason')} (${reasonText} ${getTranslation('banned')})`;
             document.body.style.overflow = 'hidden';
         }
 
@@ -1176,21 +1764,21 @@
             document.getElementById('progressFill').style.width = '100%';
             document.getElementById('redirectBtn').href = '#';
             document.getElementById('redirectBtn').classList.add('btn-danger');
-            document.getElementById('redirectBtn').innerHTML = '<i class="fas fa-times"></i> Erro';
+            document.getElementById('redirectBtn').innerHTML = '<i class="fas fa-times"></i> ' + getTranslation('error');
             document.getElementById('redirectBtn').disabled = true;
         }
 
         function getStatusLabel(status) {
             const labels = {
-                safe: '✅ Site Verificado - Seguro',
-                warning: '⚠️ Atenção - Sinalizações Recentes',
-                danger: '🚨 Perigo - Site Sinalizado como Malicioso',
-                broken: '🔗 Link Quebrado - Site Inacessível',
-                verified: '🔵 Verificado pela Moderação',
-                unknown: '🔍 Verificando...',
-                banned: '🚫 Conta ou IP Banido'
+                safe: getTranslation('statusSafe'),
+                warning: getTranslation('statusWarning'),
+                danger: getTranslation('statusDanger'),
+                broken: getTranslation('statusBroken'),
+                verified: getTranslation('statusVerified'),
+                unknown: getTranslation('statusUnknown'),
+                banned: getTranslation('statusBanned')
             };
-            return labels[status] || '🔍 Verificando...';
+            return labels[status] || getTranslation('statusUnknown');
         }
 
         // ============================================================
@@ -1226,10 +1814,10 @@
                 });
 
                 if (reports.length === 0 && moderationStatus === 'pending') {
-                    return { 
-                        status: 'safe', 
-                        reports: [], 
-                        message: 'Nenhuma sinalização encontrada para este site.',
+                    return {
+                        status: 'safe',
+                        reports: [],
+                        message: getTranslation('msgSafe'),
                         moderationStatus: 'pending',
                         isVerified: false
                     };
@@ -1272,7 +1860,7 @@
                     return {
                         status: 'verified',
                         reports: reports,
-                        message: '✅ Este site foi verificado pela moderação e confirmado como seguro.',
+                        message: getTranslation('msgVerified'),
                         summary: {
                             total: totalReports,
                             fakeNews: fakeNewsCount,
@@ -1292,7 +1880,7 @@
                     return {
                         status: 'danger',
                         reports: reports,
-                        message: '🚨 Este site foi BLOQUEADO pela moderação por violações graves.',
+                        message: getTranslation('msgBlocked'),
                         summary: {
                             total: totalReports,
                             fakeNews: fakeNewsCount,
@@ -1315,38 +1903,38 @@
                     const brokenRecent = recentReports.filter(r => r.reasons && r.reasons.includes('broken')).length;
                     if (brokenRecent / recentReports.length > 0.5) {
                         status = 'broken';
-                        message = 'Este site foi sinalizado por múltiplos usuários como tendo link quebrado ou inacessível.';
+                        message = getTranslation('msgBroken');
                     }
                 }
 
                 if (maliciousCount / totalReports > 0.3 || inappropriateCount / totalReports > 0.3) {
                     status = 'danger';
-                    message = 'Este site foi sinalizado como malicioso ou contém conteúdo impróprio. Evite acessar.';
+                    message = getTranslation('msgDanger');
                 }
 
                 if (fakeNewsCount / totalReports > 0.5 && status !== 'danger') {
                     status = 'warning';
-                    message = 'Este site foi sinalizado como disseminador de Fake News. Verifique as informações antes de confiar.';
+                    message = getTranslation('msgFakeNews');
                 }
 
                 if (lgpdCount / totalReports > 0.3 && status !== 'danger') {
                     status = 'warning';
-                    message = message || 'Este site foi sinalizado por possíveis violações da LGPD. Cuidado com seus dados.';
+                    message = message || getTranslation('msgLgpd');
                 }
 
                 if (status === 'safe' && totalReports > 0) {
                     status = 'warning';
-                    message = 'Este site possui sinalizações. Recomenda-se cautela ao acessar.';
+                    message = getTranslation('msgWarning');
                 }
 
                 if (!message && status !== 'safe') {
-                    message = 'Este site possui sinalizações de usuários. Acesse com cautela.';
+                    message = getTranslation('msgWarning');
                 }
 
                 return {
                     status: status,
                     reports: reports,
-                    message: message || 'Nenhuma sinalização preocupante encontrada.',
+                    message: message || getTranslation('msgSafe'),
                     summary: {
                         total: totalReports,
                         fakeNews: fakeNewsCount,
@@ -1363,7 +1951,7 @@
 
             } catch (error) {
                 console.error('Erro ao verificar segurança:', error);
-                return { status: 'unknown', reports: [], message: 'Erro ao verificar segurança do site.' };
+                return { status: 'unknown', reports: [], message: getTranslation('errorDefault') };
             }
         }
 
@@ -1374,6 +1962,8 @@
         function updateUIWithStatus(statusData) {
             const status = isBanned ? 'banned' : statusData.status;
             safetyStatus = status;
+
+            const t = translations[currentLang] || translations.pt;
 
             const icon = document.getElementById('warningIcon');
             const title = document.getElementById('title');
@@ -1407,39 +1997,39 @@
             progressFill.classList.add(status);
 
             if (isBanned) {
-                const reasonText = banReason === 'ip' ? 'endereço IP' : 'conta';
+                const reasonText = banReason === 'ip' ? getTranslation('bannedIP') : getTranslation('bannedAccount');
                 icon.textContent = '🚫';
-                title.textContent = `🚫 ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} Banido`;
-                badge.textContent = '🚫 ACESSO BLOQUEADO';
+                title.textContent = `🚫 ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} ${getTranslation('banned')}`;
+                badge.textContent = '🚫 ' + getTranslation('accessBlocked');
 
                 warningText.innerHTML = `
                     <p>
-                        <strong>🔴 Seu ${reasonText} foi banido permanentemente!</strong><br>
-                        ${banDetails || 'Motivo: Violação das políticas de uso'}<br><br>
-                        <small>Entre em contato com o suporte se acreditar que isso é um erro.</small>
+                        <strong>🔴 ${getTranslation('bannedReasonTitle')}</strong><br>
+                        ${banDetails || getTranslation('bannedReason')}<br><br>
+                        <small>${getTranslation('bannedContact')}</small>
                     </p>
                 `;
 
-                confirmLabel.textContent = '⛔ Acesso bloqueado - Conta/IP banido';
+                confirmLabel.textContent = '⛔ ' + getTranslation('accessBlocked');
                 confirmSection.style.opacity = '0.5';
                 document.getElementById('confirmCheck').disabled = true;
 
                 redirectBtn.className = 'btn btn-banned';
-                redirectBtn.innerHTML = '<i class="fas fa-ban"></i> Acesso bloqueado';
+                redirectBtn.innerHTML = '<i class="fas fa-ban"></i> ' + getTranslation('accessBlocked');
                 redirectBtn.href = '#';
                 redirectBtn.style.pointerEvents = 'none';
                 redirectBtn.disabled = true;
 
                 reportBtn.className = 'report-btn banned';
-                reportBtn.innerHTML = `<i class="fas fa-ban"></i> ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} banido - Não pode sinalizar`;
+                reportBtn.innerHTML = `<i class="fas fa-ban"></i> ${reasonText} ${getTranslation('banned')} - ${getTranslation('cannotReport')}`;
                 reportBtn.style.pointerEvents = 'none';
                 reportBtn.disabled = true;
                 alreadyReported.className = 'already-reported banned';
                 alreadyReported.classList.remove('hidden');
-                alreadyReported.innerHTML = `🚫 ${reasonText.charAt(0).toUpperCase() + reasonText.slice(1)} banido - Ação bloqueada`;
+                alreadyReported.innerHTML = `🚫 ${reasonText} ${getTranslation('banned')} - ${getTranslation('actionBlocked')}`;
                 loginRequiredBadge.classList.add('hidden');
 
-                document.querySelector('.countdown-label').textContent = '⛔ Acesso bloqueado';
+                document.querySelector('.countdown-label').textContent = '⛔ ' + getTranslation('accessBlocked');
                 document.getElementById('countdown').textContent = '⛔';
                 document.getElementById('progressFill').style.width = '100%';
 
@@ -1447,29 +2037,28 @@
                 return;
             }
 
-            // Se não estiver banido, segue o fluxo normal
-            icon.textContent = status === 'safe' ? '✅' : 
-                              status === 'warning' ? '⚠️' : 
-                              status === 'danger' ? '🚨' : 
-                              status === 'broken' ? '🔗' : 
-                              status === 'verified' ? '🔵' : '❓';
+            icon.textContent = status === 'safe' ? '✅' :
+                status === 'warning' ? '⚠️' :
+                status === 'danger' ? '🚨' :
+                status === 'broken' ? '🔗' :
+                status === 'verified' ? '🔵' : '❓';
 
-            title.textContent = status === 'safe' ? '✅ Site Seguro' :
-                status === 'warning' ? '⚠️ Atenção - Site com Sinalizações' :
-                status === 'danger' ? '🚨 PERIGO - Site Sinalizado como Malicioso' :
-                status === 'broken' ? '🔗 Link Quebrado' :
-                status === 'verified' ? '🔵 Site Verificado pela Moderação' :
-                '🔍 Verificando...';
+            title.textContent = status === 'safe' ? '✅ ' + getTranslation('safeTitle') :
+                status === 'warning' ? '⚠️ ' + getTranslation('warningTitle') :
+                status === 'danger' ? '🚨 ' + getTranslation('dangerTitle') :
+                status === 'broken' ? '🔗 ' + getTranslation('brokenTitle') :
+                status === 'verified' ? '🔵 ' + getTranslation('verifiedTitle') :
+                getTranslation('verifying');
 
             badge.textContent = getStatusLabel(status);
 
             if (status === 'verified' && statusData.moderationNotes) {
                 warningText.innerHTML = `
                     <p>
-                        <strong>🔵 Verificado pela Moderação</strong><br>
+                        <strong>🔵 ${getTranslation('verifiedByModeration')}</strong><br>
                         ${statusData.message}
                         <br><br>
-                        <small>📝 Nota do moderador: ${statusData.moderationNotes}</small>
+                        <small>📝 ${getTranslation('moderatorNote')}: ${statusData.moderationNotes}</small>
                     </p>
                 `;
             } else {
@@ -1477,21 +2066,21 @@
                     <p>
                         <strong>${status === 'safe' ? '🟢' : status === 'warning' ? '🟡' : status === 'danger' ? '🔴' : status === 'broken' ? '🟣' : status === 'verified' ? '🔵' : '🔵'}</strong>
                         ${statusData.message}
-                        ${status !== 'safe' && status !== 'verified' ? '<br><br><small>Baseado em sinalizações de usuários da comunidade.</small>' : ''}
+                        ${status !== 'safe' && status !== 'verified' ? '<br><br><small>' + getTranslation('basedOnReports') + '</small>' : ''}
                     </p>
                 `;
             }
 
             if (status === 'verified') {
-                confirmLabel.textContent = '✅ Site verificado pela moderação. Deseja continuar?';
+                confirmLabel.textContent = getTranslation('confirmVerified');
             } else if (status === 'danger') {
-                confirmLabel.textContent = '⚠️ Estou ciente do alto risco e assumo total responsabilidade pelo acesso';
+                confirmLabel.textContent = getTranslation('confirmDanger');
             } else if (status === 'warning') {
-                confirmLabel.textContent = 'Estou ciente das sinalizações e desejo prosseguir sob minha responsabilidade';
+                confirmLabel.textContent = getTranslation('confirmWarning');
             } else if (status === 'broken') {
-                confirmLabel.textContent = 'Estou ciente que o link pode estar quebrado e desejo tentar mesmo assim';
+                confirmLabel.textContent = getTranslation('confirmBroken');
             } else {
-                confirmLabel.textContent = 'Eu confio neste site e desejo continuar';
+                confirmLabel.textContent = getTranslation('confirmSafe');
             }
 
             redirectBtn.className = 'btn';
@@ -1514,31 +2103,31 @@
 
                 let html = `
                     <div class="report-item">
-                        <span class="label">Total de Sinalizações:</span>
+                        <span class="label">${getTranslation('totalReports')}</span>
                         <span class="value">${summary.total || 0}</span>
                     </div>
                     <div class="report-item">
-                        <span class="label">📰 Fake News:</span>
+                        <span class="label">${getTranslation('fakeNewsCount')}</span>
                         <span class="value ${summary.fakeNews > 0 ? 'danger' : 'safe'}">${summary.fakeNews || 0}</span>
                     </div>
                     <div class="report-item">
-                        <span class="label">⚠️ Malicioso:</span>
+                        <span class="label">${getTranslation('maliciousCount')}</span>
                         <span class="value ${summary.malicious > 0 ? 'danger' : 'safe'}">${summary.malicious || 0}</span>
                     </div>
                     <div class="report-item">
-                        <span class="label">🔗 Link Quebrado:</span>
+                        <span class="label">${getTranslation('brokenCount')}</span>
                         <span class="value ${summary.broken > 0 ? 'warning' : 'safe'}">${summary.broken || 0}</span>
                     </div>
                     <div class="report-item">
-                        <span class="label">🔞 Conteúdo Impróprio:</span>
+                        <span class="label">${getTranslation('inappropriateCount')}</span>
                         <span class="value ${summary.inappropriate > 0 ? 'danger' : 'safe'}">${summary.inappropriate || 0}</span>
                     </div>
                     <div class="report-item">
-                        <span class="label">⚖️ Violação LGPD:</span>
+                        <span class="label">${getTranslation('lgpdCount')}</span>
                         <span class="value ${summary.lgpd > 0 ? 'warning' : 'safe'}">${summary.lgpd || 0}</span>
                     </div>
                     <div class="report-item">
-                        <span class="label">📅 Sinalizações Recentes (30 dias):</span>
+                        <span class="label">${getTranslation('recentReports')}</span>
                         <span class="value">${summary.recent || 0}</span>
                     </div>
                 `;
@@ -1554,8 +2143,8 @@
                         <div class="comment">
                             <div>${c.comment}</div>
                             <div class="comment-meta">
-                                <span>📅 ${c.timestamp ? new Date(c.timestamp.toDate ? c.timestamp.toDate() : c.timestamp).toLocaleDateString('pt-BR') : 'Data desconhecida'}</span>
-                                <span>🔒 ${c.ipHash ? c.ipHash.substring(0, 8) + '...' : 'Anônimo'}</span>
+                                <span>📅 ${c.timestamp ? new Date(c.timestamp.toDate ? c.timestamp.toDate() : c.timestamp).toLocaleDateString('pt-BR') : getTranslation('unknownDate')}</span>
+                                <span>🔒 ${c.ipHash ? c.ipHash.substring(0, 8) + '...' : getTranslation('anonymous')}</span>
                             </div>
                         </div>
                     `).join('');
@@ -1566,44 +2155,43 @@
                 reportInfo.classList.add('hidden');
             }
 
-            // ===== CONTROLE DO BOTÃO DE REPORTAR - COM LOGIN OBRIGATÓRIO =====
+            // Botão de reportar
             if (isBanned) {
-                const reasonText = banReason === 'ip' ? 'IP' : 'Conta';
+                const reasonText = banReason === 'ip' ? 'IP' : getTranslation('account');
                 reportBtn.className = 'report-btn banned';
-                reportBtn.innerHTML = `<i class="fas fa-ban"></i> ${reasonText} banido - Não pode sinalizar`;
+                reportBtn.innerHTML = `<i class="fas fa-ban"></i> ${reasonText} ${getTranslation('banned')} - ${getTranslation('cannotReport')}`;
                 reportBtn.style.pointerEvents = 'none';
                 reportBtn.disabled = true;
                 alreadyReported.className = 'already-reported banned';
                 alreadyReported.classList.remove('hidden');
-                alreadyReported.innerHTML = `🚫 ${reasonText} banido - Ação bloqueada`;
+                alreadyReported.innerHTML = `🚫 ${reasonText} ${getTranslation('banned')} - ${getTranslation('actionBlocked')}`;
                 loginRequiredBadge.classList.add('hidden');
             } else if (!isLoggedIn) {
-                // USUÁRIO NÃO LOGADO - Exige login
                 reportBtn.className = 'report-btn login-required';
-                reportBtn.innerHTML = '<i class="fas fa-lock"></i> Faça login para sinalizar';
+                reportBtn.innerHTML = '<i class="fas fa-lock"></i> ' + getTranslation('loginToReport');
                 reportBtn.style.pointerEvents = 'auto';
                 reportBtn.disabled = false;
                 alreadyReported.classList.add('hidden');
                 loginRequiredBadge.classList.remove('hidden');
-                loginRequiredBadge.innerHTML = '<i class="fas fa-lock"></i> Login necessário';
+                loginRequiredBadge.innerHTML = '<i class="fas fa-lock"></i> ' + getTranslation('loginRequired');
             } else if (status === 'verified' || (status === 'danger' && isBlocked)) {
                 reportBtn.className = 'report-btn disabled';
-                reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Site já verificado pela moderação';
+                reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> ' + getTranslation('alreadyVerified');
                 reportBtn.style.pointerEvents = 'none';
                 reportBtn.disabled = true;
                 alreadyReported.classList.remove('hidden');
-                alreadyReported.innerHTML = '<i class="fas fa-check-circle"></i> Site verificado pela moderação';
+                alreadyReported.innerHTML = '<i class="fas fa-check-circle"></i> ' + getTranslation('alreadyVerified');
                 loginRequiredBadge.classList.add('hidden');
             } else if (hasUserReported) {
                 reportBtn.className = 'report-btn disabled';
-                reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Você já sinalizou este site';
+                reportBtn.innerHTML = '<i class="fas fa-check-circle"></i> ' + getTranslation('alreadyReported');
                 reportBtn.style.pointerEvents = 'none';
                 reportBtn.disabled = true;
                 alreadyReported.classList.remove('hidden');
                 loginRequiredBadge.classList.add('hidden');
             } else {
                 reportBtn.className = 'report-btn';
-                reportBtn.innerHTML = '<i class="fas fa-flag"></i> Sinalizar este site como problemático';
+                reportBtn.innerHTML = '<i class="fas fa-flag"></i> ' + getTranslation('reportBtn');
                 reportBtn.style.pointerEvents = 'auto';
                 reportBtn.disabled = false;
                 alreadyReported.classList.add('hidden');
@@ -1611,10 +2199,10 @@
             }
 
             if (status === 'danger' && isBlocked) {
-                document.querySelector('.countdown-label').textContent = '⛔ Redirecionamento bloqueado';
+                document.querySelector('.countdown-label').textContent = '⛔ ' + getTranslation('redirectBlocked');
                 document.getElementById('countdown').textContent = '⛔';
                 document.getElementById('progressFill').style.width = '100%';
-                redirectBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Acesso bloqueado';
+                redirectBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + getTranslation('accessBlocked');
                 redirectBtn.href = '#';
                 redirectBtn.style.pointerEvents = 'none';
                 redirectBtn.disabled = true;
@@ -1623,31 +2211,31 @@
                 redirectBtn.disabled = false;
                 redirectBtn.style.pointerEvents = 'auto';
                 document.getElementById('confirmCheck').disabled = false;
+                redirectBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> ' + getTranslation('continue');
             }
         }
 
         // ============================================================
-        // FUNÇÃO PRINCIPAL - COM LOGIN OBRIGATÓRIO PARA SINALIZAR
+        // FUNÇÃO PRINCIPAL
         // ============================================================
 
         async function initRedirectWarning() {
-            // Verificar banimento antes de qualquer coisa
             const isBannedNow = await checkBanStatus(currentUser, userIpHash);
             if (isBannedNow) {
                 showBannedOverlay();
-                updateUIWithStatus({ status: 'banned', message: 'Conta ou IP banido', reports: [] });
+                updateUIWithStatus({ status: 'banned', message: getTranslation('bannedMessage'), reports: [] });
                 return;
             }
 
             let targetUrl = getUrlParameter('uid') || getUrlParameter('url');
 
             if (!targetUrl) {
-                showError('Nenhum destino especificado. Use ?uid=URL');
+                showError(getTranslation('errorNoTarget'));
                 return;
             }
 
             if (!isValidUrl(targetUrl) && !targetUrl.includes('.')) {
-                showError('URL de destino inválida: "' + targetUrl + '"');
+                showError(getTranslation('errorInvalidUrl') + '"' + targetUrl + '"');
                 return;
             }
 
@@ -1678,11 +2266,10 @@
 
             userIpHash = await getIpHash();
 
-            // Verifica banimento por IP novamente (para usuários não autenticados)
             const ipBanned = await checkIpBanStatus(userIpHash);
             if (ipBanned) {
                 showBannedOverlay();
-                updateUIWithStatus({ status: 'banned', message: 'IP banido', reports: [] });
+                updateUIWithStatus({ status: 'banned', message: getTranslation('ipBannedMessage'), reports: [] });
                 return;
             }
 
@@ -1720,18 +2307,19 @@
                         performRedirect();
                     } else if (safetyStatus === 'danger' && isBlocked) {
                         countdownElement.textContent = '⛔';
-                        document.querySelector('.countdown-label').textContent = 'Acesso bloqueado';
+                        document.querySelector('.countdown-label').textContent = getTranslation('accessBlocked');
                         progressFill.style.width = '100%';
                     } else if (isBanned) {
                         countdownElement.textContent = '⛔';
-                        document.querySelector('.countdown-label').textContent = 'Conta/IP banido';
+                        document.querySelector('.countdown-label').textContent = getTranslation('accountBanned');
                         progressFill.style.width = '100%';
                     } else {
                         countdownElement.textContent = '⏸';
-                        document.querySelector('.countdown-label').textContent = 'Aguardando confirmação';
+                        document.querySelector('.countdown-label').textContent = getTranslation('awaitingConfirmation');
                         progressFill.style.width = '100%';
                         redirectBtn.classList.add('btn-danger');
-                        redirectBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Marque a confirmação para continuar';
+                        redirectBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + getTranslation(
+                        'confirmToContinue');
                         redirectBtn.href = '#';
                         redirectBtn.style.pointerEvents = 'none';
                         redirectBtn.disabled = true;
@@ -1745,36 +2333,36 @@
             confirmCheck.addEventListener('change', function() {
                 if (isBanned) {
                     this.checked = false;
-                    const reasonText = banReason === 'ip' ? 'IP' : 'conta';
-                    showToast(`⚠️ Seu ${reasonText} está banido. Não é possível continuar.`, 'error');
+                    const reasonText = banReason === 'ip' ? 'IP' : getTranslation('account');
+                    showToast(`⚠️ ${getTranslation('bannedWarning')} ${reasonText}. ${getTranslation('cannotContinue')}`, 'error');
                     return;
                 }
 
                 if (this.checked && countdown <= 0 && safetyStatus !== 'danger') {
                     performRedirect();
                 } else if (this.checked && safetyStatus !== 'danger') {
-                    document.querySelector('.countdown-label').textContent = 'Redirecionando em';
+                    document.querySelector('.countdown-label').textContent = getTranslation('redirectingIn');
                     redirectBtn.className = 'btn';
                     if (safetyStatus === 'verified') {
                         redirectBtn.classList.add('btn-verified');
                     } else {
                         redirectBtn.classList.add('btn-primary');
                     }
-                    redirectBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> Continuar';
+                    redirectBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> ' + getTranslation('continue');
                     redirectBtn.href = formattedUrl;
                     redirectBtn.style.pointerEvents = 'auto';
                     redirectBtn.disabled = false;
                 } else if (safetyStatus === 'danger') {
                     this.checked = true;
-                    showToast('⚠️ Este site é perigoso. O acesso não é recomendado.');
+                    showToast('⚠️ ' + getTranslation('dangerWarning'), 'warning');
                 }
             });
 
             redirectBtn.addEventListener('click', function(e) {
                 if (isBanned) {
                     e.preventDefault();
-                    const reasonText = banReason === 'ip' ? 'IP' : 'conta';
-                    showToast(`⚠️ Seu ${reasonText} está banido. Não é possível continuar.`, 'error');
+                    const reasonText = banReason === 'ip' ? 'IP' : getTranslation('account');
+                    showToast(`⚠️ ${getTranslation('bannedWarning')} ${reasonText}. ${getTranslation('cannotContinue')}`, 'error');
                     return;
                 }
 
@@ -1792,7 +2380,7 @@
                 }
                 if (safetyStatus === 'danger' && isBlocked) {
                     e.preventDefault();
-                    showToast('⚠️ Este site foi bloqueado pela moderação.');
+                    showToast('⚠️ ' + getTranslation('blockedWarning'), 'error');
                     return;
                 }
                 clearInterval(countdownInterval);
@@ -1832,24 +2420,22 @@
         // ============================================================
 
         function handleReportClick() {
-            // Verificar se o usuário está banido
             if (isBanned) {
-                const reasonText = banReason === 'ip' ? 'IP' : 'conta';
-                showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
+                const reasonText = banReason === 'ip' ? 'IP' : getTranslation('account');
+                showToast(`🚫 ${getTranslation('bannedWarning')} ${reasonText}. ${getTranslation('cannotReport')}`, 'error');
                 return;
             }
 
-            // Verificar se o usuário está logado
             if (!isLoggedIn) {
-                // Mostrar modal de login obrigatório
                 document.getElementById('loginRequiredMessage').style.display = 'block';
                 document.getElementById('bannedReportMessage').style.display = 'none';
                 document.getElementById('reportFormContent').style.display = 'none';
                 document.getElementById('reportModal').style.display = 'flex';
+                // Aplicar traduções no modal
+                applyTranslations(currentLang);
                 return;
             }
 
-            // Se estiver logado, abre o formulário normal
             openReportModal();
         }
 
@@ -1858,25 +2444,22 @@
         // ============================================================
 
         function openReportModal() {
-            // Verificar banimento
             if (isBanned) {
-                const reasonText = banReason === 'ip' ? 'IP' : 'conta';
-                showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
+                const reasonText = banReason === 'ip' ? 'IP' : getTranslation('account');
+                showToast(`🚫 ${getTranslation('bannedWarning')} ${reasonText}. ${getTranslation('cannotReport')}`, 'error');
                 return;
             }
 
-            // Verificar login
             if (!isLoggedIn) {
-                showToast('🔐 Faça login para sinalizar sites.', 'warning');
+                showToast('🔐 ' + getTranslation('loginToReport'), 'warning');
                 return;
             }
 
             if (hasUserReported || isVerified) {
-                showToast('⚠️ Você já sinalizou este site ou ele foi verificado pela moderação.', 'warning');
+                showToast('⚠️ ' + getTranslation('alreadyReportedWarning'), 'warning');
                 return;
             }
 
-            // Mostrar o modal com o conteúdo normal
             document.getElementById('loginRequiredMessage').style.display = 'none';
             document.getElementById('bannedReportMessage').style.display = 'none';
             document.getElementById('reportFormContent').style.display = 'block';
@@ -1887,6 +2470,9 @@
             document.getElementById('reportInappropriate').checked = false;
             document.getElementById('reportLgpd').checked = false;
             document.getElementById('reportComment').value = '';
+
+            // Aplicar traduções
+            applyTranslations(currentLang);
         }
 
         function closeReportModal() {
@@ -1894,23 +2480,21 @@
         }
 
         async function submitReport() {
-            // Verificar banimento
             if (isBanned) {
-                const reasonText = banReason === 'ip' ? 'IP' : 'conta';
-                showToast(`🚫 Seu ${reasonText} está banido. Você não pode sinalizar sites.`, 'error');
+                const reasonText = banReason === 'ip' ? 'IP' : getTranslation('account');
+                showToast(`🚫 ${getTranslation('bannedWarning')} ${reasonText}. ${getTranslation('cannotReport')}`, 'error');
                 closeReportModal();
                 return;
             }
 
-            // Verificar login
             if (!isLoggedIn) {
-                showToast('🔐 Faça login para sinalizar sites.', 'warning');
+                showToast('🔐 ' + getTranslation('loginToReport'), 'warning');
                 closeReportModal();
                 return;
             }
 
             if (hasUserReported) {
-                showToast('⚠️ Você já sinalizou este site.', 'warning');
+                showToast('⚠️ ' + getTranslation('alreadyReportedWarning'), 'warning');
                 closeReportModal();
                 return;
             }
@@ -1923,14 +2507,13 @@
             if (document.getElementById('reportLgpd').checked) reasons.push('lgpd_violation');
 
             if (reasons.length === 0) {
-                showToast('⚠️ Selecione pelo menos um motivo para sinalizar.', 'warning');
+                showToast('⚠️ ' + getTranslation('selectReason'), 'warning');
                 return;
             }
 
             const comment = document.getElementById('reportComment').value.trim();
 
             try {
-                // Verificar se o usuário já sinalizou este site (por UID do Google)
                 const existingSnapshot = await db.collection('site_reports')
                     .where('domain', '==', currentDomain)
                     .where('userId', '==', currentUser.uid)
@@ -1938,7 +2521,7 @@
                     .get();
 
                 if (!existingSnapshot.empty) {
-                    showToast('⚠️ Você já sinalizou este site anteriormente.', 'warning');
+                    showToast('⚠️ ' + getTranslation('alreadyReportedWarning'), 'warning');
                     closeReportModal();
                     return;
                 }
@@ -1958,7 +2541,7 @@
                 };
 
                 await db.collection('site_reports').add(newReportData);
-                showToast('✅ Sinalização enviada com sucesso! Obrigado por ajudar a comunidade.', 'success');
+                showToast('✅ ' + getTranslation('reportSuccess'), 'success');
                 closeReportModal();
 
                 hasUserReported = true;
@@ -1968,7 +2551,7 @@
 
             } catch (error) {
                 console.error('Erro ao enviar sinalização:', error);
-                showToast('❌ Erro ao enviar sinalização: ' + error.message, 'error');
+                showToast('❌ ' + getTranslation('reportError') + error.message, 'error');
             }
         }
 
@@ -2010,6 +2593,9 @@
         // ============================================================
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar idioma
+            initLanguage();
+
             const style = document.createElement('style');
             style.textContent = `
                 @keyframes slideUp {
@@ -2022,33 +2608,28 @@
             `;
             document.head.appendChild(style);
 
-            // Verificar autenticação
             auth.onAuthStateChanged(async function(user) {
                 currentUser = user;
                 isLoggedIn = !!user;
 
                 if (user) {
                     userIpHash = await getIpHash();
-                    // Verificar banimento
                     const userBanned = await checkUserBanStatus(user);
                     if (userBanned) {
                         showBannedOverlay();
-                        updateUIWithStatus({ status: 'banned', message: 'Conta banida', reports: [] });
+                        updateUIWithStatus({ status: 'banned', message: getTranslation('bannedMessage'), reports: [] });
                         return;
                     }
                 } else {
-                    // Usuário não logado - gerar IP hash para verificação
                     userIpHash = await getIpHash();
-                    // Verificar banimento por IP
                     const ipBanned = await checkIpBanStatus(userIpHash);
                     if (ipBanned) {
                         showBannedOverlay();
-                        updateUIWithStatus({ status: 'banned', message: 'IP banido', reports: [] });
+                        updateUIWithStatus({ status: 'banned', message: getTranslation('ipBannedMessage'), reports: [] });
                         return;
                     }
                 }
 
-                // Inicializar normalmente
                 initRedirectWarning();
             });
         });
@@ -2059,6 +2640,18 @@
                 closeLoginModal();
             }
         });
+
+        // Expor funções globalmente
+        window.setLanguage = setLanguage;
+        window.initLanguage = initLanguage;
+        window.handleReportClick = handleReportClick;
+        window.openReportModal = openReportModal;
+        window.closeReportModal = closeReportModal;
+        window.submitReport = submitReport;
+        window.loginWithGoogle = loginWithGoogle;
+        window.closeLoginModal = closeLoginModal;
+        window.showLoginModal = showLoginModal;
+        window.logoutBanned = logoutBanned;
     </script>
 </body>
 </html>
