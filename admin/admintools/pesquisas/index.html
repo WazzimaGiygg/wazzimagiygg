@@ -278,6 +278,16 @@
             color: #fff;
         }
 
+        .status-reviewing {
+            background: #8b5cf6;
+            color: #fff;
+        }
+
+        .status-dismissed {
+            background: #64748b;
+            color: #fff;
+        }
+
         .search-box {
             display: flex;
             gap: 10px;
@@ -482,6 +492,39 @@
             margin-bottom: 10px;
         }
 
+        .loading-spinner {
+            text-align: center;
+            padding: 30px;
+            color: #64748b;
+        }
+
+        .loading-spinner i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .access-denied {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .access-denied .icon {
+            font-size: 4rem;
+            color: #dc2626;
+            margin-bottom: 20px;
+        }
+
+        .access-denied h2 {
+            color: #dc2626;
+            margin-bottom: 10px;
+        }
+
+        .access-denied p {
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -534,7 +577,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="appContainer">
         <!-- Header -->
         <div class="header">
             <h1>
@@ -556,186 +599,205 @@
             </div>
         </div>
 
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
-                <i class="fas fa-chart-pie"></i> Dashboard
-            </button>
-            <button class="tab" data-tab="reports" onclick="switchTab('reports')">
-                <i class="fas fa-flag"></i> Denúncias
-                <span id="reportsBadge" class="badge-danger" style="padding: 1px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 5px;">0</span>
-            </button>
-            <button class="tab" data-tab="surveys" onclick="switchTab('surveys')">
-                <i class="fas fa-list"></i> Pesquisas
-            </button>
-            <button class="tab" data-tab="users" onclick="switchTab('users')">
-                <i class="fas fa-users"></i> Usuários
+        <!-- Status de Carregamento -->
+        <div id="loadingStatus" class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Verificando permissões...</p>
+        </div>
+
+        <!-- Acesso Negado -->
+        <div id="accessDenied" class="access-denied hidden">
+            <div class="icon">🚫</div>
+            <h2>Acesso Negado</h2>
+            <p>Você não tem permissão para acessar esta página.</p>
+            <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                <i class="fas fa-arrow-left"></i> Voltar ao Sistema
             </button>
         </div>
 
-        <!-- TAB DASHBOARD -->
-        <div class="tab-content active" id="tabDashboard">
-            <div class="stats-grid" id="dashboardStats">
-                <div class="stat-card">
-                    <div class="number blue" id="totalSurveys">0</div>
-                    <div class="label">Total de Pesquisas</div>
-                </div>
-                <div class="stat-card">
-                    <div class="number green" id="totalResponses">0</div>
-                    <div class="label">Total de Respostas</div>
-                </div>
-                <div class="stat-card">
-                    <div class="number red" id="totalReports">0</div>
-                    <div class="label">Denúncias Pendentes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="number yellow" id="totalUsers">0</div>
-                    <div class="label">Usuários Ativos</div>
-                </div>
+        <!-- Conteúdo Admin (oculto até verificação) -->
+        <div id="adminContent" class="hidden">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                    <i class="fas fa-chart-pie"></i> Dashboard
+                </button>
+                <button class="tab" data-tab="reports" onclick="switchTab('reports')">
+                    <i class="fas fa-flag"></i> Denúncias
+                    <span id="reportsBadge" class="badge-danger" style="padding: 1px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 5px;">0</span>
+                </button>
+                <button class="tab" data-tab="surveys" onclick="switchTab('surveys')">
+                    <i class="fas fa-list"></i> Pesquisas
+                </button>
+                <button class="tab" data-tab="users" onclick="switchTab('users')">
+                    <i class="fas fa-users"></i> Usuários
+                </button>
             </div>
 
-            <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-clock" style="color: #f59e0b;"></i>
-                    Últimas Atividades
+            <!-- TAB DASHBOARD -->
+            <div class="tab-content active" id="tabDashboard">
+                <div class="stats-grid" id="dashboardStats">
+                    <div class="stat-card">
+                        <div class="number blue" id="totalSurveys">0</div>
+                        <div class="label">Total de Pesquisas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number green" id="totalResponses">0</div>
+                        <div class="label">Total de Respostas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number red" id="totalReports">0</div>
+                        <div class="label">Denúncias Pendentes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number yellow" id="totalUsers">0</div>
+                        <div class="label">Usuários Ativos</div>
+                    </div>
                 </div>
-                <div id="recentActivity">
-                    <div class="empty-state">
-                        <div class="icon">📭</div>
-                        <p>Nenhuma atividade recente</p>
+
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-clock" style="color: #f59e0b;"></i>
+                        Últimas Atividades
+                    </div>
+                    <div id="recentActivity">
+                        <div class="empty-state">
+                            <div class="icon">📭</div>
+                            <p>Nenhuma atividade recente</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- TAB REPORTS (DENÚNCIAS) -->
-        <div class="tab-content" id="tabReports">
-            <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-flag" style="color: #dc2626;"></i>
-                    Gerenciar Denúncias
-                    <span class="badge-danger" id="reportsCount">0</span>
-                </div>
+            <!-- TAB REPORTS (DENÚNCIAS) -->
+            <div class="tab-content" id="tabReports">
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-flag" style="color: #dc2626;"></i>
+                        Gerenciar Denúncias
+                        <span class="badge-danger" id="reportsCount">0</span>
+                    </div>
 
-                <div class="search-box">
-                    <input type="text" id="reportSearch" placeholder="Buscar por UID, motivo ou detalhes..." oninput="filterReports()">
-                    <select id="reportStatusFilter" onchange="filterReports()">
-                        <option value="all">Todos os Status</option>
-                        <option value="pending">Pendentes</option>
-                        <option value="reviewing">Em Análise</option>
-                        <option value="resolved">Resolvidas</option>
-                        <option value="dismissed">Rejeitadas</option>
-                    </select>
-                    <button class="btn btn-secondary" onclick="loadReports()">
-                        <i class="fas fa-sync"></i> Atualizar
-                    </button>
-                </div>
+                    <div class="search-box">
+                        <input type="text" id="reportSearch" placeholder="Buscar por UID, motivo ou detalhes..." oninput="filterReports()">
+                        <select id="reportStatusFilter" onchange="filterReports()">
+                            <option value="all">Todos os Status</option>
+                            <option value="pending">Pendentes</option>
+                            <option value="reviewing">Em Análise</option>
+                            <option value="resolved">Resolvidas</option>
+                            <option value="dismissed">Rejeitadas</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="loadReports()">
+                            <i class="fas fa-sync"></i> Atualizar
+                        </button>
+                    </div>
 
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Pesquisa</th>
-                                <th>Motivo</th>
-                                <th>Status</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reportsTableBody">
-                            <tr>
-                                <td colspan="5" style="text-align: center; color: #64748b; padding: 30px;">
-                                    <i class="fas fa-spinner fa-spin"></i> Carregando denúncias...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB SURVEYS (PESQUISAS) -->
-        <div class="tab-content" id="tabSurveys">
-            <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-list" style="color: #4f46e5;"></i>
-                    Todas as Pesquisas
-                    <span class="badge-count" id="surveysCount">0</span>
-                </div>
-
-                <div class="search-box">
-                    <input type="text" id="surveySearch" placeholder="Buscar por título, UID ou criador..." oninput="filterSurveys()">
-                    <select id="surveyStatusFilter" onchange="filterSurveys()">
-                        <option value="all">Todos os Status</option>
-                        <option value="active">Ativas</option>
-                        <option value="blocked">Bloqueadas</option>
-                        <option value="closed">Encerradas</option>
-                    </select>
-                    <button class="btn btn-secondary" onclick="loadSurveys()">
-                        <i class="fas fa-sync"></i> Atualizar
-                    </button>
-                </div>
-
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Título</th>
-                                <th>UID</th>
-                                <th>Criador</th>
-                                <th>Respostas</th>
-                                <th>Denúncias</th>
-                                <th>Status</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="surveysTableBody">
-                            <tr>
-                                <td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">
-                                    <i class="fas fa-spinner fa-spin"></i> Carregando pesquisas...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Pesquisa</th>
+                                    <th>Motivo</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: #64748b; padding: 30px;">
+                                        <i class="fas fa-spinner fa-spin"></i> Carregando denúncias...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- TAB USERS (USUÁRIOS) -->
-        <div class="tab-content" id="tabUsers">
-            <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-users" style="color: #f59e0b;"></i>
-                    Usuários do Sistema
-                    <span class="badge-count" id="usersCount">0</span>
+            <!-- TAB SURVEYS (PESQUISAS) -->
+            <div class="tab-content" id="tabSurveys">
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-list" style="color: #4f46e5;"></i>
+                        Todas as Pesquisas
+                        <span class="badge-count" id="surveysCount">0</span>
+                    </div>
+
+                    <div class="search-box">
+                        <input type="text" id="surveySearch" placeholder="Buscar por título, UID ou criador..." oninput="filterSurveys()">
+                        <select id="surveyStatusFilter" onchange="filterSurveys()">
+                            <option value="all">Todos os Status</option>
+                            <option value="active">Ativas</option>
+                            <option value="blocked">Bloqueadas</option>
+                            <option value="closed">Encerradas</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="loadSurveys()">
+                            <i class="fas fa-sync"></i> Atualizar
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Título</th>
+                                    <th>UID</th>
+                                    <th>Criador</th>
+                                    <th>Respostas</th>
+                                    <th>Denúncias</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="surveysTableBody">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">
+                                        <i class="fas fa-spinner fa-spin"></i> Carregando pesquisas...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+            </div>
 
-                <div class="search-box">
-                    <input type="text" id="userSearch" placeholder="Buscar por nome, email ou UID..." oninput="filterUsers()">
-                    <button class="btn btn-secondary" onclick="loadUsers()">
-                        <i class="fas fa-sync"></i> Atualizar
-                    </button>
-                </div>
+            <!-- TAB USERS (USUÁRIOS) -->
+            <div class="tab-content" id="tabUsers">
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-users" style="color: #f59e0b;"></i>
+                        Usuários do Sistema
+                        <span class="badge-count" id="usersCount">0</span>
+                    </div>
 
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Usuário</th>
-                                <th>Email</th>
-                                <th>UID</th>
-                                <th>Status</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="usersTableBody">
-                            <tr>
-                                <td colspan="5" style="text-align: center; color: #64748b; padding: 30px;">
-                                    <i class="fas fa-spinner fa-spin"></i> Carregando usuários...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="search-box">
+                        <input type="text" id="userSearch" placeholder="Buscar por nome, email ou UID..." oninput="filterUsers()">
+                        <button class="btn btn-secondary" onclick="loadUsers()">
+                            <i class="fas fa-sync"></i> Atualizar
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th>UID</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: #64748b; padding: 30px;">
+                                        <i class="fas fa-spinner fa-spin"></i> Carregando usuários...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -826,6 +888,7 @@
         // VARIÁVEIS GLOBAIS
         // ============================================================
         let currentUser = null;
+        let isAdminUser = false;
         let allReports = [];
         let allSurveys = [];
         let allUsers = [];
@@ -844,56 +907,79 @@
         };
 
         // ============================================================
-        // AUTENTICAÇÃO E VERIFICAÇÃO DE ADMIN
+        // AUTENTICAÇÃO E VERIFICAÇÃO DE ADMIN - CORRIGIDA
         // ============================================================
 
-        async function checkAdmin() {
-            const user = auth.currentUser;
+        async function checkAdminAccess(user) {
             if (!user) {
-                showToast('⚠️ Faça login como administrador', 'error');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 2000);
                 return false;
             }
 
             try {
-                // Verificar se o usuário é admin na coleção users
+                // Verificar na coleção users
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists) {
                     const data = userDoc.data();
                     if (data.isAdmin === true) {
-                        currentUser = user;
-                        document.getElementById('userName').textContent = user.displayName || user.email || 'Admin';
                         return true;
                     }
                 }
 
                 // Verificar se é admin específico (hardcoded)
                 if (user.uid === "sZxfMuOBPbXdR8nttVPXIN8QOOl1") {
-                    currentUser = user;
-                    document.getElementById('userName').textContent = user.displayName || user.email || 'Admin';
                     return true;
                 }
 
-                showToast('❌ Acesso negado. Você não é administrador.', 'error');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 2000);
                 return false;
 
             } catch (error) {
                 console.error('Erro ao verificar admin:', error);
-                showToast('❌ Erro ao verificar permissões', 'error');
                 return false;
             }
         }
 
-        function logoutAdmin() {
-            auth.signOut().then(() => {
-                window.location.href = 'index.html';
-            });
-        }
+        // ============================================================
+        // INICIALIZAÇÃO - CORRIGIDA
+        // ============================================================
+
+        auth.onAuthStateChanged(async user => {
+            const loadingEl = document.getElementById('loadingStatus');
+            const accessDeniedEl = document.getElementById('accessDenied');
+            const adminContentEl = document.getElementById('adminContent');
+            const userNameEl = document.getElementById('userName');
+
+            if (user) {
+                userNameEl.textContent = user.displayName || user.email || 'Admin';
+                currentUser = user;
+
+                const isAdmin = await checkAdminAccess(user);
+
+                if (isAdmin) {
+                    isAdminUser = true;
+                    loadingEl.classList.add('hidden');
+                    adminContentEl.classList.remove('hidden');
+                    accessDeniedEl.classList.add('hidden');
+                    loadDashboard();
+                    loadReports();
+                    loadSurveys();
+                    loadUsers();
+                } else {
+                    loadingEl.classList.add('hidden');
+                    adminContentEl.classList.add('hidden');
+                    accessDeniedEl.classList.remove('hidden');
+                }
+            } else {
+                // Usuário não logado - redirecionar
+                loadingEl.classList.add('hidden');
+                adminContentEl.classList.add('hidden');
+                accessDeniedEl.classList.remove('hidden');
+                accessDeniedEl.querySelector('p').textContent = 'Você precisa estar logado para acessar esta página.';
+                accessDeniedEl.querySelector('button').textContent = 'Ir para o Login';
+                accessDeniedEl.querySelector('button').onclick = () => {
+                    window.location.href = 'index.html';
+                };
+            }
+        });
 
         // ============================================================
         // NAVEGAÇÃO ENTRE TABS
@@ -901,12 +987,11 @@
 
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+            document.querySelector(`.tab[data-tab="${tab}"]`)?.classList.add('active');
 
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)?.classList.add('active');
 
-            // Carregar dados conforme a tab
             if (tab === 'dashboard') {
                 loadDashboard();
             } else if (tab === 'reports') {
@@ -924,46 +1009,30 @@
 
         async function loadDashboard() {
             try {
-                // Total de pesquisas
                 const surveysSnap = await db.collection('pesquisas').get();
-                const totalSurveys = surveysSnap.size;
-
-                // Total de respostas (somar de todas as pesquisas)
                 let totalResponses = 0;
                 let totalReports = 0;
-                let activeSurveys = 0;
 
                 surveysSnap.forEach(doc => {
                     const data = doc.data();
                     totalResponses += (data.totalResponses || 0);
                     totalReports += (data.reports || 0);
-                    if (data.status === 'active') activeSurveys++;
                 });
 
-                // Total de usuários (apenas admins podem listar)
-                const usersSnap = await db.collection('users').get();
-                const totalUsers = usersSnap.size;
-
-                // Denúncias pendentes (de todas as pesquisas)
-                const reportsSnap = await db.collectionGroup('denuncias').get();
-                let pendingReports = 0;
-                reportsSnap.forEach(doc => {
-                    const data = doc.data();
-                    if (!data.status || data.status === 'pending') {
-                        pendingReports++;
-                    }
-                });
-
-                document.getElementById('totalSurveys').textContent = totalSurveys;
+                document.getElementById('totalSurveys').textContent = surveysSnap.size;
                 document.getElementById('totalResponses').textContent = totalResponses;
-                document.getElementById('totalReports').textContent = pendingReports;
-                document.getElementById('totalUsers').textContent = totalUsers;
+                document.getElementById('totalReports').textContent = totalReports;
 
-                // Atualizar badge de denúncias
-                document.getElementById('reportsBadge').textContent = pendingReports;
+                const usersSnap = await db.collection('users').get();
+                document.getElementById('totalUsers').textContent = usersSnap.size;
 
-                // Atividade recente (últimas 5 denúncias)
+                // Atualizar badge
+                document.getElementById('reportsBadge').textContent = totalReports;
+
+                // Atividade recente
+                const reportsSnap = await db.collectionGroup('denuncias').get();
                 const recentReports = [];
+
                 reportsSnap.forEach(doc => {
                     const data = doc.data();
                     recentReports.push({
@@ -1041,7 +1110,6 @@
                     });
                 });
 
-                // Ordenar por data (mais recentes primeiro)
                 allReports.sort((a, b) => {
                     const aTime = a.timestamp ? a.timestamp.toDate() : new Date(0);
                     const bTime = b.timestamp ? b.timestamp.toDate() : new Date(0);
@@ -1142,7 +1210,6 @@
                 currentReportId = reportId;
                 currentSurveyUid = surveyUid;
 
-                // Buscar título da pesquisa
                 const surveyDoc = await db.collection('pesquisas').doc(surveyUid).get();
                 const surveyTitle = surveyDoc.exists ? surveyDoc.data().title : 'N/A';
 
@@ -1425,22 +1492,18 @@
             if (!confirm(`Confirmação final: excluir pesquisa ${uid}?`)) return;
 
             try {
-                // Excluir todas as respostas
                 const responsesSnap = await db.collection('pesquisas').doc(uid).collection('respostas').get();
                 const batch = db.batch();
                 responsesSnap.forEach(doc => {
                     batch.delete(doc.ref);
                 });
 
-                // Excluir todas as denúncias
                 const reportsSnap = await db.collection('pesquisas').doc(uid).collection('denuncias').get();
                 reportsSnap.forEach(doc => {
                     batch.delete(doc.ref);
                 });
 
                 await batch.commit();
-
-                // Excluir a pesquisa
                 await db.collection('pesquisas').doc(uid).delete();
 
                 showToast('✅ Pesquisa e todos os dados associados excluídos!', 'success');
@@ -1501,7 +1564,7 @@
                     <tr>
                         <td>
                             <strong>${u.displayName || u.name || 'Usuário'}</strong>
-                            ${u.isAdmin ? '<span class="status-badge status-resolved" style="margin-left: 8px;">Admin</span>' : ''}
+                            ${isAdmin ? '<span class="status-badge status-resolved" style="margin-left: 8px;">Admin</span>' : ''}
                         </td>
                         <td style="color: #94a3b8;">${u.email || 'N/A'}</td>
                         <td><span style="font-family: monospace; font-size: 0.7rem; color: #64748b;">${u.id || 'N/A'}</span></td>
@@ -1590,6 +1653,12 @@
             }
         }
 
+        function logoutAdmin() {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            });
+        }
+
         // ============================================================
         // FUNÇÕES AUXILIARES
         // ============================================================
@@ -1612,22 +1681,6 @@
                 toast.classList.remove('show');
             }, 4000);
         }
-
-        // ============================================================
-        // INICIALIZAÇÃO
-        // ============================================================
-
-        auth.onAuthStateChanged(async user => {
-            if (user) {
-                const isAdmin = await checkAdmin();
-                if (isAdmin) {
-                    loadDashboard();
-                }
-            } else {
-                // Redirecionar para login
-                window.location.href = 'index.html';
-            }
-        });
 
         console.log('🛡️ Painel Administrativo - Gestão de Pesquisas e Denúncias');
         console.log('📊 Gerencie todas as pesquisas, denúncias e usuários do sistema');
