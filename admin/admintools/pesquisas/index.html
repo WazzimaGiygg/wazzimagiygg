@@ -125,18 +125,6 @@
             font-size: 0.8rem;
         }
 
-        .btn-outline-danger {
-            background: transparent;
-            color: #dc2626;
-            border: 2px solid #dc2626;
-        }
-
-        .btn-outline-danger:hover {
-            background: #dc2626;
-            color: #fff;
-            transform: translateY(-2px);
-        }
-
         .card {
             background: #1e293b;
             border-radius: 16px;
@@ -209,7 +197,6 @@
             display: block;
         }
 
-        /* Tabelas */
         .table-wrapper {
             overflow-x: auto;
         }
@@ -615,7 +602,7 @@
             </button>
         </div>
 
-        <!-- Conteúdo Admin (oculto até verificação) -->
+        <!-- Conteúdo Admin -->
         <div id="adminContent" class="hidden">
             <!-- Tabs -->
             <div class="tabs">
@@ -907,28 +894,22 @@
         };
 
         // ============================================================
-        // AUTENTICAÇÃO E VERIFICAÇÃO DE ADMIN - CORRIGIDA
+        // AUTENTICAÇÃO E VERIFICAÇÃO DE ADMIN
         // ============================================================
 
         async function checkAdminAccess(user) {
-            if (!user) {
-                return false;
-            }
+            if (!user) return false;
 
             try {
                 // Verificar na coleção users
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists) {
                     const data = userDoc.data();
-                    if (data.isAdmin === true) {
-                        return true;
-                    }
+                    if (data.isAdmin === true) return true;
                 }
 
                 // Verificar se é admin específico (hardcoded)
-                if (user.uid === "sZxfMuOBPbXdR8nttVPXIN8QOOl1") {
-                    return true;
-                }
+                if (user.uid === "sZxfMuOBPbXdR8nttVPXIN8QOOl1") return true;
 
                 return false;
 
@@ -939,7 +920,7 @@
         }
 
         // ============================================================
-        // INICIALIZAÇÃO - CORRIGIDA
+        // INICIALIZAÇÃO
         // ============================================================
 
         auth.onAuthStateChanged(async user => {
@@ -959,17 +940,18 @@
                     loadingEl.classList.add('hidden');
                     adminContentEl.classList.remove('hidden');
                     accessDeniedEl.classList.add('hidden');
-                    loadDashboard();
-                    loadReports();
-                    loadSurveys();
-                    loadUsers();
+                    
+                    // Carregar dados com tratamento de erro
+                    try { await loadDashboard(); } catch (e) { console.warn('Erro no dashboard:', e); }
+                    try { await loadReports(); } catch (e) { console.warn('Erro ao carregar denúncias:', e); }
+                    try { await loadSurveys(); } catch (e) { console.warn('Erro ao carregar pesquisas:', e); }
+                    try { await loadUsers(); } catch (e) { console.warn('Erro ao carregar usuários:', e); }
                 } else {
                     loadingEl.classList.add('hidden');
                     adminContentEl.classList.add('hidden');
                     accessDeniedEl.classList.remove('hidden');
                 }
             } else {
-                // Usuário não logado - redirecionar
                 loadingEl.classList.add('hidden');
                 adminContentEl.classList.add('hidden');
                 accessDeniedEl.classList.remove('hidden');
@@ -992,123 +974,128 @@
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)?.classList.add('active');
 
-            if (tab === 'dashboard') {
-                loadDashboard();
-            } else if (tab === 'reports') {
-                loadReports();
-            } else if (tab === 'surveys') {
-                loadSurveys();
-            } else if (tab === 'users') {
-                loadUsers();
+            try {
+                if (tab === 'dashboard') loadDashboard();
+                else if (tab === 'reports') loadReports();
+                else if (tab === 'surveys') loadSurveys();
+                else if (tab === 'users') loadUsers();
+            } catch (e) {
+                console.warn('Erro ao carregar tab:', e);
             }
         }
 
         // ============================================================
-        // DASHBOARD
+        // DASHBOARD - CORRIGIDO
         // ============================================================
 
         async function loadDashboard() {
             try {
+                // Total de pesquisas
                 const surveysSnap = await db.collection('pesquisas').get();
                 let totalResponses = 0;
                 let totalReports = 0;
 
                 surveysSnap.forEach(doc => {
-                    const data = doc.data();
-                    totalResponses += (data.totalResponses || 0);
-                    totalReports += (data.reports || 0);
+                    try {
+                        const data = doc.data();
+                        totalResponses += (data.totalResponses || 0);
+                        totalReports += (data.reports || 0);
+                    } catch (e) { /* ignora erro em documento individual */ }
                 });
 
-                document.getElementById('totalSurveys').textContent = surveysSnap.size;
+                document.getElementById('totalSurveys').textContent = surveysSnap.size || 0;
                 document.getElementById('totalResponses').textContent = totalResponses;
                 document.getElementById('totalReports').textContent = totalReports;
 
-                const usersSnap = await db.collection('users').get();
-                document.getElementById('totalUsers').textContent = usersSnap.size;
+                // Total de usuários
+                try {
+                    const usersSnap = await db.collection('users').get();
+                    document.getElementById('totalUsers').textContent = usersSnap.size || 0;
+                } catch (e) {
+                    document.getElementById('totalUsers').textContent = '0';
+                }
 
-                // Atualizar badge
                 document.getElementById('reportsBadge').textContent = totalReports;
 
-                // Atividade recente
-                const reportsSnap = await db.collectionGroup('denuncias').get();
-                const recentReports = [];
-
-                reportsSnap.forEach(doc => {
-                    const data = doc.data();
-                    recentReports.push({
-                        id: doc.id,
-                        ...data,
-                        surveyUid: doc.ref.parent.parent.id
-                    });
+                // Atividade recente - usar query direta em vez de collectionGroup
+                const recentActivity = document.getElementById('recentActivity');
+                
+                // Buscar pesquisas com denúncias
+                const surveysWithReports = [];
+                surveysSnap.forEach(doc => {
+                    try {
+                        const data = doc.data();
+                        if (data.reports && data.reports > 0) {
+                            surveysWithReports.push({
+                                uid: doc.id,
+                                title: data.title || 'Sem título',
+                                reports: data.reports || 0
+                            });
+                        }
+                    } catch (e) { /* ignora */ }
                 });
 
-                recentReports.sort((a, b) => {
-                    const aTime = a.timestamp ? a.timestamp.toDate() : new Date(0);
-                    const bTime = b.timestamp ? b.timestamp.toDate() : new Date(0);
-                    return bTime - aTime;
-                });
-
-                const activityContainer = document.getElementById('recentActivity');
-
-                if (recentReports.length === 0) {
-                    activityContainer.innerHTML = `
+                if (surveysWithReports.length === 0) {
+                    recentActivity.innerHTML = `
                         <div class="empty-state">
                             <div class="icon">✅</div>
                             <p>Nenhuma denúncia registrada. Sistema limpo!</p>
                         </div>
                     `;
                 } else {
-                    const recent = recentReports.slice(0, 5);
-                    activityContainer.innerHTML = recent.map(r => {
-                        const date = r.timestamp ? r.timestamp.toDate().toLocaleString('pt-BR') : 'N/A';
-                        const reason = REASON_MAP[r.reason] || r.reason || 'Desconhecido';
-                        const status = r.status || 'pending';
-                        const statusLabel = {
-                            'pending': 'Pendente',
-                            'reviewing': 'Em Análise',
-                            'resolved': 'Resolvida',
-                            'dismissed': 'Rejeitada'
-                        } [status] || 'Pendente';
-
-                        return `
-                            <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: 8px;">
-                                <div>
-                                    <span style="color: #dc2626; font-weight: 600;">🚨 ${reason}</span>
-                                    <span style="color: #94a3b8; font-size: 0.8rem; margin-left: 10px;">🔑 ${r.surveyUid}</span>
-                                </div>
-                                <div>
-                                    <span class="status-badge status-${status}">${statusLabel}</span>
-                                    <span style="color: #64748b; font-size: 0.75rem; margin-left: 10px;">${date}</span>
-                                </div>
+                    recentActivity.innerHTML = surveysWithReports.slice(0, 5).map(s => `
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <span style="color: #dc2626; font-weight: 600;">🚨 ${s.reports} denúncia(s)</span>
+                                <span style="color: #94a3b8; font-size: 0.8rem; margin-left: 10px;">📝 ${s.title}</span>
                             </div>
-                        `;
-                    }).join('');
+                            <div>
+                                <span style="font-family: monospace; color: #4f46e5; font-size: 0.7rem;">${s.uid}</span>
+                            </div>
+                        </div>
+                    `).join('');
                 }
 
             } catch (error) {
                 console.error('Erro ao carregar dashboard:', error);
-                showToast('Erro ao carregar dados: ' + error.message, 'error');
+                showToast('Erro ao carregar dados do dashboard', 'error');
             }
         }
 
         // ============================================================
-        // GERENCIAR DENÚNCIAS
+        // GERENCIAR DENÚNCIAS - CORRIGIDO
         // ============================================================
 
         async function loadReports() {
             try {
-                const reportsSnap = await db.collectionGroup('denuncias').get();
+                // Buscar todas as pesquisas e suas denúncias
+                const surveysSnap = await db.collection('pesquisas').get();
                 allReports = [];
 
-                reportsSnap.forEach(doc => {
-                    const data = doc.data();
-                    const surveyUid = doc.ref.parent.parent.id;
-                    allReports.push({
-                        id: doc.id,
-                        ...data,
-                        surveyUid: surveyUid
-                    });
-                });
+                for (const surveyDoc of surveysSnap.docs) {
+                    try {
+                        const surveyUid = surveyDoc.id;
+                        const reportsSnap = await db.collection('pesquisas')
+                            .doc(surveyUid)
+                            .collection('denuncias')
+                            .get();
+
+                        reportsSnap.forEach(reportDoc => {
+                            try {
+                                const data = reportDoc.data();
+                                if (data && data.reason) {
+                                    allReports.push({
+                                        id: reportDoc.id,
+                                        surveyUid: surveyUid,
+                                        ...data
+                                    });
+                                }
+                            } catch (e) { /* ignora erro em documento individual */ }
+                        });
+                    } catch (e) {
+                        console.warn(`Erro ao carregar denúncias da pesquisa ${surveyDoc.id}:`, e);
+                    }
+                }
 
                 allReports.sort((a, b) => {
                     const aTime = a.timestamp ? a.timestamp.toDate() : new Date(0);
@@ -1128,7 +1115,7 @@
         function renderReportsTable(reports) {
             const tbody = document.getElementById('reportsTableBody');
 
-            if (reports.length === 0) {
+            if (!reports || reports.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" style="text-align: center; color: #64748b; padding: 30px;">
@@ -1141,46 +1128,50 @@
             }
 
             tbody.innerHTML = reports.map(r => {
-                const date = r.timestamp ? r.timestamp.toDate().toLocaleString('pt-BR') : 'N/A';
-                const reason = REASON_MAP[r.reason] || r.reason || 'Desconhecido';
-                const status = r.status || 'pending';
-                const statusLabel = {
-                    'pending': 'Pendente',
-                    'reviewing': 'Em Análise',
-                    'resolved': 'Resolvida',
-                    'dismissed': 'Rejeitada'
-                } [status] || 'Pendente';
+                try {
+                    const date = r.timestamp ? r.timestamp.toDate().toLocaleString('pt-BR') : 'N/A';
+                    const reason = REASON_MAP[r.reason] || r.reason || 'Desconhecido';
+                    const status = r.status || 'pending';
+                    const statusLabel = {
+                        'pending': 'Pendente',
+                        'reviewing': 'Em Análise',
+                        'resolved': 'Resolvida',
+                        'dismissed': 'Rejeitada'
+                    } [status] || 'Pendente';
 
-                return `
-                    <tr>
-                        <td style="font-size: 0.8rem; color: #94a3b8;">${date}</td>
-                        <td>
-                            <span style="font-family: monospace; color: #4f46e5; font-size: 0.8rem;">${r.surveyUid}</span>
-                        </td>
-                        <td>
-                            <span style="color: #dc2626;">${reason}</span>
-                            ${r.details ? `<br><span style="color: #64748b; font-size: 0.75rem;">${r.details.substring(0, 50)}${r.details.length > 50 ? '...' : ''}</span>` : ''}
-                        </td>
-                        <td><span class="status-badge status-${status}">${statusLabel}</span></td>
-                        <td>
-                            <button class="btn btn-primary btn-sm" onclick="viewReportDetail('${r.id}', '${r.surveyUid}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                    return `
+                        <tr>
+                            <td style="font-size: 0.8rem; color: #94a3b8;">${date}</td>
+                            <td>
+                                <span style="font-family: monospace; color: #4f46e5; font-size: 0.8rem;">${r.surveyUid || 'N/A'}</span>
+                            </td>
+                            <td>
+                                <span style="color: #dc2626;">${reason}</span>
+                                ${r.details ? `<br><span style="color: #64748b; font-size: 0.75rem;">${r.details.substring(0, 50)}${r.details.length > 50 ? '...' : ''}</span>` : ''}
+                            </td>
+                            <td><span class="status-badge status-${status}">${statusLabel}</span></td>
+                            <td>
+                                <button class="btn btn-primary btn-sm" onclick="viewReportDetail('${r.id}', '${r.surveyUid}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                } catch (e) {
+                    return '';
+                }
+            }).filter(row => row).join('');
         }
 
         function filterReports() {
             const search = document.getElementById('reportSearch').value.toLowerCase();
             const statusFilter = document.getElementById('reportStatusFilter').value;
 
-            let filtered = allReports;
+            let filtered = allReports || [];
 
             if (search) {
                 filtered = filtered.filter(r =>
-                    r.surveyUid.toLowerCase().includes(search) ||
+                    (r.surveyUid || '').toLowerCase().includes(search) ||
                     (REASON_MAP[r.reason] || r.reason || '').toLowerCase().includes(search) ||
                     (r.details || '').toLowerCase().includes(search)
                 );
@@ -1193,76 +1184,8 @@
             renderReportsTable(filtered);
         }
 
-        async function viewReportDetail(reportId, surveyUid) {
-            try {
-                const doc = await db.collection('pesquisas')
-                    .doc(surveyUid)
-                    .collection('denuncias')
-                    .doc(reportId)
-                    .get();
-
-                if (!doc.exists) {
-                    showToast('Denúncia não encontrada', 'error');
-                    return;
-                }
-
-                const data = doc.data();
-                currentReportId = reportId;
-                currentSurveyUid = surveyUid;
-
-                const surveyDoc = await db.collection('pesquisas').doc(surveyUid).get();
-                const surveyTitle = surveyDoc.exists ? surveyDoc.data().title : 'N/A';
-
-                document.getElementById('rdId').textContent = reportId;
-                document.getElementById('rdDate').textContent = data.timestamp ? data.timestamp.toDate().toLocaleString(
-                'pt-BR') : 'N/A';
-                document.getElementById('rdSurvey').textContent = surveyTitle;
-                document.getElementById('rdSurveyUid').textContent = surveyUid;
-                document.getElementById('rdReason').textContent = REASON_MAP[data.reason] || data.reason || 'Desconhecido';
-                document.getElementById('rdDetails').textContent = data.details || 'Nenhum detalhe adicional';
-                document.getElementById('rdReporter').textContent = data.reportedByName || 'Anônimo';
-                document.getElementById('rdStatus').textContent = (data.status || 'pending').toUpperCase();
-
-                document.getElementById('reportDetailModal').classList.add('show');
-
-            } catch (error) {
-                console.error('Erro ao carregar detalhes da denúncia:', error);
-                showToast('Erro ao carregar detalhes: ' + error.message, 'error');
-            }
-        }
-
-        async function updateReportStatus(status) {
-            if (!currentReportId || !currentSurveyUid) {
-                showToast('Nenhuma denúncia selecionada', 'error');
-                return;
-            }
-
-            try {
-                await db.collection('pesquisas')
-                    .doc(currentSurveyUid)
-                    .collection('denuncias')
-                    .doc(currentReportId)
-                    .update({
-                        status: status,
-                        reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        reviewedBy: currentUser ? currentUser.uid : 'unknown'
-                    });
-
-                showToast(`✅ Denúncia ${status === 'resolved' ? 'resolvida' : status === 'dismissed' ? 'rejeitada' : 'em análise'}!`,
-                    'success');
-
-                closeModal('reportDetailModal');
-                loadReports();
-                loadDashboard();
-
-            } catch (error) {
-                console.error('Erro ao atualizar status:', error);
-                showToast('Erro ao atualizar: ' + error.message, 'error');
-            }
-        }
-
         // ============================================================
-        // GERENCIAR PESQUISAS
+        // GERENCIAR PESQUISAS - CORRIGIDO
         // ============================================================
 
         async function loadSurveys() {
@@ -1271,10 +1194,15 @@
                 allSurveys = [];
 
                 surveysSnap.forEach(doc => {
-                    allSurveys.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
+                    try {
+                        const data = doc.data();
+                        if (data && data.uid) {
+                            allSurveys.push({
+                                id: doc.id,
+                                ...data
+                            });
+                        }
+                    } catch (e) { /* ignora erro em documento individual */ }
                 });
 
                 allSurveys.sort((a, b) => {
@@ -1295,7 +1223,7 @@
         function renderSurveysTable(surveys) {
             const tbody = document.getElementById('surveysTableBody');
 
-            if (surveys.length === 0) {
+            if (!surveys || surveys.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">
@@ -1308,60 +1236,64 @@
             }
 
             tbody.innerHTML = surveys.map(s => {
-                const status = s.status || 'active';
-                const statusLabel = {
-                    'active': 'Ativa',
-                    'blocked': 'Bloqueada',
-                    'closed': 'Encerrada'
-                } [status] || 'Ativa';
+                try {
+                    const status = s.status || 'active';
+                    const statusLabel = {
+                        'active': 'Ativa',
+                        'blocked': 'Bloqueada',
+                        'closed': 'Encerrada'
+                    } [status] || 'Ativa';
 
-                const statusClass = {
-                    'active': 'status-active',
-                    'blocked': 'status-blocked',
-                    'closed': 'status-closed'
-                } [status] || 'status-active';
+                    const statusClass = {
+                        'active': 'status-active',
+                        'blocked': 'status-blocked',
+                        'closed': 'status-closed'
+                    } [status] || 'status-active';
 
-                const reports = s.reports || 0;
+                    const reports = s.reports || 0;
 
-                return `
-                    <tr>
-                        <td>
-                            <strong>${s.title || 'Sem título'}</strong>
-                            ${s.description ? `<br><span style="color: #64748b; font-size: 0.75rem;">${s.description.substring(0, 50)}${s.description.length > 50 ? '...' : ''}</span>` : ''}
-                        </td>
-                        <td><span style="font-family: monospace; color: #4f46e5; font-size: 0.8rem;">${s.uid}</span></td>
-                        <td style="color: #94a3b8; font-size: 0.8rem;">${s.createdBy ? s.createdBy.substring(0, 15) + '...' : 'N/A'}</td>
-                        <td style="text-align: center;">${s.totalResponses || 0}</td>
-                        <td style="text-align: center;">
-                            ${reports > 0 ? `<span style="color: #dc2626; font-weight: 700;">🚨 ${reports}</span>` : '0'}
-                        </td>
-                        <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                        <td>
-                            <button class="btn btn-primary btn-sm" onclick="viewSurveyDetail('${s.uid}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            ${status !== 'blocked' ? 
-                                `<button class="btn btn-danger btn-sm" onclick="blockSurvey('${s.uid}')">
-                                    <i class="fas fa-ban"></i>
-                                </button>` : 
-                                `<button class="btn btn-success btn-sm" onclick="unblockSurvey('${s.uid}')">
-                                    <i class="fas fa-check"></i>
-                                </button>`
-                            }
-                            <button class="btn btn-danger btn-sm" onclick="deleteSurvey('${s.uid}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                    return `
+                        <tr>
+                            <td>
+                                <strong>${s.title || 'Sem título'}</strong>
+                                ${s.description ? `<br><span style="color: #64748b; font-size: 0.75rem;">${s.description.substring(0, 50)}${s.description.length > 50 ? '...' : ''}</span>` : ''}
+                            </td>
+                            <td><span style="font-family: monospace; color: #4f46e5; font-size: 0.8rem;">${s.uid || s.id}</span></td>
+                            <td style="color: #94a3b8; font-size: 0.8rem;">${s.createdBy ? s.createdBy.substring(0, 15) + '...' : 'N/A'}</td>
+                            <td style="text-align: center;">${s.totalResponses || 0}</td>
+                            <td style="text-align: center;">
+                                ${reports > 0 ? `<span style="color: #dc2626; font-weight: 700;">🚨 ${reports}</span>` : '0'}
+                            </td>
+                            <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                            <td>
+                                <button class="btn btn-primary btn-sm" onclick="viewSurveyDetail('${s.uid || s.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                ${status !== 'blocked' ? 
+                                    `<button class="btn btn-danger btn-sm" onclick="blockSurvey('${s.uid || s.id}')">
+                                        <i class="fas fa-ban"></i>
+                                    </button>` : 
+                                    `<button class="btn btn-success btn-sm" onclick="unblockSurvey('${s.uid || s.id}')">
+                                        <i class="fas fa-check"></i>
+                                    </button>`
+                                }
+                                <button class="btn btn-danger btn-sm" onclick="deleteSurvey('${s.uid || s.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                } catch (e) {
+                    return '';
+                }
+            }).filter(row => row).join('');
         }
 
         function filterSurveys() {
             const search = document.getElementById('surveySearch').value.toLowerCase();
             const statusFilter = document.getElementById('surveyStatusFilter').value;
 
-            let filtered = allSurveys;
+            let filtered = allSurveys || [];
 
             if (search) {
                 filtered = filtered.filter(s =>
@@ -1377,6 +1309,10 @@
 
             renderSurveysTable(filtered);
         }
+
+        // ============================================================
+        // FUNÇÕES DE AÇÃO (BLOQUEAR, EXCLUIR, ETC)
+        // ============================================================
 
         async function viewSurveyDetail(uid) {
             try {
@@ -1488,20 +1424,15 @@
 
         async function deleteSurvey(uid) {
             if (!confirm(`⚠️ TEM CERTEZA? Isso excluirá permanentemente a pesquisa ${uid} e TODAS as respostas.`)) return;
-
             if (!confirm(`Confirmação final: excluir pesquisa ${uid}?`)) return;
 
             try {
                 const responsesSnap = await db.collection('pesquisas').doc(uid).collection('respostas').get();
                 const batch = db.batch();
-                responsesSnap.forEach(doc => {
-                    batch.delete(doc.ref);
-                });
+                responsesSnap.forEach(doc => { batch.delete(doc.ref); });
 
                 const reportsSnap = await db.collection('pesquisas').doc(uid).collection('denuncias').get();
-                reportsSnap.forEach(doc => {
-                    batch.delete(doc.ref);
-                });
+                reportsSnap.forEach(doc => { batch.delete(doc.ref); });
 
                 await batch.commit();
                 await db.collection('pesquisas').doc(uid).delete();
@@ -1526,10 +1457,15 @@
                 allUsers = [];
 
                 usersSnap.forEach(doc => {
-                    allUsers.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
+                    try {
+                        const data = doc.data();
+                        if (data) {
+                            allUsers.push({
+                                id: doc.id,
+                                ...data
+                            });
+                        }
+                    } catch (e) { /* ignora */ }
                 });
 
                 document.getElementById('usersCount').textContent = allUsers.length;
@@ -1544,7 +1480,7 @@
         function renderUsersTable(users) {
             const tbody = document.getElementById('usersTableBody');
 
-            if (users.length === 0) {
+            if (!users || users.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" style="text-align: center; color: #64748b; padding: 30px;">
@@ -1557,50 +1493,53 @@
             }
 
             tbody.innerHTML = users.map(u => {
-                const isAdmin = u.isAdmin === true;
-                const isBanned = u.isBanned === true;
+                try {
+                    const isAdmin = u.isAdmin === true;
+                    const isBanned = u.isBanned === true;
 
-                return `
-                    <tr>
-                        <td>
-                            <strong>${u.displayName || u.name || 'Usuário'}</strong>
-                            ${isAdmin ? '<span class="status-badge status-resolved" style="margin-left: 8px;">Admin</span>' : ''}
-                        </td>
-                        <td style="color: #94a3b8;">${u.email || 'N/A'}</td>
-                        <td><span style="font-family: monospace; font-size: 0.7rem; color: #64748b;">${u.id || 'N/A'}</span></td>
-                        <td>
-                            ${isBanned ? 
-                                '<span class="status-badge status-blocked">Banido</span>' : 
-                                '<span class="status-badge status-active">Ativo</span>'
-                            }
-                        </td>
-                        <td>
-                            ${isBanned ? 
-                                `<button class="btn btn-success btn-sm" onclick="toggleUserBan('${u.id}', false)">
-                                    <i class="fas fa-check"></i> Desbanir
-                                </button>` : 
-                                `<button class="btn btn-danger btn-sm" onclick="toggleUserBan('${u.id}', true)">
-                                    <i class="fas fa-ban"></i> Banir
-                                </button>`
-                            }
-                            ${!isAdmin ? 
-                                `<button class="btn btn-warning btn-sm" onclick="toggleAdmin('${u.id}', true)">
-                                    <i class="fas fa-user-cog"></i> Admin
-                                </button>` : 
-                                `<button class="btn btn-secondary btn-sm" onclick="toggleAdmin('${u.id}', false)">
-                                    <i class="fas fa-user"></i> Remover Admin
-                                </button>`
-                            }
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                    return `
+                        <tr>
+                            <td>
+                                <strong>${u.displayName || u.name || 'Usuário'}</strong>
+                                ${isAdmin ? '<span class="status-badge status-resolved" style="margin-left: 8px;">Admin</span>' : ''}
+                            </td>
+                            <td style="color: #94a3b8;">${u.email || 'N/A'}</td>
+                            <td><span style="font-family: monospace; font-size: 0.7rem; color: #64748b;">${u.id || 'N/A'}</span></td>
+                            <td>
+                                ${isBanned ? 
+                                    '<span class="status-badge status-blocked">Banido</span>' : 
+                                    '<span class="status-badge status-active">Ativo</span>'
+                                }
+                            </td>
+                            <td>
+                                ${isBanned ? 
+                                    `<button class="btn btn-success btn-sm" onclick="toggleUserBan('${u.id}', false)">
+                                        <i class="fas fa-check"></i> Desbanir
+                                    </button>` : 
+                                    `<button class="btn btn-danger btn-sm" onclick="toggleUserBan('${u.id}', true)">
+                                        <i class="fas fa-ban"></i> Banir
+                                    </button>`
+                                }
+                                ${!isAdmin ? 
+                                    `<button class="btn btn-warning btn-sm" onclick="toggleAdmin('${u.id}', true)">
+                                        <i class="fas fa-user-cog"></i> Admin
+                                    </button>` : 
+                                    `<button class="btn btn-secondary btn-sm" onclick="toggleAdmin('${u.id}', false)">
+                                        <i class="fas fa-user"></i> Remover Admin
+                                    </button>`
+                                }
+                            </td>
+                        </tr>
+                    `;
+                } catch (e) {
+                    return '';
+                }
+            }).filter(row => row).join('');
         }
 
         function filterUsers() {
             const search = document.getElementById('userSearch').value.toLowerCase();
-
-            let filtered = allUsers;
+            let filtered = allUsers || [];
 
             if (search) {
                 filtered = filtered.filter(u =>
@@ -1653,10 +1592,85 @@
             }
         }
 
-        function logoutAdmin() {
-            auth.signOut().then(() => {
-                window.location.href = 'index.html';
-            });
+        // ============================================================
+        // DETALHES DA DENÚNCIA
+        // ============================================================
+
+        async function viewReportDetail(reportId, surveyUid) {
+            if (!reportId || !surveyUid) {
+                showToast('Dados da denúncia incompletos', 'error');
+                return;
+            }
+
+            try {
+                const doc = await db.collection('pesquisas')
+                    .doc(surveyUid)
+                    .collection('denuncias')
+                    .doc(reportId)
+                    .get();
+
+                if (!doc.exists) {
+                    showToast('Denúncia não encontrada', 'error');
+                    return;
+                }
+
+                const data = doc.data();
+                currentReportId = reportId;
+                currentSurveyUid = surveyUid;
+
+                const surveyDoc = await db.collection('pesquisas').doc(surveyUid).get();
+                const surveyTitle = surveyDoc.exists ? surveyDoc.data().title : 'N/A';
+
+                document.getElementById('rdId').textContent = reportId;
+                document.getElementById('rdDate').textContent = data.timestamp ? data.timestamp.toDate().toLocaleString(
+                    'pt-BR') : 'N/A';
+                document.getElementById('rdSurvey').textContent = surveyTitle;
+                document.getElementById('rdSurveyUid').textContent = surveyUid;
+                document.getElementById('rdReason').textContent = REASON_MAP[data.reason] || data.reason || 'Desconhecido';
+                document.getElementById('rdDetails').textContent = data.details || 'Nenhum detalhe adicional';
+                document.getElementById('rdReporter').textContent = data.reportedByName || 'Anônimo';
+                document.getElementById('rdStatus').textContent = (data.status || 'pending').toUpperCase();
+
+                document.getElementById('reportDetailModal').classList.add('show');
+
+            } catch (error) {
+                console.error('Erro ao carregar detalhes da denúncia:', error);
+                showToast('Erro ao carregar detalhes: ' + error.message, 'error');
+            }
+        }
+
+        async function updateReportStatus(status) {
+            if (!currentReportId || !currentSurveyUid) {
+                showToast('Nenhuma denúncia selecionada', 'error');
+                return;
+            }
+
+            try {
+                await db.collection('pesquisas')
+                    .doc(currentSurveyUid)
+                    .collection('denuncias')
+                    .doc(currentReportId)
+                    .update({
+                        status: status,
+                        reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        reviewedBy: currentUser ? currentUser.uid : 'unknown'
+                    });
+
+                const statusLabels = {
+                    'reviewing': 'em análise',
+                    'resolved': 'resolvida',
+                    'dismissed': 'rejeitada'
+                };
+
+                showToast(`✅ Denúncia ${statusLabels[status] || status}!`, 'success');
+                closeModal('reportDetailModal');
+                loadReports();
+                loadDashboard();
+
+            } catch (error) {
+                console.error('Erro ao atualizar status:', error);
+                showToast('Erro ao atualizar: ' + error.message, 'error');
+            }
         }
 
         // ============================================================
@@ -1665,6 +1679,14 @@
 
         function closeModal(id) {
             document.getElementById(id).classList.remove('show');
+        }
+
+        function logoutAdmin() {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            }).catch(() => {
+                window.location.href = 'index.html';
+            });
         }
 
         function showToast(message, type = 'info') {
