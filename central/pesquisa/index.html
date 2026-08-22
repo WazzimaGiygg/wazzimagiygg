@@ -1703,7 +1703,7 @@
                     <div class="name">Pesquisa Fraudulenta</div>
                     <div class="desc">Tentativa de engano ou fraude</div>
                 </div>
-                <div class="report-opt" data-reason="assediio" onclick="selectReportReason(this)">
+                <div class="report-opt" data-reason="assedio" onclick="selectReportReason(this)">
                     <div class="icon">🚫</div>
                     <div class="name">Assédio / Discriminação</div>
                     <div class="desc">Conteúdo que promove assédio ou discriminação</div>
@@ -2639,10 +2639,12 @@
                         'outro': 'Outro Motivo'
                     };
 
+                    const reportDate = report.timestamp ? new Date(report.timestamp).toLocaleString('pt-BR') : 'N/A';
+
                     html += `
                         <tr style="border-bottom: 1px solid #334155;">
                             <td style="padding: 8px; color: #94a3b8; font-size: 0.8rem;">
-                                ${report.timestamp ? report.timestamp.toDate().toLocaleString() : 'N/A'}
+                                ${reportDate}
                             </td>
                             <td style="padding: 8px; color: #e2e8f0;">
                                 ${reasonMap[report.reason] || report.reason || 'Desconhecido'}
@@ -2673,7 +2675,7 @@
         }
 
         // ============================================================
-        // FUNÇÕES DE DENÚNCIA
+        // FUNÇÕES DE DENÚNCIA - CORRIGIDAS
         // ============================================================
 
         function abrirModalDenuncia(surveyUid) {
@@ -2732,13 +2734,14 @@
                     ? document.getElementById('reportOtherText').value.trim() 
                     : '';
 
+                // Criar objeto da denúncia para a subcoleção
                 const reportData = {
                     reason: selectedReportReason,
                     details: details,
-                    reportedBy: currentUser.uid,
-                    reportedByName: currentUser.displayName || currentUser.email || 'Anônimo',
+                    reportedBy: currentUser ? currentUser.uid : 'anonymous',
+                    reportedByName: currentUser ? (currentUser.displayName || currentUser.email || 'Anônimo') : 'Anônimo',
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    surveyUid: currentReportSurveyUid
+                    status: 'pending'
                 };
 
                 // Salvar denúncia em subcoleção
@@ -2747,16 +2750,19 @@
                     .collection('denuncias')
                     .add(reportData);
 
-                // Incrementar contador de denúncias
+                // CORREÇÃO: Usar string ISO em vez de serverTimestamp para o arrayUnion
+                const reportDetail = {
+                    reason: selectedReportReason,
+                    details: details,
+                    timestamp: new Date().toISOString() // String ISO em vez de serverTimestamp
+                };
+
+                // Atualizar o documento com incremento e arrayUnion
                 await db.collection('pesquisas')
                     .doc(currentReportSurveyUid)
                     .update({
                         reports: firebase.firestore.FieldValue.increment(1),
-                        reportDetails: firebase.firestore.FieldValue.arrayUnion({
-                            reason: selectedReportReason,
-                            details: details,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        })
+                        reportDetails: firebase.firestore.FieldValue.arrayUnion(reportDetail)
                     });
 
                 showToast('✅ Denúncia enviada com sucesso!', 'success');
@@ -4028,6 +4034,43 @@
 
         function closeSuccessModal() {
             document.getElementById('successModal').classList.remove('show');
+        }
+
+        function shareSurvey(uid) {
+            const url = window.location.origin + window.location.pathname + '?uid=' + uid;
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('✅ Link da pesquisa copiado!', 'success');
+            }).catch(() => {
+                const input = document.createElement('input');
+                input.value = url;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('✅ Link copiado!', 'success');
+            });
+        }
+
+        async function deleteSurvey(uid) {
+            if (!confirm('Tem certeza que deseja excluir esta pesquisa e todas as respostas?')) return;
+
+            try {
+                const responsesSnap = await db.collection('pesquisas').doc(uid).collection('respostas').get();
+                const batch = db.batch();
+                responsesSnap.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                await db.collection('pesquisas').doc(uid).delete();
+
+                showToast('✅ Pesquisa excluída com sucesso!', 'success');
+                loadUserSurveys();
+                loadPublicSurveys();
+
+            } catch (error) {
+                console.error('Erro ao excluir:', error);
+                showToast('❌ Erro ao excluir: ' + error.message, 'error');
+            }
         }
 
         // ============================================================
