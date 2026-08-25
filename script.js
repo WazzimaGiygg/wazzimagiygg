@@ -24,97 +24,7 @@ let allItems = {};
 let notifications = [];
 let unreadCount = 0;
 let notificationListener = null;
-
-// ============================================
-// SINCRONIZAÇÃO COM O SISTEMA I18N
-// ============================================
-
-/**
- * Obtém o idioma atual do sistema I18N
- * @returns {string} Nome do idioma em português
- */
-function getCurrentLanguageFromI18N() {
-    // Mapeamento de locale para nome do idioma
-    const localeMap = {
-        'pt': 'Português',
-        'en': 'Inglês',
-        'es': 'Espanhol',
-        'fr': 'Francês',
-        'de': 'Alemão',
-        'it': 'Italiano',
-        'ja': 'Japonês',
-        'zh': 'Chinês',
-        'ru': 'Russo',
-        'ar': 'Árabe',
-        'hi': 'Hindi',
-        'el': 'Grego'
-    };
-    
-    // Tentar obter do I18N
-    if (typeof I18N !== 'undefined' && I18N.currentLocale) {
-        return localeMap[I18N.currentLocale] || 'Português';
-    }
-    
-    // Fallback: detectar do navegador
-    return detectUserLanguage();
-}
-
-// Sobrescrever a função detectUserLanguage para usar o I18N
-const originalDetectUserLanguage = detectUserLanguage;
-detectUserLanguage = function() {
-    // Tentar usar o I18N primeiro
-    if (typeof I18N !== 'undefined' && I18N.currentLocale) {
-        const localeMap = {
-            'pt': 'Português',
-            'en': 'Inglês',
-            'es': 'Espanhol',
-            'fr': 'Francês',
-            'de': 'Alemão',
-            'it': 'Italiano',
-            'ja': 'Japonês',
-            'zh': 'Chinês',
-            'ru': 'Russo',
-            'ar': 'Árabe',
-            'hi': 'Hindi',
-            'el': 'Grego'
-        };
-        const lang = localeMap[I18N.currentLocale] || 'Português';
-        console.log(`🌍 Usando idioma do I18N: ${lang}`);
-        return lang;
-    }
-    
-    // Fallback: usar a função original
-    return originalDetectUserLanguage();
-};
-
-// Sobrescrever a função saveUserLanguagePreference para sincronizar com I18N
-const originalSaveUserLanguagePreference = saveUserLanguagePreference;
-saveUserLanguagePreference = function(language) {
-    // Salvar no sistema de idioma
-    originalSaveUserLanguagePreference(language);
-    
-    // Sincronizar com I18N
-    if (typeof I18N !== 'undefined') {
-        const localeMap = {
-            'Português': 'pt',
-            'Inglês': 'en',
-            'Espanhol': 'es',
-            'Francês': 'fr',
-            'Alemão': 'de',
-            'Italiano': 'it',
-            'Japonês': 'ja',
-            'Chinês': 'zh',
-            'Russo': 'ru',
-            'Árabe': 'ar',
-            'Hindi': 'hi',
-            'Grego': 'el'
-        };
-        const locale = localeMap[language];
-        if (locale && I18N.availableLocales.includes(locale)) {
-            I18N.changeLanguage(locale);
-        }
-    }
-};
+let siteInitialized = false;
 
 // ============================================
 // DETECÇÃO DE IDIOMA DO USUÁRIO
@@ -200,25 +110,46 @@ const AVAILABLE_LANGUAGES = {
  * @returns {string} Nome do idioma em português
  */
 function detectUserLanguage() {
-    // 1. Tentar obter do localStorage (preferência salva)
+    // 1. Tentar usar o I18N primeiro
+    if (typeof I18N !== 'undefined' && I18N.currentLocale) {
+        const localeMap = {
+            'pt': 'Português',
+            'en': 'Inglês',
+            'es': 'Espanhol',
+            'fr': 'Francês',
+            'de': 'Alemão',
+            'it': 'Italiano',
+            'ja': 'Japonês',
+            'zh': 'Chinês',
+            'ru': 'Russo',
+            'ar': 'Árabe',
+            'hi': 'Hindi',
+            'el': 'Grego'
+        };
+        const lang = localeMap[I18N.currentLocale] || 'Português';
+        console.log(`🌍 Usando idioma do I18N: ${lang}`);
+        return lang;
+    }
+    
+    // 2. Tentar obter do localStorage (preferência salva)
     const savedLang = localStorage.getItem('user_preferred_language');
     if (savedLang && LANGUAGE_MAP[savedLang]) {
         console.log(`🌍 Idioma salvo pelo usuário: ${LANGUAGE_MAP[savedLang]}`);
         return LANGUAGE_MAP[savedLang];
     }
     
-    // 2. Tentar detectar do navegador
+    // 3. Tentar detectar do navegador
     const browserLang = navigator.language || navigator.languages?.[0] || 'pt';
     console.log(`🌍 Idioma do navegador detectado: ${browserLang}`);
     
-    // 3. Mapear para o valor no Firestore
+    // 4. Mapear para o valor no Firestore
     const mappedLang = LANGUAGE_MAP[browserLang];
     if (mappedLang) {
         console.log(`🌍 Mapeado para: ${mappedLang}`);
         return mappedLang;
     }
     
-    // 4. Fallback: Português
+    // 5. Fallback: Português
     console.log('🌍 Fallback para: Português');
     return 'Português';
 }
@@ -229,11 +160,35 @@ function detectUserLanguage() {
  */
 function saveUserLanguagePreference(language) {
     // Encontrar o código do idioma
+    let foundCode = null;
     for (const [code, name] of Object.entries(LANGUAGE_MAP)) {
         if (name === language) {
             localStorage.setItem('user_preferred_language', code);
+            foundCode = code;
             console.log(`💾 Preferência de idioma salva: ${language} (${code})`);
-            return;
+            break;
+        }
+    }
+    
+    // Sincronizar com I18N
+    if (typeof I18N !== 'undefined' && foundCode) {
+        const localeMap = {
+            'pt': 'pt',
+            'en': 'en',
+            'es': 'es',
+            'fr': 'fr',
+            'de': 'de',
+            'it': 'it',
+            'ja': 'ja',
+            'zh': 'zh',
+            'ru': 'ru',
+            'ar': 'ar',
+            'hi': 'hi',
+            'el': 'el'
+        };
+        const locale = localeMap[foundCode];
+        if (locale && I18N.availableLocales && I18N.availableLocales.includes(locale)) {
+            I18N.changeLanguage(locale);
         }
     }
 }
@@ -252,13 +207,10 @@ async function searchArticlesByLanguage(language, tab = null) {
         return items;
     }
     
-    // Filtrar artigos pelo idioma
     const filtered = items.filter(item => {
-        // Verificar se o artigo tem o campo 'armario' (idioma)
         if (item.armario) {
             return item.armario === language;
         }
-        // Se não tiver campo de idioma, considerar como Português (padrão)
         return language === 'Português';
     });
     
@@ -276,7 +228,6 @@ async function searchArticlesPrioritizingUserLanguage(tab = null) {
     const items = allItems[targetTab] || [];
     const userLang = detectUserLanguage();
     
-    // Separar artigos por idioma
     const userLangArticles = [];
     const otherLangArticles = [];
     const noLangArticles = [];
@@ -292,7 +243,6 @@ async function searchArticlesPrioritizingUserLanguage(tab = null) {
         }
     });
     
-    // Combinar: primeiro os do idioma do usuário, depois os outros
     const prioritized = [...userLangArticles, ...otherLangArticles, ...noLangArticles];
     
     console.log(`📊 Priorização: ${userLangArticles.length} em ${userLang}, ${otherLangArticles.length} em outros idiomas`);
@@ -319,8 +269,6 @@ const CookieManager = {
             this.applyConsent(consent);
             this.hideBanner();
         }
-        
-        // Setup event listeners
         this.setupEventListeners();
     },
     
@@ -328,11 +276,9 @@ const CookieManager = {
         document.getElementById('cookieAcceptAll')?.addEventListener('click', () => {
             this.acceptAll();
         });
-        
         document.getElementById('cookieRejectAll')?.addEventListener('click', () => {
             this.rejectAll();
         });
-        
         document.getElementById('cookieCustomize')?.addEventListener('click', () => {
             this.customize();
         });
@@ -376,13 +322,11 @@ const CookieManager = {
         } else {
             this.disableAnalytics();
         }
-        
         if (consent.advertising !== false) {
             this.enablePersonalizedAds();
         } else {
             this.disablePersonalizedAds();
         }
-        
         console.log('🍪 Preferências de cookies aplicadas:', consent);
     },
     
@@ -412,11 +356,7 @@ const CookieManager = {
     },
     
     acceptAll() {
-        const consent = {
-            essential: true,
-            analytics: true,
-            advertising: true
-        };
+        const consent = { essential: true, analytics: true, advertising: true };
         this.saveConsent(consent);
         this.applyConsent(consent);
         this.hideBanner();
@@ -424,27 +364,17 @@ const CookieManager = {
     },
     
     rejectAll() {
-        const consent = {
-            essential: true,
-            analytics: false,
-            advertising: false
-        };
+        const consent = { essential: true, analytics: false, advertising: false };
         this.saveConsent(consent);
         this.applyConsent(consent);
         this.hideBanner();
-        this.showToast('ℹ️ Cookies não essenciais foram recusados. Algumas funcionalidades podem ser limitadas.', 'info');
+        this.showToast('ℹ️ Cookies não essenciais foram recusados.', 'info');
     },
     
     customize() {
         const analytics = document.getElementById('cookieAnalytics')?.checked !== false;
         const advertising = document.getElementById('cookieAdvertising')?.checked !== false;
-        
-        const consent = {
-            essential: true,
-            analytics: analytics,
-            advertising: advertising
-        };
-        
+        const consent = { essential: true, analytics, advertising };
         this.saveConsent(consent);
         this.applyConsent(consent);
         this.hideBanner();
@@ -1021,9 +951,7 @@ async function loginWithGoogle() {
     try { 
         const result = await auth.signInWithPopup(googleProvider);
         const user = result.user;
-        
         await registerUser(user, false);
-        
         hideLoginModal(); 
         location.reload();
     } catch (error) { 
@@ -1035,29 +963,24 @@ async function guestLogin() {
     const guestUser = createGuestUser();
     currentUser = guestUser;
     isGuestUser = true;
-    
     await registerUser(guestUser, true);
-    
     updateUI();
     hideLoginModal();
     location.reload();
 }
 
 // ============================================
-// FUNÇÃO DE LOGOUT CORRIGIDA
+// FUNÇÃO DE LOGOUT
 // ============================================
 async function logout() { 
     try {
         clearGuestUser();
-        
         if (auth.currentUser) {
             await auth.signOut();
         }
-        
         currentUser = null;
         isGuestUser = false;
         isAdmin = false;
-        
         if (notificationListener) {
             notificationListener();
             notificationListener = null;
@@ -1065,7 +988,6 @@ async function logout() {
         notifications = [];
         unreadCount = 0;
         updateNotificationBadge();
-        
         updateUI();
         await loadContentPublic();
         location.reload();
@@ -1112,9 +1034,6 @@ function showToast(message, isError = false) {
 // RENDERIZAÇÃO COM PRIORIDADE DE IDIOMA
 // ============================================
 
-/**
- * Renderiza a aba atual com prioridade para o idioma do usuário
- */
 async function renderCurrentTabWithLanguage() {
     const items = allItems[currentTab] || [];
     
@@ -1127,20 +1046,14 @@ async function renderCurrentTabWithLanguage() {
         return;
     }
     
-    // Detectar idioma do usuário
     const userLang = detectUserLanguage();
-    
-    // Priorizar artigos no idioma do usuário
     const prioritizedItems = await searchArticlesPrioritizingUserLanguage(currentTab);
-    
-    // Se não houver artigos no idioma do usuário, usar todos
     const displayItems = prioritizedItems.length > 0 ? prioritizedItems : items;
     
     const mainArticle = displayItems[0] || items[0];
     const leftArticles = displayItems.slice(1, 4);
     const rightArticles = displayItems.slice(4, 8);
     
-    // Criar indicador de idioma
     const langEmoji = AVAILABLE_LANGUAGES[userLang] || '🌍';
     const userLangCount = displayItems.filter(item => (item.armario || 'Português') === userLang).length;
     
@@ -1152,7 +1065,6 @@ async function renderCurrentTabWithLanguage() {
         </div>
     `;
     
-    // Renderizar com indicador de idioma
     const renderCard = (item, isMain = false) => {
         const date = formatDate(item.ultimaEdicao);
         const badge = getBadgeForTab(currentTab);
@@ -1281,9 +1193,6 @@ window.filterByTab = function(tab) {
     }
 };
 
-/**
- * Função de busca aprimorada com filtro de idioma
- */
 function searchContent() {
     const term = document.getElementById('search-input').value.toLowerCase().trim();
     const userLang = detectUserLanguage();
@@ -1295,17 +1204,14 @@ function searchContent() {
     
     const items = allItems[currentTab] || [];
     
-    // Filtrar por termo e por idioma (priorizar idioma do usuário)
     const filtered = items.filter(item => {
         const matchTerm = item.titulo.toLowerCase().includes(term) ||
                          stripHtml(item.descricao || '').toLowerCase().includes(term);
         if (!matchTerm) return false;
-        
         const itemLang = item.armario || 'Português';
         return itemLang === userLang || !item.armario;
     });
     
-    // Se não encontrou no idioma do usuário, buscar em todos
     const finalResults = filtered.length > 0 ? filtered : 
         items.filter(item => 
             item.titulo.toLowerCase().includes(term) ||
@@ -1324,7 +1230,6 @@ function searchContent() {
         return;
     }
     
-    // Renderizar resultados com indicador de idioma
     const langEmoji = AVAILABLE_LANGUAGES[userLang] || '🌍';
     const userLangCount = finalResults.filter(item => (item.armario || 'Português') === userLang).length;
     
@@ -1390,13 +1295,8 @@ function searchContent() {
     `;
 }
 
-/**
- * Filtra artigos por idioma selecionado manualmente
- * @param {string} language - Idioma para filtrar
- */
 async function filterByLanguage(language) {
     if (!language || language === 'todos' || language === 'auto') {
-        // Mostrar todos os artigos com prioridade
         renderCurrentTabWithLanguage();
         return;
     }
@@ -1419,7 +1319,6 @@ async function filterByLanguage(language) {
         return;
     }
     
-    // Renderizar resultados filtrados
     const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
     const langIndicator = `
         <div class="language-indicator">
@@ -1470,16 +1369,14 @@ async function filterByLanguage(language) {
 // ============================================
 // FUNÇÃO PARA MUDAR IDIOMA (SINCRONIZADA)
 // ============================================
-function changeLanguage(language) {
+function onLanguageSelectChange(language) {
     if (language === 'auto') {
-        // Usar detecção automática
         localStorage.removeItem('user_preferred_language');
         localStorage.removeItem('wzzm_language');
         
         const detected = detectUserLanguage();
         saveUserLanguagePreference(detected);
         
-        // Sincronizar com I18N
         if (typeof I18N !== 'undefined') {
             const localeMap = {
                 'Português': 'pt',
@@ -1496,7 +1393,7 @@ function changeLanguage(language) {
                 'Grego': 'el'
             };
             const locale = localeMap[detected];
-            if (locale && I18N.availableLocales.includes(locale)) {
+            if (locale && I18N.availableLocales && I18N.availableLocales.includes(locale)) {
                 I18N.changeLanguage(locale);
             }
         }
@@ -1504,10 +1401,8 @@ function changeLanguage(language) {
         renderCurrentTabWithLanguage();
         showToast(`🌍 Idioma detectado automaticamente: ${detected}`);
     } else {
-        // Usar idioma selecionado
         saveUserLanguagePreference(language);
         
-        // Sincronizar com I18N
         if (typeof I18N !== 'undefined') {
             const localeMap = {
                 'Português': 'pt',
@@ -1524,7 +1419,7 @@ function changeLanguage(language) {
                 'Grego': 'el'
             };
             const locale = localeMap[language];
-            if (locale && I18N.availableLocales.includes(locale)) {
+            if (locale && I18N.availableLocales && I18N.availableLocales.includes(locale)) {
                 I18N.changeLanguage(locale);
             }
         }
@@ -1692,7 +1587,6 @@ async function checkRedirect() {
     if (uid) {
         try {
             console.log('🔍 Verificando redirecionamento para UID:', uid);
-            
             const docRef = db.collection('redirecionamento').doc(uid);
             const docSnap = await docRef.get();
             
@@ -1715,7 +1609,6 @@ async function checkRedirect() {
                     const delay = data.delayTime || 5;
                     const message = data.messageText || 'Você será redirecionado em {TEMPO} segundos.';
                     const finalMessage = message.replace(/\[TEMPO\]/g, delay);
-                    
                     showRedirectPage(delay, data.targetUrl, finalMessage);
                     return true;
                 }
@@ -1753,83 +1646,25 @@ function showRedirectPage(delay, targetUrl, message) {
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
     redirectDiv.innerHTML = `
-        <div style="
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            font-family: 'Lato', Arial, sans-serif;
-            padding: 20px;
-        ">
-            <div style="
-                padding: 40px;
-                background: #fff;
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                text-align: center;
-                max-width: 500px;
-                width: 90%;
-                animation: fadeIn 0.5s ease;
-            ">
-                <div style="font-size: 3em; margin-bottom: 20px;">🔄</div>
-                <h1 style="color: #1a3c5e; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
-                    Aguarde um momento...
-                </h1>
-                <p style="font-size: 1.1em; color: #555; margin-bottom: 25px; line-height: 1.6;">
-                    ${escapeHtml(message)}
-                </p>
-                <div style="margin: 25px 0; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <span style="font-size: 3em; font-weight: bold; color: #c0392b;" id="countdownDisplay">${delay}</span>
-                    <span style="font-size: 1.2em; color: #666;">segundos</span>
+        <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);font-family:'Lato',Arial,sans-serif;padding:20px;">
+            <div style="padding:40px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15);text-align:center;max-width:500px;width:90%;animation:fadeIn 0.5s ease;">
+                <div style="font-size:3em;margin-bottom:20px;">🔄</div>
+                <h1 style="color:#1a3c5e;margin-bottom:15px;font-family:'Playfair Display',serif;">Aguarde um momento...</h1>
+                <p style="font-size:1.1em;color:#555;margin-bottom:25px;line-height:1.6;">${escapeHtml(message)}</p>
+                <div style="margin:25px 0;display:flex;align-items:center;justify-content:center;gap:10px;">
+                    <span style="font-size:3em;font-weight:bold;color:#c0392b;" id="countdownDisplay">${delay}</span>
+                    <span style="font-size:1.2em;color:#666;">segundos</span>
                 </div>
-                <div style="
-                    width: 100%;
-                    height: 4px;
-                    background: #e0e0e0;
-                    border-radius: 2px;
-                    margin: 20px 0;
-                    overflow: hidden;
-                ">
-                    <div style="
-                        width: 100%;
-                        height: 100%;
-                        background: linear-gradient(90deg, #c0392b, #e74c3c);
-                        border-radius: 2px;
-                        animation: progressBar ${delay}s linear forwards;
-                    "></div>
+                <div style="width:100%;height:4px;background:#e0e0e0;border-radius:2px;margin:20px 0;overflow:hidden;">
+                    <div style="width:100%;height:100%;background:linear-gradient(90deg,#c0392b,#e74c3c);border-radius:2px;animation:progressBar ${delay}s linear forwards;"></div>
                 </div>
-                <a href="${targetUrl}" style="
-                    display: inline-block;
-                    padding: 14px 28px;
-                    background: #1a3c5e;
-                    color: #fff;
-                    text-decoration: none;
-                    border-radius: 30px;
-                    font-weight: 600;
-                    transition: all 0.3s;
-                    font-size: 14px;
-                    letter-spacing: 0.5px;
-                    box-shadow: 0 4px 12px rgba(26, 60, 94, 0.3);
-                " onmouseover="this.style.background='#c0392b'; this.style.transform='translateY(-2px)'" 
-                   onmouseout="this.style.background='#1a3c5e'; this.style.transform='translateY(0)'">
-                    🔗 Ir agora para o destino
-                </a>
-                <p style="margin-top: 20px; font-size: 0.8em; color: #999;">
-                    Redirecionamento automático em ${delay} segundos
-                </p>
+                <a href="${targetUrl}" style="display:inline-block;padding:14px 28px;background:#1a3c5e;color:#fff;text-decoration:none;border-radius:30px;font-weight:600;transition:all 0.3s;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(26,60,94,0.3);" onmouseover="this.style.background='#c0392b';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#1a3c5e';this.style.transform='translateY(0)'">🔗 Ir agora para o destino</a>
+                <p style="margin-top:20px;font-size:0.8em;color:#999;">Redirecionamento automático em ${delay} segundos</p>
             </div>
         </div>
         <style>
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes progressBar {
-                from { width: 100%; }
-                to { width: 0%; }
-            }
+            @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes progressBar { from { width: 100%; } to { width: 0%; } }
         </style>
     `;
     
@@ -1847,7 +1682,6 @@ function showRedirectPage(delay, targetUrl, message) {
                 window.location.href = '${targetUrl}';
             }
         }, 1000);
-        
         setTimeout(() => {
             window.location.href = '${targetUrl}';
         }, ${delay * 1000});
@@ -1869,44 +1703,12 @@ function showRedirectNotFound() {
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
     redirectDiv.innerHTML = `
-        <div style="
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            font-family: 'Lato', Arial, sans-serif;
-            padding: 20px;
-        ">
-            <div style="
-                padding: 40px;
-                background: #fff;
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                text-align: center;
-                max-width: 500px;
-                width: 90%;
-            ">
-                <div style="font-size: 4em; margin-bottom: 20px;">🔍</div>
-                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
-                    Redirecionamento não encontrado
-                </h1>
-                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
-                    O redirecionamento que você está procurando não existe ou foi removido.
-                </p>
-                <a href="/" style="
-                    display: inline-block;
-                    padding: 14px 28px;
-                    background: #6c757d;
-                    color: #fff;
-                    text-decoration: none;
-                    border-radius: 30px;
-                    font-weight: 600;
-                    transition: all 0.3s;
-                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
-                    🏠 Voltar para o início
-                </a>
+        <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);font-family:'Lato',Arial,sans-serif;padding:20px;">
+            <div style="padding:40px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15);text-align:center;max-width:500px;width:90%;">
+                <div style="font-size:4em;margin-bottom:20px;">🔍</div>
+                <h1 style="color:#dc3545;margin-bottom:15px;font-family:'Playfair Display',serif;">Redirecionamento não encontrado</h1>
+                <p style="color:#666;margin-bottom:25px;line-height:1.6;">O redirecionamento que você está procurando não existe ou foi removido.</p>
+                <a href="/" style="display:inline-block;padding:14px 28px;background:#6c757d;color:#fff;text-decoration:none;border-radius:30px;font-weight:600;transition:all 0.3s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">🏠 Voltar para o início</a>
             </div>
         </div>
     `;
@@ -1927,44 +1729,12 @@ function showRedirectError() {
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
     redirectDiv.innerHTML = `
-        <div style="
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            font-family: 'Lato', Arial, sans-serif;
-            padding: 20px;
-        ">
-            <div style="
-                padding: 40px;
-                background: #fff;
-                border-radius: 16px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-                text-align: center;
-                max-width: 500px;
-                width: 90%;
-            ">
-                <div style="font-size: 4em; margin-bottom: 20px;">⚠️</div>
-                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
-                    Erro ao carregar redirecionamento
-                </h1>
-                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
-                    Ocorreu um erro ao tentar carregar o redirecionamento. Por favor, tente novamente.
-                </p>
-                <a href="/" style="
-                    display: inline-block;
-                    padding: 14px 28px;
-                    background: #6c757d;
-                    color: #fff;
-                    text-decoration: none;
-                    border-radius: 30px;
-                    font-weight: 600;
-                    transition: all 0.3s;
-                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
-                    🏠 Voltar para o início
-                </a>
+        <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);font-family:'Lato',Arial,sans-serif;padding:20px;">
+            <div style="padding:40px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15);text-align:center;max-width:500px;width:90%;">
+                <div style="font-size:4em;margin-bottom:20px;">⚠️</div>
+                <h1 style="color:#dc3545;margin-bottom:15px;font-family:'Playfair Display',serif;">Erro ao carregar redirecionamento</h1>
+                <p style="color:#666;margin-bottom:25px;line-height:1.6;">Ocorreu um erro ao tentar carregar o redirecionamento. Por favor, tente novamente.</p>
+                <a href="/" style="display:inline-block;padding:14px 28px;background:#6c757d;color:#fff;text-decoration:none;border-radius:30px;font-weight:600;transition:all 0.3s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">🏠 Voltar para o início</a>
             </div>
         </div>
     `;
@@ -1972,33 +1742,29 @@ function showRedirectError() {
 }
 
 // ============================================
-// INICIALIZAÇÃO (MODIFICADA)
+// INICIALIZAÇÃO
 // ============================================
 
-// Aguardar o I18N carregar antes de iniciar o site
+function initializeSite() {
+    if (siteInitialized) return;
+    siteInitialized = true;
+    
+    console.log('📍 Modo normal - carregando site');
+    initSite();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar Cookie Manager
     CookieManager.init();
     
-    // Aguardar o I18N carregar
     if (typeof I18N !== 'undefined') {
         I18N.onLoaded(function(locale) {
             console.log(`🌍 I18N carregado: ${locale}`);
             
-            // Atualizar o seletor de idioma
             const localeMap = {
-                'pt': 'Português',
-                'en': 'Inglês',
-                'es': 'Espanhol',
-                'fr': 'Francês',
-                'de': 'Alemão',
-                'it': 'Italiano',
-                'ja': 'Japonês',
-                'zh': 'Chinês',
-                'ru': 'Russo',
-                'ar': 'Árabe',
-                'hi': 'Hindi',
-                'el': 'Grego'
+                'pt': 'Português', 'en': 'Inglês', 'es': 'Espanhol',
+                'fr': 'Francês', 'de': 'Alemão', 'it': 'Italiano',
+                'ja': 'Japonês', 'zh': 'Chinês', 'ru': 'Russo',
+                'ar': 'Árabe', 'hi': 'Hindi', 'el': 'Grego'
             };
             const langName = localeMap[locale] || 'Português';
             const select = document.getElementById('languageSelect');
@@ -2006,41 +1772,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 select.value = langName;
             }
             
-            // Iniciar o site
-            if (!window._siteInitialized) {
-                window._siteInitialized = true;
-                checkRedirect().then(isRedirect => {
-                    if (!isRedirect) {
-                        console.log('📍 Modo normal - carregando site');
-                        initSite();
-                    } else {
-                        console.log('🔄 Modo redirecionamento ativado');
-                    }
-                });
-            }
+            checkRedirect().then(isRedirect => {
+                if (!isRedirect) {
+                    initializeSite();
+                } else {
+                    console.log('🔄 Modo redirecionamento ativado');
+                }
+            });
         });
     } else {
-        // Fallback: iniciar sem I18N
         checkRedirect().then(isRedirect => {
             if (!isRedirect) {
-                console.log('📍 Modo normal - carregando site (sem I18N)');
-                initSite();
+                initializeSite();
             }
         });
     }
 });
 
-// SEGUNDO: Verificar redirecionamento
-checkRedirect().then(isRedirect => {
-    if (!isRedirect) {
-        console.log('📍 Modo normal - carregando site');
-        initSite();
-    } else {
-        console.log('🔄 Modo redirecionamento ativado');
-    }
-});
-
-// Função de inicialização do site
 function initSite() {
     document.getElementById('currentDate').textContent = new Date().toLocaleDateString('pt-BR', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
