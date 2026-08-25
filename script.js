@@ -1468,19 +1468,67 @@ async function filterByLanguage(language) {
 }
 
 // ============================================
-// FUNÇÃO PARA MUDAR IDIOMA (MANUAL)
+// FUNÇÃO PARA MUDAR IDIOMA (SINCRONIZADA)
 // ============================================
 function changeLanguage(language) {
     if (language === 'auto') {
         // Usar detecção automática
         localStorage.removeItem('user_preferred_language');
+        localStorage.removeItem('wzzm_language');
+        
         const detected = detectUserLanguage();
         saveUserLanguagePreference(detected);
+        
+        // Sincronizar com I18N
+        if (typeof I18N !== 'undefined') {
+            const localeMap = {
+                'Português': 'pt',
+                'Inglês': 'en',
+                'Espanhol': 'es',
+                'Francês': 'fr',
+                'Alemão': 'de',
+                'Italiano': 'it',
+                'Japonês': 'ja',
+                'Chinês': 'zh',
+                'Russo': 'ru',
+                'Árabe': 'ar',
+                'Hindi': 'hi',
+                'Grego': 'el'
+            };
+            const locale = localeMap[detected];
+            if (locale && I18N.availableLocales.includes(locale)) {
+                I18N.changeLanguage(locale);
+            }
+        }
+        
         renderCurrentTabWithLanguage();
         showToast(`🌍 Idioma detectado automaticamente: ${detected}`);
     } else {
         // Usar idioma selecionado
         saveUserLanguagePreference(language);
+        
+        // Sincronizar com I18N
+        if (typeof I18N !== 'undefined') {
+            const localeMap = {
+                'Português': 'pt',
+                'Inglês': 'en',
+                'Espanhol': 'es',
+                'Francês': 'fr',
+                'Alemão': 'de',
+                'Italiano': 'it',
+                'Japonês': 'ja',
+                'Chinês': 'zh',
+                'Russo': 'ru',
+                'Árabe': 'ar',
+                'Hindi': 'hi',
+                'Grego': 'el'
+            };
+            const locale = localeMap[language];
+            if (locale && I18N.availableLocales.includes(locale)) {
+                I18N.changeLanguage(locale);
+            }
+        }
+        
         filterByLanguage(language);
         showToast(`🌍 Idioma alterado para: ${language}`);
     }
@@ -1924,18 +1972,61 @@ function showRedirectError() {
 }
 
 // ============================================
-// INICIALIZAÇÃO
+// INICIALIZAÇÃO (MODIFICADA)
 // ============================================
 
-// PRIMEIRO: Inicializar Cookie Manager
+// Aguardar o I18N carregar antes de iniciar o site
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Cookie Manager
     CookieManager.init();
     
-    // Atualizar o seletor de idioma com o idioma detectado
-    const userLang = detectUserLanguage();
-    const select = document.getElementById('languageSelect');
-    if (select) {
-        select.value = userLang;
+    // Aguardar o I18N carregar
+    if (typeof I18N !== 'undefined') {
+        I18N.onLoaded(function(locale) {
+            console.log(`🌍 I18N carregado: ${locale}`);
+            
+            // Atualizar o seletor de idioma
+            const localeMap = {
+                'pt': 'Português',
+                'en': 'Inglês',
+                'es': 'Espanhol',
+                'fr': 'Francês',
+                'de': 'Alemão',
+                'it': 'Italiano',
+                'ja': 'Japonês',
+                'zh': 'Chinês',
+                'ru': 'Russo',
+                'ar': 'Árabe',
+                'hi': 'Hindi',
+                'el': 'Grego'
+            };
+            const langName = localeMap[locale] || 'Português';
+            const select = document.getElementById('languageSelect');
+            if (select) {
+                select.value = langName;
+            }
+            
+            // Iniciar o site
+            if (!window._siteInitialized) {
+                window._siteInitialized = true;
+                checkRedirect().then(isRedirect => {
+                    if (!isRedirect) {
+                        console.log('📍 Modo normal - carregando site');
+                        initSite();
+                    } else {
+                        console.log('🔄 Modo redirecionamento ativado');
+                    }
+                });
+            }
+        });
+    } else {
+        // Fallback: iniciar sem I18N
+        checkRedirect().then(isRedirect => {
+            if (!isRedirect) {
+                console.log('📍 Modo normal - carregando site (sem I18N)');
+                initSite();
+            }
+        });
     }
 });
 
