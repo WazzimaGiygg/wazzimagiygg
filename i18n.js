@@ -9,29 +9,91 @@ const I18N = {
     loaded: false,
     callbacks: [],
     
-    // Inicializar
+    // Mapeamento para o sistema de detecção de idioma
+    languageMap: {
+        'pt': 'Português',
+        'en': 'Inglês',
+        'es': 'Espanhol',
+        'fr': 'Francês',
+        'de': 'Alemão',
+        'it': 'Italiano',
+        'ja': 'Japonês',
+        'zh': 'Chinês',
+        'ru': 'Russo',
+        'ar': 'Árabe',
+        'hi': 'Hindi',
+        'el': 'Grego'
+    },
+    
     init: function() {
         console.log('🌍 Inicializando sistema de internacionalização...');
         
-        // Detectar idioma preferido do navegador
-        const detected = this.detectLanguage();
-        console.log(`🌍 Idioma detectado: ${detected}`);
+        // 1. Verificar se há preferência salva no sistema de idioma
+        const savedLangCode = localStorage.getItem('user_preferred_language');
+        if (savedLangCode) {
+            // Converter código para locale
+            const locale = this.getLocaleFromCode(savedLangCode);
+            if (locale && this.availableLocales.includes(locale)) {
+                this.currentLocale = locale;
+                console.log(`🌍 Usando preferência salva do sistema de idioma: ${savedLangCode} → ${locale}`);
+            }
+        }
         
-        // Verificar se há preferência salva
-        const saved = localStorage.getItem('wzzm_language');
-        if (saved && this.availableLocales.includes(saved)) {
-            this.currentLocale = saved;
-            console.log(`🌍 Usando preferência salva: ${saved}`);
-        } else {
+        // 2. Se não houver preferência, detectar do navegador
+        if (!this.currentLocale) {
+            const detected = this.detectLanguage();
             this.currentLocale = detected;
+            console.log(`🌍 Idioma detectado: ${detected}`);
+        }
+        
+        // 3. Salvar a preferência nos dois sistemas
+        const langName = this.languageMap[this.currentLocale] || 'Português';
+        const langCode = this.getCodeFromLocale(this.currentLocale);
+        if (langCode) {
+            localStorage.setItem('user_preferred_language', langCode);
             localStorage.setItem('wzzm_language', this.currentLocale);
         }
         
-        // Carregar traduções
+        // 4. Carregar traduções
         this.loadTranslations(this.currentLocale);
     },
     
-    // Detectar idioma do navegador
+    getLocaleFromCode: function(code) {
+        const map = {
+            'pt': 'pt', 'pt-BR': 'pt', 'pt-PT': 'pt',
+            'en': 'en', 'en-US': 'en', 'en-GB': 'en',
+            'es': 'es', 'es-ES': 'es', 'es-MX': 'es',
+            'fr': 'fr', 'fr-FR': 'fr',
+            'de': 'de', 'de-DE': 'de',
+            'it': 'it', 'it-IT': 'it',
+            'ja': 'ja', 'ja-JP': 'ja',
+            'zh': 'zh', 'zh-CN': 'zh', 'zh-TW': 'zh',
+            'ru': 'ru', 'ru-RU': 'ru',
+            'ar': 'ar', 'ar-SA': 'ar',
+            'hi': 'hi', 'hi-IN': 'hi',
+            'el': 'el', 'el-GR': 'el'
+        };
+        return map[code] || null;
+    },
+    
+    getCodeFromLocale: function(locale) {
+        const map = {
+            'pt': 'pt',
+            'en': 'en',
+            'es': 'es',
+            'fr': 'fr',
+            'de': 'de',
+            'it': 'it',
+            'ja': 'ja',
+            'zh': 'zh',
+            'ru': 'ru',
+            'ar': 'ar',
+            'hi': 'hi',
+            'el': 'el'
+        };
+        return map[locale] || null;
+    },
+    
     detectLanguage: function() {
         const languages = navigator.languages || [navigator.language];
         for (const lang of languages) {
@@ -40,20 +102,17 @@ const I18N = {
                 return locale;
             }
         }
-        return 'pt'; // Fallback para português
+        return 'pt';
     },
     
-    // Carregar traduções
     loadTranslations: function(locale) {
         const self = this;
         
-        // Verificar se já temos a tradução em cache
         if (this.translations[locale]) {
             this.applyTranslations(locale);
             return;
         }
         
-        // Carregar o arquivo de tradução
         const script = document.createElement('script');
         script.src = `i18n/${locale}.js`;
         script.onload = function() {
@@ -62,7 +121,6 @@ const I18N = {
                 self.applyTranslations(locale);
             } else {
                 console.error(`❌ Tradução para ${locale} não encontrada`);
-                // Fallback para português
                 if (locale !== 'pt') {
                     self.loadTranslations('pt');
                 }
@@ -77,7 +135,6 @@ const I18N = {
         document.head.appendChild(script);
     },
     
-    // Aplicar traduções
     applyTranslations: function(locale) {
         const data = this.translations[locale];
         if (!data) {
@@ -88,10 +145,17 @@ const I18N = {
         this.currentLocale = locale;
         localStorage.setItem('wzzm_language', locale);
         
+        // Sincronizar com o sistema de detecção de idioma
+        const langCode = this.getCodeFromLocale(locale);
+        if (langCode) {
+            localStorage.setItem('user_preferred_language', langCode);
+        }
+        
         // Atualizar seletor de idioma
         const select = document.getElementById('languageSelect');
         if (select) {
-            select.value = locale;
+            const langName = this.languageMap[locale] || 'Português';
+            select.value = langName;
         }
         
         // Atualizar título da página
@@ -105,7 +169,6 @@ const I18N = {
             const key = element.getAttribute('data-i18n');
             const translation = this.getNestedTranslation(data, key);
             if (translation) {
-                // Preservar HTML se houver
                 if (element.innerHTML.includes('<') && !element.getAttribute('data-i18n-raw')) {
                     element.innerHTML = translation;
                 } else {
@@ -123,14 +186,12 @@ const I18N = {
             }
         });
         
-        // Notificar que a tradução foi aplicada
         this.loaded = true;
         this.callbacks.forEach(cb => cb(locale));
         
         console.log(`✅ Tradução aplicada: ${locale}`);
     },
     
-    // Obter tradução aninhada
     getNestedTranslation: function(data, key) {
         const keys = key.split('.');
         let value = data;
@@ -144,7 +205,6 @@ const I18N = {
         return value || null;
     },
     
-    // Mudar idioma
     changeLanguage: function(locale) {
         if (!this.availableLocales.includes(locale)) {
             console.error(`❌ Idioma não suportado: ${locale}`);
@@ -159,14 +219,12 @@ const I18N = {
         this.loadTranslations(locale);
     },
     
-    // Obter tradução atual
     getTranslation: function(key) {
         const data = this.translations[this.currentLocale];
         if (!data) return key;
         return this.getNestedTranslation(data, key) || key;
     },
     
-    // Adicionar callback quando tradução for carregada
     onLoaded: function(callback) {
         if (this.loaded) {
             callback(this.currentLocale);
@@ -180,12 +238,10 @@ const I18N = {
 // FUNÇÕES GLOBAIS PARA I18N
 // ============================================
 
-// Mudar idioma
 function changeLanguage(locale) {
     I18N.changeLanguage(locale);
 }
 
-// Obter tradução
 function __(key) {
     return I18N.getTranslation(key);
 }
