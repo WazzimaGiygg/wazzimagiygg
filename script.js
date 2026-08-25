@@ -1419,6 +1419,8 @@ async function filterByLanguage(language) {
 // FUNÇÃO PARA MUDAR IDIOMA (CHAMADA PELO HTML)
 // ============================================
 function onLanguageSelectChange(language) {
+    console.log(`🌍 onLanguageSelectChange chamado com: ${language}`);
+    
     if (language === 'auto') {
         localStorage.removeItem('user_preferred_language');
         localStorage.removeItem('wzzm_language');
@@ -1434,6 +1436,9 @@ function onLanguageSelectChange(language) {
         showToast(`🌍 Idioma alterado para: ${language}`);
     }
 }
+
+// Exportar para uso global
+window.onLanguageSelectChange = onLanguageSelectChange;
 
 // ============================================
 // CARREGAMENTO DE CONTEÚDO
