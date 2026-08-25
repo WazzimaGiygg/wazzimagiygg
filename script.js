@@ -992,13 +992,16 @@ function hideLoginModal() { document.getElementById('login-modal').classList.rem
 
 async function loginWithGoogle() {
     try { 
+        console.log('🔐 Iniciando login com Google...');
         const result = await auth.signInWithPopup(googleProvider);
         const user = result.user;
+        console.log(`✅ Usuário logado: ${user.email}`);
         await registerUser(user, false);
         hideLoginModal(); 
         location.reload();
     } catch (error) { 
-        alert('Erro: ' + error.message); 
+        console.error('❌ Erro no login:', error);
+        alert('Erro ao fazer login: ' + error.message); 
     }
 }
 
@@ -1345,33 +1348,65 @@ function searchContent() {
 }
 
 async function filterByLanguage(language) {
+    console.log(`🔍 Filtrando por idioma: ${language}`);
+    
     if (!language || language === 'todos' || language === 'auto') {
+        console.log('🔄 Mostrando todos os artigos com prioridade');
         renderCurrentTabWithLanguage();
         return;
     }
     
+    // Verificar se temos artigos carregados
+    if (!allItems[currentTab] || allItems[currentTab].length === 0) {
+        console.log('⏳ Aguardando carregamento dos artigos...');
+        await loadAllContent();
+    }
+    
     const items = allItems[currentTab] || [];
+    console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
+    
+    // Filtrar artigos pelo idioma
     const filtered = items.filter(item => {
         const itemLang = item.armario || 'Português';
         return itemLang === language;
     });
     
+    console.log(`🔍 Artigos encontrados em ${language}: ${filtered.length}`);
+    
     if (filtered.length === 0) {
+        // Mostrar mensagem amigável com sugestões
+        const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
+        const availableLangs = [...new Set(items.map(item => item.armario || 'Português'))];
+        const langList = availableLangs.map(l => `${AVAILABLE_LANGUAGES[l] || '🌍'} ${l}`).join(', ');
+        
         document.getElementById('main-wrapper').innerHTML = `
             <div style="grid-column:1/-1;">
-                <div class="empty-state">
-                    📭 Nenhum artigo encontrado em ${language}
-                    <br><small>Tente selecionar outro idioma ou verifique se há artigos neste idioma.</small>
+                <div class="empty-state" style="padding: 40px;">
+                    <div style="font-size: 3em; margin-bottom: 15px;">📭</div>
+                    <h3 style="color: #555;">Nenhum artigo encontrado em ${langEmoji} ${language}</h3>
+                    <p style="color: #888; margin-top: 10px;">
+                        <strong>Idiomas disponíveis:</strong> ${langList || 'Português'}
+                    </p>
+                    <button onclick="onLanguageSelectChange('auto')" 
+                            style="margin-top: 15px; padding: 10px 20px; background: #1a3c5e; color: white; border: none; border-radius: 30px; cursor: pointer;">
+                        🔄 Voltar para detecção automática
+                    </button>
                 </div>
             </div>
         `;
         return;
     }
     
+    // Renderizar resultados filtrados
     const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
     const langIndicator = `
         <div class="language-indicator">
-            📖 Exibindo artigos em ${language} ${langEmoji} (${filtered.length} encontrados)
+            📖 Exibindo <strong>${filtered.length}</strong> artigos em ${language} ${langEmoji}
+            <span class="lang-badge user-lang">Filtro ativo</span>
+            <button onclick="onLanguageSelectChange('auto')" 
+                    style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
+                ✕ Limpar filtro
+            </button>
         </div>
     `;
     
@@ -1409,9 +1444,9 @@ async function filterByLanguage(language) {
     
     document.getElementById('main-wrapper').innerHTML = `
         <div style="grid-column:1/-1;">${langIndicator}</div>
-        <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('')}</div>
+        <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Mais conteúdos em breve...</p></div>'}</div>
         <div>${renderCard(mainArticle, true)}</div>
-        <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('')}</div>
+        <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Aguarde novas publicações...</p></div>'}</div>
     `;
 }
 
@@ -1422,16 +1457,44 @@ function onLanguageSelectChange(language) {
     console.log(`🌍 onLanguageSelectChange chamado com: ${language}`);
     
     if (language === 'auto') {
+        // Remover preferências salvas
         localStorage.removeItem('user_preferred_language');
         localStorage.removeItem('wzzm_language');
         
+        // Detectar idioma automaticamente
         const detected = detectUserLanguage();
+        console.log(`🌍 Idioma detectado: ${detected}`);
+        
+        // Salvar preferência
         saveUserLanguagePreference(detected);
         
-        renderCurrentTabWithLanguage();
+        // Sincronizar com I18N
+        if (typeof I18N !== 'undefined') {
+            const code = NAME_TO_CODE[detected];
+            if (code && I18N.availableLocales && I18N.availableLocales.includes(code)) {
+                I18N.changeLanguage(code);
+            }
+        }
+        
+        // Recarregar artigos
+        loadAllContent();
         showToast(`🌍 Idioma detectado automaticamente: ${detected}`);
     } else {
+        // Usar idioma selecionado
+        console.log(`🌍 Usuário selecionou: ${language}`);
+        
+        // Salvar preferência
         saveUserLanguagePreference(language);
+        
+        // Sincronizar com I18N
+        if (typeof I18N !== 'undefined') {
+            const code = NAME_TO_CODE[language];
+            if (code && I18N.availableLocales && I18N.availableLocales.includes(code)) {
+                I18N.changeLanguage(code);
+            }
+        }
+        
+        // Filtrar artigos pelo idioma selecionado
         filterByLanguage(language);
         showToast(`🌍 Idioma alterado para: ${language}`);
     }
@@ -1444,26 +1507,40 @@ window.onLanguageSelectChange = onLanguageSelectChange;
 // CARREGAMENTO DE CONTEÚDO
 // ============================================
 async function loadAllContent() {
+    console.log('📚 Carregando todos os conteúdos...');
+    
     if (currentUser && !isBanned) {
         showLoading();
         
-        const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
-            loadWikiworldContent(),
-            loadEnsaioContent(),
-            loadAcademicoContent(),
-            loadMateriaContent(),
-            loadUwgbooksContent()
-        ]);
-        
-        allItems = {
-            wikiworldweb: wikiworld,
-            materiadeensaio: ensaio,
-            academico: academico,
-            materia: materia,
-            uwgbooks: uwgbooks
-        };
-        
-        renderCurrentTabWithLanguage();
+        try {
+            const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
+                loadWikiworldContent(),
+                loadEnsaioContent(),
+                loadAcademicoContent(),
+                loadMateriaContent(),
+                loadUwgbooksContent()
+            ]);
+            
+            allItems = {
+                wikiworldweb: wikiworld,
+                materiadeensaio: ensaio,
+                academico: academico,
+                materia: materia,
+                uwgbooks: uwgbooks
+            };
+            
+            console.log('✅ Conteúdos carregados:', {
+                wikiworld: wikiworld.length,
+                ensaio: ensaio.length,
+                academico: academico.length,
+                materia: materia.length,
+                uwgbooks: uwgbooks.length
+            });
+            
+            renderCurrentTabWithLanguage();
+        } catch (error) {
+            console.error('❌ Erro ao carregar conteúdo:', error);
+        }
     } else {
         await loadContentPublic();
     }
@@ -1765,8 +1842,12 @@ function initializeSite() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM carregado, inicializando...');
+    
+    // Inicializar Cookie Manager
     CookieManager.init();
     
+    // Aguardar I18N carregar
     if (typeof I18N !== 'undefined') {
         I18N.onLoaded(function(locale) {
             console.log(`🌍 I18N carregado: ${locale}`);
@@ -1775,6 +1856,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const select = document.getElementById('languageSelect');
             if (select) {
                 select.value = langName;
+                console.log(`🌍 Seletor atualizado para: ${langName}`);
             }
             
             checkRedirect().then(isRedirect => {
@@ -1786,6 +1868,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     } else {
+        console.warn('⚠️ I18N não encontrado, inicializando sem tradução');
         checkRedirect().then(isRedirect => {
             if (!isRedirect) {
                 initializeSite();
@@ -1795,6 +1878,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initSite() {
+    console.log('🚀 Inicializando site...');
+    
     document.getElementById('currentDate').textContent = new Date().toLocaleDateString('pt-BR', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
@@ -1808,7 +1893,10 @@ function initSite() {
     document.getElementById('guest-login-modal-btn')?.addEventListener('click', guestLogin);
     document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
 
+    // Monitor de autenticação
     auth.onAuthStateChanged(async (user) => {
+        console.log(`🔐 Auth state changed: ${user ? user.email : 'null'}`);
+        
         if (user) {
             currentUser = user;
             isGuestUser = false;
@@ -1822,7 +1910,9 @@ function initSite() {
                 if (userDoc.exists && userDoc.data().isAdmin === true) {
                     isAdmin = true;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('Erro ao verificar admin:', e);
+            }
             
             await registerUser(user, false);
             
@@ -1837,6 +1927,7 @@ function initSite() {
             listenNotifications();
             loadAllContent();
         } else {
+            console.log('🔐 Usuário não autenticado');
             const storedGuest = getStoredGuestUser();
             if (storedGuest) {
                 currentUser = storedGuest;
