@@ -27,10 +27,10 @@ let notificationListener = null;
 let siteInitialized = false;
 
 // ============================================
-// DETECÇÃO DE IDIOMA DO USUÁRIO
+// MAPEAMENTO DE IDIOMAS (CENTRALIZADO)
 // ============================================
 
-// Mapeamento de códigos de idioma para valores armazenados no Firestore
+// Mapeamento de códigos de idioma para nomes (Firestore)
 const LANGUAGE_MAP = {
     'pt': 'Português',
     'pt-BR': 'Português',
@@ -80,7 +80,57 @@ const LANGUAGE_MAP = {
     'id-ID': 'Indonésio'
 };
 
-// Idiomas disponíveis para exibição
+// NOME → CÓDIGO (para sincronização com I18N)
+const NAME_TO_CODE = {
+    'Português': 'pt',
+    'Inglês': 'en',
+    'Espanhol': 'es',
+    'Francês': 'fr',
+    'Alemão': 'de',
+    'Italiano': 'it',
+    'Japonês': 'ja',
+    'Chinês': 'zh',
+    'Russo': 'ru',
+    'Árabe': 'ar',
+    'Hindi': 'hi',
+    'Grego': 'el',
+    'Coreano': 'ko',
+    'Holandês': 'nl',
+    'Sueco': 'sv',
+    'Polonês': 'pl',
+    'Turco': 'tr',
+    'Hebraico': 'he',
+    'Tailandês': 'th',
+    'Vietnamita': 'vi',
+    'Indonésio': 'id'
+};
+
+// CÓDIGO → NOME (para exibição)
+const CODE_TO_NAME = {
+    'pt': 'Português',
+    'en': 'Inglês',
+    'es': 'Espanhol',
+    'fr': 'Francês',
+    'de': 'Alemão',
+    'it': 'Italiano',
+    'ja': 'Japonês',
+    'zh': 'Chinês',
+    'ru': 'Russo',
+    'ar': 'Árabe',
+    'hi': 'Hindi',
+    'el': 'Grego',
+    'ko': 'Coreano',
+    'nl': 'Holandês',
+    'sv': 'Sueco',
+    'pl': 'Polonês',
+    'tr': 'Turco',
+    'he': 'Hebraico',
+    'th': 'Tailandês',
+    'vi': 'Vietnamita',
+    'id': 'Indonésio'
+};
+
+// Idiomas disponíveis para exibição (com emojis)
 const AVAILABLE_LANGUAGES = {
     'Português': '🇧🇷',
     'Inglês': '🇺🇸',
@@ -105,6 +155,10 @@ const AVAILABLE_LANGUAGES = {
     'Indonésio': '🇮🇩'
 };
 
+// ============================================
+// DETECÇÃO DE IDIOMA DO USUÁRIO
+// ============================================
+
 /**
  * Detecta o idioma preferido do usuário
  * @returns {string} Nome do idioma em português
@@ -112,21 +166,7 @@ const AVAILABLE_LANGUAGES = {
 function detectUserLanguage() {
     // 1. Tentar usar o I18N primeiro
     if (typeof I18N !== 'undefined' && I18N.currentLocale) {
-        const localeMap = {
-            'pt': 'Português',
-            'en': 'Inglês',
-            'es': 'Espanhol',
-            'fr': 'Francês',
-            'de': 'Alemão',
-            'it': 'Italiano',
-            'ja': 'Japonês',
-            'zh': 'Chinês',
-            'ru': 'Russo',
-            'ar': 'Árabe',
-            'hi': 'Hindi',
-            'el': 'Grego'
-        };
-        const lang = localeMap[I18N.currentLocale] || 'Português';
+        const lang = CODE_TO_NAME[I18N.currentLocale] || 'Português';
         console.log(`🌍 Usando idioma do I18N: ${lang}`);
         return lang;
     }
@@ -156,40 +196,43 @@ function detectUserLanguage() {
 
 /**
  * Salva a preferência de idioma do usuário
- * @param {string} language - Nome do idioma em português
+ * @param {string} language - Nome do idioma em português ou código
  */
 function saveUserLanguagePreference(language) {
-    // Encontrar o código do idioma
-    let foundCode = null;
-    for (const [code, name] of Object.entries(LANGUAGE_MAP)) {
-        if (name === language) {
-            localStorage.setItem('user_preferred_language', code);
-            foundCode = code;
-            console.log(`💾 Preferência de idioma salva: ${language} (${code})`);
-            break;
+    let code = null;
+    let name = null;
+    
+    // Verificar se language é um código (ex: 'pt', 'en')
+    if (LANGUAGE_MAP[language]) {
+        code = language;
+        name = LANGUAGE_MAP[language];
+    } else if (NAME_TO_CODE[language]) {
+        // Verificar se é um nome (ex: 'Português')
+        code = NAME_TO_CODE[language];
+        name = language;
+    } else {
+        // Buscar pelo nome
+        for (const [c, n] of Object.entries(LANGUAGE_MAP)) {
+            if (n === language) {
+                code = c;
+                name = n;
+                break;
+            }
         }
     }
     
-    // Sincronizar com I18N
-    if (typeof I18N !== 'undefined' && foundCode) {
-        const localeMap = {
-            'pt': 'pt',
-            'en': 'en',
-            'es': 'es',
-            'fr': 'fr',
-            'de': 'de',
-            'it': 'it',
-            'ja': 'ja',
-            'zh': 'zh',
-            'ru': 'ru',
-            'ar': 'ar',
-            'hi': 'hi',
-            'el': 'el'
-        };
-        const locale = localeMap[foundCode];
-        if (locale && I18N.availableLocales && I18N.availableLocales.includes(locale)) {
-            I18N.changeLanguage(locale);
+    if (code && name) {
+        localStorage.setItem('user_preferred_language', code);
+        console.log(`💾 Preferência de idioma salva: ${name} (${code})`);
+        
+        // Sincronizar com I18N
+        if (typeof I18N !== 'undefined' && I18N.availableLocales && I18N.availableLocales.includes(code)) {
+            I18N.changeLanguage(code);
         }
+        return true;
+    } else {
+        console.warn(`⚠️ Não foi possível salvar preferência para: ${language}`);
+        return false;
     }
 }
 
@@ -1033,7 +1076,6 @@ function showToast(message, isError = false) {
 // ============================================
 // RENDERIZAÇÃO COM PRIORIDADE DE IDIOMA
 // ============================================
-
 async function renderCurrentTabWithLanguage() {
     const items = allItems[currentTab] || [];
     
@@ -1049,6 +1091,13 @@ async function renderCurrentTabWithLanguage() {
     const userLang = detectUserLanguage();
     const prioritizedItems = await searchArticlesPrioritizingUserLanguage(currentTab);
     const displayItems = prioritizedItems.length > 0 ? prioritizedItems : items;
+    
+    // Verificar se há artigos no idioma do usuário
+    const hasUserLangArticles = displayItems.some(item => (item.armario || 'Português') === userLang);
+    
+    if (!hasUserLangArticles && prioritizedItems.length > 0) {
+        console.log(`⚠️ Nenhum artigo encontrado em ${userLang}. Exibindo artigos em outros idiomas.`);
+    }
     
     const mainArticle = displayItems[0] || items[0];
     const leftArticles = displayItems.slice(1, 4);
@@ -1367,7 +1416,7 @@ async function filterByLanguage(language) {
 }
 
 // ============================================
-// FUNÇÃO PARA MUDAR IDIOMA (SINCRONIZADA)
+// FUNÇÃO PARA MUDAR IDIOMA (CHAMADA PELO HTML)
 // ============================================
 function onLanguageSelectChange(language) {
     if (language === 'auto') {
@@ -1377,53 +1426,10 @@ function onLanguageSelectChange(language) {
         const detected = detectUserLanguage();
         saveUserLanguagePreference(detected);
         
-        if (typeof I18N !== 'undefined') {
-            const localeMap = {
-                'Português': 'pt',
-                'Inglês': 'en',
-                'Espanhol': 'es',
-                'Francês': 'fr',
-                'Alemão': 'de',
-                'Italiano': 'it',
-                'Japonês': 'ja',
-                'Chinês': 'zh',
-                'Russo': 'ru',
-                'Árabe': 'ar',
-                'Hindi': 'hi',
-                'Grego': 'el'
-            };
-            const locale = localeMap[detected];
-            if (locale && I18N.availableLocales && I18N.availableLocales.includes(locale)) {
-                I18N.changeLanguage(locale);
-            }
-        }
-        
         renderCurrentTabWithLanguage();
         showToast(`🌍 Idioma detectado automaticamente: ${detected}`);
     } else {
         saveUserLanguagePreference(language);
-        
-        if (typeof I18N !== 'undefined') {
-            const localeMap = {
-                'Português': 'pt',
-                'Inglês': 'en',
-                'Espanhol': 'es',
-                'Francês': 'fr',
-                'Alemão': 'de',
-                'Italiano': 'it',
-                'Japonês': 'ja',
-                'Chinês': 'zh',
-                'Russo': 'ru',
-                'Árabe': 'ar',
-                'Hindi': 'hi',
-                'Grego': 'el'
-            };
-            const locale = localeMap[language];
-            if (locale && I18N.availableLocales && I18N.availableLocales.includes(locale)) {
-                I18N.changeLanguage(locale);
-            }
-        }
-        
         filterByLanguage(language);
         showToast(`🌍 Idioma alterado para: ${language}`);
     }
@@ -1760,13 +1766,7 @@ document.addEventListener('DOMContentLoaded', function() {
         I18N.onLoaded(function(locale) {
             console.log(`🌍 I18N carregado: ${locale}`);
             
-            const localeMap = {
-                'pt': 'Português', 'en': 'Inglês', 'es': 'Espanhol',
-                'fr': 'Francês', 'de': 'Alemão', 'it': 'Italiano',
-                'ja': 'Japonês', 'zh': 'Chinês', 'ru': 'Russo',
-                'ar': 'Árabe', 'hi': 'Hindi', 'el': 'Grego'
-            };
-            const langName = localeMap[locale] || 'Português';
+            const langName = CODE_TO_NAME[locale] || 'Português';
             const select = document.getElementById('languageSelect');
             if (select) {
                 select.value = langName;
