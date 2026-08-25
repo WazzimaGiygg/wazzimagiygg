@@ -156,6 +156,95 @@ const AVAILABLE_LANGUAGES = {
 };
 
 // ============================================
+// UTILIDADES
+// ============================================
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function stripHtml(html) {
+    if (!html) return '';
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return div.textContent || div.innerText || '';
+}
+
+function formatDate(timestamp) {
+    if (!timestamp) return 'Data desconhecida';
+    if (timestamp.toDate) timestamp = timestamp.toDate();
+    return timestamp.toLocaleDateString('pt-BR');
+}
+
+function formatDateTime(timestamp) {
+    if (!timestamp) return 'Data desconhecida';
+    if (timestamp.toDate) timestamp = timestamp.toDate();
+    return timestamp.toLocaleString('pt-BR');
+}
+
+function getTimeAgo(date) {
+    if (!date) return '';
+    if (date.toDate) date = date.toDate();
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return 'agora';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+}
+
+/**
+ * Obtém o idioma de um artigo com fallback para Português
+ * @param {Object} item - Objeto do artigo
+ * @returns {string} Idioma do artigo (padrão: 'Português')
+ */
+function getItemLanguage(item) {
+    // Se o campo 'armario' existe e não está vazio
+    if (item.armario && item.armario.trim() !== '') {
+        return item.armario;
+    }
+    // Fallback para Português
+    return 'Português';
+}
+
+function renderHtmlContent(htmlContent) {
+    if (!htmlContent) return '<p>Sem conteúdo.</p>';
+    return DOMPurify.sanitize(htmlContent, {
+        ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','hr','b','i','strong','em',
+                       'ul','ol','li','a','img','table','thead','tbody','tr','th','td',
+                       'pre','code','blockquote','div','span','figure','figcaption'],
+        ALLOWED_ATTR: ['href','src','alt','title','class','id','width','height','target','rel']
+    });
+}
+
+function getIconForTab(tab) {
+    const icons = {
+        'wikiworldweb': '🌐', 'materiadeensaio': '📚',
+        'academico': '🎓', 'materia': '📖', 'uwgbooks': '📘'
+    };
+    return icons[tab] || '📰';
+}
+
+function getBadgeForTab(tab) {
+    const badges = {
+        'wikiworldweb': 'WikiWorld', 'materiadeensaio': 'Notícia',
+        'academico': 'Acadêmico', 'materia': 'Matéria', 'uwgbooks': 'UWG Book'
+    };
+    return badges[tab] || 'Conteúdo';
+}
+
+// ============================================
 // DETECÇÃO DE IDIOMA DO USUÁRIO
 // ============================================
 
@@ -237,7 +326,7 @@ function saveUserLanguagePreference(language) {
 }
 
 /**
- * Busca artigos filtrados por idioma do usuário
+ * Busca artigos filtrados por idioma (com fallback)
  * @param {string} language - Idioma para filtrar
  * @param {string} tab - Aba atual
  * @returns {Promise<Array>} Lista de artigos filtrados
@@ -246,15 +335,15 @@ async function searchArticlesByLanguage(language, tab = null) {
     const targetTab = tab || currentTab;
     const items = allItems[targetTab] || [];
     
+    // Se for "auto" ou "todos", retorna todos os artigos
     if (!language || language === 'todos' || language === 'auto') {
         return items;
     }
     
+    // Filtrar artigos pelo idioma (usando getItemLanguage)
     const filtered = items.filter(item => {
-        if (item.armario) {
-            return item.armario === language;
-        }
-        return language === 'Português';
+        const itemLang = getItemLanguage(item);
+        return itemLang === language;
     });
     
     console.log(`🔍 Artigos encontrados em ${language}: ${filtered.length}`);
@@ -271,12 +360,13 @@ async function searchArticlesPrioritizingUserLanguage(tab = null) {
     const items = allItems[targetTab] || [];
     const userLang = detectUserLanguage();
     
+    // Separar artigos por idioma (com fallback)
     const userLangArticles = [];
     const otherLangArticles = [];
     const noLangArticles = [];
     
     items.forEach(item => {
-        const itemLang = item.armario || 'Português';
+        const itemLang = getItemLanguage(item);
         if (itemLang === userLang) {
             userLangArticles.push(item);
         } else if (itemLang && AVAILABLE_LANGUAGES[itemLang]) {
@@ -286,9 +376,10 @@ async function searchArticlesPrioritizingUserLanguage(tab = null) {
         }
     });
     
-    const prioritized = [...userLangArticles, ...otherLangArticles, ...noLangArticles];
+    // Combinar: priorizar idioma do usuário, depois sem idioma, depois outros
+    const prioritized = [...userLangArticles, ...noLangArticles, ...otherLangArticles];
     
-    console.log(`📊 Priorização: ${userLangArticles.length} em ${userLang}, ${otherLangArticles.length} em outros idiomas`);
+    console.log(`📊 Priorização: ${userLangArticles.length} em ${userLang}, ${noLangArticles.length} sem idioma (Português), ${otherLangArticles.length} em outros idiomas`);
     return prioritized;
 }
 
@@ -457,81 +548,6 @@ const CookieManager = {
         return this.isAllowed('advertising');
     }
 };
-
-// ============================================
-// UTILIDADES
-// ============================================
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function stripHtml(html) {
-    if (!html) return '';
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    return div.textContent || div.innerText || '';
-}
-
-function formatDate(timestamp) {
-    if (!timestamp) return 'Data desconhecida';
-    if (timestamp.toDate) timestamp = timestamp.toDate();
-    return timestamp.toLocaleDateString('pt-BR');
-}
-
-function formatDateTime(timestamp) {
-    if (!timestamp) return 'Data desconhecida';
-    if (timestamp.toDate) timestamp = timestamp.toDate();
-    return timestamp.toLocaleString('pt-BR');
-}
-
-function getTimeAgo(date) {
-    if (!date) return '';
-    if (date.toDate) date = date.toDate();
-    const seconds = Math.floor((new Date() - date) / 1000);
-    if (seconds < 60) return 'agora';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `${days}d`;
-}
-
-function getInitials(name) {
-    if (!name) return '?';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-}
-
-function renderHtmlContent(htmlContent) {
-    if (!htmlContent) return '<p>Sem conteúdo.</p>';
-    return DOMPurify.sanitize(htmlContent, {
-        ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','hr','b','i','strong','em',
-                       'ul','ol','li','a','img','table','thead','tbody','tr','th','td',
-                       'pre','code','blockquote','div','span','figure','figcaption'],
-        ALLOWED_ATTR: ['href','src','alt','title','class','id','width','height','target','rel']
-    });
-}
-
-function getIconForTab(tab) {
-    const icons = {
-        'wikiworldweb': '🌐', 'materiadeensaio': '📚',
-        'academico': '🎓', 'materia': '📖', 'uwgbooks': '📘'
-    };
-    return icons[tab] || '📰';
-}
-
-function getBadgeForTab(tab) {
-    const badges = {
-        'wikiworldweb': 'WikiWorld', 'materiadeensaio': 'Notícia',
-        'academico': 'Acadêmico', 'materia': 'Matéria', 'uwgbooks': 'UWG Book'
-    };
-    return badges[tab] || 'Conteúdo';
-}
 
 // ============================================
 // FUNÇÃO PARA REGISTRAR USUÁRIO
@@ -815,7 +831,7 @@ async function loadWikiworldContentPublic() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-wikiworld').textContent = items.length;
@@ -837,7 +853,7 @@ async function loadEnsaioContentPublic() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-ensaio').textContent = items.length;
@@ -859,7 +875,7 @@ async function loadAcademicoContentPublic() {
                 setor: data.setor || 'Acadêmico', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'academico',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-academico').textContent = items.length;
@@ -881,7 +897,7 @@ async function loadMateriaContentPublic() {
                 setor: data.setor || 'Matéria', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materia',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-materia').textContent = items.length;
@@ -903,7 +919,7 @@ async function loadUwgbooksContentPublic() {
                 setor: data.setor || 'UWG Books', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-uwgbooks').textContent = items.length;
@@ -1096,7 +1112,7 @@ async function renderCurrentTabWithLanguage() {
     const displayItems = prioritizedItems.length > 0 ? prioritizedItems : items;
     
     // Verificar se há artigos no idioma do usuário
-    const hasUserLangArticles = displayItems.some(item => (item.armario || 'Português') === userLang);
+    const hasUserLangArticles = displayItems.some(item => getItemLanguage(item) === userLang);
     
     if (!hasUserLangArticles && prioritizedItems.length > 0) {
         console.log(`⚠️ Nenhum artigo encontrado em ${userLang}. Exibindo artigos em outros idiomas.`);
@@ -1107,12 +1123,23 @@ async function renderCurrentTabWithLanguage() {
     const rightArticles = displayItems.slice(4, 8);
     
     const langEmoji = AVAILABLE_LANGUAGES[userLang] || '🌍';
-    const userLangCount = displayItems.filter(item => (item.armario || 'Português') === userLang).length;
+    const userLangCount = displayItems.filter(item => getItemLanguage(item) === userLang).length;
+    const noLangCount = displayItems.filter(item => !item.armario || item.armario.trim() === '').length;
+    
+    let langIndicatorText = `📖 Exibindo artigos em <strong>${userLang}</strong> ${langEmoji}`;
+    if (userLangCount > 0) {
+        langIndicatorText += ` (${userLangCount} artigos encontrados)`;
+    }
+    if (noLangCount > 0 && userLang === 'Português') {
+        langIndicatorText += ` (${noLangCount} sem idioma → Português)`;
+    }
+    if (userLangCount === 0 && noLangCount === 0) {
+        langIndicatorText += ' (Nenhum artigo encontrado no seu idioma)';
+    }
     
     const langIndicator = `
         <div class="language-indicator">
-            📖 Exibindo artigos em <strong>${userLang}</strong> ${langEmoji}
-            ${userLangCount > 0 ? `(${userLangCount} artigos encontrados)` : '(Nenhum artigo encontrado no seu idioma)'}
+            ${langIndicatorText}
             <span class="lang-badge user-lang">Idioma do usuário</span>
         </div>
     `;
@@ -1126,9 +1153,9 @@ async function renderCurrentTabWithLanguage() {
             ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' 
             : cleanExcerpt;
         
-        const itemLang = item.armario || 'Português';
-        const langEmoji = AVAILABLE_LANGUAGES[itemLang] || '🌍';
+        const itemLang = getItemLanguage(item);
         const isUserLang = itemLang === userLang;
+        const hasLanguage = item.armario && item.armario.trim() !== '';
         const langClass = isUserLang ? 'user-language' : '';
         
         if (isMain) {
@@ -1136,9 +1163,10 @@ async function renderCurrentTabWithLanguage() {
                 <div class="main-article ${langClass}">
                     <div class="article-tag">
                         ${icon} ${badge} · DESTAQUE 
-                        <span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}">
-                            ${langEmoji} ${itemLang}
-                        </span>
+                        ${hasLanguage 
+                            ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
+                            : `<span class="lang-badge" style="background:#f39c12;">📝 Sem idioma (Português)</span>`
+                        }
                     </div>
                     <div class="article-title"><a onclick="selectItem('${item.id}', '${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                     <div class="article-meta">
@@ -1156,9 +1184,10 @@ async function renderCurrentTabWithLanguage() {
             <div class="article-card ${langClass}">
                 <div class="article-tag">
                     ${icon} ${badge}
-                    <span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}" style="font-size:9px; padding:1px 6px; margin-left:6px;">
-                        ${langEmoji}
-                    </span>
+                    ${hasLanguage 
+                        ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}" style="font-size:9px; padding:1px 6px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
+                        : `<span class="lang-badge" style="font-size:9px; padding:1px 6px; margin-left:6px; background:#f39c12; color:white;">📝</span>`
+                    }
                 </div>
                 <div class="article-title"><a onclick="selectItem('${item.id}', '${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                 <div class="article-meta">
@@ -1203,17 +1232,18 @@ window.selectItem = async function(itemId, collection) {
         const badge = getBadgeForTab(currentTab);
         const date = formatDateTime(data.ultimaEdicao || data.dataCriacao);
         const conteudoHtml = renderHtmlContent(data.descricao);
-        const itemLang = data.armario || 'Português';
+        const itemLang = getItemLanguage(data);
         const langEmoji = AVAILABLE_LANGUAGES[itemLang] || '🌍';
+        const hasLanguage = data.armario && data.armario.trim() !== '';
         
         document.getElementById('main-wrapper').innerHTML = `
             <div style="grid-column:1/-1;">
                 <div class="article-detail">
-                    <h1>${escapeHtml(data.titulo)} <span style="font-size:14px; color:#888;">${langEmoji} ${itemLang}</span></h1>
+                    <h1>${escapeHtml(data.titulo)} <span style="font-size:14px; color:#888;">${langEmoji} ${itemLang}${!hasLanguage ? ' (padrão)' : ''}</span></h1>
                     <div class="article-meta">
                         <p><strong>📋 Tipo:</strong> ${badge}</p>
                         <p><strong>🏷️ Categoria:</strong> ${escapeHtml(data.setor || 'Geral')}</p>
-                        <p><strong>🌍 Idioma:</strong> ${langEmoji} ${itemLang}</p>
+                        <p><strong>🌍 Idioma:</strong> ${langEmoji} ${itemLang}${!hasLanguage ? ' (assumido como Português)' : ''}</p>
                         <p><strong>👤 Autor:</strong> ${escapeHtml(data.criadorEmail || 'Sistema')}</p>
                         <p><strong>📅 Criado:</strong> ${formatDateTime(data.dataCriacao)}</p>
                         <p><strong>✏️ Edição:</strong> ${date}</p>
@@ -1256,14 +1286,21 @@ function searchContent() {
     
     const items = allItems[currentTab] || [];
     
+    // Busca considerando o idioma do usuário
     const filtered = items.filter(item => {
         const matchTerm = item.titulo.toLowerCase().includes(term) ||
                          stripHtml(item.descricao || '').toLowerCase().includes(term);
         if (!matchTerm) return false;
-        const itemLang = item.armario || 'Português';
-        return itemLang === userLang || !item.armario;
+        
+        const itemLang = getItemLanguage(item);
+        // Se o usuário está em Português, inclui artigos sem idioma
+        if (userLang === 'Português') {
+            return itemLang === 'Português' || !item.armario || item.armario.trim() === '';
+        }
+        return itemLang === userLang;
     });
     
+    // Se não encontrou no idioma do usuário, buscar em todos
     const finalResults = filtered.length > 0 ? filtered : 
         items.filter(item => 
             item.titulo.toLowerCase().includes(term) ||
@@ -1282,14 +1319,26 @@ function searchContent() {
         return;
     }
     
+    // Renderizar resultados...
     const langEmoji = AVAILABLE_LANGUAGES[userLang] || '🌍';
-    const userLangCount = finalResults.filter(item => (item.armario || 'Português') === userLang).length;
+    const userLangCount = finalResults.filter(item => getItemLanguage(item) === userLang).length;
+    const noLangCount = finalResults.filter(item => !item.armario || item.armario.trim() === '').length;
+    
+    let indicatorText = `🔍 Resultados para "${escapeHtml(term)}"`;
+    if (userLangCount > 0) {
+        indicatorText += ` em ${userLang} ${langEmoji} (${userLangCount} encontrados)`;
+    }
+    if (noLangCount > 0 && userLang === 'Português') {
+        indicatorText += ` (${noLangCount} sem idioma → Português)`;
+    }
+    if (userLangCount === 0 && noLangCount === 0) {
+        indicatorText += ` em todos os idiomas`;
+    }
     
     const langIndicator = `
         <div class="language-indicator">
-            🔍 Resultados para "${escapeHtml(term)}" 
-            ${userLangCount > 0 ? `em ${userLang} ${langEmoji} (${userLangCount} encontrados)` : `em todos os idiomas`}
-            ${userLangCount === 0 ? ' (Nenhum encontrado no seu idioma)' : ''}
+            ${indicatorText}
+            ${userLangCount === 0 && noLangCount === 0 ? ' (Nenhum encontrado no seu idioma)' : ''}
         </div>
     `;
     
@@ -1303,9 +1352,9 @@ function searchContent() {
         const icon = getIconForTab(currentTab);
         const cleanExcerpt = stripHtml(item.descricao || '');
         const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
-        const itemLang = item.armario || 'Português';
-        const langEmoji = AVAILABLE_LANGUAGES[itemLang] || '🌍';
+        const itemLang = getItemLanguage(item);
         const isUserLang = itemLang === userLang;
+        const hasLanguage = item.armario && item.armario.trim() !== '';
         const langClass = isUserLang ? 'user-language' : '';
         
         if (isMain) {
@@ -1313,9 +1362,10 @@ function searchContent() {
                 <div class="main-article ${langClass}">
                     <div class="article-tag">
                         ${icon} ${badge} · DESTAQUE
-                        <span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}">
-                            ${langEmoji} ${itemLang}
-                        </span>
+                        ${hasLanguage 
+                            ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
+                            : `<span class="lang-badge" style="background:#f39c12;">📝 Sem idioma (Português)</span>`
+                        }
                     </div>
                     <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                     <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
@@ -1329,9 +1379,10 @@ function searchContent() {
             <div class="article-card ${langClass}">
                 <div class="article-tag">
                     ${icon} ${badge}
-                    <span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}" style="font-size:9px; padding:1px 6px; margin-left:6px;">
-                        ${langEmoji}
-                    </span>
+                    ${hasLanguage 
+                        ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}" style="font-size:9px; padding:1px 6px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
+                        : `<span class="lang-badge" style="font-size:9px; padding:1px 6px; margin-left:6px; background:#f39c12; color:white;">📝</span>`
+                    }
                 </div>
                 <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                 <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
@@ -1365,18 +1416,31 @@ async function filterByLanguage(language) {
     const items = allItems[currentTab] || [];
     console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
     
-    // Filtrar artigos pelo idioma
+    // Filtrar artigos pelo idioma (com fallback)
     const filtered = items.filter(item => {
-        const itemLang = item.armario || 'Português';
+        const itemLang = getItemLanguage(item);
         return itemLang === language;
     });
     
-    console.log(`🔍 Artigos encontrados em ${language}: ${filtered.length}`);
+    // Se for Português, incluir também artigos SEM idioma
+    let finalResults = filtered;
+    if (language === 'Português') {
+        const noLangItems = items.filter(item => {
+            return !item.armario || item.armario.trim() === '';
+        });
+        // Adicionar artigos sem idioma, mas evitar duplicatas
+        const existingIds = new Set(filtered.map(item => item.id));
+        const uniqueNoLang = noLangItems.filter(item => !existingIds.has(item.id));
+        finalResults = [...filtered, ...uniqueNoLang];
+        console.log(`🔍 Artigos em Português: ${filtered.length} + ${uniqueNoLang.length} sem idioma = ${finalResults.length}`);
+    }
     
-    if (filtered.length === 0) {
+    console.log(`🔍 Artigos encontrados em ${language}: ${finalResults.length}`);
+    
+    if (finalResults.length === 0) {
         // Mostrar mensagem amigável com sugestões
         const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
-        const availableLangs = [...new Set(items.map(item => item.armario || 'Português'))];
+        const availableLangs = [...new Set(items.map(item => getItemLanguage(item)))];
         const langList = availableLangs.map(l => `${AVAILABLE_LANGUAGES[l] || '🌍'} ${l}`).join(', ');
         
         document.getElementById('main-wrapper').innerHTML = `
@@ -1385,7 +1449,10 @@ async function filterByLanguage(language) {
                     <div style="font-size: 3em; margin-bottom: 15px;">📭</div>
                     <h3 style="color: #555;">Nenhum artigo encontrado em ${langEmoji} ${language}</h3>
                     <p style="color: #888; margin-top: 10px;">
-                        <strong>Idiomas disponíveis:</strong> ${langList || 'Português'}
+                        <strong>Idiomas disponíveis:</strong> ${langList || 'Português (padrão)'}
+                    </p>
+                    <p style="color: #999; font-size: 0.9em; margin-top: 5px;">
+                        💡 Dica: Artigos sem idioma são considerados como "Português"
                     </p>
                     <button onclick="onLanguageSelectChange('auto')" 
                             style="margin-top: 15px; padding: 10px 20px; background: #1a3c5e; color: white; border: none; border-radius: 30px; cursor: pointer;">
@@ -1401,7 +1468,7 @@ async function filterByLanguage(language) {
     const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
     const langIndicator = `
         <div class="language-indicator">
-            📖 Exibindo <strong>${filtered.length}</strong> artigos em ${language} ${langEmoji}
+            📖 Exibindo <strong>${finalResults.length}</strong> artigos em ${language} ${langEmoji}
             <span class="lang-badge user-lang">Filtro ativo</span>
             <button onclick="onLanguageSelectChange('auto')" 
                     style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
@@ -1410,9 +1477,9 @@ async function filterByLanguage(language) {
         </div>
     `;
     
-    const mainArticle = filtered[0];
-    const leftArticles = filtered.slice(1, 4);
-    const rightArticles = filtered.slice(4, 8);
+    const mainArticle = finalResults[0];
+    const leftArticles = finalResults.slice(1, 4);
+    const rightArticles = finalResults.slice(4, 8);
     
     const renderCard = (item, isMain = false) => {
         const date = formatDate(item.ultimaEdicao);
@@ -1420,11 +1487,16 @@ async function filterByLanguage(language) {
         const icon = getIconForTab(currentTab);
         const cleanExcerpt = stripHtml(item.descricao || '');
         const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
+        const itemLang = getItemLanguage(item);
+        const hasLanguage = item.armario && item.armario.trim() !== '';
         
         if (isMain) {
             return `
                 <div class="main-article">
-                    <div class="article-tag">${icon} ${badge} · DESTAQUE</div>
+                    <div class="article-tag">
+                        ${icon} ${badge} · DESTAQUE
+                        ${hasLanguage ? `<span style="font-size:10px; background:#2ecc71; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>` : '<span style="font-size:10px; background:#f39c12; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">📝 Sem idioma (Português)</span>'}
+                    </div>
                     <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                     <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
                     <div class="article-excerpt">${escapeHtml(excerptText)}</div>
@@ -1435,7 +1507,10 @@ async function filterByLanguage(language) {
         
         return `
             <div class="article-card">
-                <div class="article-tag">${icon} ${badge}</div>
+                <div class="article-tag">
+                    ${icon} ${badge}
+                    ${hasLanguage ? `<span style="font-size:9px; background:#2ecc71; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>` : '<span style="font-size:9px; background:#f39c12; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">📝</span>'}
+                </div>
                 <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                 <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
             </div>
@@ -1557,7 +1632,7 @@ async function loadWikiworldContent() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-wikiworld').textContent = items.length;
@@ -1579,7 +1654,7 @@ async function loadEnsaioContent() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-ensaio').textContent = items.length;
@@ -1601,7 +1676,7 @@ async function loadAcademicoContent() {
                 setor: data.setor || 'Acadêmico', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'academico',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-academico').textContent = items.length;
@@ -1623,7 +1698,7 @@ async function loadMateriaContent() {
                 setor: data.setor || 'Matéria', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materia',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-materia').textContent = items.length;
@@ -1645,7 +1720,7 @@ async function loadUwgbooksContent() {
                 setor: data.setor || 'UWG Books', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks',
-                armario: data.armario || 'Português'
+                armario: data.armario || '' // Pode estar vazio para artigos antigos
             });
         });
         document.getElementById('total-uwgbooks').textContent = items.length;
