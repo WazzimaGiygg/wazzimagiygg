@@ -1,171 +1,228 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9222078016038089"
-     crossorigin="anonymous"></script>
-    <meta name="google-adsense-account" content="ca-pub-9222078016038089">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WazzimaGiygg - Inevitável!</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Lato:wght@300;400;700;900&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="icon" href="https://gspotfverwazzimagiygg.wazzimagiygg.com/favicom.png" type="image/x-icon">
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
-    
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="pageTitle">Redirecionamento - Verificação de Segurança</title>
+    <link rel="stylesheet" href="beta.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js">
+    </script>
 </head>
 <body>
+    <div class="redirect-container" id="app">
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <button class="lang-btn active" data-lang="pt" onclick="setLanguage('pt')">🇧🇷 PT</button>
+            <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">🇺🇸 EN</button>
+            <button class="lang-btn" data-lang="es" onclick="setLanguage('es')">🇪🇸 ES</button>
+        </div>
 
-<!-- BANNED OVERLAY -->
-<div id="bannedOverlay" class="banned-overlay">
-    <div class="banned-box">
-        <div class="icon">🚫</div>
-        <h2>⚠️ Conta Banida</h2>
-        <p>Sua conta foi banida permanentemente do sistema.</p>
-        <div id="banDetails" class="ban-details">Motivo: Violação das políticas de uso</div>
-        <button class="btn-logout-banned" onclick="logoutBanned()">🚪 Sair da conta</button>
-    </div>
-</div>
+        <!-- Ícone de aviso -->
+        <div class="warning-icon" id="warningIcon">⚠️</div>
 
-<!-- ===== NOVO HEADER PADRONIZADO ===== -->
-<header class="header">
-    <div class="header-content">
-        <div class="logo-area-header" onclick="location.reload()">
-            <img src="https://wazzimagiygg.com/favicom.png" alt="Logo">
-            <div>
-                <h1>WazzimaGiygg</h1>
-                <small>Inevitável!</small>
+        <h1 id="title">Verificando segurança do site...</h1>
+
+        <!-- Status Badge -->
+        <div id="statusBadge" class="status-badge unknown">🔍 Verificando...</div>
+
+        <!-- Mensagem de aviso -->
+        <div class="warning-text" id="warningText">
+            <p>Aguardando verificação de segurança...</p>
+        </div>
+
+        <!-- URL de destino -->
+        <div class="url-box">
+            <span class="label" id="urlLabel">🌐 Destino:</span>
+            <span id="targetUrlDisplay">Carregando...</span>
+        </div>
+
+        <!-- Relatório de sinalizações -->
+        <div id="reportInfo" class="report-info hidden">
+            <div style="font-weight: 600; margin-bottom: 8px; color: #374151;" id="reportTitle">
+                📋 Relatório de Sinalizações
+            </div>
+            <div id="reportContent"></div>
+            <div id="reportComments" class="report-comments hidden">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #374151; font-size: 0.85rem;" id="commentsTitle">
+                    💬 Comentários dos usuários:
+                </div>
+                <div id="commentsList"></div>
             </div>
         </div>
-        <div class="user-info" id="userInfo">
-            <div class="user-avatar" id="userAvatar">👤</div>
-            <div>
-                <div class="user-name" id="userName">Carregando...</div>
-                <div class="user-email" id="userEmail">aguarde</div>
+
+        <!-- Confirmação -->
+        <div class="confirm-section" id="confirmSection">
+            <input type="checkbox" id="confirmCheck" />
+            <label for="confirmCheck" id="confirmLabel">Eu confio neste site e desejo continuar</label>
+        </div>
+
+        <!-- Contagem regressiva -->
+        <div class="countdown-container">
+            <span class="countdown-label" id="countdownLabel">Redirecionando em</span>
+            <div class="countdown" id="countdown">10</div>
+            <span class="countdown-label" id="countdownSecondsLabel">segundos</span>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <!-- Botões -->
+        <div class="btn-group">
+            <a href="#" id="redirectBtn" class="btn btn-primary">
+                <i class="fas fa-external-link-alt"></i> <span id="continueBtnText">Continuar</span>
+            </a>
+            <button onclick="history.back()" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> <span id="backBtnText">Voltar</span>
+            </button>
+        </div>
+
+        <!-- Botão para sinalizar -->
+        <div style="margin-top: 15px;">
+            <button class="report-btn" id="reportBtn" onclick="handleReportClick()">
+                <i class="fas fa-flag"></i> <span id="reportBtnText">Sinalizar este site como problemático</span>
+            </button>
+            <span id="alreadyReported" class="already-reported hidden">
+                <i class="fas fa-check-circle"></i> <span id="alreadyReportedText">Você já sinalizou este site</span>
+            </span>
+            <span id="loginRequiredBadge" class="login-required-badge hidden">
+                <i class="fas fa-lock"></i> <span id="loginRequiredText">Login necessário</span>
+            </span>
+        </div>
+
+        <!-- Informações adicionais -->
+        <div class="info-box">
+            <p id="infoText">
+                <i class="fas fa-shield-alt"></i>
+                Este redirecionamento está sendo registrado para sua segurança.
+                <br />
+                <small>ID: <span id="redirectId">-</span></small>
+            </p>
+        </div>
+
+        <!-- Área de erro -->
+        <div id="errorBox" class="error-box hidden">
+            <span class="icon">❌</span>
+            <p id="errorMessage">Erro ao carregar o redirecionamento.</p>
+        </div>
+    </div>
+
+    <!-- ===== MODAL DE SINALIZAÇÃO ===== -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeReportModal()">&times;</button>
+            <h2 id="modalTitle">
+                <i class="fas fa-flag" style="color: #dc2626;"></i> <span id="modalTitleText">Sinalizar Site</span>
+            </h2>
+
+            <div id="loginRequiredMessage" style="display: none; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px; padding: 20px; margin: 15px 0; text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🔐</div>
+                <h3 style="color: #92400e; margin-bottom: 10px;" id="loginRequiredTitle">Login Obrigatório</h3>
+                <p style="color: #78350f; font-size: 0.95rem; line-height: 1.6;" id="loginRequiredDesc">
+                    Para sinalizar um site como problemático, você precisa estar logado com sua conta Google.
+                    <br /><br />
+                    Isso ajuda a prevenir sinalizações falsas e manter a comunidade segura.
+                </p>
+                <button onclick="loginWithGoogle()" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 15px;">
+                    <i class="fab fa-google"></i> <span id="loginGoogleBtn">Entrar com Google</span>
+                </button>
+                <button onclick="closeReportModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                    <span id="cancelBtnText">Cancelar</span>
+                </button>
             </div>
-            <span id="userBadge"></span>
-            
-            <!-- NOTIFICATION BELL -->
-            <div class="notification-bell" id="notificationBell" onclick="toggleNotifications(event)">
-                <span class="material-icons">notifications</span>
-                <span class="notification-badge" id="notifBadge" style="display:none;">0</span>
-                <div class="notification-dropdown" id="notifDropdown">
-                    <div class="notification-dropdown-header">
-                        <h3>🔔 Notificações</h3>
-                        <button onclick="markAllAsRead(event)">Marcar todas como lidas</button>
-                    </div>
-                    <div id="notificationList">
-                        <div class="notification-empty">
-                            <span class="material-icons">notifications_off</span>
-                            <p>Nenhuma notificação</p>
-                        </div>
-                    </div>
+
+            <div id="reportFormContent">
+                <p style="color: #6b7280; margin-bottom: 15px;" id="reportFormDesc">
+                    Ajude a comunidade sinalizando sites problemáticos. Selecione os motivos abaixo:
+                </p>
+
+                <div class="report-options">
+                    <label>
+                        <input type="checkbox" id="reportFakeNews" value="fake_news" />
+                        <span>📰 <strong id="labelFakeNews">Fake News</strong> - <span id="labelFakeNewsDesc">Site que dissemina notícias falsas</span></span>
+                    </label>
+                    <label>
+                        <input type="checkbox" id="reportMalicious" value="malicious" />
+                        <span>⚠️ <strong id="labelMalicious">Malicioso</strong> - <span id="labelMaliciousDesc">Site que contém malware ou phishing</span></span>
+                    </label>
+                    <label>
+                        <input type="checkbox" id="reportBroken" value="broken" />
+                        <span>🔗 <strong id="labelBroken">Link Quebrado</strong> - <span id="labelBrokenDesc">O link não funciona ou está inacessível</span></span>
+                    </label>
+                    <label>
+                        <input type="checkbox" id="reportInappropriate" value="inappropriate" />
+                        <span>🔞 <strong id="labelInappropriate">Conteúdo Impróprio</strong> - <span id="labelInappropriateDesc">Conteúdo ofensivo ou inadequado</span></span>
+                    </label>
+                    <label>
+                        <input type="checkbox" id="reportLgpd" value="lgpd_violation" />
+                        <span>⚖️ <strong id="labelLgpd">Violação LGPD</strong> - <span id="labelLgpdDesc">Coleta dados sem consentimento</span></span>
+                    </label>
+                    <label>
+                        <input type="checkbox" id="reportWikimedia" value="wikimedia_blocked" />
+                        <span>🌐 <strong id="labelWikimedia">Wikimedia Foundation</strong> - <span id="labelWikimediaDesc">Redirecionamento não permitido para Wikimedia</span></span>
+                    </label>
                 </div>
+
+                <div style="margin: 15px 0;">
+                    <label style="color: #374151; font-weight: 600; display: block; margin-bottom: 5px;" id="commentLabel">Comentário adicional (opcional):</label>
+                    <textarea id="reportComment" rows="3" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; resize: vertical; font-family: inherit;" placeholder="Descreva o problema..."></textarea>
+                </div>
+
+                <button onclick="submitReport()" class="btn btn-danger" style="width: 100%; justify-content: center;" id="submitReportBtn">
+                    <i class="fas fa-paper-plane"></i> <span id="submitReportText">Enviar Sinalização</span>
+                </button>
             </div>
-            
-            <button class="btn-logout" id="btnLogout" style="display:none;" onclick="logout()">Sair</button>
-            <button class="btn-login" id="btnLogin" onclick="showLoginModal()">
-                <span class="material-icons" style="font-size:16px;">person</span> Entrar
+
+            <button onclick="closeReportModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                <span id="modalCancelText">Cancelar</span>
             </button>
         </div>
     </div>
-</header>
 
-<div class="newspaper-container">
-    <div class="main-header">
-        <div class="header-container">
-            <div class="logo-area" onclick="window.open('https://wazzimagiygg.com/produtos', '_blank')">
-                <img src="https://wazzimagiygg.com/favicom.png" alt="Logo WazzimaGiygg">
-                <div class="logo-text">
-                    <h1>WAZZIMA<span style="color:#c0392b;">GIYGG</span></h1>
-                    <p>Inevitável!</p>
-                </div>
+    <!-- ===== MODAL DE LOGIN ===== -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-content" style="text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 15px;">🔐</div>
+            <h2 style="color: #1f2937; margin-bottom: 10px;" id="loginModalTitle">Login Necessário</h2>
+            <p style="color: #6b7280; margin-bottom: 20px; line-height: 1.6;" id="loginModalDesc">
+                Para sinalizar um site, você precisa estar logado com sua conta Google.
+            </p>
+            <button onclick="loginWithGoogle()" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                <i class="fab fa-google"></i> <span id="loginModalGoogleBtn">Entrar com Google</span>
+            </button>
+            <button onclick="closeLoginModal()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                <span id="loginModalCancelBtn">Cancelar</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== BANNED OVERLAY ===== -->
+    <div class="modal-overlay" id="bannedOverlay">
+        <div class="modal-content" style="text-align: center;">
+            <div style="font-size: 4rem; margin-bottom: 20px;">🚫</div>
+            <h2 style="color: #dc2626; margin-bottom: 10px;" id="bannedOverlayTitle">⚠️ Conta Banida</h2>
+            <p style="color: #6b7280; margin-bottom: 15px; line-height: 1.6;" id="bannedOverlayDesc">
+                Sua conta foi banida permanentemente do sistema.
+            </p>
+            <div id="banDetails" style="background: #fef2f2; padding: 12px; border-radius: 10px; color: #991b1b; margin-bottom: 15px; border: 1px solid #fca5a5;">
+                Motivo: Violação das políticas de uso
             </div>
-            <div class="newspaper-motto">Όχι, ο Χρόνος δεν είναι ο άρχοντας της γνώσης!</div>
-            <div class="issue-info">
-                <span class="issue-date"><i class="material-icons" style="font-size:12px;">calendar_today</i> <span id="currentDate"></span></span>
-                <span><i class="material-icons" style="font-size:12px;">public</i>Santa Fé do Sul</span>
-            </div>
-            <div class="search-area">
-                <input type="text" id="search-input" class="search-input" placeholder="Buscar...">
-                <button id="search-btn" class="search-btn">🔍 Buscar</button>
-            </div>
+            <p style="color: #9ca3af; font-size: 0.85rem; margin-bottom: 20px;" id="bannedOverlayHelp">
+                Se você acredita que isso é um erro, entre em contato com o suporte.
+            </p>
+            <button onclick="logoutBanned()" class="btn btn-danger" style="width: 100%; justify-content: center;" id="bannedLogoutBtn">
+                🚪 Sair da conta
+            </button>
         </div>
     </div>
 
-    <div class="nav-menu">
-        <ul>
-            <li><a onclick="filterByTab('wikiworldweb')" class="active" data-tab="wikiworldweb">🌐 WIKIWORLD</a></li>
-            <li><a onclick="filterByTab('materiadeensaio')" data-tab="materiadeensaio">📚 NOTÍCIAS</a></li>
-            <li><a onclick="filterByTab('academico')" data-tab="academico">🎓 ACADÊMICO</a></li>
-            <li><a onclick="filterByTab('materia')" data-tab="materia">📖 MATÉRIAS</a></li>
-            <li><a onclick="filterByTab('uwgbooks')" data-tab="uwgbooks">📘 UWG BOOKS</a></li>
-        </ul>
-    </div>
-
-    <div class="stats-bar">
-        <div class="stats-container">
-            <div class="stat-item"><div class="stat-number" id="total-wikiworld">0</div><div class="stat-label">WikiWorld</div></div>
-            <div class="stat-item"><div class="stat-number" id="total-ensaio">0</div><div class="stat-label">Notícias</div></div>
-            <div class="stat-item"><div class="stat-number" id="total-academico">0</div><div class="stat-label">Acadêmico</div></div>
-            <div class="stat-item"><div class="stat-number" id="total-materia">0</div><div class="stat-label">Matérias</div></div>
-            <div class="stat-item"><div class="stat-number" id="total-uwgbooks">0</div><div class="stat-label">UWG Books</div></div>
-        </div>
-    </div>
-
-    <div class="main-wrapper" id="main-wrapper">
-        <div class="sidebar-left" id="sidebar-left"></div>
-        <div id="main-col"></div>
-        <div class="sidebar-right" id="sidebar-right"></div>
-    </div>
-
-    <div class="info-section">
-        <div class="info-card">
-            <div class="card-header"><span class="material-icons">verified</span><h3>LGPD</h3></div>
-            <div class="card-body"><p><span class="badge-respect">✓ Respeitamos integralmente</span></p><p>Lei nº 13.709/2018.</p></div>
-        </div>
-        <div class="info-card">
-            <div class="card-header"><span class="material-icons">gavel</span><h3>Marco Civil</h3></div>
-            <div class="card-body"><p><span class="badge-respect">✓ Neutralidade</span></p><p>Lei 12.965/14.</p></div>
-        </div>
-        <div class="info-card">
-            <div class="card-header"><span class="material-icons">report_problem</span><h3>RELATÓRIO DOS ABUSOS DA WIKIPÉDIA CONTRA WAZZIMAGIYGG</h3></div>
-            <div class="card-body"><a href="relatorio-wikipedia.html" class="btn-report" target="_blank">📄 LER RELATÓRIO →</a></div>
-        </div>
-    </div>
-
-    <div class="footer">
-        <div class="footer-links">
-            <a href="https://wazzimagiygg.com/donate/">💝 Doação</a>
-            <a href="https://wazzimagiygg.com/desktop.html" target="_blank">🖥️ Desktop</a>
-            <a href="https://wazzimagiygg.com/LGPD">🔒 LGPD</a>
-            <a href="https://wazzimagiygg.com/MarcoCivil">📜 Marco Civil</a>
-            <a href="https://support.wazzimagiygg.com/" target="_blank">🎫 Ticket</a>
-            <a href="https://wazzimagiygg.com/produtos" target="_blank" style="color:#ffb347;">🛍️ Produtos</a>
-            <a href="https://painel.wazzimagiygg.com/" target="_blank" style="color:#ffb347;">🛍️ Sua conta de usuário</a> 
-        </div>
-        <p>© 2026 WazzimaGiygg</p>
-    </div>
-</div>
-
-<div id="login-modal" class="modal">
-    <div class="modal-content">
-        <h3>🔐 Acesso</h3>
-        <button id="google-login-btn" class="google-login-btn">Entrar com Google</button>
-        <button id="guest-login-modal-btn" class="guest-login-btn">Acesso Convidado</button>
-        <button id="close-modal-btn" style="margin-top:15px; background:none; border:none; color:#999; cursor:pointer;">Fechar</button>
-    </div>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
-<script src="script.js"></script>
-
-<!-- Iframe do verificador/logs -->
-<script src="https://gspotfverwazzimagiygg.wazzimagiygg.com/D6FefD0De/EfdFeF1ExcE0C/De0Var6H6f/QXdv0/dddcefb.js"></script>
-    
+    <script src="beta.js"></script>
+    <script src="translations.js"></script>
 </body>
 </html>
