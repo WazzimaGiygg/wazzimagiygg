@@ -26,6 +26,97 @@ let unreadCount = 0;
 let notificationListener = null;
 
 // ============================================
+// SINCRONIZAÇÃO COM O SISTEMA I18N
+// ============================================
+
+/**
+ * Obtém o idioma atual do sistema I18N
+ * @returns {string} Nome do idioma em português
+ */
+function getCurrentLanguageFromI18N() {
+    // Mapeamento de locale para nome do idioma
+    const localeMap = {
+        'pt': 'Português',
+        'en': 'Inglês',
+        'es': 'Espanhol',
+        'fr': 'Francês',
+        'de': 'Alemão',
+        'it': 'Italiano',
+        'ja': 'Japonês',
+        'zh': 'Chinês',
+        'ru': 'Russo',
+        'ar': 'Árabe',
+        'hi': 'Hindi',
+        'el': 'Grego'
+    };
+    
+    // Tentar obter do I18N
+    if (typeof I18N !== 'undefined' && I18N.currentLocale) {
+        return localeMap[I18N.currentLocale] || 'Português';
+    }
+    
+    // Fallback: detectar do navegador
+    return detectUserLanguage();
+}
+
+// Sobrescrever a função detectUserLanguage para usar o I18N
+const originalDetectUserLanguage = detectUserLanguage;
+detectUserLanguage = function() {
+    // Tentar usar o I18N primeiro
+    if (typeof I18N !== 'undefined' && I18N.currentLocale) {
+        const localeMap = {
+            'pt': 'Português',
+            'en': 'Inglês',
+            'es': 'Espanhol',
+            'fr': 'Francês',
+            'de': 'Alemão',
+            'it': 'Italiano',
+            'ja': 'Japonês',
+            'zh': 'Chinês',
+            'ru': 'Russo',
+            'ar': 'Árabe',
+            'hi': 'Hindi',
+            'el': 'Grego'
+        };
+        const lang = localeMap[I18N.currentLocale] || 'Português';
+        console.log(`🌍 Usando idioma do I18N: ${lang}`);
+        return lang;
+    }
+    
+    // Fallback: usar a função original
+    return originalDetectUserLanguage();
+};
+
+// Sobrescrever a função saveUserLanguagePreference para sincronizar com I18N
+const originalSaveUserLanguagePreference = saveUserLanguagePreference;
+saveUserLanguagePreference = function(language) {
+    // Salvar no sistema de idioma
+    originalSaveUserLanguagePreference(language);
+    
+    // Sincronizar com I18N
+    if (typeof I18N !== 'undefined') {
+        const localeMap = {
+            'Português': 'pt',
+            'Inglês': 'en',
+            'Espanhol': 'es',
+            'Francês': 'fr',
+            'Alemão': 'de',
+            'Italiano': 'it',
+            'Japonês': 'ja',
+            'Chinês': 'zh',
+            'Russo': 'ru',
+            'Árabe': 'ar',
+            'Hindi': 'hi',
+            'Grego': 'el'
+        };
+        const locale = localeMap[language];
+        if (locale && I18N.availableLocales.includes(locale)) {
+            I18N.changeLanguage(locale);
+        }
+    }
+};
+
+// ============================================
 // DETECÇÃO DE IDIOMA DO USUÁRIO
 // ============================================
 
