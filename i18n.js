@@ -31,7 +31,6 @@ const I18N = {
         // 1. Verificar se há preferência salva no sistema de idioma
         const savedLangCode = localStorage.getItem('user_preferred_language');
         if (savedLangCode) {
-            // Converter código para locale
             const locale = this.getLocaleFromCode(savedLangCode);
             if (locale && this.availableLocales.includes(locale)) {
                 this.currentLocale = locale;
@@ -205,46 +204,46 @@ const I18N = {
         return value || null;
     },
     
-changeLanguage: function(locale) {
-    // Verificar se locale é um nome de idioma ou código
-    let localeCode = locale;
-    
-    // Mapeamento de nomes para códigos
-    const nameToCodeMap = {
-        'Português': 'pt',
-        'Inglês': 'en',
-        'Espanhol': 'es',
-        'Francês': 'fr',
-        'Alemão': 'de',
-        'Italiano': 'it',
-        'Japonês': 'ja',
-        'Chinês': 'zh',
-        'Russo': 'ru',
-        'Árabe': 'ar',
-        'Hindi': 'hi',
-        'Grego': 'el'
-    };
-    
-    // Se for um nome de idioma, converter para código
-    if (nameToCodeMap[locale]) {
-        localeCode = nameToCodeMap[locale];
-        console.log(`🌍 Convertendo nome "${locale}" para código "${localeCode}"`);
-    }
-    
-    // Verificar se o código é suportado
-    if (!this.availableLocales.includes(localeCode)) {
-        console.error(`❌ Idioma não suportado: ${locale} (código: ${localeCode})`);
-        console.log(`📋 Idiomas disponíveis: ${this.availableLocales.join(', ')}`);
-        return;
-    }
-    
-    if (this.currentLocale === localeCode && this.translations[localeCode]) {
-        return;
-    }
-    
-    console.log(`🌍 Alterando idioma para: ${localeCode}`);
-    this.loadTranslations(localeCode);
-}
+    changeLanguage: function(locale) {
+        // Verificar se locale é um nome de idioma ou código
+        let localeCode = locale;
+        
+        // Mapeamento de nomes para códigos
+        const nameToCodeMap = {
+            'Português': 'pt',
+            'Inglês': 'en',
+            'Espanhol': 'es',
+            'Francês': 'fr',
+            'Alemão': 'de',
+            'Italiano': 'it',
+            'Japonês': 'ja',
+            'Chinês': 'zh',
+            'Russo': 'ru',
+            'Árabe': 'ar',
+            'Hindi': 'hi',
+            'Grego': 'el'
+        };
+        
+        // Se for um nome de idioma, converter para código
+        if (nameToCodeMap[locale]) {
+            localeCode = nameToCodeMap[locale];
+            console.log(`🌍 Convertendo nome "${locale}" para código "${localeCode}"`);
+        }
+        
+        // Verificar se o código é suportado
+        if (!this.availableLocales.includes(localeCode)) {
+            console.error(`❌ Idioma não suportado: ${locale} (código: ${localeCode})`);
+            console.log(`📋 Idiomas disponíveis: ${this.availableLocales.join(', ')}`);
+            return;
+        }
+        
+        if (this.currentLocale === localeCode && this.translations[localeCode]) {
+            return;
+        }
+        
+        console.log(`🌍 Alterando idioma para: ${localeCode}`);
+        this.loadTranslations(localeCode);
+    },
     
     getTranslation: function(key) {
         const data = this.translations[this.currentLocale];
@@ -265,15 +264,19 @@ changeLanguage: function(locale) {
 // FUNÇÕES GLOBAIS PARA I18N
 // ============================================
 
-function changeLanguage(locale) {
+// Função global para mudar idioma (chamada pelo HTML)
+window.changeLanguage = function(locale) {
+    console.log(`🌍 changeLanguage chamado com: ${locale}`);
     I18N.changeLanguage(locale);
-}
+};
 
-function __(key) {
+// Função global para obter tradução
+window.__ = function(key) {
     return I18N.getTranslation(key);
-}
+};
 
 // Inicializar quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM carregado, inicializando I18N...');
     I18N.init();
 });
