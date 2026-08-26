@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - WazzimaGiygg</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        .admin-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        .admin-card h2 {
+            margin-bottom: 20px;
+            color: #e94560;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: none;
+            background: rgba(255,255,255,0.9);
+            font-size: 1em;
+        }
+        .btn-submit {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+            padding: 14px 30px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1.1em;
+            transition: transform 0.2s;
+        }
+        .btn-submit:hover {
+            transform: scale(1.02);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #ff6b6b);
+        }
+        .contributors-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .contributors-table th {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+        .contributors-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .contributors-table tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .btn-delete {
+            background: #dc3545;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .btn-delete:hover {
+            background: #c82333;
+        }
+        .login-required {
+            text-align: center;
+            padding: 40px;
+        }
+        .login-required h2 {
+            margin-bottom: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .status-pending {
+            background: #ffc107;
+            color: #1a1a2e;
+        }
+        .status-confirmed {
+            background: #28a745;
+            color: white;
+        }
+        .btn-back {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 30px;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        .btn-back:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .admin-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-logout {
+            background: #dc3545;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            color: white;
+            cursor: pointer;
+        }
+        .btn-refresh {
+            background: #17a2b8;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="admin-container">
+    <a href="index.html" class="btn-back">← Voltar para página principal</a>
+    
+    <div id="auth-section">
+        <!-- Estado: Não autenticado -->
+        <div id="login-required" class="login-required admin-card">
+            <h2>🔐 Área Restrita</h2>
+            <p>Faça login com Google para acessar o painel administrativo</p>
+            <button class="btn-submit" onclick="loginWithGoogle()" style="max-width: 300px; margin: 20px auto;">
+                🔑 Login com Google
+            </button>
+        </div>
+
+        <!-- Estado: Autenticado -->
+        <div id="admin-panel" style="display: none;">
+            <div class="admin-header">
+                <div>
+                    <h1>👑 Painel Administrativo</h1>
+                    <p id="admin-user-info" style="opacity: 0.7;"></p>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn-refresh" onclick="loadContributors()">🔄 Atualizar</button>
+                    <button class="btn-logout" onclick="logout()">🚪 Sair</button>
+                </div>
+            </div>
+
+            <!-- Formulário para adicionar contribuição -->
+            <div class="admin-card">
+                <h2>➕ Adicionar Contribuição</h2>
+                <form id="add-contribution-form" onsubmit="addContribution(event)">
+                    <div class="form-group">
+                        <label>Nome do Contribuidor *</label>
+                        <input type="text" id="contributor-name" required placeholder="Ex: João Silva">
+                    </div>
+                    <div class="form-group">
+                        <label>Email (opcional)</label>
+                        <input type="email" id="contributor-email" placeholder="joao@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Valor *</label>
+                        <input type="number" id="contributor-amount" required min="0.01" step="0.01" placeholder="Ex: 50.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="contributor-status">
+                            <option value="confirmed">✅ Confirmado</option>
+                            <option value="pending">⏳ Pendente</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-submit">💾 Salvar Contribuição</button>
+                </form>
+            </div>
+
+            <!-- Lista de contribuições -->
+            <div class="admin-card">
+                <h2>📋 Lista de Contribuições</h2>
+                <div style="overflow-x: auto;">
+                    <table class="contributors-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Email</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th>Data</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contributors-table-body">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 30px;">Carregando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+<script>
+// Configuração Firebase (mesma da página principal)
+const firebaseConfig = {
+    apiKey: "AIzaSyB9GkSqTIZ0kbVsba_WOdQeVAETrF9qna0",
+    authDomain: "wzzm-ce3fc.firebaseapp.com",
+    projectId: "wzzm-ce3fc",
+    storageBucket: "wzzm-ce3fc.appspot.com",
+    messagingSenderId: "249427877153",
+    appId: "1:249427877153:web:0e4297294794a5aadeb260"
+};
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let currentUser = null;
+let isAdmin = false;
+
+// Lista de emails autorizados (apenas estes podem acessar o admin)
+const ADMIN_EMAILS = [
+    'seu-email@gmail.com',  // Substitua pelo seu email
+    'admin@wazzimagiygg.com'
+];
+
+// Elementos DOM
+const loginRequired = document.getElementById('login-required');
+const adminPanel = document.getElementById('admin-panel');
+const adminUserInfo = document.getElementById('admin-user-info');
+
+// Login com Google
+function loginWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider)
+        .catch(error => {
+            alert('Erro ao fazer login: ' + error.message);
+        });
+}
+
+// Logout
+function logout() {
+    auth.signOut();
+}
+
+// Verificar autenticação
+auth.onAuthStateChanged(user => {
+    currentUser = user;
+    
+    if (user) {
+        const email = user.email;
+        const name = user.displayName || email;
+        
+        // Verificar se é admin
+        if (ADMIN_EMAILS.includes(email)) {
+            isAdmin = true;
+            loginRequired.style.display = 'none';
+            adminPanel.style.display = 'block';
+            adminUserInfo.textContent = `👋 Olá, ${name} (${email})`;
+            loadContributors();
+        } else {
+            isAdmin = false;
+            loginRequired.style.display = 'block';
+            adminPanel.style.display = 'none';
+            adminUserInfo.textContent = '';
+            alert('Acesso negado. Você não tem permissão de administrador.');
+            auth.signOut();
+        }
+    } else {
+        isAdmin = false;
+        loginRequired.style.display = 'block';
+        adminPanel.style.display = 'none';
+        adminUserInfo.textContent = '';
+    }
+});
+
+// Carregar contribuidores
+async function loadContributors() {
+    try {
+        const snapshot = await db.collection('custos')
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const tbody = document.getElementById('contributors-table-body');
+        
+        if (snapshot.empty) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 30px;">
+                        Nenhuma contribuição registrada ainda.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        let html = '';
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const date = data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString('pt-BR') : 'Data não disponível';
+            const statusClass = data.status === 'confirmed' ? 'status-confirmed' : 'status-pending';
+            const statusText = data.status === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente';
+            
+            html += `
+                <tr>
+                    <td><strong>${escapeHtml(data.name || 'Anônimo')}</strong></td>
+                    <td>${escapeHtml(data.email || '—')}</td>
+                    <td><strong>R$ ${Number(data.amount).toFixed(2)}</strong></td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>${date}</td>
+                    <td>
+                        <button class="btn-delete" onclick="deleteContribution('${doc.id}')">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+        
+        // Atualizar total também na página principal
+        updateTotalContributions();
+        
+    } catch (error) {
+        console.error('Erro ao carregar contribuições:', error);
+        document.getElementById('contributors-table-body').innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 30px; color: #ff6b6b;">
+                    ❌ Erro ao carregar dados: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Adicionar contribuição
+async function addContribution(event) {
+    event.preventDefault();
+    
+    if (!isAdmin) {
+        alert('Você não tem permissão para isso.');
+        return;
+    }
+    
+    const name = document.getElementById('contributor-name').value.trim();
+    const email = document.getElementById('contributor-email').value.trim();
+    const amount = parseFloat(document.getElementById('contributor-amount').value);
+    const status = document.getElementById('contributor-status').value;
+    
+    if (!name) {
+        alert('Por favor, informe o nome do contribuidor.');
+        return;
+    }
+    
+    if (!amount || amount <= 0) {
+        alert('Por favor, informe um valor válido.');
+        return;
+    }
+    
+    try {
+        await db.collection('custos').add({
+            name: name,
+            email: email || '',
+            amount: amount,
+            status: status,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert('✅ Contribuição adicionada com sucesso!');
+        document.getElementById('add-contribution-form').reset();
+        loadContributors();
+        
+    } catch (error) {
+        console.error('Erro ao adicionar contribuição:', error);
+        alert('❌ Erro ao salvar: ' + error.message);
+    }
+}
+
+// Deletar contribuição
+async function deleteContribution(docId) {
+    if (!confirm('Tem certeza que deseja excluir esta contribuição?')) {
+        return;
+    }
+    
+    try {
+        await db.collection('custos').doc(docId).delete();
+        alert('🗑️ Contribuição excluída com sucesso!');
+        loadContributors();
+    } catch (error) {
+        console.error('Erro ao excluir:', error);
+        alert('❌ Erro ao excluir: ' + error.message);
+    }
+}
+
+// Atualizar total na página principal (através do iframe ou localStorage)
+async function updateTotalContributions() {
+    try {
+        const snapshot = await db.collection('custos')
+            .where('status', '==', 'confirmed')
+            .get();
+        
+        let total = 0;
+        snapshot.forEach(doc => {
+            total += doc.data().amount || 0;
+        });
+        
+        // Salvar no localStorage para a página principal acessar
+        localStorage.setItem('wazzima_total_contributions', JSON.stringify({
+            total: total,
+            count: snapshot.size,
+            updated: new Date().toISOString()
+        }));
+        
+    } catch (error) {
+        console.error('Erro ao calcular total:', error);
+    }
+}
+
+// Função de escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Expor funções globalmente
+window.loginWithGoogle = loginWithGoogle;
+window.logout = logout;
+window.loadContributors = loadContributors;
+window.addContribution = addContribution;
+window.deleteContribution = deleteContribution;
+
+// Carregar automaticamente a cada 30 segundos se estiver autenticado
+setInterval(() => {
+    if (isAdmin) {
+        loadContributors();
+    }
+}, 30000);
+</script>
+
+</body>
+</html>
