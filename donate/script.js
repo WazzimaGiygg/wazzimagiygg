@@ -17,6 +17,7 @@ let selectedAmount = 10;
 
 const PIX_KEY = "27bf799c-0836-4673-9054-d5a13601ace7";
 
+// --- FUNÇÕES PIX ---
 function copyPix() {
     navigator.clipboard.writeText(PIX_KEY);
     alert('✅ Chave PIX copiada! Agora cole no seu aplicativo bancário.');
@@ -63,8 +64,8 @@ async function saveDonation() {
         };
         
         await db.collection('doacoes_wzzm').add(donationData);
-        
         showReceipt(donationData);
+        
     } catch (error) {
         console.error('Erro:', error);
         showReceipt({
@@ -113,7 +114,76 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Autenticação
+// --- FUNÇÕES DE CONTRIBUIDORES ---
+async function loadContributors() {
+    try {
+        const snapshot = await db.collection('custos')
+            .where('status', '==', 'confirmed')
+            .orderBy('createdAt', 'desc')
+            .limit(10)
+            .get();
+        
+        const listElement = document.getElementById('contributors-list');
+        
+        if (snapshot.empty) {
+            listElement.innerHTML = `
+                <div class="no-contributors">
+                    <p>🙏 Seja o primeiro contribuidor!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const date = data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString('pt-BR') : 'Data não disponível';
+            
+            html += `
+                <div class="contributor-item">
+                    <div class="contributor-info">
+                        <span class="contributor-name">${escapeHtml(data.name || 'Anônimo')}</span>
+                        <span class="contributor-date">${date}</span>
+                    </div>
+                    <span class="contributor-amount">R$ ${Number(data.amount).toFixed(2)}</span>
+                </div>
+            `;
+        });
+        
+        listElement.innerHTML = html;
+        
+        // Atualizar total
+        updateTotal();
+        
+    } catch (error) {
+        console.error('Erro ao carregar contribuidores:', error);
+        document.getElementById('contributors-list').innerHTML = `
+            <div class="error-message">
+                ❌ Erro ao carregar contribuidores
+            </div>
+        `;
+    }
+}
+
+async function updateTotal() {
+    try {
+        const snapshot = await db.collection('custos')
+            .where('status', '==', 'confirmed')
+            .get();
+        
+        let total = 0;
+        snapshot.forEach(doc => {
+            total += doc.data().amount || 0;
+        });
+        
+        document.getElementById('total-amount').textContent = `R$ ${total.toFixed(2)}`;
+        
+    } catch (error) {
+        console.error('Erro ao calcular total:', error);
+    }
+}
+
+// --- AUTENTICAÇÃO ---
 auth.onAuthStateChanged(user => {
     currentUser = user;
     if (user) {
@@ -121,7 +191,15 @@ auth.onAuthStateChanged(user => {
     }
 });
 
-// Expor funções globalmente
+// --- INICIALIZAÇÃO ---
+document.addEventListener('DOMContentLoaded', () => {
+    loadContributors();
+    
+    // Atualizar a cada 60 segundos
+    setInterval(loadContributors, 60000);
+});
+
+// --- EXPOR FUNÇÕES GLOBAIS ---
 window.copyPix = copyPix;
 window.setAmount = setAmount;
 window.setCustomAmount = setCustomAmount;
