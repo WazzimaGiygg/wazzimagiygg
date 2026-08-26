@@ -831,7 +831,7 @@ async function loadWikiworldContentPublic() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-wikiworld').textContent = items.length;
@@ -853,7 +853,7 @@ async function loadEnsaioContentPublic() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-ensaio').textContent = items.length;
@@ -875,7 +875,7 @@ async function loadAcademicoContentPublic() {
                 setor: data.setor || 'Acadêmico', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'academico',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-academico').textContent = items.length;
@@ -897,7 +897,7 @@ async function loadMateriaContentPublic() {
                 setor: data.setor || 'Matéria', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materia',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-materia').textContent = items.length;
@@ -919,7 +919,7 @@ async function loadUwgbooksContentPublic() {
                 setor: data.setor || 'UWG Books', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-uwgbooks').textContent = items.length;
@@ -1275,43 +1275,75 @@ window.filterByTab = function(tab) {
     }
 };
 
+// ============================================
+// FUNÇÃO DE BUSCA CORRIGIDA - Respeita o idioma selecionado
+// ============================================
 function searchContent() {
     const term = document.getElementById('search-input').value.toLowerCase().trim();
-    const userLang = detectUserLanguage();
     
+    // Obtém o idioma atualmente selecionado
+    const selectElement = document.getElementById('languageSelect');
+    let selectedLanguage = 'auto';
+    if (selectElement) {
+        selectedLanguage = selectElement.value;
+    }
+    
+    // Se não houver termo, apenas renderiza normalmente
     if (!term) {
         renderCurrentTabWithLanguage();
         return;
     }
     
     const items = allItems[currentTab] || [];
+    console.log(`🔍 Buscando: "${term}" | Idioma selecionado: ${selectedLanguage}`);
     
-    // Busca considerando o idioma do usuário
-    const filtered = items.filter(item => {
-        const matchTerm = item.titulo.toLowerCase().includes(term) ||
-                         stripHtml(item.descricao || '').toLowerCase().includes(term);
-        if (!matchTerm) return false;
+    // Filtrar por termo primeiro
+    let filteredByTerm = items.filter(item => 
+        item.titulo.toLowerCase().includes(term) ||
+        stripHtml(item.descricao || '').toLowerCase().includes(term)
+    );
+    
+    // Se encontrou resultados, aplicar filtro de idioma
+    let finalResults = filteredByTerm;
+    
+    if (selectedLanguage !== 'auto') {
+        // Filtrar pelo idioma selecionado
+        const targetLanguage = selectedLanguage;
+        finalResults = filteredByTerm.filter(item => {
+            const itemLang = getItemLanguage(item);
+            // Se for Português, incluir artigos sem idioma também
+            if (targetLanguage === 'Português') {
+                return itemLang === 'Português' || !item.armario || item.armario.trim() === '';
+            }
+            return itemLang === targetLanguage;
+        });
         
-        const itemLang = getItemLanguage(item);
-        // Se o usuário está em Português, inclui artigos sem idioma
-        if (userLang === 'Português') {
-            return itemLang === 'Português' || !item.armario || item.armario.trim() === '';
+        console.log(`🔍 Resultados em ${targetLanguage}: ${finalResults.length} (de ${filteredByTerm.length} encontrados pelo termo)`);
+    } else {
+        // Modo automático: priorizar idioma do usuário
+        const userLang = detectUserLanguage();
+        const userLangResults = filteredByTerm.filter(item => {
+            const itemLang = getItemLanguage(item);
+            return itemLang === userLang || !item.armario || item.armario.trim() === '';
+        });
+        
+        // Se encontrou no idioma do usuário, mostrar esses; senão mostrar todos
+        if (userLangResults.length > 0) {
+            finalResults = userLangResults;
+            console.log(`🔍 Priorizando ${userLang}: ${finalResults.length} resultados`);
+        } else {
+            finalResults = filteredByTerm;
+            console.log(`🔍 Nenhum em ${userLang}, mostrando todos: ${finalResults.length} resultados`);
         }
-        return itemLang === userLang;
-    });
+    }
     
-    // Se não encontrou no idioma do usuário, buscar em todos
-    const finalResults = filtered.length > 0 ? filtered : 
-        items.filter(item => 
-            item.titulo.toLowerCase().includes(term) ||
-            stripHtml(item.descricao || '').toLowerCase().includes(term)
-        );
-    
+    // Se não encontrou nada
     if (finalResults.length === 0) {
+        const langName = selectedLanguage === 'auto' ? detectUserLanguage() : selectedLanguage;
         document.getElementById('main-wrapper').innerHTML = `
             <div style="grid-column:1/-1;">
                 <div class="empty-state">
-                    🔍 Nenhum resultado para "${escapeHtml(term)}" em ${userLang}
+                    🔍 Nenhum resultado para "${escapeHtml(term)}" em ${langName}
                     <br><small>Tente buscar em outro idioma ou verifique a ortografia.</small>
                 </div>
             </div>
@@ -1319,32 +1351,46 @@ function searchContent() {
         return;
     }
     
-    // Renderizar resultados...
+    // Renderizar resultados
+    renderSearchResults(finalResults, term, selectedLanguage);
+}
+
+// ============================================
+// FUNÇÃO PARA RENDERIZAR RESULTADOS DA BUSCA
+// ============================================
+function renderSearchResults(results, term, selectedLanguage) {
+    const userLang = detectUserLanguage();
     const langEmoji = AVAILABLE_LANGUAGES[userLang] || '🌍';
-    const userLangCount = finalResults.filter(item => getItemLanguage(item) === userLang).length;
-    const noLangCount = finalResults.filter(item => !item.armario || item.armario.trim() === '').length;
+    const userLangCount = results.filter(item => getItemLanguage(item) === userLang).length;
+    const noLangCount = results.filter(item => !item.armario || item.armario.trim() === '').length;
+    
+    // Determinar o idioma que está sendo exibido
+    let displayLang = selectedLanguage;
+    if (displayLang === 'auto') {
+        displayLang = userLang;
+    }
     
     let indicatorText = `🔍 Resultados para "${escapeHtml(term)}"`;
     if (userLangCount > 0) {
-        indicatorText += ` em ${userLang} ${langEmoji} (${userLangCount} encontrados)`;
+        indicatorText += ` em ${displayLang} ${langEmoji} (${userLangCount} encontrados)`;
     }
-    if (noLangCount > 0 && userLang === 'Português') {
+    if (noLangCount > 0 && displayLang === 'Português') {
         indicatorText += ` (${noLangCount} sem idioma → Português)`;
     }
-    if (userLangCount === 0 && noLangCount === 0) {
-        indicatorText += ` em todos os idiomas`;
+    if (userLangCount === 0 && noLangCount === 0 && results.length > 0) {
+        indicatorText += ` (${results.length} resultados em todos os idiomas)`;
     }
     
     const langIndicator = `
         <div class="language-indicator">
             ${indicatorText}
-            ${userLangCount === 0 && noLangCount === 0 ? ' (Nenhum encontrado no seu idioma)' : ''}
+            ${userLangCount === 0 && noLangCount === 0 && results.length > 0 ? ' 🌍 Todos os idiomas' : ''}
         </div>
     `;
     
-    const mainArticle = finalResults[0];
-    const leftArticles = finalResults.slice(1, 4);
-    const rightArticles = finalResults.slice(4, 8);
+    const mainArticle = results[0];
+    const leftArticles = results.slice(1, 4);
+    const rightArticles = results.slice(4, 8);
     
     const renderCard = (item, isMain = false) => {
         const date = formatDate(item.ultimaEdicao);
@@ -1632,7 +1678,7 @@ async function loadWikiworldContent() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-wikiworld').textContent = items.length;
@@ -1654,7 +1700,7 @@ async function loadEnsaioContent() {
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-ensaio').textContent = items.length;
@@ -1676,7 +1722,7 @@ async function loadAcademicoContent() {
                 setor: data.setor || 'Acadêmico', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'academico',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-academico').textContent = items.length;
@@ -1698,7 +1744,7 @@ async function loadMateriaContent() {
                 setor: data.setor || 'Matéria', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'materia',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-materia').textContent = items.length;
@@ -1720,7 +1766,7 @@ async function loadUwgbooksContent() {
                 setor: data.setor || 'UWG Books', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
                 visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks',
-                armario: data.armario || '' // Pode estar vazio para artigos antigos
+                armario: data.armario || ''
             });
         });
         document.getElementById('total-uwgbooks').textContent = items.length;
