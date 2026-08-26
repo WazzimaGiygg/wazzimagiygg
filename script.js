@@ -1572,6 +1572,132 @@ async function filterByLanguage(language) {
 }
 
 // ============================================
+// FILTRO EXATO POR IDIOMA (APENAS O SELECIONADO)
+// ============================================
+async function filterByLanguageExact(language) {
+    console.log(`🔍 Filtrando APENAS por idioma: ${language}`);
+    
+    if (!language || language === 'todos' || language === 'auto') {
+        console.log('🔄 Modo automático - mostrando com prioridade');
+        renderCurrentTabWithLanguage();
+        return;
+    }
+    
+    // Verificar se temos artigos carregados
+    if (!allItems[currentTab] || allItems[currentTab].length === 0) {
+        console.log('⏳ Aguardando carregamento dos artigos...');
+        await loadAllContent();
+    }
+    
+    const items = allItems[currentTab] || [];
+    console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
+    
+    // Filtrar artigos APENAS pelo idioma selecionado
+    // Se for Português, incluir artigos sem idioma também
+    let finalResults;
+    if (language === 'Português') {
+        finalResults = items.filter(item => {
+            const itemLang = getItemLanguage(item);
+            return itemLang === 'Português' || !item.armario || item.armario.trim() === '';
+        });
+    } else {
+        finalResults = items.filter(item => {
+            const itemLang = getItemLanguage(item);
+            return itemLang === language;
+        });
+    }
+    
+    console.log(`🔍 Artigos encontrados APENAS em ${language}: ${finalResults.length}`);
+    
+    if (finalResults.length === 0) {
+        // Mostrar mensagem amigável
+        const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
+        document.getElementById('main-wrapper').innerHTML = `
+            <div style="grid-column:1/-1;">
+                <div class="empty-state" style="padding: 40px;">
+                    <div style="font-size: 3em; margin-bottom: 15px;">📭</div>
+                    <h3 style="color: #555;">Nenhum artigo encontrado em ${langEmoji} ${language}</h3>
+                    <p style="color: #888; margin-top: 10px;">
+                        💡 Dica: Artigos sem idioma são considerados como "Português"
+                    </p>
+                    <button onclick="onLanguageSelectChange('auto')" 
+                            style="margin-top: 15px; padding: 10px 20px; background: #1a3c5e; color: white; border: none; border-radius: 30px; cursor: pointer;">
+                        🔄 Voltar para detecção automática
+                    </button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Renderizar resultados filtrados
+    const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
+    const langIndicator = `
+        <div class="language-indicator">
+            📖 Exibindo <strong>${finalResults.length}</strong> artigos em ${language} ${langEmoji}
+            <span class="lang-badge user-lang">Filtro ativo</span>
+            <button onclick="onLanguageSelectChange('auto')" 
+                    style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
+                ✕ Limpar filtro
+            </button>
+        </div>
+    `;
+    
+    const mainArticle = finalResults[0];
+    const leftArticles = finalResults.slice(1, 4);
+    const rightArticles = finalResults.slice(4, 8);
+    
+    const renderCard = (item, isMain = false) => {
+        const date = formatDate(item.ultimaEdicao);
+        const badge = getBadgeForTab(currentTab);
+        const icon = getIconForTab(currentTab);
+        const cleanExcerpt = stripHtml(item.descricao || '');
+        const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
+        const itemLang = getItemLanguage(item);
+        const hasLanguage = item.armario && item.armario.trim() !== '';
+        
+        if (isMain) {
+            return `
+                <div class="main-article">
+                    <div class="article-tag">
+                        ${icon} ${badge} · DESTAQUE
+                        ${hasLanguage 
+                            ? `<span style="font-size:10px; background:#2ecc71; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
+                            : `<span style="font-size:10px; background:#f39c12; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">📝 Sem idioma (Português)</span>`
+                        }
+                    </div>
+                    <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
+                    <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
+                    <div class="article-excerpt">${escapeHtml(excerptText)}</div>
+                    <a class="read-more" onclick="selectItem('${item.id}','${item.colecao}')">Leia mais →</a>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="article-card">
+                <div class="article-tag">
+                    ${icon} ${badge}
+                    ${hasLanguage 
+                        ? `<span style="font-size:9px; background:#2ecc71; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
+                        : `<span style="font-size:9px; background:#f39c12; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">📝</span>`
+                    }
+                </div>
+                <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
+                <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
+            </div>
+        `;
+    };
+    
+    document.getElementById('main-wrapper').innerHTML = `
+        <div style="grid-column:1/-1;">${langIndicator}</div>
+        <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Mais conteúdos em breve...</p></div>'}</div>
+        <div>${renderCard(mainArticle, true)}</div>
+        <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Aguarde novas publicações...</p></div>'}</div>
+    `;
+}
+
+// ============================================
 // FUNÇÃO PARA MUDAR IDIOMA (CHAMADA PELO HTML)
 // ============================================
 function onLanguageSelectChange(language) {
@@ -1597,11 +1723,11 @@ function onLanguageSelectChange(language) {
             }
         }
         
-        // Recarregar artigos
-        loadAllContent();
+        // Modo automático: mostrar com prioridade
+        renderCurrentTabWithLanguage();
         showToast(`🌍 Idioma detectado automaticamente: ${detected}`);
     } else {
-        // Usar idioma selecionado
+        // Usar idioma selecionado - FILTRA APENAS O IDIOMA ESCOLHIDO
         console.log(`🌍 Usuário selecionou: ${language}`);
         
         // Salvar preferência
@@ -1615,9 +1741,9 @@ function onLanguageSelectChange(language) {
             }
         }
         
-        // Filtrar artigos pelo idioma selecionado
-        filterByLanguage(language);
-        showToast(`🌍 Idioma alterado para: ${language}`);
+        // Filtrar artigos APENAS pelo idioma selecionado
+        filterByLanguageExact(language);
+        showToast(`🌍 Mostrando apenas artigos em: ${language}`);
     }
 }
 
