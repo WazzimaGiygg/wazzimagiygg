@@ -206,15 +206,11 @@ function getInitials(name) {
 
 /**
  * Obtém o idioma de um artigo com fallback para Português
- * @param {Object} item - Objeto do artigo
- * @returns {string} Idioma do artigo (padrão: 'Português')
  */
 function getItemLanguage(item) {
-    // Se o campo 'armario' existe e não está vazio
     if (item.armario && item.armario.trim() !== '') {
         return item.armario;
     }
-    // Fallback para Português
     return 'Português';
 }
 
@@ -248,59 +244,43 @@ function getBadgeForTab(tab) {
 // DETECÇÃO DE IDIOMA DO USUÁRIO
 // ============================================
 
-/**
- * Detecta o idioma preferido do usuário
- * @returns {string} Nome do idioma em português
- */
 function detectUserLanguage() {
-    // 1. Tentar usar o I18N primeiro
     if (typeof I18N !== 'undefined' && I18N.currentLocale) {
         const lang = CODE_TO_NAME[I18N.currentLocale] || 'Português';
         console.log(`🌍 Usando idioma do I18N: ${lang}`);
         return lang;
     }
     
-    // 2. Tentar obter do localStorage (preferência salva)
     const savedLang = localStorage.getItem('user_preferred_language');
     if (savedLang && LANGUAGE_MAP[savedLang]) {
         console.log(`🌍 Idioma salvo pelo usuário: ${LANGUAGE_MAP[savedLang]}`);
         return LANGUAGE_MAP[savedLang];
     }
     
-    // 3. Tentar detectar do navegador
     const browserLang = navigator.language || navigator.languages?.[0] || 'pt';
     console.log(`🌍 Idioma do navegador detectado: ${browserLang}`);
     
-    // 4. Mapear para o valor no Firestore
     const mappedLang = LANGUAGE_MAP[browserLang];
     if (mappedLang) {
         console.log(`🌍 Mapeado para: ${mappedLang}`);
         return mappedLang;
     }
     
-    // 5. Fallback: Português
     console.log('🌍 Fallback para: Português');
     return 'Português';
 }
 
-/**
- * Salva a preferência de idioma do usuário
- * @param {string} language - Nome do idioma em português ou código
- */
 function saveUserLanguagePreference(language) {
     let code = null;
     let name = null;
     
-    // Verificar se language é um código (ex: 'pt', 'en')
     if (LANGUAGE_MAP[language]) {
         code = language;
         name = LANGUAGE_MAP[language];
     } else if (NAME_TO_CODE[language]) {
-        // Verificar se é um nome (ex: 'Português')
         code = NAME_TO_CODE[language];
         name = language;
     } else {
-        // Buscar pelo nome
         for (const [c, n] of Object.entries(LANGUAGE_MAP)) {
             if (n === language) {
                 code = c;
@@ -314,7 +294,6 @@ function saveUserLanguagePreference(language) {
         localStorage.setItem('user_preferred_language', code);
         console.log(`💾 Preferência de idioma salva: ${name} (${code})`);
         
-        // Sincronizar com I18N
         if (typeof I18N !== 'undefined' && I18N.availableLocales && I18N.availableLocales.includes(code)) {
             I18N.changeLanguage(code);
         }
@@ -325,22 +304,14 @@ function saveUserLanguagePreference(language) {
     }
 }
 
-/**
- * Busca artigos filtrados por idioma (com fallback)
- * @param {string} language - Idioma para filtrar
- * @param {string} tab - Aba atual
- * @returns {Promise<Array>} Lista de artigos filtrados
- */
 async function searchArticlesByLanguage(language, tab = null) {
     const targetTab = tab || currentTab;
     const items = allItems[targetTab] || [];
     
-    // Se for "auto" ou "todos", retorna todos os artigos
     if (!language || language === 'todos' || language === 'auto') {
         return items;
     }
     
-    // Filtrar artigos pelo idioma (usando getItemLanguage)
     const filtered = items.filter(item => {
         const itemLang = getItemLanguage(item);
         return itemLang === language;
@@ -350,17 +321,11 @@ async function searchArticlesByLanguage(language, tab = null) {
     return filtered;
 }
 
-/**
- * Busca artigos em todos os idiomas, mas prioriza o idioma do usuário
- * @param {string} tab - Aba atual
- * @returns {Promise<Array>} Lista de artigos com prioridade
- */
 async function searchArticlesPrioritizingUserLanguage(tab = null) {
     const targetTab = tab || currentTab;
     const items = allItems[targetTab] || [];
     const userLang = detectUserLanguage();
     
-    // Separar artigos por idioma (com fallback)
     const userLangArticles = [];
     const otherLangArticles = [];
     const noLangArticles = [];
@@ -376,7 +341,6 @@ async function searchArticlesPrioritizingUserLanguage(tab = null) {
         }
     });
     
-    // Combinar: priorizar idioma do usuário, depois sem idioma, depois outros
     const prioritized = [...userLangArticles, ...noLangArticles, ...otherLangArticles];
     
     console.log(`📊 Priorização: ${userLangArticles.length} em ${userLang}, ${noLangArticles.length} sem idioma (Português), ${otherLangArticles.length} em outros idiomas`);
@@ -1111,7 +1075,6 @@ async function renderCurrentTabWithLanguage() {
     const prioritizedItems = await searchArticlesPrioritizingUserLanguage(currentTab);
     const displayItems = prioritizedItems.length > 0 ? prioritizedItems : items;
     
-    // Verificar se há artigos no idioma do usuário
     const hasUserLangArticles = displayItems.some(item => getItemLanguage(item) === userLang);
     
     if (!hasUserLangArticles && prioritizedItems.length > 0) {
@@ -1262,7 +1225,10 @@ window.selectItem = async function(itemId, collection) {
 // ============================================
 // FILTROS E BUSCA (COM IDIOMA)
 // ============================================
+
+// IMPORTANTE: Esta função é chamada pelo HTML (onclick)
 window.filterByTab = function(tab) {
+    console.log(`📂 filterByTab chamado com: ${tab}`);
     currentTab = tab;
     document.querySelectorAll('.nav-menu a').forEach(a => {
         a.classList.toggle('active', a.dataset.tab === tab);
@@ -1275,20 +1241,21 @@ window.filterByTab = function(tab) {
     }
 };
 
+// Exportar para uso global
+window.filterByTab = filterByTab;
+
 // ============================================
 // FUNÇÃO DE BUSCA CORRIGIDA - Respeita o idioma selecionado
 // ============================================
 function searchContent() {
     const term = document.getElementById('search-input').value.toLowerCase().trim();
     
-    // Obtém o idioma atualmente selecionado
     const selectElement = document.getElementById('languageSelect');
     let selectedLanguage = 'auto';
     if (selectElement) {
         selectedLanguage = selectElement.value;
     }
     
-    // Se não houver termo, apenas renderiza normalmente
     if (!term) {
         renderCurrentTabWithLanguage();
         return;
@@ -1297,21 +1264,17 @@ function searchContent() {
     const items = allItems[currentTab] || [];
     console.log(`🔍 Buscando: "${term}" | Idioma selecionado: ${selectedLanguage}`);
     
-    // Filtrar por termo primeiro
     let filteredByTerm = items.filter(item => 
         item.titulo.toLowerCase().includes(term) ||
         stripHtml(item.descricao || '').toLowerCase().includes(term)
     );
     
-    // Se encontrou resultados, aplicar filtro de idioma
     let finalResults = filteredByTerm;
     
     if (selectedLanguage !== 'auto') {
-        // Filtrar pelo idioma selecionado
         const targetLanguage = selectedLanguage;
         finalResults = filteredByTerm.filter(item => {
             const itemLang = getItemLanguage(item);
-            // Se for Português, incluir artigos sem idioma também
             if (targetLanguage === 'Português') {
                 return itemLang === 'Português' || !item.armario || item.armario.trim() === '';
             }
@@ -1320,14 +1283,12 @@ function searchContent() {
         
         console.log(`🔍 Resultados em ${targetLanguage}: ${finalResults.length} (de ${filteredByTerm.length} encontrados pelo termo)`);
     } else {
-        // Modo automático: priorizar idioma do usuário
         const userLang = detectUserLanguage();
         const userLangResults = filteredByTerm.filter(item => {
             const itemLang = getItemLanguage(item);
             return itemLang === userLang || !item.armario || item.armario.trim() === '';
         });
         
-        // Se encontrou no idioma do usuário, mostrar esses; senão mostrar todos
         if (userLangResults.length > 0) {
             finalResults = userLangResults;
             console.log(`🔍 Priorizando ${userLang}: ${finalResults.length} resultados`);
@@ -1337,7 +1298,6 @@ function searchContent() {
         }
     }
     
-    // Se não encontrou nada
     if (finalResults.length === 0) {
         const langName = selectedLanguage === 'auto' ? detectUserLanguage() : selectedLanguage;
         document.getElementById('main-wrapper').innerHTML = `
@@ -1351,7 +1311,6 @@ function searchContent() {
         return;
     }
     
-    // Renderizar resultados
     renderSearchResults(finalResults, term, selectedLanguage);
 }
 
@@ -1364,7 +1323,6 @@ function renderSearchResults(results, term, selectedLanguage) {
     const userLangCount = results.filter(item => getItemLanguage(item) === userLang).length;
     const noLangCount = results.filter(item => !item.armario || item.armario.trim() === '').length;
     
-    // Determinar o idioma que está sendo exibido
     let displayLang = selectedLanguage;
     if (displayLang === 'auto') {
         displayLang = userLang;
@@ -1453,7 +1411,6 @@ async function filterByLanguage(language) {
         return;
     }
     
-    // Verificar se temos artigos carregados
     if (!allItems[currentTab] || allItems[currentTab].length === 0) {
         console.log('⏳ Aguardando carregamento dos artigos...');
         await loadAllContent();
@@ -1462,19 +1419,16 @@ async function filterByLanguage(language) {
     const items = allItems[currentTab] || [];
     console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
     
-    // Filtrar artigos pelo idioma (com fallback)
     const filtered = items.filter(item => {
         const itemLang = getItemLanguage(item);
         return itemLang === language;
     });
     
-    // Se for Português, incluir também artigos SEM idioma
     let finalResults = filtered;
     if (language === 'Português') {
         const noLangItems = items.filter(item => {
             return !item.armario || item.armario.trim() === '';
         });
-        // Adicionar artigos sem idioma, mas evitar duplicatas
         const existingIds = new Set(filtered.map(item => item.id));
         const uniqueNoLang = noLangItems.filter(item => !existingIds.has(item.id));
         finalResults = [...filtered, ...uniqueNoLang];
@@ -1484,7 +1438,6 @@ async function filterByLanguage(language) {
     console.log(`🔍 Artigos encontrados em ${language}: ${finalResults.length}`);
     
     if (finalResults.length === 0) {
-        // Mostrar mensagem amigável com sugestões
         const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
         const availableLangs = [...new Set(items.map(item => getItemLanguage(item)))];
         const langList = availableLangs.map(l => `${AVAILABLE_LANGUAGES[l] || '🌍'} ${l}`).join(', ');
@@ -1510,7 +1463,6 @@ async function filterByLanguage(language) {
         return;
     }
     
-    // Renderizar resultados filtrados
     const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
     const langIndicator = `
         <div class="language-indicator">
@@ -1583,7 +1535,6 @@ async function filterByLanguageExact(language) {
         return;
     }
     
-    // Verificar se temos artigos carregados
     if (!allItems[currentTab] || allItems[currentTab].length === 0) {
         console.log('⏳ Aguardando carregamento dos artigos...');
         await loadAllContent();
@@ -1592,7 +1543,6 @@ async function filterByLanguageExact(language) {
     const items = allItems[currentTab] || [];
     console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
     
-    // Filtrar artigos APENAS pelo idioma selecionado
     let finalResults;
     if (language === 'Português') {
         finalResults = items.filter(item => {
@@ -1608,14 +1558,12 @@ async function filterByLanguageExact(language) {
     
     console.log(`🔍 Artigos encontrados APENAS em ${language}: ${finalResults.length}`);
     
-    // Atualizar o contador de artigos
     const contadorArtigos = document.getElementById('contador-artigos');
     if (contadorArtigos) {
         contadorArtigos.textContent = `${finalResults.length} artigos encontrados em ${language}`;
     }
     
     if (finalResults.length === 0) {
-        // Mostrar mensagem amigável
         const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
         document.getElementById('main-wrapper').innerHTML = `
             <div style="grid-column:1/-1;">
@@ -1635,14 +1583,19 @@ async function filterByLanguageExact(language) {
         return;
     }
     
-    // Renderizar resultados filtrados
     renderFilteredResults(finalResults, language);
 }
-    // Renderizar resultados filtrados
+
+// ============================================
+// RENDERIZAR RESULTADOS FILTRADOS POR IDIOMA
+// ============================================
+function renderFilteredResults(results, language) {
+    console.log(`📊 Renderizando ${results.length} artigos em ${language}`);
+    
     const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
     const langIndicator = `
         <div class="language-indicator">
-            📖 Exibindo <strong>${finalResults.length}</strong> artigos em ${language} ${langEmoji}
+            📖 Exibindo <strong>${results.length}</strong> artigos em ${language} ${langEmoji}
             <span class="lang-badge user-lang">Filtro ativo</span>
             <button onclick="onLanguageSelectChange('auto')" 
                     style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
@@ -1651,9 +1604,9 @@ async function filterByLanguageExact(language) {
         </div>
     `;
     
-    const mainArticle = finalResults[0];
-    const leftArticles = finalResults.slice(1, 4);
-    const rightArticles = finalResults.slice(4, 8);
+    const mainArticle = results[0];
+    const leftArticles = results.slice(1, 4);
+    const rightArticles = results.slice(4, 8);
     
     const renderCard = (item, isMain = false) => {
         const date = formatDate(item.ultimaEdicao);
@@ -1675,7 +1628,11 @@ async function filterByLanguageExact(language) {
                         }
                     </div>
                     <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                    <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
+                    <div class="article-meta">
+                        <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
+                        <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
+                        <span><i class="material-icons" style="font-size:12px;">visibility</i> ${item.visualizacoes || 0}</span>
+                    </div>
                     <div class="article-excerpt">${escapeHtml(excerptText)}</div>
                     <a class="read-more" onclick="selectItem('${item.id}','${item.colecao}')">Leia mais →</a>
                 </div>
@@ -1692,7 +1649,10 @@ async function filterByLanguageExact(language) {
                     }
                 </div>
                 <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
+                <div class="article-meta">
+                    <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
+                    <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
+                </div>
             </div>
         `;
     };
@@ -1712,18 +1672,14 @@ function onLanguageSelectChange(language) {
     console.log(`🌍 onLanguageSelectChange chamado com: ${language}`);
     
     if (language === 'auto') {
-        // Remover preferências salvas
         localStorage.removeItem('user_preferred_language');
         localStorage.removeItem('wzzm_language');
         
-        // Detectar idioma automaticamente
         const detected = detectUserLanguage();
         console.log(`🌍 Idioma detectado: ${detected}`);
         
-        // Salvar preferência
         saveUserLanguagePreference(detected);
         
-        // Sincronizar com I18N
         if (typeof I18N !== 'undefined') {
             const code = NAME_TO_CODE[detected];
             if (code && I18N.availableLocales && I18N.availableLocales.includes(code)) {
@@ -1731,17 +1687,13 @@ function onLanguageSelectChange(language) {
             }
         }
         
-        // Modo automático: mostrar com prioridade
         renderCurrentTabWithLanguage();
         showToast(`🌍 Idioma detectado automaticamente: ${detected}`);
     } else {
-        // Usar idioma selecionado - FILTRA APENAS O IDIOMA ESCOLHIDO
         console.log(`🌍 Usuário selecionou: ${language}`);
         
-        // Salvar preferência
         saveUserLanguagePreference(language);
         
-        // Sincronizar com I18N
         if (typeof I18N !== 'undefined') {
             const code = NAME_TO_CODE[language];
             if (code && I18N.availableLocales && I18N.availableLocales.includes(code)) {
@@ -1749,7 +1701,6 @@ function onLanguageSelectChange(language) {
             }
         }
         
-        // Filtrar artigos APENAS pelo idioma selecionado
         filterByLanguageExact(language);
         showToast(`🌍 Mostrando apenas artigos em: ${language}`);
     }
@@ -2085,85 +2036,6 @@ function showRedirectError() {
 }
 
 // ============================================
-// RENDERIZAR RESULTADOS FILTRADOS POR IDIOMA
-// ============================================
-function renderFilteredResults(results, language) {
-    console.log(`📊 Renderizando ${results.length} artigos em ${language}`);
-    
-    const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
-    const langIndicator = `
-        <div class="language-indicator">
-            📖 Exibindo <strong>${results.length}</strong> artigos em ${language} ${langEmoji}
-            <span class="lang-badge user-lang">Filtro ativo</span>
-            <button onclick="onLanguageSelectChange('auto')" 
-                    style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
-                ✕ Limpar filtro
-            </button>
-        </div>
-    `;
-    
-    const mainArticle = results[0];
-    const leftArticles = results.slice(1, 4);
-    const rightArticles = results.slice(4, 8);
-    
-    const renderCard = (item, isMain = false) => {
-        const date = formatDate(item.ultimaEdicao);
-        const badge = getBadgeForTab(currentTab);
-        const icon = getIconForTab(currentTab);
-        const cleanExcerpt = stripHtml(item.descricao || '');
-        const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
-        const itemLang = getItemLanguage(item);
-        const hasLanguage = item.armario && item.armario.trim() !== '';
-        
-        if (isMain) {
-            return `
-                <div class="main-article">
-                    <div class="article-tag">
-                        ${icon} ${badge} · DESTAQUE
-                        ${hasLanguage 
-                            ? `<span style="font-size:10px; background:#2ecc71; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
-                            : `<span style="font-size:10px; background:#f39c12; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">📝 Sem idioma (Português)</span>`
-                        }
-                    </div>
-                    <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                    <div class="article-meta">
-                        <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
-                        <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
-                        <span><i class="material-icons" style="font-size:12px;">visibility</i> ${item.visualizacoes || 0}</span>
-                    </div>
-                    <div class="article-excerpt">${escapeHtml(excerptText)}</div>
-                    <a class="read-more" onclick="selectItem('${item.id}','${item.colecao}')">Leia mais →</a>
-                </div>
-            `;
-        }
-        
-        return `
-            <div class="article-card">
-                <div class="article-tag">
-                    ${icon} ${badge}
-                    ${hasLanguage 
-                        ? `<span style="font-size:9px; background:#2ecc71; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
-                        : `<span style="font-size:9px; background:#f39c12; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">📝</span>`
-                    }
-                </div>
-                <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                <div class="article-meta">
-                    <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
-                    <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
-                </div>
-            </div>
-        `;
-    };
-    
-    document.getElementById('main-wrapper').innerHTML = `
-        <div style="grid-column:1/-1;">${langIndicator}</div>
-        <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Mais conteúdos em breve...</p></div>'}</div>
-        <div>${renderCard(mainArticle, true)}</div>
-        <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Aguarde novas publicações...</p></div>'}</div>
-    `;
-}
-
-// ============================================
 // INICIALIZAÇÃO
 // ============================================
 
@@ -2178,10 +2050,8 @@ function initializeSite() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM carregado, inicializando...');
     
-    // Inicializar Cookie Manager
     CookieManager.init();
     
-    // Aguardar I18N carregar
     if (typeof I18N !== 'undefined') {
         I18N.onLoaded(function(locale) {
             console.log(`🌍 I18N carregado: ${locale}`);
@@ -2227,7 +2097,6 @@ function initSite() {
     document.getElementById('guest-login-modal-btn')?.addEventListener('click', guestLogin);
     document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
 
-    // Monitor de autenticação
     auth.onAuthStateChanged(async (user) => {
         console.log(`🔐 Auth state changed: ${user ? user.email : 'null'}`);
         
