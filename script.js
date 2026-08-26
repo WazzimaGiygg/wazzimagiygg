@@ -2152,6 +2152,28 @@ function initSite() {
         }
     });
 
+    // ============================================
+// GARANTIR QUE AS FUNÇÕES ESTÃO EXPORTADAS
+// ============================================
+
+// Garantir que filterByTab está disponível globalmente
+window.filterByTab = window.filterByTab || filterByTab;
+
+// Garantir que onLanguageSelectChange está disponível globalmente
+window.onLanguageSelectChange = window.onLanguageSelectChange || onLanguageSelectChange;
+
+// Garantir que filterByLanguageExact está disponível globalmente
+window.filterByLanguageExact = window.filterByLanguageExact || filterByLanguageExact;
+
+// Garantir que searchContent está disponível globalmente
+window.searchContent = window.searchContent || searchContent;
+
+console.log('✅ Funções exportadas para uso global:');
+console.log('  - filterByTab:', typeof window.filterByTab);
+console.log('  - onLanguageSelectChange:', typeof window.onLanguageSelectChange);
+console.log('  - filterByLanguageExact:', typeof window.filterByLanguageExact);
+console.log('  - searchContent:', typeof window.searchContent);
+
     console.log('🚀 WazzimaGiygg - Site Principal com Login Unificado');
     console.log('📌 Notificações integradas via coleção "notifications"');
     console.log('👤 Usuário pode ver e gerenciar suas notificações');
