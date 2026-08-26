@@ -1593,7 +1593,6 @@ async function filterByLanguageExact(language) {
     console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
     
     // Filtrar artigos APENAS pelo idioma selecionado
-    // Se for Português, incluir artigos sem idioma também
     let finalResults;
     if (language === 'Português') {
         finalResults = items.filter(item => {
@@ -1608,6 +1607,12 @@ async function filterByLanguageExact(language) {
     }
     
     console.log(`🔍 Artigos encontrados APENAS em ${language}: ${finalResults.length}`);
+    
+    // Atualizar o contador de artigos
+    const contadorArtigos = document.getElementById('contador-artigos');
+    if (contadorArtigos) {
+        contadorArtigos.textContent = `${finalResults.length} artigos encontrados em ${language}`;
+    }
     
     if (finalResults.length === 0) {
         // Mostrar mensagem amigável
@@ -1630,6 +1635,9 @@ async function filterByLanguageExact(language) {
         return;
     }
     
+    // Renderizar resultados filtrados
+    renderFilteredResults(finalResults, language);
+}
     // Renderizar resultados filtrados
     const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
     const langIndicator = `
@@ -2074,6 +2082,85 @@ function showRedirectError() {
         </div>
     `;
     document.body.appendChild(redirectDiv);
+}
+
+// ============================================
+// RENDERIZAR RESULTADOS FILTRADOS POR IDIOMA
+// ============================================
+function renderFilteredResults(results, language) {
+    console.log(`📊 Renderizando ${results.length} artigos em ${language}`);
+    
+    const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
+    const langIndicator = `
+        <div class="language-indicator">
+            📖 Exibindo <strong>${results.length}</strong> artigos em ${language} ${langEmoji}
+            <span class="lang-badge user-lang">Filtro ativo</span>
+            <button onclick="onLanguageSelectChange('auto')" 
+                    style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
+                ✕ Limpar filtro
+            </button>
+        </div>
+    `;
+    
+    const mainArticle = results[0];
+    const leftArticles = results.slice(1, 4);
+    const rightArticles = results.slice(4, 8);
+    
+    const renderCard = (item, isMain = false) => {
+        const date = formatDate(item.ultimaEdicao);
+        const badge = getBadgeForTab(currentTab);
+        const icon = getIconForTab(currentTab);
+        const cleanExcerpt = stripHtml(item.descricao || '');
+        const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
+        const itemLang = getItemLanguage(item);
+        const hasLanguage = item.armario && item.armario.trim() !== '';
+        
+        if (isMain) {
+            return `
+                <div class="main-article">
+                    <div class="article-tag">
+                        ${icon} ${badge} · DESTAQUE
+                        ${hasLanguage 
+                            ? `<span style="font-size:10px; background:#2ecc71; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
+                            : `<span style="font-size:10px; background:#f39c12; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">📝 Sem idioma (Português)</span>`
+                        }
+                    </div>
+                    <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
+                    <div class="article-meta">
+                        <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
+                        <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
+                        <span><i class="material-icons" style="font-size:12px;">visibility</i> ${item.visualizacoes || 0}</span>
+                    </div>
+                    <div class="article-excerpt">${escapeHtml(excerptText)}</div>
+                    <a class="read-more" onclick="selectItem('${item.id}','${item.colecao}')">Leia mais →</a>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="article-card">
+                <div class="article-tag">
+                    ${icon} ${badge}
+                    ${hasLanguage 
+                        ? `<span style="font-size:9px; background:#2ecc71; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
+                        : `<span style="font-size:9px; background:#f39c12; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">📝</span>`
+                    }
+                </div>
+                <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
+                <div class="article-meta">
+                    <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
+                    <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
+                </div>
+            </div>
+        `;
+    };
+    
+    document.getElementById('main-wrapper').innerHTML = `
+        <div style="grid-column:1/-1;">${langIndicator}</div>
+        <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Mais conteúdos em breve...</p></div>'}</div>
+        <div>${renderCard(mainArticle, true)}</div>
+        <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Aguarde novas publicações...</p></div>'}</div>
+    `;
 }
 
 // ============================================
