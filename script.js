@@ -24,135 +24,204 @@ let allItems = {};
 let notifications = [];
 let unreadCount = 0;
 let notificationListener = null;
-let siteInitialized = false;
 
 // ============================================
-// MAPEAMENTO DE IDIOMAS (CENTRALIZADO)
+// COOKIE CONSENT MANAGER
 // ============================================
-
-// Mapeamento de códigos de idioma para nomes (Firestore)
-const LANGUAGE_MAP = {
-    'pt': 'Português',
-    'pt-BR': 'Português',
-    'pt-PT': 'Português',
-    'en': 'Inglês',
-    'en-US': 'Inglês',
-    'en-GB': 'Inglês',
-    'es': 'Espanhol',
-    'es-ES': 'Espanhol',
-    'es-MX': 'Espanhol',
-    'fr': 'Francês',
-    'fr-FR': 'Francês',
-    'de': 'Alemão',
-    'de-DE': 'Alemão',
-    'it': 'Italiano',
-    'it-IT': 'Italiano',
-    'ja': 'Japonês',
-    'ja-JP': 'Japonês',
-    'zh': 'Chinês',
-    'zh-CN': 'Chinês',
-    'zh-TW': 'Chinês',
-    'ru': 'Russo',
-    'ru-RU': 'Russo',
-    'ar': 'Árabe',
-    'ar-SA': 'Árabe',
-    'hi': 'Hindi',
-    'hi-IN': 'Hindi',
-    'el': 'Grego',
-    'el-GR': 'Grego',
-    'ko': 'Coreano',
-    'ko-KR': 'Coreano',
-    'nl': 'Holandês',
-    'nl-NL': 'Holandês',
-    'sv': 'Sueco',
-    'sv-SE': 'Sueco',
-    'pl': 'Polonês',
-    'pl-PL': 'Polonês',
-    'tr': 'Turco',
-    'tr-TR': 'Turco',
-    'he': 'Hebraico',
-    'he-IL': 'Hebraico',
-    'th': 'Tailandês',
-    'th-TH': 'Tailandês',
-    'vi': 'Vietnamita',
-    'vi-VN': 'Vietnamita',
-    'id': 'Indonésio',
-    'id-ID': 'Indonésio'
-};
-
-// NOME → CÓDIGO (para sincronização com I18N)
-const NAME_TO_CODE = {
-    'Português': 'pt',
-    'Inglês': 'en',
-    'Espanhol': 'es',
-    'Francês': 'fr',
-    'Alemão': 'de',
-    'Italiano': 'it',
-    'Japonês': 'ja',
-    'Chinês': 'zh',
-    'Russo': 'ru',
-    'Árabe': 'ar',
-    'Hindi': 'hi',
-    'Grego': 'el',
-    'Coreano': 'ko',
-    'Holandês': 'nl',
-    'Sueco': 'sv',
-    'Polonês': 'pl',
-    'Turco': 'tr',
-    'Hebraico': 'he',
-    'Tailandês': 'th',
-    'Vietnamita': 'vi',
-    'Indonésio': 'id'
-};
-
-// CÓDIGO → NOME (para exibição)
-const CODE_TO_NAME = {
-    'pt': 'Português',
-    'en': 'Inglês',
-    'es': 'Espanhol',
-    'fr': 'Francês',
-    'de': 'Alemão',
-    'it': 'Italiano',
-    'ja': 'Japonês',
-    'zh': 'Chinês',
-    'ru': 'Russo',
-    'ar': 'Árabe',
-    'hi': 'Hindi',
-    'el': 'Grego',
-    'ko': 'Coreano',
-    'nl': 'Holandês',
-    'sv': 'Sueco',
-    'pl': 'Polonês',
-    'tr': 'Turco',
-    'he': 'Hebraico',
-    'th': 'Tailandês',
-    'vi': 'Vietnamita',
-    'id': 'Indonésio'
-};
-
-// Idiomas disponíveis para exibição (com emojis)
-const AVAILABLE_LANGUAGES = {
-    'Português': '🇧🇷',
-    'Inglês': '🇺🇸',
-    'Espanhol': '🇪🇸',
-    'Francês': '🇫🇷',
-    'Alemão': '🇩🇪',
-    'Italiano': '🇮🇹',
-    'Japonês': '🇯🇵',
-    'Chinês': '🇨🇳',
-    'Russo': '🇷🇺',
-    'Árabe': '🇸🇦',
-    'Hindi': '🇮🇳',
-    'Grego': '🇬🇷',
-    'Coreano': '🇰🇷',
-    'Holandês': '🇳🇱',
-    'Sueco': '🇸🇪',
-    'Polonês': '🇵🇱',
-    'Turco': '🇹🇷',
-    'Hebraico': '🇮🇱',
-    'Tailandês': '🇹🇭',
-    'Vietnamita': '🇻🇳',
-    'Indonésio': '🇮🇩'
+const CookieManager = {
+    STORAGE_KEY: 'wzzm_cookie_consent',
+    
+    defaults: {
+        essential: true,
+        analytics: true,
+        advertising: true
+    },
+    
+    init() {
+        const consent = this.getConsent();
+        if (!consent) {
+            this.showBanner();
+        } else {
+            this.applyConsent(consent);
+            this.hideBanner();
+        }
+        
+        // Setup event listeners
+        this.setupEventListeners();
+    },
+    
+    setupEventListeners() {
+        document.getElementById('cookieAcceptAll')?.addEventListener('click', () => {
+            this.acceptAll();
+        });
+        
+        document.getElementById('cookieRejectAll')?.addEventListener('click', () => {
+            this.rejectAll();
+        });
+        
+        document.getElementById('cookieCustomize')?.addEventListener('click', () => {
+            this.customize();
+        });
+    },
+    
+    getConsent() {
+        try {
+            const data = localStorage.getItem(this.STORAGE_KEY);
+            return data ? JSON.parse(data) : null;
+        } catch {
+            return null;
+        }
+    },
+    
+    saveConsent(preferences) {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+            ...preferences,
+            timestamp: new Date().toISOString()
+        }));
+    },
+    
+    showBanner() {
+        const banner = document.getElementById('cookieConsent');
+        if (banner) {
+            // Pequeno delay para a animação funcionar
+            setTimeout(() => {
+                banner.classList.add('show');
+            }, 100);
+        }
+    },
+    
+    hideBanner() {
+        const banner = document.getElementById('cookieConsent');
+        if (banner) {
+            banner.classList.remove('show');
+        }
+    },
+    
+    applyConsent(consent) {
+        // 1. Google Analytics
+        if (consent.analytics !== false) {
+            this.enableAnalytics();
+        } else {
+            this.disableAnalytics();
+        }
+        
+        // 2. Google AdSense (personalização)
+        if (consent.advertising !== false) {
+            this.enablePersonalizedAds();
+        } else {
+            this.disablePersonalizedAds();
+        }
+        
+        console.log('🍪 Preferências de cookies aplicadas:', consent);
+    },
+    
+    enableAnalytics() {
+        // Habilitar Google Analytics
+        if (window.ga) {
+            window.ga('set', 'allowAdFeatures', true);
+            console.log('📊 Analytics habilitado');
+        }
+    },
+    
+    disableAnalytics() {
+        // Desabilitar Google Analytics
+        if (window.ga) {
+            window.ga('set', 'allowAdFeatures', false);
+        }
+        // Sinalizar para o GA não rastrear
+        window['ga-disable-UA-XXXXXXXX-X'] = true;
+        console.log('📊 Analytics desabilitado');
+    },
+    
+    enablePersonalizedAds() {
+        // Habilitar anúncios personalizados
+        document.cookie = "ad_personalization=enabled; path=/; max-age=31536000; samesite=lax";
+        console.log('📢 Anúncios personalizados habilitados');
+    },
+    
+    disablePersonalizedAds() {
+        // Desabilitar anúncios personalizados
+        document.cookie = "ad_personalization=disabled; path=/; max-age=31536000; samesite=lax";
+        console.log('📢 Anúncios personalizados desabilitados');
+    },
+    
+    acceptAll() {
+        const consent = {
+            essential: true,
+            analytics: true,
+            advertising: true
+        };
+        this.saveConsent(consent);
+        this.applyConsent(consent);
+        this.hideBanner();
+        this.showToast('✅ Todos os cookies foram aceitos!');
+    },
+    
+    rejectAll() {
+        const consent = {
+            essential: true,
+            analytics: false,
+            advertising: false
+        };
+        this.saveConsent(consent);
+        this.applyConsent(consent);
+        this.hideBanner();
+        this.showToast('ℹ️ Cookies não essenciais foram recusados. Algumas funcionalidades podem ser limitadas.', 'info');
+    },
+    
+    customize() {
+        const analytics = document.getElementById('cookieAnalytics')?.checked !== false;
+        const advertising = document.getElementById('cookieAdvertising')?.checked !== false;
+        
+        const consent = {
+            essential: true,
+            analytics: analytics,
+            advertising: advertising
+        };
+        
+        this.saveConsent(consent);
+        this.applyConsent(consent);
+        this.hideBanner();
+        this.showToast('✅ Suas preferências foram salvas!', 'success');
+    },
+    
+    showToast(message, type = 'info') {
+        // Usar função showToast existente ou criar uma
+        if (typeof showToast === 'function') {
+            showToast(message, type === 'error');
+        } else {
+            // Fallback
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.textContent = message;
+                toast.style.background = type === 'error' ? '#c0392b' : 
+                                        type === 'success' ? '#27ae60' : '#2980b9';
+                toast.style.display = 'block';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 3000);
+            } else {
+                alert(message);
+            }
+        }
+    },
+    
+    // Verificar se um tipo de cookie específico é permitido
+    isAllowed(cookieType) {
+        const consent = this.getConsent();
+        if (!consent) return true; // Se não há preferência, permitir
+        return consent[cookieType] !== false;
+    },
+    
+    // Verificar se analytics está permitido
+    isAnalyticsAllowed() {
+        return this.isAllowed('analytics');
+    },
+    
+    // Verificar se publicidade personalizada está permitida
+    isAdvertisingAllowed() {
+        return this.isAllowed('advertising');
+    }
 };
 
 // ============================================
@@ -204,16 +273,6 @@ function getInitials(name) {
     return name.substring(0, 2).toUpperCase();
 }
 
-/**
- * Obtém o idioma de um artigo com fallback para Português
- */
-function getItemLanguage(item) {
-    if (item.armario && item.armario.trim() !== '') {
-        return item.armario;
-    }
-    return 'Português';
-}
-
 function renderHtmlContent(htmlContent) {
     if (!htmlContent) return '<p>Sem conteúdo.</p>';
     return DOMPurify.sanitize(htmlContent, {
@@ -241,279 +300,6 @@ function getBadgeForTab(tab) {
 }
 
 // ============================================
-// DETECÇÃO DE IDIOMA DO USUÁRIO
-// ============================================
-
-function detectUserLanguage() {
-    if (typeof I18N !== 'undefined' && I18N.currentLocale) {
-        const lang = CODE_TO_NAME[I18N.currentLocale] || 'Português';
-        console.log(`🌍 Usando idioma do I18N: ${lang}`);
-        return lang;
-    }
-    
-    const savedLang = localStorage.getItem('user_preferred_language');
-    if (savedLang && LANGUAGE_MAP[savedLang]) {
-        console.log(`🌍 Idioma salvo pelo usuário: ${LANGUAGE_MAP[savedLang]}`);
-        return LANGUAGE_MAP[savedLang];
-    }
-    
-    const browserLang = navigator.language || navigator.languages?.[0] || 'pt';
-    console.log(`🌍 Idioma do navegador detectado: ${browserLang}`);
-    
-    const mappedLang = LANGUAGE_MAP[browserLang];
-    if (mappedLang) {
-        console.log(`🌍 Mapeado para: ${mappedLang}`);
-        return mappedLang;
-    }
-    
-    console.log('🌍 Fallback para: Português');
-    return 'Português';
-}
-
-function saveUserLanguagePreference(language) {
-    let code = null;
-    let name = null;
-    
-    if (LANGUAGE_MAP[language]) {
-        code = language;
-        name = LANGUAGE_MAP[language];
-    } else if (NAME_TO_CODE[language]) {
-        code = NAME_TO_CODE[language];
-        name = language;
-    } else {
-        for (const [c, n] of Object.entries(LANGUAGE_MAP)) {
-            if (n === language) {
-                code = c;
-                name = n;
-                break;
-            }
-        }
-    }
-    
-    if (code && name) {
-        localStorage.setItem('user_preferred_language', code);
-        console.log(`💾 Preferência de idioma salva: ${name} (${code})`);
-        
-        if (typeof I18N !== 'undefined' && I18N.availableLocales && I18N.availableLocales.includes(code)) {
-            I18N.changeLanguage(code);
-        }
-        return true;
-    } else {
-        console.warn(`⚠️ Não foi possível salvar preferência para: ${language}`);
-        return false;
-    }
-}
-
-async function searchArticlesByLanguage(language, tab = null) {
-    const targetTab = tab || currentTab;
-    const items = allItems[targetTab] || [];
-    
-    if (!language || language === 'todos' || language === 'auto') {
-        return items;
-    }
-    
-    const filtered = items.filter(item => {
-        const itemLang = getItemLanguage(item);
-        return itemLang === language;
-    });
-    
-    console.log(`🔍 Artigos encontrados em ${language}: ${filtered.length}`);
-    return filtered;
-}
-
-async function searchArticlesPrioritizingUserLanguage(tab = null) {
-    const targetTab = tab || currentTab;
-    const items = allItems[targetTab] || [];
-    const userLang = detectUserLanguage();
-    
-    const userLangArticles = [];
-    const otherLangArticles = [];
-    const noLangArticles = [];
-    
-    items.forEach(item => {
-        const itemLang = getItemLanguage(item);
-        if (itemLang === userLang) {
-            userLangArticles.push(item);
-        } else if (itemLang && AVAILABLE_LANGUAGES[itemLang]) {
-            otherLangArticles.push(item);
-        } else {
-            noLangArticles.push(item);
-        }
-    });
-    
-    const prioritized = [...userLangArticles, ...noLangArticles, ...otherLangArticles];
-    
-    console.log(`📊 Priorização: ${userLangArticles.length} em ${userLang}, ${noLangArticles.length} sem idioma (Português), ${otherLangArticles.length} em outros idiomas`);
-    return prioritized;
-}
-
-// ============================================
-// COOKIE CONSENT MANAGER
-// ============================================
-const CookieManager = {
-    STORAGE_KEY: 'wzzm_cookie_consent',
-    
-    defaults: {
-        essential: true,
-        analytics: true,
-        advertising: true
-    },
-    
-    init() {
-        const consent = this.getConsent();
-        if (!consent) {
-            this.showBanner();
-        } else {
-            this.applyConsent(consent);
-            this.hideBanner();
-        }
-        this.setupEventListeners();
-    },
-    
-    setupEventListeners() {
-        document.getElementById('cookieAcceptAll')?.addEventListener('click', () => {
-            this.acceptAll();
-        });
-        document.getElementById('cookieRejectAll')?.addEventListener('click', () => {
-            this.rejectAll();
-        });
-        document.getElementById('cookieCustomize')?.addEventListener('click', () => {
-            this.customize();
-        });
-    },
-    
-    getConsent() {
-        try {
-            const data = localStorage.getItem(this.STORAGE_KEY);
-            return data ? JSON.parse(data) : null;
-        } catch {
-            return null;
-        }
-    },
-    
-    saveConsent(preferences) {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
-            ...preferences,
-            timestamp: new Date().toISOString()
-        }));
-    },
-    
-    showBanner() {
-        const banner = document.getElementById('cookieConsent');
-        if (banner) {
-            setTimeout(() => {
-                banner.classList.add('show');
-            }, 100);
-        }
-    },
-    
-    hideBanner() {
-        const banner = document.getElementById('cookieConsent');
-        if (banner) {
-            banner.classList.remove('show');
-        }
-    },
-    
-    applyConsent(consent) {
-        if (consent.analytics !== false) {
-            this.enableAnalytics();
-        } else {
-            this.disableAnalytics();
-        }
-        if (consent.advertising !== false) {
-            this.enablePersonalizedAds();
-        } else {
-            this.disablePersonalizedAds();
-        }
-        console.log('🍪 Preferências de cookies aplicadas:', consent);
-    },
-    
-    enableAnalytics() {
-        if (window.ga) {
-            window.ga('set', 'allowAdFeatures', true);
-            console.log('📊 Analytics habilitado');
-        }
-    },
-    
-    disableAnalytics() {
-        if (window.ga) {
-            window.ga('set', 'allowAdFeatures', false);
-        }
-        window['ga-disable-UA-XXXXXXXX-X'] = true;
-        console.log('📊 Analytics desabilitado');
-    },
-    
-    enablePersonalizedAds() {
-        document.cookie = "ad_personalization=enabled; path=/; max-age=31536000; samesite=lax";
-        console.log('📢 Anúncios personalizados habilitados');
-    },
-    
-    disablePersonalizedAds() {
-        document.cookie = "ad_personalization=disabled; path=/; max-age=31536000; samesite=lax";
-        console.log('📢 Anúncios personalizados desabilitados');
-    },
-    
-    acceptAll() {
-        const consent = { essential: true, analytics: true, advertising: true };
-        this.saveConsent(consent);
-        this.applyConsent(consent);
-        this.hideBanner();
-        this.showToast('✅ Todos os cookies foram aceitos!');
-    },
-    
-    rejectAll() {
-        const consent = { essential: true, analytics: false, advertising: false };
-        this.saveConsent(consent);
-        this.applyConsent(consent);
-        this.hideBanner();
-        this.showToast('ℹ️ Cookies não essenciais foram recusados.', 'info');
-    },
-    
-    customize() {
-        const analytics = document.getElementById('cookieAnalytics')?.checked !== false;
-        const advertising = document.getElementById('cookieAdvertising')?.checked !== false;
-        const consent = { essential: true, analytics, advertising };
-        this.saveConsent(consent);
-        this.applyConsent(consent);
-        this.hideBanner();
-        this.showToast('✅ Suas preferências foram salvas!', 'success');
-    },
-    
-    showToast(message, type = 'info') {
-        if (typeof showToast === 'function') {
-            showToast(message, type === 'error');
-        } else {
-            const toast = document.getElementById('toast');
-            if (toast) {
-                toast.textContent = message;
-                toast.style.background = type === 'error' ? '#c0392b' : 
-                                        type === 'success' ? '#27ae60' : '#2980b9';
-                toast.style.display = 'block';
-                setTimeout(() => {
-                    toast.style.display = 'none';
-                }, 3000);
-            } else {
-                alert(message);
-            }
-        }
-    },
-    
-    isAllowed(cookieType) {
-        const consent = this.getConsent();
-        if (!consent) return true;
-        return consent[cookieType] !== false;
-    },
-    
-    isAnalyticsAllowed() {
-        return this.isAllowed('analytics');
-    },
-    
-    isAdvertisingAllowed() {
-        return this.isAllowed('advertising');
-    }
-};
-
-// ============================================
 // FUNÇÃO PARA REGISTRAR USUÁRIO
 // ============================================
 async function registerUser(user, isGuest = false) {
@@ -532,8 +318,8 @@ async function registerUser(user, isGuest = false) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
-            cookiePreferences: CookieManager.getConsent() || null,
-            preferredLanguage: detectUserLanguage()
+            // Cookie consent preferences
+            cookiePreferences: CookieManager.getConsent() || null
         };
 
         await db.collection('users').doc(uid).set(userData, { merge: true });
@@ -773,7 +559,7 @@ async function loadContentPublic() {
             uwgbooks: uwgbooks
         };
         
-        renderCurrentTabWithLanguage();
+        renderCurrentTab();
     } catch (error) {
         console.error('Erro ao carregar conteúdo público:', error);
         document.getElementById('main-wrapper').innerHTML = `
@@ -794,8 +580,7 @@ async function loadWikiworldContentPublic() {
                 id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb',
-                armario: data.armario || ''
+                visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb'
             });
         });
         document.getElementById('total-wikiworld').textContent = items.length;
@@ -816,8 +601,7 @@ async function loadEnsaioContentPublic() {
                 id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
                 setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio',
-                armario: data.armario || ''
+                visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio'
             });
         });
         document.getElementById('total-ensaio').textContent = items.length;
@@ -838,8 +622,7 @@ async function loadAcademicoContentPublic() {
                 id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
                 setor: data.setor || 'Acadêmico', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'academico',
-                armario: data.armario || ''
+                visualizacoes: data.visualizacoes || 0, colecao: 'academico'
             });
         });
         document.getElementById('total-academico').textContent = items.length;
@@ -860,8 +643,7 @@ async function loadMateriaContentPublic() {
                 id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
                 setor: data.setor || 'Matéria', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'materia',
-                armario: data.armario || ''
+                visualizacoes: data.visualizacoes || 0, colecao: 'materia'
             });
         });
         document.getElementById('total-materia').textContent = items.length;
@@ -882,8 +664,7 @@ async function loadUwgbooksContentPublic() {
                 id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
                 setor: data.setor || 'UWG Books', criadorEmail: data.criadorEmail || 'Sistema',
                 dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks',
-                armario: data.armario || ''
+                visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks'
             });
         });
         document.getElementById('total-uwgbooks').textContent = items.length;
@@ -972,16 +753,15 @@ function hideLoginModal() { document.getElementById('login-modal').classList.rem
 
 async function loginWithGoogle() {
     try { 
-        console.log('🔐 Iniciando login com Google...');
         const result = await auth.signInWithPopup(googleProvider);
         const user = result.user;
-        console.log(`✅ Usuário logado: ${user.email}`);
+        
         await registerUser(user, false);
+        
         hideLoginModal(); 
         location.reload();
     } catch (error) { 
-        console.error('❌ Erro no login:', error);
-        alert('Erro ao fazer login: ' + error.message); 
+        alert('Erro: ' + error.message); 
     }
 }
 
@@ -989,24 +769,29 @@ async function guestLogin() {
     const guestUser = createGuestUser();
     currentUser = guestUser;
     isGuestUser = true;
+    
     await registerUser(guestUser, true);
+    
     updateUI();
     hideLoginModal();
     location.reload();
 }
 
 // ============================================
-// FUNÇÃO DE LOGOUT
+// FUNÇÃO DE LOGOUT CORRIGIDA
 // ============================================
 async function logout() { 
     try {
         clearGuestUser();
+        
         if (auth.currentUser) {
             await auth.signOut();
         }
+        
         currentUser = null;
         isGuestUser = false;
         isAdmin = false;
+        
         if (notificationListener) {
             notificationListener();
             notificationListener = null;
@@ -1014,6 +799,7 @@ async function logout() {
         notifications = [];
         unreadCount = 0;
         updateNotificationBadge();
+        
         updateUI();
         await loadContentPublic();
         location.reload();
@@ -1057,11 +843,152 @@ function showToast(message, isError = false) {
 }
 
 // ============================================
-// RENDERIZAÇÃO COM PRIORIDADE DE IDIOMA
+// CARREGAMENTO DE CONTEÚDO
 // ============================================
-async function renderCurrentTabWithLanguage() {
+async function loadAllContent() {
+    if (currentUser && !isBanned) {
+        showLoading();
+        
+        const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
+            loadWikiworldContent(),
+            loadEnsaioContent(),
+            loadAcademicoContent(),
+            loadMateriaContent(),
+            loadUwgbooksContent()
+        ]);
+        
+        allItems = {
+            wikiworldweb: wikiworld,
+            materiadeensaio: ensaio,
+            academico: academico,
+            materia: materia,
+            uwgbooks: uwgbooks
+        };
+        
+        renderCurrentTab();
+    } else {
+        await loadContentPublic();
+    }
+}
+
+async function loadWikiworldContent() {
+    try {
+        const snapshot = await db.collection('wikiworldweb').orderBy('ultimaEdicao', 'desc').get();
+        const items = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            items.push({
+                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
+                setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
+                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
+                visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb'
+            });
+        });
+        document.getElementById('total-wikiworld').textContent = items.length;
+        return items;
+    } catch (error) {
+        console.error('Erro wikiworldweb:', error);
+        return [];
+    }
+}
+
+async function loadEnsaioContent() {
+    try {
+        const snapshot = await db.collection('materiadeensaio').orderBy('ultimaEdicao', 'desc').get();
+        const items = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            items.push({
+                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
+                setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
+                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
+                visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio'
+            });
+        });
+        document.getElementById('total-ensaio').textContent = items.length;
+        return items;
+    } catch (error) {
+        console.error('Erro materiadeensaio:', error);
+        return [];
+    }
+}
+
+async function loadAcademicoContent() {
+    try {
+        const snapshot = await db.collection('academico').orderBy('ultimaEdicao', 'desc').get();
+        const items = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            items.push({
+                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
+                setor: data.setor || 'Acadêmico', criadorEmail: data.criadorEmail || 'Sistema',
+                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
+                visualizacoes: data.visualizacoes || 0, colecao: 'academico'
+            });
+        });
+        document.getElementById('total-academico').textContent = items.length;
+        return items;
+    } catch (error) {
+        console.error('Erro academico:', error);
+        return [];
+    }
+}
+
+async function loadMateriaContent() {
+    try {
+        const snapshot = await db.collection('materia').orderBy('ultimaEdicao', 'desc').get();
+        const items = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            items.push({
+                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
+                setor: data.setor || 'Matéria', criadorEmail: data.criadorEmail || 'Sistema',
+                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
+                visualizacoes: data.visualizacoes || 0, colecao: 'materia'
+            });
+        });
+        document.getElementById('total-materia').textContent = items.length;
+        return items;
+    } catch (error) {
+        console.error('Erro materia:', error);
+        return [];
+    }
+}
+
+async function loadUwgbooksContent() {
+    try {
+        const snapshot = await db.collection('uwgbooks').orderBy('ultimaEdicao', 'desc').get();
+        const items = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            items.push({
+                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
+                setor: data.setor || 'UWG Books', criadorEmail: data.criadorEmail || 'Sistema',
+                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
+                visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks'
+            });
+        });
+        document.getElementById('total-uwgbooks').textContent = items.length;
+        return items;
+    } catch (error) {
+        console.error('Erro uwgbooks:', error);
+        return [];
+    }
+}
+
+function showLoading() {
+    document.getElementById('main-wrapper').innerHTML = `
+        <div style="grid-column:1/-1;">
+            <div class="loading-container"><div class="spinner"></div><p>Carregando conteúdo...</p></div>
+        </div>
+    `;
+}
+
+// ============================================
+// RENDERIZAÇÃO
+// ============================================
+function renderCurrentTab() {
     const items = allItems[currentTab] || [];
-    
     if (items.length === 0) {
         document.getElementById('main-wrapper').innerHTML = `
             <div style="grid-column:1/-1;">
@@ -1071,41 +998,9 @@ async function renderCurrentTabWithLanguage() {
         return;
     }
     
-    const userLang = detectUserLanguage();
-    const prioritizedItems = await searchArticlesPrioritizingUserLanguage(currentTab);
-    const displayItems = prioritizedItems.length > 0 ? prioritizedItems : items;
-    
-    const hasUserLangArticles = displayItems.some(item => getItemLanguage(item) === userLang);
-    
-    if (!hasUserLangArticles && prioritizedItems.length > 0) {
-        console.log(`⚠️ Nenhum artigo encontrado em ${userLang}. Exibindo artigos em outros idiomas.`);
-    }
-    
-    const mainArticle = displayItems[0] || items[0];
-    const leftArticles = displayItems.slice(1, 4);
-    const rightArticles = displayItems.slice(4, 8);
-    
-    const langEmoji = AVAILABLE_LANGUAGES[userLang] || '🌍';
-    const userLangCount = displayItems.filter(item => getItemLanguage(item) === userLang).length;
-    const noLangCount = displayItems.filter(item => !item.armario || item.armario.trim() === '').length;
-    
-    let langIndicatorText = `📖 Exibindo artigos em <strong>${userLang}</strong> ${langEmoji}`;
-    if (userLangCount > 0) {
-        langIndicatorText += ` (${userLangCount} artigos encontrados)`;
-    }
-    if (noLangCount > 0 && userLang === 'Português') {
-        langIndicatorText += ` (${noLangCount} sem idioma → Português)`;
-    }
-    if (userLangCount === 0 && noLangCount === 0) {
-        langIndicatorText += ' (Nenhum artigo encontrado no seu idioma)';
-    }
-    
-    const langIndicator = `
-        <div class="language-indicator">
-            ${langIndicatorText}
-            <span class="lang-badge user-lang">Idioma do usuário</span>
-        </div>
-    `;
+    const mainArticle = items[0];
+    const leftArticles = items.slice(1, 4);
+    const rightArticles = items.slice(4, 8);
     
     const renderCard = (item, isMain = false) => {
         const date = formatDate(item.ultimaEdicao);
@@ -1116,21 +1011,10 @@ async function renderCurrentTabWithLanguage() {
             ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' 
             : cleanExcerpt;
         
-        const itemLang = getItemLanguage(item);
-        const isUserLang = itemLang === userLang;
-        const hasLanguage = item.armario && item.armario.trim() !== '';
-        const langClass = isUserLang ? 'user-language' : '';
-        
         if (isMain) {
             return `
-                <div class="main-article ${langClass}">
-                    <div class="article-tag">
-                        ${icon} ${badge} · DESTAQUE 
-                        ${hasLanguage 
-                            ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
-                            : `<span class="lang-badge" style="background:#f39c12;">📝 Sem idioma (Português)</span>`
-                        }
-                    </div>
+                <div class="main-article">
+                    <div class="article-tag">${icon} ${badge} · DESTAQUE</div>
                     <div class="article-title"><a onclick="selectItem('${item.id}', '${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                     <div class="article-meta">
                         <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
@@ -1144,14 +1028,8 @@ async function renderCurrentTabWithLanguage() {
         }
         
         return `
-            <div class="article-card ${langClass}">
-                <div class="article-tag">
-                    ${icon} ${badge}
-                    ${hasLanguage 
-                        ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}" style="font-size:9px; padding:1px 6px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
-                        : `<span class="lang-badge" style="font-size:9px; padding:1px 6px; margin-left:6px; background:#f39c12; color:white;">📝</span>`
-                    }
-                </div>
+            <div class="article-card">
+                <div class="article-tag">${icon} ${badge}</div>
                 <div class="article-title"><a onclick="selectItem('${item.id}', '${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                 <div class="article-meta">
                     <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
@@ -1162,9 +1040,6 @@ async function renderCurrentTabWithLanguage() {
     };
     
     document.getElementById('main-wrapper').innerHTML = `
-        <div style="grid-column:1/-1;">
-            ${langIndicator}
-        </div>
         <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Mais conteúdos em breve...</p></div>'}</div>
         <div>${renderCard(mainArticle, true)}</div>
         <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Aguarde novas publicações...</p></div>'}</div>
@@ -1195,18 +1070,14 @@ window.selectItem = async function(itemId, collection) {
         const badge = getBadgeForTab(currentTab);
         const date = formatDateTime(data.ultimaEdicao || data.dataCriacao);
         const conteudoHtml = renderHtmlContent(data.descricao);
-        const itemLang = getItemLanguage(data);
-        const langEmoji = AVAILABLE_LANGUAGES[itemLang] || '🌍';
-        const hasLanguage = data.armario && data.armario.trim() !== '';
         
         document.getElementById('main-wrapper').innerHTML = `
             <div style="grid-column:1/-1;">
                 <div class="article-detail">
-                    <h1>${escapeHtml(data.titulo)} <span style="font-size:14px; color:#888;">${langEmoji} ${itemLang}${!hasLanguage ? ' (padrão)' : ''}</span></h1>
+                    <h1>${escapeHtml(data.titulo)}</h1>
                     <div class="article-meta">
                         <p><strong>📋 Tipo:</strong> ${badge}</p>
                         <p><strong>🏷️ Categoria:</strong> ${escapeHtml(data.setor || 'Geral')}</p>
-                        <p><strong>🌍 Idioma:</strong> ${langEmoji} ${itemLang}${!hasLanguage ? ' (assumido como Português)' : ''}</p>
                         <p><strong>👤 Autor:</strong> ${escapeHtml(data.criadorEmail || 'Sistema')}</p>
                         <p><strong>📅 Criado:</strong> ${formatDateTime(data.dataCriacao)}</p>
                         <p><strong>✏️ Edição:</strong> ${date}</p>
@@ -1223,132 +1094,42 @@ window.selectItem = async function(itemId, collection) {
 };
 
 // ============================================
-// FILTROS E BUSCA (COM IDIOMA)
+// FILTROS E BUSCA (PÚBLICOS)
 // ============================================
-
-// IMPORTANTE: Esta função é chamada pelo HTML (onclick)
 window.filterByTab = function(tab) {
-    console.log(`📂 filterByTab chamado com: ${tab}`);
     currentTab = tab;
     document.querySelectorAll('.nav-menu a').forEach(a => {
         a.classList.toggle('active', a.dataset.tab === tab);
     });
     
     if (allItems[tab] && allItems[tab].length > 0) {
-        renderCurrentTabWithLanguage();
+        renderCurrentTab();
     } else {
         loadAllContent();
     }
 };
 
-// Exportar para uso global
-window.filterByTab = filterByTab;
-
-// ============================================
-// FUNÇÃO DE BUSCA CORRIGIDA - Respeita o idioma selecionado
-// ============================================
 function searchContent() {
     const term = document.getElementById('search-input').value.toLowerCase().trim();
-    
-    const selectElement = document.getElementById('languageSelect');
-    let selectedLanguage = 'auto';
-    if (selectElement) {
-        selectedLanguage = selectElement.value;
-    }
-    
     if (!term) {
-        renderCurrentTabWithLanguage();
+        renderCurrentTab();
         return;
     }
     
     const items = allItems[currentTab] || [];
-    console.log(`🔍 Buscando: "${term}" | Idioma selecionado: ${selectedLanguage}`);
-    
-    let filteredByTerm = items.filter(item => 
+    const filtered = items.filter(item => 
         item.titulo.toLowerCase().includes(term) ||
         stripHtml(item.descricao || '').toLowerCase().includes(term)
     );
     
-    let finalResults = filteredByTerm;
-    
-    if (selectedLanguage !== 'auto') {
-        const targetLanguage = selectedLanguage;
-        finalResults = filteredByTerm.filter(item => {
-            const itemLang = getItemLanguage(item);
-            if (targetLanguage === 'Português') {
-                return itemLang === 'Português' || !item.armario || item.armario.trim() === '';
-            }
-            return itemLang === targetLanguage;
-        });
-        
-        console.log(`🔍 Resultados em ${targetLanguage}: ${finalResults.length} (de ${filteredByTerm.length} encontrados pelo termo)`);
-    } else {
-        const userLang = detectUserLanguage();
-        const userLangResults = filteredByTerm.filter(item => {
-            const itemLang = getItemLanguage(item);
-            return itemLang === userLang || !item.armario || item.armario.trim() === '';
-        });
-        
-        if (userLangResults.length > 0) {
-            finalResults = userLangResults;
-            console.log(`🔍 Priorizando ${userLang}: ${finalResults.length} resultados`);
-        } else {
-            finalResults = filteredByTerm;
-            console.log(`🔍 Nenhum em ${userLang}, mostrando todos: ${finalResults.length} resultados`);
-        }
-    }
-    
-    if (finalResults.length === 0) {
-        const langName = selectedLanguage === 'auto' ? detectUserLanguage() : selectedLanguage;
-        document.getElementById('main-wrapper').innerHTML = `
-            <div style="grid-column:1/-1;">
-                <div class="empty-state">
-                    🔍 Nenhum resultado para "${escapeHtml(term)}" em ${langName}
-                    <br><small>Tente buscar em outro idioma ou verifique a ortografia.</small>
-                </div>
-            </div>
-        `;
+    if (filtered.length === 0) {
+        document.getElementById('main-wrapper').innerHTML = `<div style="grid-column:1/-1;"><div class="empty-state">🔍 Nenhum resultado para "${escapeHtml(term)}"</div></div>`;
         return;
     }
     
-    renderSearchResults(finalResults, term, selectedLanguage);
-}
-
-// ============================================
-// FUNÇÃO PARA RENDERIZAR RESULTADOS DA BUSCA
-// ============================================
-function renderSearchResults(results, term, selectedLanguage) {
-    const userLang = detectUserLanguage();
-    const langEmoji = AVAILABLE_LANGUAGES[userLang] || '🌍';
-    const userLangCount = results.filter(item => getItemLanguage(item) === userLang).length;
-    const noLangCount = results.filter(item => !item.armario || item.armario.trim() === '').length;
-    
-    let displayLang = selectedLanguage;
-    if (displayLang === 'auto') {
-        displayLang = userLang;
-    }
-    
-    let indicatorText = `🔍 Resultados para "${escapeHtml(term)}"`;
-    if (userLangCount > 0) {
-        indicatorText += ` em ${displayLang} ${langEmoji} (${userLangCount} encontrados)`;
-    }
-    if (noLangCount > 0 && displayLang === 'Português') {
-        indicatorText += ` (${noLangCount} sem idioma → Português)`;
-    }
-    if (userLangCount === 0 && noLangCount === 0 && results.length > 0) {
-        indicatorText += ` (${results.length} resultados em todos os idiomas)`;
-    }
-    
-    const langIndicator = `
-        <div class="language-indicator">
-            ${indicatorText}
-            ${userLangCount === 0 && noLangCount === 0 && results.length > 0 ? ' 🌍 Todos os idiomas' : ''}
-        </div>
-    `;
-    
-    const mainArticle = results[0];
-    const leftArticles = results.slice(1, 4);
-    const rightArticles = results.slice(4, 8);
+    const mainArticle = filtered[0];
+    const leftArticles = filtered.slice(1, 4);
+    const rightArticles = filtered.slice(4, 8);
     
     const renderCard = (item, isMain = false) => {
         const date = formatDate(item.ultimaEdicao);
@@ -1356,21 +1137,11 @@ function renderSearchResults(results, term, selectedLanguage) {
         const icon = getIconForTab(currentTab);
         const cleanExcerpt = stripHtml(item.descricao || '');
         const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
-        const itemLang = getItemLanguage(item);
-        const isUserLang = itemLang === userLang;
-        const hasLanguage = item.armario && item.armario.trim() !== '';
-        const langClass = isUserLang ? 'user-language' : '';
         
         if (isMain) {
             return `
-                <div class="main-article ${langClass}">
-                    <div class="article-tag">
-                        ${icon} ${badge} · DESTAQUE
-                        ${hasLanguage 
-                            ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
-                            : `<span class="lang-badge" style="background:#f39c12;">📝 Sem idioma (Português)</span>`
-                        }
-                    </div>
+                <div class="main-article">
+                    <div class="article-tag">${icon} ${badge}</div>
                     <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                     <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
                     <div class="article-excerpt">${escapeHtml(excerptText)}</div>
@@ -1380,14 +1151,8 @@ function renderSearchResults(results, term, selectedLanguage) {
         }
         
         return `
-            <div class="article-card ${langClass}">
-                <div class="article-tag">
-                    ${icon} ${badge}
-                    ${hasLanguage 
-                        ? `<span class="lang-badge ${isUserLang ? 'user-lang' : 'other-lang'}" style="font-size:9px; padding:1px 6px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
-                        : `<span class="lang-badge" style="font-size:9px; padding:1px 6px; margin-left:6px; background:#f39c12; color:white;">📝</span>`
-                    }
-                </div>
+            <div class="article-card">
+                <div class="article-tag">${icon} ${badge}</div>
                 <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
                 <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
             </div>
@@ -1395,478 +1160,9 @@ function renderSearchResults(results, term, selectedLanguage) {
     };
     
     document.getElementById('main-wrapper').innerHTML = `
-        <div style="grid-column:1/-1;">${langIndicator}</div>
         <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('')}</div>
         <div>${renderCard(mainArticle, true)}</div>
         <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('')}</div>
-    `;
-}
-
-async function filterByLanguage(language) {
-    console.log(`🔍 Filtrando por idioma: ${language}`);
-    
-    if (!language || language === 'todos' || language === 'auto') {
-        console.log('🔄 Mostrando todos os artigos com prioridade');
-        renderCurrentTabWithLanguage();
-        return;
-    }
-    
-    if (!allItems[currentTab] || allItems[currentTab].length === 0) {
-        console.log('⏳ Aguardando carregamento dos artigos...');
-        await loadAllContent();
-    }
-    
-    const items = allItems[currentTab] || [];
-    console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
-    
-    const filtered = items.filter(item => {
-        const itemLang = getItemLanguage(item);
-        return itemLang === language;
-    });
-    
-    let finalResults = filtered;
-    if (language === 'Português') {
-        const noLangItems = items.filter(item => {
-            return !item.armario || item.armario.trim() === '';
-        });
-        const existingIds = new Set(filtered.map(item => item.id));
-        const uniqueNoLang = noLangItems.filter(item => !existingIds.has(item.id));
-        finalResults = [...filtered, ...uniqueNoLang];
-        console.log(`🔍 Artigos em Português: ${filtered.length} + ${uniqueNoLang.length} sem idioma = ${finalResults.length}`);
-    }
-    
-    console.log(`🔍 Artigos encontrados em ${language}: ${finalResults.length}`);
-    
-    if (finalResults.length === 0) {
-        const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
-        const availableLangs = [...new Set(items.map(item => getItemLanguage(item)))];
-        const langList = availableLangs.map(l => `${AVAILABLE_LANGUAGES[l] || '🌍'} ${l}`).join(', ');
-        
-        document.getElementById('main-wrapper').innerHTML = `
-            <div style="grid-column:1/-1;">
-                <div class="empty-state" style="padding: 40px;">
-                    <div style="font-size: 3em; margin-bottom: 15px;">📭</div>
-                    <h3 style="color: #555;">Nenhum artigo encontrado em ${langEmoji} ${language}</h3>
-                    <p style="color: #888; margin-top: 10px;">
-                        <strong>Idiomas disponíveis:</strong> ${langList || 'Português (padrão)'}
-                    </p>
-                    <p style="color: #999; font-size: 0.9em; margin-top: 5px;">
-                        💡 Dica: Artigos sem idioma são considerados como "Português"
-                    </p>
-                    <button onclick="onLanguageSelectChange('auto')" 
-                            style="margin-top: 15px; padding: 10px 20px; background: #1a3c5e; color: white; border: none; border-radius: 30px; cursor: pointer;">
-                        🔄 Voltar para detecção automática
-                    </button>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
-    const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
-    const langIndicator = `
-        <div class="language-indicator">
-            📖 Exibindo <strong>${finalResults.length}</strong> artigos em ${language} ${langEmoji}
-            <span class="lang-badge user-lang">Filtro ativo</span>
-            <button onclick="onLanguageSelectChange('auto')" 
-                    style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
-                ✕ Limpar filtro
-            </button>
-        </div>
-    `;
-    
-    const mainArticle = finalResults[0];
-    const leftArticles = finalResults.slice(1, 4);
-    const rightArticles = finalResults.slice(4, 8);
-    
-    const renderCard = (item, isMain = false) => {
-        const date = formatDate(item.ultimaEdicao);
-        const badge = getBadgeForTab(currentTab);
-        const icon = getIconForTab(currentTab);
-        const cleanExcerpt = stripHtml(item.descricao || '');
-        const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
-        const itemLang = getItemLanguage(item);
-        const hasLanguage = item.armario && item.armario.trim() !== '';
-        
-        if (isMain) {
-            return `
-                <div class="main-article">
-                    <div class="article-tag">
-                        ${icon} ${badge} · DESTAQUE
-                        ${hasLanguage ? `<span style="font-size:10px; background:#2ecc71; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>` : '<span style="font-size:10px; background:#f39c12; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">📝 Sem idioma (Português)</span>'}
-                    </div>
-                    <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                    <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
-                    <div class="article-excerpt">${escapeHtml(excerptText)}</div>
-                    <a class="read-more" onclick="selectItem('${item.id}','${item.colecao}')">Leia mais →</a>
-                </div>
-            `;
-        }
-        
-        return `
-            <div class="article-card">
-                <div class="article-tag">
-                    ${icon} ${badge}
-                    ${hasLanguage ? `<span style="font-size:9px; background:#2ecc71; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>` : '<span style="font-size:9px; background:#f39c12; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">📝</span>'}
-                </div>
-                <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                <div class="article-meta">${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')} | ${date}</div>
-            </div>
-        `;
-    };
-    
-    document.getElementById('main-wrapper').innerHTML = `
-        <div style="grid-column:1/-1;">${langIndicator}</div>
-        <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Mais conteúdos em breve...</p></div>'}</div>
-        <div>${renderCard(mainArticle, true)}</div>
-        <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Aguarde novas publicações...</p></div>'}</div>
-    `;
-}
-
-// ============================================
-// FILTRO EXATO POR IDIOMA (APENAS O SELECIONADO)
-// ============================================
-async function filterByLanguageExact(language) {
-    console.log(`🔍 Filtrando APENAS por idioma: ${language}`);
-    
-    if (!language || language === 'todos' || language === 'auto') {
-        console.log('🔄 Modo automático - mostrando com prioridade');
-        renderCurrentTabWithLanguage();
-        return;
-    }
-    
-    if (!allItems[currentTab] || allItems[currentTab].length === 0) {
-        console.log('⏳ Aguardando carregamento dos artigos...');
-        await loadAllContent();
-    }
-    
-    const items = allItems[currentTab] || [];
-    console.log(`📚 Total de artigos na aba ${currentTab}: ${items.length}`);
-    
-    let finalResults;
-    if (language === 'Português') {
-        finalResults = items.filter(item => {
-            const itemLang = getItemLanguage(item);
-            return itemLang === 'Português' || !item.armario || item.armario.trim() === '';
-        });
-    } else {
-        finalResults = items.filter(item => {
-            const itemLang = getItemLanguage(item);
-            return itemLang === language;
-        });
-    }
-    
-    console.log(`🔍 Artigos encontrados APENAS em ${language}: ${finalResults.length}`);
-    
-    const contadorArtigos = document.getElementById('contador-artigos');
-    if (contadorArtigos) {
-        contadorArtigos.textContent = `${finalResults.length} artigos encontrados em ${language}`;
-    }
-    
-    if (finalResults.length === 0) {
-        const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
-        document.getElementById('main-wrapper').innerHTML = `
-            <div style="grid-column:1/-1;">
-                <div class="empty-state" style="padding: 40px;">
-                    <div style="font-size: 3em; margin-bottom: 15px;">📭</div>
-                    <h3 style="color: #555;">Nenhum artigo encontrado em ${langEmoji} ${language}</h3>
-                    <p style="color: #888; margin-top: 10px;">
-                        💡 Dica: Artigos sem idioma são considerados como "Português"
-                    </p>
-                    <button onclick="onLanguageSelectChange('auto')" 
-                            style="margin-top: 15px; padding: 10px 20px; background: #1a3c5e; color: white; border: none; border-radius: 30px; cursor: pointer;">
-                        🔄 Voltar para detecção automática
-                    </button>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
-    renderFilteredResults(finalResults, language);
-}
-
-// ============================================
-// RENDERIZAR RESULTADOS FILTRADOS POR IDIOMA
-// ============================================
-function renderFilteredResults(results, language) {
-    console.log(`📊 Renderizando ${results.length} artigos em ${language}`);
-    
-    const langEmoji = AVAILABLE_LANGUAGES[language] || '🌍';
-    const langIndicator = `
-        <div class="language-indicator">
-            📖 Exibindo <strong>${results.length}</strong> artigos em ${language} ${langEmoji}
-            <span class="lang-badge user-lang">Filtro ativo</span>
-            <button onclick="onLanguageSelectChange('auto')" 
-                    style="margin-left: 10px; padding: 2px 12px; background: #6c757d; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 11px;">
-                ✕ Limpar filtro
-            </button>
-        </div>
-    `;
-    
-    const mainArticle = results[0];
-    const leftArticles = results.slice(1, 4);
-    const rightArticles = results.slice(4, 8);
-    
-    const renderCard = (item, isMain = false) => {
-        const date = formatDate(item.ultimaEdicao);
-        const badge = getBadgeForTab(currentTab);
-        const icon = getIconForTab(currentTab);
-        const cleanExcerpt = stripHtml(item.descricao || '');
-        const excerptText = cleanExcerpt.length > (isMain ? 300 : 150) ? cleanExcerpt.substring(0, isMain ? 300 : 150) + '...' : cleanExcerpt;
-        const itemLang = getItemLanguage(item);
-        const hasLanguage = item.armario && item.armario.trim() !== '';
-        
-        if (isMain) {
-            return `
-                <div class="main-article">
-                    <div class="article-tag">
-                        ${icon} ${badge} · DESTAQUE
-                        ${hasLanguage 
-                            ? `<span style="font-size:10px; background:#2ecc71; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'} ${itemLang}</span>`
-                            : `<span style="font-size:10px; background:#f39c12; color:white; padding:2px 8px; border-radius:12px; margin-left:8px;">📝 Sem idioma (Português)</span>`
-                        }
-                    </div>
-                    <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                    <div class="article-meta">
-                        <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
-                        <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
-                        <span><i class="material-icons" style="font-size:12px;">visibility</i> ${item.visualizacoes || 0}</span>
-                    </div>
-                    <div class="article-excerpt">${escapeHtml(excerptText)}</div>
-                    <a class="read-more" onclick="selectItem('${item.id}','${item.colecao}')">Leia mais →</a>
-                </div>
-            `;
-        }
-        
-        return `
-            <div class="article-card">
-                <div class="article-tag">
-                    ${icon} ${badge}
-                    ${hasLanguage 
-                        ? `<span style="font-size:9px; background:#2ecc71; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">${AVAILABLE_LANGUAGES[itemLang] || '🌍'}</span>`
-                        : `<span style="font-size:9px; background:#f39c12; color:white; padding:1px 6px; border-radius:10px; margin-left:6px;">📝</span>`
-                    }
-                </div>
-                <div class="article-title"><a onclick="selectItem('${item.id}','${item.colecao}')">${escapeHtml(item.titulo)}</a></div>
-                <div class="article-meta">
-                    <span><i class="material-icons" style="font-size:12px;">person</i> ${escapeHtml(item.criadorEmail?.split('@')[0] || 'Redação')}</span>
-                    <span><i class="material-icons" style="font-size:12px;">calendar_today</i> ${date}</span>
-                </div>
-            </div>
-        `;
-    };
-    
-    document.getElementById('main-wrapper').innerHTML = `
-        <div style="grid-column:1/-1;">${langIndicator}</div>
-        <div class="sidebar-left">${leftArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Mais conteúdos em breve...</p></div>'}</div>
-        <div>${renderCard(mainArticle, true)}</div>
-        <div class="sidebar-right">${rightArticles.map(a => renderCard(a, false)).join('') || '<div class="article-card"><p>📭 Aguarde novas publicações...</p></div>'}</div>
-    `;
-}
-
-// ============================================
-// FUNÇÃO PARA MUDAR IDIOMA (CHAMADA PELO HTML)
-// ============================================
-function onLanguageSelectChange(language) {
-    console.log(`🌍 onLanguageSelectChange chamado com: ${language}`);
-    
-    if (language === 'auto') {
-        localStorage.removeItem('user_preferred_language');
-        localStorage.removeItem('wzzm_language');
-        
-        const detected = detectUserLanguage();
-        console.log(`🌍 Idioma detectado: ${detected}`);
-        
-        saveUserLanguagePreference(detected);
-        
-        if (typeof I18N !== 'undefined') {
-            const code = NAME_TO_CODE[detected];
-            if (code && I18N.availableLocales && I18N.availableLocales.includes(code)) {
-                I18N.changeLanguage(code);
-            }
-        }
-        
-        renderCurrentTabWithLanguage();
-        showToast(`🌍 Idioma detectado automaticamente: ${detected}`);
-    } else {
-        console.log(`🌍 Usuário selecionou: ${language}`);
-        
-        saveUserLanguagePreference(language);
-        
-        if (typeof I18N !== 'undefined') {
-            const code = NAME_TO_CODE[language];
-            if (code && I18N.availableLocales && I18N.availableLocales.includes(code)) {
-                I18N.changeLanguage(code);
-            }
-        }
-        
-        filterByLanguageExact(language);
-        showToast(`🌍 Mostrando apenas artigos em: ${language}`);
-    }
-}
-
-// Exportar para uso global
-window.onLanguageSelectChange = onLanguageSelectChange;
-
-// ============================================
-// CARREGAMENTO DE CONTEÚDO
-// ============================================
-async function loadAllContent() {
-    console.log('📚 Carregando todos os conteúdos...');
-    
-    if (currentUser && !isBanned) {
-        showLoading();
-        
-        try {
-            const [wikiworld, ensaio, academico, materia, uwgbooks] = await Promise.all([
-                loadWikiworldContent(),
-                loadEnsaioContent(),
-                loadAcademicoContent(),
-                loadMateriaContent(),
-                loadUwgbooksContent()
-            ]);
-            
-            allItems = {
-                wikiworldweb: wikiworld,
-                materiadeensaio: ensaio,
-                academico: academico,
-                materia: materia,
-                uwgbooks: uwgbooks
-            };
-            
-            console.log('✅ Conteúdos carregados:', {
-                wikiworld: wikiworld.length,
-                ensaio: ensaio.length,
-                academico: academico.length,
-                materia: materia.length,
-                uwgbooks: uwgbooks.length
-            });
-            
-            renderCurrentTabWithLanguage();
-        } catch (error) {
-            console.error('❌ Erro ao carregar conteúdo:', error);
-        }
-    } else {
-        await loadContentPublic();
-    }
-}
-
-async function loadWikiworldContent() {
-    try {
-        const snapshot = await db.collection('wikiworldweb').orderBy('ultimaEdicao', 'desc').get();
-        const items = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            items.push({
-                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
-                setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
-                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'wikiworldweb',
-                armario: data.armario || ''
-            });
-        });
-        document.getElementById('total-wikiworld').textContent = items.length;
-        return items;
-    } catch (error) {
-        console.error('Erro wikiworldweb:', error);
-        return [];
-    }
-}
-
-async function loadEnsaioContent() {
-    try {
-        const snapshot = await db.collection('materiadeensaio').orderBy('ultimaEdicao', 'desc').get();
-        const items = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            items.push({
-                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
-                setor: data.setor || 'Geral', criadorEmail: data.criadorEmail || 'Sistema',
-                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'materiadeensaio',
-                armario: data.armario || ''
-            });
-        });
-        document.getElementById('total-ensaio').textContent = items.length;
-        return items;
-    } catch (error) {
-        console.error('Erro materiadeensaio:', error);
-        return [];
-    }
-}
-
-async function loadAcademicoContent() {
-    try {
-        const snapshot = await db.collection('academico').orderBy('ultimaEdicao', 'desc').get();
-        const items = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            items.push({
-                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
-                setor: data.setor || 'Acadêmico', criadorEmail: data.criadorEmail || 'Sistema',
-                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'academico',
-                armario: data.armario || ''
-            });
-        });
-        document.getElementById('total-academico').textContent = items.length;
-        return items;
-    } catch (error) {
-        console.error('Erro academico:', error);
-        return [];
-    }
-}
-
-async function loadMateriaContent() {
-    try {
-        const snapshot = await db.collection('materia').orderBy('ultimaEdicao', 'desc').get();
-        const items = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            items.push({
-                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
-                setor: data.setor || 'Matéria', criadorEmail: data.criadorEmail || 'Sistema',
-                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'materia',
-                armario: data.armario || ''
-            });
-        });
-        document.getElementById('total-materia').textContent = items.length;
-        return items;
-    } catch (error) {
-        console.error('Erro materia:', error);
-        return [];
-    }
-}
-
-async function loadUwgbooksContent() {
-    try {
-        const snapshot = await db.collection('uwgbooks').orderBy('ultimaEdicao', 'desc').get();
-        const items = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            items.push({
-                id: doc.id, titulo: data.titulo || 'Sem título', descricao: data.descricao || '',
-                setor: data.setor || 'UWG Books', criadorEmail: data.criadorEmail || 'Sistema',
-                dataCriacao: data.dataCriacao, ultimaEdicao: data.ultimaEdicao,
-                visualizacoes: data.visualizacoes || 0, colecao: 'uwgbooks',
-                armario: data.armario || ''
-            });
-        });
-        document.getElementById('total-uwgbooks').textContent = items.length;
-        return items;
-    } catch (error) {
-        console.error('Erro uwgbooks:', error);
-        return [];
-    }
-}
-
-function showLoading() {
-    document.getElementById('main-wrapper').innerHTML = `
-        <div style="grid-column:1/-1;">
-            <div class="loading-container"><div class="spinner"></div><p>Carregando conteúdo...</p></div>
-        </div>
     `;
 }
 
@@ -1881,6 +1177,7 @@ async function checkRedirect() {
     if (uid) {
         try {
             console.log('🔍 Verificando redirecionamento para UID:', uid);
+            
             const docRef = db.collection('redirecionamento').doc(uid);
             const docSnap = await docRef.get();
             
@@ -1903,6 +1200,7 @@ async function checkRedirect() {
                     const delay = data.delayTime || 5;
                     const message = data.messageText || 'Você será redirecionado em {TEMPO} segundos.';
                     const finalMessage = message.replace(/\[TEMPO\]/g, delay);
+                    
                     showRedirectPage(delay, data.targetUrl, finalMessage);
                     return true;
                 }
@@ -1940,25 +1238,83 @@ function showRedirectPage(delay, targetUrl, message) {
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
     redirectDiv.innerHTML = `
-        <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);font-family:'Lato',Arial,sans-serif;padding:20px;">
-            <div style="padding:40px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15);text-align:center;max-width:500px;width:90%;animation:fadeIn 0.5s ease;">
-                <div style="font-size:3em;margin-bottom:20px;">🔄</div>
-                <h1 style="color:#1a3c5e;margin-bottom:15px;font-family:'Playfair Display',serif;">Aguarde um momento...</h1>
-                <p style="font-size:1.1em;color:#555;margin-bottom:25px;line-height:1.6;">${escapeHtml(message)}</p>
-                <div style="margin:25px 0;display:flex;align-items:center;justify-content:center;gap:10px;">
-                    <span style="font-size:3em;font-weight:bold;color:#c0392b;" id="countdownDisplay">${delay}</span>
-                    <span style="font-size:1.2em;color:#666;">segundos</span>
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Lato', Arial, sans-serif;
+            padding: 20px;
+        ">
+            <div style="
+                padding: 40px;
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+                animation: fadeIn 0.5s ease;
+            ">
+                <div style="font-size: 3em; margin-bottom: 20px;">🔄</div>
+                <h1 style="color: #1a3c5e; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
+                    Aguarde um momento...
+                </h1>
+                <p style="font-size: 1.1em; color: #555; margin-bottom: 25px; line-height: 1.6;">
+                    ${escapeHtml(message)}
+                </p>
+                <div style="margin: 25px 0; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <span style="font-size: 3em; font-weight: bold; color: #c0392b;" id="countdownDisplay">${delay}</span>
+                    <span style="font-size: 1.2em; color: #666;">segundos</span>
                 </div>
-                <div style="width:100%;height:4px;background:#e0e0e0;border-radius:2px;margin:20px 0;overflow:hidden;">
-                    <div style="width:100%;height:100%;background:linear-gradient(90deg,#c0392b,#e74c3c);border-radius:2px;animation:progressBar ${delay}s linear forwards;"></div>
+                <div style="
+                    width: 100%;
+                    height: 4px;
+                    background: #e0e0e0;
+                    border-radius: 2px;
+                    margin: 20px 0;
+                    overflow: hidden;
+                ">
+                    <div style="
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(90deg, #c0392b, #e74c3c);
+                        border-radius: 2px;
+                        animation: progressBar ${delay}s linear forwards;
+                    "></div>
                 </div>
-                <a href="${targetUrl}" style="display:inline-block;padding:14px 28px;background:#1a3c5e;color:#fff;text-decoration:none;border-radius:30px;font-weight:600;transition:all 0.3s;font-size:14px;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(26,60,94,0.3);" onmouseover="this.style.background='#c0392b';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#1a3c5e';this.style.transform='translateY(0)'">🔗 Ir agora para o destino</a>
-                <p style="margin-top:20px;font-size:0.8em;color:#999;">Redirecionamento automático em ${delay} segundos</p>
+                <a href="${targetUrl}" style="
+                    display: inline-block;
+                    padding: 14px 28px;
+                    background: #1a3c5e;
+                    color: #fff;
+                    text-decoration: none;
+                    border-radius: 30px;
+                    font-weight: 600;
+                    transition: all 0.3s;
+                    font-size: 14px;
+                    letter-spacing: 0.5px;
+                    box-shadow: 0 4px 12px rgba(26, 60, 94, 0.3);
+                " onmouseover="this.style.background='#c0392b'; this.style.transform='translateY(-2px)'" 
+                   onmouseout="this.style.background='#1a3c5e'; this.style.transform='translateY(0)'">
+                    🔗 Ir agora para o destino
+                </a>
+                <p style="margin-top: 20px; font-size: 0.8em; color: #999;">
+                    Redirecionamento automático em ${delay} segundos
+                </p>
             </div>
         </div>
         <style>
-            @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-            @keyframes progressBar { from { width: 100%; } to { width: 0%; } }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes progressBar {
+                from { width: 100%; }
+                to { width: 0%; }
+            }
         </style>
     `;
     
@@ -1976,6 +1332,7 @@ function showRedirectPage(delay, targetUrl, message) {
                 window.location.href = '${targetUrl}';
             }
         }, 1000);
+        
         setTimeout(() => {
             window.location.href = '${targetUrl}';
         }, ${delay * 1000});
@@ -1997,12 +1354,44 @@ function showRedirectNotFound() {
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
     redirectDiv.innerHTML = `
-        <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);font-family:'Lato',Arial,sans-serif;padding:20px;">
-            <div style="padding:40px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15);text-align:center;max-width:500px;width:90%;">
-                <div style="font-size:4em;margin-bottom:20px;">🔍</div>
-                <h1 style="color:#dc3545;margin-bottom:15px;font-family:'Playfair Display',serif;">Redirecionamento não encontrado</h1>
-                <p style="color:#666;margin-bottom:25px;line-height:1.6;">O redirecionamento que você está procurando não existe ou foi removido.</p>
-                <a href="/" style="display:inline-block;padding:14px 28px;background:#6c757d;color:#fff;text-decoration:none;border-radius:30px;font-weight:600;transition:all 0.3s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">🏠 Voltar para o início</a>
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Lato', Arial, sans-serif;
+            padding: 20px;
+        ">
+            <div style="
+                padding: 40px;
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+            ">
+                <div style="font-size: 4em; margin-bottom: 20px;">🔍</div>
+                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
+                    Redirecionamento não encontrado
+                </h1>
+                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
+                    O redirecionamento que você está procurando não existe ou foi removido.
+                </p>
+                <a href="/" style="
+                    display: inline-block;
+                    padding: 14px 28px;
+                    background: #6c757d;
+                    color: #fff;
+                    text-decoration: none;
+                    border-radius: 30px;
+                    font-weight: 600;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
+                    🏠 Voltar para o início
+                </a>
             </div>
         </div>
     `;
@@ -2023,12 +1412,44 @@ function showRedirectError() {
     const redirectDiv = document.createElement('div');
     redirectDiv.id = 'redirectPage';
     redirectDiv.innerHTML = `
-        <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);font-family:'Lato',Arial,sans-serif;padding:20px;">
-            <div style="padding:40px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15);text-align:center;max-width:500px;width:90%;">
-                <div style="font-size:4em;margin-bottom:20px;">⚠️</div>
-                <h1 style="color:#dc3545;margin-bottom:15px;font-family:'Playfair Display',serif;">Erro ao carregar redirecionamento</h1>
-                <p style="color:#666;margin-bottom:25px;line-height:1.6;">Ocorreu um erro ao tentar carregar o redirecionamento. Por favor, tente novamente.</p>
-                <a href="/" style="display:inline-block;padding:14px 28px;background:#6c757d;color:#fff;text-decoration:none;border-radius:30px;font-weight:600;transition:all 0.3s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">🏠 Voltar para o início</a>
+        <div style="
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Lato', Arial, sans-serif;
+            padding: 20px;
+        ">
+            <div style="
+                padding: 40px;
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+            ">
+                <div style="font-size: 4em; margin-bottom: 20px;">⚠️</div>
+                <h1 style="color: #dc3545; margin-bottom: 15px; font-family: 'Playfair Display', serif;">
+                    Erro ao carregar redirecionamento
+                </h1>
+                <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
+                    Ocorreu um erro ao tentar carregar o redirecionamento. Por favor, tente novamente.
+                </p>
+                <a href="/" style="
+                    display: inline-block;
+                    padding: 14px 28px;
+                    background: #6c757d;
+                    color: #fff;
+                    text-decoration: none;
+                    border-radius: 30px;
+                    font-weight: 600;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
+                    🏠 Voltar para o início
+                </a>
             </div>
         </div>
     `;
@@ -2039,51 +1460,24 @@ function showRedirectError() {
 // INICIALIZAÇÃO
 // ============================================
 
-function initializeSite() {
-    if (siteInitialized) return;
-    siteInitialized = true;
-    
-    console.log('📍 Modo normal - carregando site');
-    initSite();
-}
-
+// PRIMEIRO: Inicializar Cookie Manager
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM carregado, inicializando...');
-    
+    // Inicializar gerenciador de cookies
     CookieManager.init();
-    
-    if (typeof I18N !== 'undefined') {
-        I18N.onLoaded(function(locale) {
-            console.log(`🌍 I18N carregado: ${locale}`);
-            
-            const langName = CODE_TO_NAME[locale] || 'Português';
-            const select = document.getElementById('languageSelect');
-            if (select) {
-                select.value = langName;
-                console.log(`🌍 Seletor atualizado para: ${langName}`);
-            }
-            
-            checkRedirect().then(isRedirect => {
-                if (!isRedirect) {
-                    initializeSite();
-                } else {
-                    console.log('🔄 Modo redirecionamento ativado');
-                }
-            });
-        });
+});
+
+// SEGUNDO: Verificar redirecionamento
+checkRedirect().then(isRedirect => {
+    if (!isRedirect) {
+        console.log('📍 Modo normal - carregando site');
+        initSite();
     } else {
-        console.warn('⚠️ I18N não encontrado, inicializando sem tradução');
-        checkRedirect().then(isRedirect => {
-            if (!isRedirect) {
-                initializeSite();
-            }
-        });
+        console.log('🔄 Modo redirecionamento ativado');
     }
 });
 
+// Função de inicialização do site
 function initSite() {
-    console.log('🚀 Inicializando site...');
-    
     document.getElementById('currentDate').textContent = new Date().toLocaleDateString('pt-BR', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
@@ -2098,8 +1492,6 @@ function initSite() {
     document.getElementById('close-modal-btn')?.addEventListener('click', hideLoginModal);
 
     auth.onAuthStateChanged(async (user) => {
-        console.log(`🔐 Auth state changed: ${user ? user.email : 'null'}`);
-        
         if (user) {
             currentUser = user;
             isGuestUser = false;
@@ -2113,9 +1505,7 @@ function initSite() {
                 if (userDoc.exists && userDoc.data().isAdmin === true) {
                     isAdmin = true;
                 }
-            } catch (e) {
-                console.warn('Erro ao verificar admin:', e);
-            }
+            } catch (e) {}
             
             await registerUser(user, false);
             
@@ -2130,7 +1520,6 @@ function initSite() {
             listenNotifications();
             loadAllContent();
         } else {
-            console.log('🔐 Usuário não autenticado');
             const storedGuest = getStoredGuestUser();
             if (storedGuest) {
                 currentUser = storedGuest;
@@ -2152,32 +1541,9 @@ function initSite() {
         }
     });
 
-    // ============================================
-// GARANTIR QUE AS FUNÇÕES ESTÃO EXPORTADAS
-// ============================================
-
-// Garantir que filterByTab está disponível globalmente
-window.filterByTab = window.filterByTab || filterByTab;
-
-// Garantir que onLanguageSelectChange está disponível globalmente
-window.onLanguageSelectChange = window.onLanguageSelectChange || onLanguageSelectChange;
-
-// Garantir que filterByLanguageExact está disponível globalmente
-window.filterByLanguageExact = window.filterByLanguageExact || filterByLanguageExact;
-
-// Garantir que searchContent está disponível globalmente
-window.searchContent = window.searchContent || searchContent;
-
-console.log('✅ Funções exportadas para uso global:');
-console.log('  - filterByTab:', typeof window.filterByTab);
-console.log('  - onLanguageSelectChange:', typeof window.onLanguageSelectChange);
-console.log('  - filterByLanguageExact:', typeof window.filterByLanguageExact);
-console.log('  - searchContent:', typeof window.searchContent);
-
     console.log('🚀 WazzimaGiygg - Site Principal com Login Unificado');
     console.log('📌 Notificações integradas via coleção "notifications"');
     console.log('👤 Usuário pode ver e gerenciar suas notificações');
     console.log('🔄 Redirecionamento por UID integrado');
     console.log('🍪 Sistema de consentimento de cookies ativo');
-    console.log('🌍 Detecção de idioma automática ativa');
 }
