@@ -120,6 +120,16 @@
             transform: translateY(-2px);
         }
 
+        .btn-nsfw {
+            background: #ec4899;
+            color: white;
+        }
+
+        .btn-nsfw:hover {
+            background: #db2777;
+            transform: translateY(-2px);
+        }
+
         .btn-sm {
             padding: 6px 12px;
             font-size: 0.8rem;
@@ -188,6 +198,9 @@
         }
         .stat-item .number.info {
             color: #3b82f6;
+        }
+        .stat-item .number.nsfw {
+            color: #ec4899;
         }
 
         .stat-item .label {
@@ -360,6 +373,13 @@
             border: 1px solid #fca5a5;
         }
 
+        /* NOVO: Badge para NSFW */
+        .alert-nsfw {
+            background: #fce7f3;
+            color: #9d174d;
+            border: 1px solid #ec4899;
+        }
+
         .url-cell {
             max-width: 250px;
             overflow: hidden;
@@ -527,6 +547,17 @@
         .alert-tab.active {
             border-color: #4f46e5;
             background: #4f46e5;
+            color: white;
+        }
+
+        /* NOVO: Tab NSFW ativo em rosa */
+        .alert-tab[data-filter="nsfw_risk"]:hover {
+            border-color: #ec4899;
+        }
+
+        .alert-tab[data-filter="nsfw_risk"].active {
+            border-color: #ec4899;
+            background: #ec4899;
             color: white;
         }
 
@@ -841,6 +872,13 @@
             color: #6b21a8;
         }
 
+        /* NOVO: Reason tag para NSFW */
+        .reason-tag.nsfw {
+            background: #fce7f3;
+            color: #9d174d;
+            border: 1px solid #ec4899;
+        }
+
         .badge-count {
             display: inline-block;
             background: #4f46e5;
@@ -949,6 +987,17 @@
 
         .badge-trusted {
             background: #16a34a;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        /* NOVO: Badge NSFW */
+        .badge-nsfw {
+            background: #ec4899;
             color: white;
             padding: 2px 10px;
             border-radius: 12px;
@@ -1153,6 +1202,12 @@
                 <div class="label">⏳ Pendentes</div>
                 <div class="sub-label">Moderação</div>
             </div>
+            <!-- NOVO: Estatística NSFW -->
+            <div class="stat-item">
+                <div class="number nsfw" id="nsfwCount">0</div>
+                <div class="label">🔞 NSFW</div>
+                <div class="sub-label">Sinalizados</div>
+            </div>
             <div class="stat-item">
                 <div class="number info" id="totalAccessCount">0</div>
                 <div class="label">👥 Acessos Totais</div>
@@ -1174,6 +1229,13 @@
                 </button>
                 <button class="alert-tab" data-filter="broken_risk" onclick="setAlertFilter('broken_risk')">
                     <i class="fas fa-link"></i> Quebrados <span class="count" id="tabBroken">0</span>
+                </button>
+                <button class="alert-tab" data-filter="inappropriate_risk" onclick="setAlertFilter('inappropriate_risk')">
+                    <i class="fas fa-exclamation-triangle"></i> Impróprio <span class="count" id="tabInappropriate">0</span>
+                </button>
+                <!-- NOVO: Tab NSFW -->
+                <button class="alert-tab" data-filter="nsfw_risk" onclick="setAlertFilter('nsfw_risk')">
+                    <i class="fas fa-eye-slash"></i> NSFW <span class="count" id="tabNsfw">0</span>
                 </button>
                 <button class="alert-tab" data-filter="lgpd_risk" onclick="setAlertFilter('lgpd_risk')">
                     <i class="fas fa-gavel"></i> LGPD <span class="count" id="tabLgpd">0</span>
@@ -1233,6 +1295,10 @@
                 </button>
                 <button onclick="batchRemoveReports()" class="btn btn-warning btn-sm">
                     <i class="fas fa-flag"></i> Remover Denúncias
+                </button>
+                <!-- NOVO: Ação em lote para marcar NSFW -->
+                <button onclick="batchMarkNsfw()" class="btn btn-nsfw btn-sm">
+                    <i class="fas fa-eye-slash"></i> Marcar NSFW
                 </button>
                 <button onclick="clearSelection()" class="btn btn-secondary btn-sm">
                     <i class="fas fa-times"></i> Limpar
@@ -1319,6 +1385,10 @@
                     </button>
                     <button onclick="moderateSite('trust')" class="btn btn-success">
                         <i class="fas fa-check-circle"></i> Marcar como Confiável
+                    </button>
+                    <!-- NOVO: Ação de moderação NSFW -->
+                    <button onclick="moderateSite('mark_nsfw')" class="btn btn-nsfw">
+                        <i class="fas fa-eye-slash"></i> Marcar como NSFW
                     </button>
                     <button onclick="moderateSite('remove_reports')" class="btn btn-warning">
                         <i class="fas fa-flag"></i> Remover Denúncias
@@ -1416,7 +1486,8 @@
                         ipHash: data.ipHash || '',
                         ipOriginal: data.ipOriginal || '',
                         isBlocked: data.isBlocked || false,
-                        isTrusted: data.isTrusted || false
+                        isTrusted: data.isTrusted || false,
+                        isNsfw: data.isNsfw || false
                     });
                 });
 
@@ -1441,7 +1512,9 @@
                             hasReport: false,
                             reports: [],
                             isBlocked: item.isBlocked || false,
-                            isTrusted: item.isTrusted || false
+                            isTrusted: item.isTrusted || false,
+                            isNsfw: item.isNsfw || false,
+                            nsfwReportCount: 0  // NOVO: contador de reports NSFW
                         };
                     }
 
@@ -1452,6 +1525,11 @@
                     } else if (item.isTrusted) {
                         siteMap[domain].status = 'trusted';
                         siteMap[domain].isTrusted = true;
+                    }
+
+                    // NOVO: Se algum acesso tiver isNsfw = true, o site é NSFW
+                    if (item.isNsfw) {
+                        siteMap[domain].isNsfw = true;
                     }
 
                     siteMap[domain].accesses.push(item);
@@ -1483,10 +1561,18 @@
                         });
                     }
 
-                    // Atualizar status (prioridade: blocked > trusted > danger > warning > broken > safe)
+                    // NOVO: Contar reports NSFW
+                    const flags = item.riskFlags || {};
+                    if (flags.nsfw || item.alertType === 'nsfw_risk') {
+                        siteMap[domain].nsfwReportCount++;
+                        siteMap[domain].isNsfw = true;
+                    }
+
+                    // Atualizar status (prioridade: blocked > trusted > nsfw > danger > warning > broken > safe)
                     const statusPriority = { 
-                        blocked: 6, 
-                        trusted: 5, 
+                        blocked: 7, 
+                        trusted: 6, 
+                        nsfw: 5,       // NOVO: NSFW tem prioridade alta
                         danger: 4, 
                         warning: 3, 
                         broken: 2, 
@@ -1540,6 +1626,8 @@
             const confirmed = groupedSites.filter(s => s.status === 'confirmed').length;
             const blocked = groupedSites.filter(s => s.status === 'blocked' || s.isBlocked).length;
             const trusted = groupedSites.filter(s => s.status === 'trusted' || s.isTrusted).length;
+            // NOVO: Contar sites NSFW
+            const nsfw = groupedSites.filter(s => s.isNsfw).length;
 
             const totalReports = groupedSites.filter(s => s.hasReport).length;
             const pendingReports = groupedSites.filter(s => s.moderationStatus === 'pending' && s.hasReport).length;
@@ -1553,6 +1641,8 @@
             document.getElementById('trustedCount').textContent = trusted;
             document.getElementById('reportsCount').textContent = totalReports;
             document.getElementById('pendingReportsCount').textContent = pendingReports;
+            // NOVO: Atualizar contagem NSFW
+            document.getElementById('nsfwCount').textContent = nsfw;
             document.getElementById('totalAccessCount').textContent = totalAccesses || 0;
         }
 
@@ -1561,6 +1651,17 @@
             const fakeNews = groupedSites.filter(s => s.alertType === 'fake_news_risk').length;
             const malicious = groupedSites.filter(s => s.alertType === 'malicious_risk').length;
             const broken = groupedSites.filter(s => s.alertType === 'broken_risk').length;
+            // NOVO: Contar sites com sinalização imprópria
+            const inappropriate = groupedSites.filter(s => 
+                s.alertType === 'inappropriate_risk' || 
+                (s.riskFlags && s.riskFlags.inappropriate)
+            ).length;
+            // NOVO: Contar sites NSFW
+            const nsfw = groupedSites.filter(s => 
+                s.isNsfw || 
+                s.alertType === 'nsfw_risk' || 
+                (s.riskFlags && s.riskFlags.nsfw)
+            ).length;
             const lgpd = groupedSites.filter(s => 
                 s.riskFlags && (s.riskFlags.lgpdViolation || s.riskFlags.marcoCivilViolation)
             ).length;
@@ -1572,6 +1673,9 @@
             document.getElementById('tabFakeNews').textContent = fakeNews;
             document.getElementById('tabMalicious').textContent = malicious;
             document.getElementById('tabBroken').textContent = broken;
+            document.getElementById('tabInappropriate').textContent = inappropriate;
+            // NOVO: Atualizar contagem da tab NSFW
+            document.getElementById('tabNsfw').textContent = nsfw;
             document.getElementById('tabLgpd').textContent = lgpd;
             document.getElementById('tabPendingMod').textContent = pendingMod;
             document.getElementById('tabBlocked').textContent = blocked;
@@ -1598,6 +1702,15 @@
                 if (alertFilter === 'fake_news_risk' && item.alertType !== 'fake_news_risk') return false;
                 if (alertFilter === 'malicious_risk' && item.alertType !== 'malicious_risk') return false;
                 if (alertFilter === 'broken_risk' && item.alertType !== 'broken_risk') return false;
+                // NOVO: Filtro para Impróprio
+                if (alertFilter === 'inappropriate_risk') {
+                    const flags = item.riskFlags || {};
+                    if (!(flags.inappropriate || item.alertType === 'inappropriate_risk')) return false;
+                }
+                // NOVO: Filtro para NSFW
+                if (alertFilter === 'nsfw_risk') {
+                    if (!(item.isNsfw || item.alertType === 'nsfw_risk' || (item.riskFlags && item.riskFlags.nsfw))) return false;
+                }
                 if (alertFilter === 'lgpd_risk') {
                     const flags = item.riskFlags || {};
                     if (!(flags.lgpdViolation || flags.marcoCivilViolation)) return false;
@@ -1677,6 +1790,7 @@
                 const rowNum = start + index + 1;
                 const isBlocked = item.isBlocked || item.status === 'blocked';
                 const isTrusted = item.isTrusted || item.status === 'trusted';
+                const isNsfw = item.isNsfw;
                 let statusClass = `status-${item.status || 'pending'}`;
                 let statusLabel = item.status || 'pending';
                 
@@ -1698,6 +1812,11 @@
                     alertBadge = `<span class="alert-badge alert-malicious"><i class="fas fa-skull"></i> Malicioso</span>`;
                 } else if (item.alertType === 'broken_risk') {
                     alertBadge = `<span class="alert-badge alert-broken"><i class="fas fa-link"></i> Quebrado</span>`;
+                } else if (isNsfw) {
+                    // NOVO: Badge NSFW
+                    alertBadge = `<span class="alert-badge alert-nsfw"><i class="fas fa-eye-slash"></i> NSFW</span>`;
+                } else if (item.riskFlags && item.riskFlags.inappropriate) {
+                    alertBadge = `<span class="alert-badge alert-inappropriate"><i class="fas fa-exclamation-triangle"></i> Impróprio</span>`;
                 } else if (item.riskFlags && (item.riskFlags.lgpdViolation || item.riskFlags.marcoCivilViolation)) {
                     alertBadge = `<span class="alert-badge alert-lgpd"><i class="fas fa-gavel"></i> LGPD</span>`;
                 } else if (item.hasReport) {
@@ -1706,11 +1825,14 @@
                     alertBadge = `<span style="color: #9ca3af; font-size: 0.65rem;">-</span>`;
                 }
 
-                // Se bloqueado ou confiável, adiciona badges
+                // Se bloqueado, confiável ou NSFW, adiciona badges
                 if (isBlocked) {
                     alertBadge += ` <span class="badge-blocked"><i class="fas fa-ban"></i> BLOQUEADO</span>`;
                 } else if (isTrusted) {
                     alertBadge += ` <span class="badge-trusted"><i class="fas fa-check"></i> CONFIÁVEL</span>`;
+                } else if (isNsfw) {
+                    // NOVO: Badge NSFW adicional
+                    alertBadge += ` <span class="badge-nsfw"><i class="fas fa-eye-slash"></i> NSFW</span>`;
                 }
 
                 const formattedDate = item.lastAccess ?
@@ -1762,6 +1884,11 @@
                                     <button onclick="quickModerate('${domain}', 'trust')" class="btn btn-success btn-xs" title="Confiar">
                                         <i class="fas fa-check-circle"></i>
                                     </button>
+                                    ${!isNsfw ? `
+                                        <button onclick="quickModerate('${domain}', 'mark_nsfw')" class="btn btn-nsfw btn-xs" title="Marcar NSFW">
+                                            <i class="fas fa-eye-slash"></i>
+                                        </button>
+                                    ` : ''}
                                 ` : ''}
                                 ${isBlocked ? `
                                     <button onclick="quickModerate('${domain}', 'reset')" class="btn btn-secondary btn-xs" title="Desbloquear">
@@ -1865,13 +1992,13 @@
             if (allChecked) {
                 // Desmarcar todos
                 checkboxes.forEach(cb => {
-                    const domain = cb.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+                    const domain = cb.closest('tr').querySelector('td:nth-child(3)').textContent.trim();
                     selectedSites.delete(domain);
                 });
             } else {
                 // Marcar todos visíveis
                 checkboxes.forEach(cb => {
-                    const domain = cb.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+                    const domain = cb.closest('tr').querySelector('td:nth-child(3)').textContent.trim();
                     selectedSites.add(domain);
                 });
             }
@@ -1902,6 +2029,7 @@
             const confirmMessage = {
                 'block': 'Tem certeza que deseja BLOQUEAR este site permanentemente?',
                 'trust': 'Tem certeza que deseja marcar este site como CONFIÁVEL?',
+                'mark_nsfw': 'Tem certeza que deseja MARCAR este site como NSFW?',
                 'reset': 'Tem certeza que deseja resetar o status deste site?'
             };
 
@@ -1928,6 +2056,7 @@
                         updateData = {
                             isBlocked: true,
                             isTrusted: false,
+                            isNsfw: false,
                             status: 'blocked',
                             moderationStatus: 'resolved',
                             moderatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1939,12 +2068,26 @@
                         updateData = {
                             isTrusted: true,
                             isBlocked: false,
+                            isNsfw: false,
                             status: 'trusted',
                             moderationStatus: 'resolved',
                             moderatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                             moderationNotes: notes || 'Site marcado como confiável'
                         };
                         actionLabel = 'CONFIÁVEL';
+                        break;
+                    // NOVO: Ação para marcar como NSFW
+                    case 'mark_nsfw':
+                        updateData = {
+                            isNsfw: true,
+                            isBlocked: false,
+                            isTrusted: false,
+                            status: 'nsfw',
+                            moderationStatus: 'resolved',
+                            moderatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            moderationNotes: notes || 'Site marcado como NSFW pela moderação'
+                        };
+                        actionLabel = 'MARCADO COMO NSFW';
                         break;
                     case 'remove_reports':
                         updateData = {
@@ -1960,6 +2103,7 @@
                         updateData = {
                             isBlocked: false,
                             isTrusted: false,
+                            isNsfw: false,
                             status: 'pending',
                             moderationStatus: 'pending',
                             moderatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2033,6 +2177,18 @@
             await batchModerate('remove_reports', notes || 'Denúncias removidas em lote');
         }
 
+        // NOVO: Ação em lote para marcar NSFW
+        async function batchMarkNsfw() {
+            if (selectedSites.size === 0) {
+                showToast('Selecione pelo menos um site', 'error');
+                return;
+            }
+            if (!confirm(`Marcar ${selectedSites.size} site(s) como NSFW?`)) return;
+
+            const notes = prompt('Nota para esta ação em lote:');
+            await batchModerate('mark_nsfw', notes || 'Marcado como NSFW em lote');
+        }
+
         async function batchModerate(action, notes) {
             try {
                 const domains = Array.from(selectedSites);
@@ -2052,6 +2208,7 @@
                                 updateData = {
                                     isBlocked: true,
                                     isTrusted: false,
+                                    isNsfw: false,
                                     status: 'blocked',
                                     moderationStatus: 'resolved',
                                     moderatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2062,7 +2219,20 @@
                                 updateData = {
                                     isTrusted: true,
                                     isBlocked: false,
+                                    isNsfw: false,
                                     status: 'trusted',
+                                    moderationStatus: 'resolved',
+                                    moderatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                    moderationNotes: notes
+                                };
+                                break;
+                            // NOVO: Ação em lote para marcar NSFW
+                            case 'mark_nsfw':
+                                updateData = {
+                                    isNsfw: true,
+                                    isBlocked: false,
+                                    isTrusted: false,
+                                    status: 'nsfw',
                                     moderationStatus: 'resolved',
                                     moderatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                                     moderationNotes: notes
@@ -2130,6 +2300,7 @@
             let statusText = site.status || 'pending';
             if (site.isBlocked) statusText = '🚫 BLOQUEADO';
             else if (site.isTrusted) statusText = '✅ CONFIÁVEL';
+            else if (site.isNsfw) statusText = '🔞 NSFW';
             else statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
             document.getElementById('modalStatus').textContent = statusText;
 
@@ -2149,6 +2320,7 @@
                     let statusLabel = access.status || 'pending';
                     if (access.isBlocked) statusLabel = 'blocked';
                     else if (access.isTrusted) statusLabel = 'trusted';
+                    else if (access.isNsfw) statusLabel = 'nsfw';
 
                     const date = access.timestamp ?
                         access.timestamp.toLocaleString('pt-BR') : 'N/A';
@@ -2161,6 +2333,7 @@
                     if (flags.malicious) reasons.push('malicious');
                     if (flags.broken) reasons.push('broken');
                     if (flags.inappropriate) reasons.push('inappropriate');
+                    if (flags.nsfw) reasons.push('nsfw');  // NOVO
                     if (flags.lgpdViolation) reasons.push('lgpd-violation');
 
                     if (reasons.length > 0) {
@@ -2169,6 +2342,7 @@
                             'malicious': 'Malicioso',
                             'broken': 'Link Quebrado',
                             'inappropriate': 'Conteúdo Impróprio',
+                            'nsfw': 'Conteúdo NSFW',  // NOVO
                             'lgpd-violation': 'Violação LGPD'
                         };
                         reasonsHtml = `
@@ -2217,6 +2391,9 @@
                         `;
                     }
 
+                    // NOVO: Badge NSFW no acesso
+                    const nsfwBadge = access.isNsfw ? `<span class="badge-nsfw">🔞 NSFW</span>` : '';
+
                     return `
                         <div class="access-item">
                             <div class="access-header">
@@ -2225,6 +2402,7 @@
                                     ${access.alertType && access.alertType !== 'none' ? `<span class="reporter-badge">🚨 Sinalizado</span>` : ''}
                                     ${access.isBlocked ? `<span class="badge-blocked">🚫 BLOQUEADO</span>` : ''}
                                     ${access.isTrusted ? `<span class="badge-trusted">✅ CONFIÁVEL</span>` : ''}
+                                    ${nsfwBadge}
                                 </div>
                                 <span class="access-date">📅 ${date}</span>
                             </div>
@@ -2295,9 +2473,9 @@
             const headers = [
                 'Domínio', 'URL', 'Total Acessos', 'Status', 'Tipo Alerta',
                 'Fake News', 'Viés Político', 'Violação LGPD', 'Violação Marco Civil',
-                'Link Quebrado', 'Conteúdo Impróprio', 'Status Moderação', 'Notas Moderação',
+                'Link Quebrado', 'Conteúdo Impróprio', 'Conteúdo NSFW', 'Status Moderação', 'Notas Moderação',
                 'Primeiro Acesso', 'Último Acesso', 'Reportado por (Email)', 'Reportado por (ID)', 'IP Hash',
-                'Bloqueado', 'Confiável'
+                'Bloqueado', 'Confiável', 'NSFW'
             ];
 
             const rows = dataToExport.map(item => {
@@ -2319,6 +2497,7 @@
                     flags.marcoCivilViolation ? 'Sim' : 'Não',
                     flags.broken ? 'Sim' : 'Não',
                     flags.inappropriate ? 'Sim' : 'Não',
+                    flags.nsfw || item.isNsfw ? 'Sim' : 'Não',  // NOVO
                     item.moderationStatus || 'pending',
                     (item.moderationNotes || '').replace(/,/g, ';'),
                     item.firstAccess ? item.firstAccess.toISOString() : '',
@@ -2327,7 +2506,8 @@
                     reporterIds || 'N/A',
                     ipHashes || 'N/A',
                     item.isBlocked ? 'Sim' : 'Não',
-                    item.isTrusted ? 'Sim' : 'Não'
+                    item.isTrusted ? 'Sim' : 'Não',
+                    item.isNsfw ? 'Sim' : 'Não'  // NOVO
                 ];
             });
 
