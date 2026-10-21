@@ -2,109 +2,174 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Codificador: Letras → Números → Soma</title>
+<title>Conversor Tríplice — Versão Primeiro</title>
 <style>
   body { font-family:'Segoe UI',sans-serif; background:#0f0f1a; color:#e0e0e0;
          max-width:820px; margin:auto; padding:30px; }
   h1 { color:#7cf; }
   h2 { color:#9cf; font-size:16px; margin-top:0; }
-  input,select { width:100%; box-sizing:border-box; background:#1a1a2e; color:#7cf;
+  .box { background:#1a1a2e; border:1px solid #333; border-radius:8px;
+         padding:20px; margin:18px 0; }
+  label { color:#aaa; font-size:13px; display:block; margin-top:12px; }
+  input,select { width:100%; box-sizing:border-box; background:#0f0f1a; color:#7cf;
          border:1px solid #333; border-radius:6px; padding:12px; font-family:monospace;
          font-size:15px; margin-top:6px; }
   button { background:#4a4aff; color:#fff; border:none; padding:10px 20px;
-           border-radius:6px; cursor:pointer; margin:10px 8px 0 0; font-size:14px; }
+           border-radius:6px; cursor:pointer; margin:14px 8px 0 0; font-size:14px; }
   button:hover { background:#6a6aff; }
-  .box { background:#1a1a2e; border:1px solid #333; border-radius:8px;
-         padding:20px; margin:18px 0; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  @media(max-width:600px){ .grid3{ grid-template-columns:1fr; } }
   .result { background:#050510; border:1px solid #4a4aff; border-radius:6px;
-            padding:15px; font-family:monospace; color:#9f9; font-size:16px;
-            word-break:break-all; min-height:24px; }
-  .big { font-size:28px; color:#7cf; font-weight:bold; }
-  label { color:#aaa; font-size:13px; }
-  .step { color:#ff9; font-size:14px; font-family:monospace; }
+            padding:18px; font-family:monospace; color:#9f9; font-size:26px;
+            word-break:break-all; text-align:center; letter-spacing:2px; }
+  .step { color:#ff9; font-size:13px; font-family:monospace; line-height:1.8; }
+  .tag { display:inline-block; background:#4a4aff; color:#fff; padding:2px 8px;
+         border-radius:4px; font-size:12px; margin-right:6px; }
+  .order { color:#7cf; font-size:13px; margin-bottom:6px; }
 </style>
 </head>
 <body>
 
-<h1>🔢 Letras → Números → Soma</h1>
-<p>Cada letra vira sua posição no alfabeto (A=1...Z=26). Depois, os números são somados.</p>
+<h1>🧩 Conversor Tríplice — Versão primeiro</h1>
+<p class="order">Ordem: <b>VERSÃO</b> → <b>FRASE (código curto)</b> → <b>NÚMERO</b></p>
 
 <div class="box">
-  <label>Palavra ou frase:</label>
-  <input id="entrada" value="Adição" placeholder="Ex: Update, Adição, Correção...">
+  <h2>Entradas</h2>
+  <div class="grid3">
+    <div>
+      <label>🏷️ Versão:</label>
+      <input id="versao" value="1.0.0" placeholder="Ex: 1.0.0">
+    </div>
+    <div>
+      <label>📝 Frase:</label>
+      <input id="frase" value="Adição" placeholder="Ex: Update, Correção...">
+    </div>
+    <div>
+      <label>🔢 Número:</label>
+      <input id="numero" type="number" value="42" placeholder="Ex: 42">
+    </div>
+  </div>
 
-  <label style="display:block;margin-top:12px;">Modo:</label>
-  <select id="modo">
-    <option value="simples">Soma simples (só o total — irreversível)</option>
-    <option value="detalhado">Soma detalhada (mostra cada número + total)</option>
-    <option value="mapa">Soma com mapa (reversível — guarda os números)</option>
+  <label style="margin-top:16px;">Como gerar o código curto da frase:</label>
+  <select id="metodo">
+    <option value="somaBase36">Soma → base36 (ex: 33 → "X")</option>
+    <option value="somaLetra">Letra inicial + soma (ex: "A33")</option>
+    <option value="iniciais">Iniciais das palavras (ex: "AD")</option>
+    <option value="hash3">Hash curto de 3 caracteres (ex: "K7F")</option>
+    <option value="vogais">Só vogais + soma (ex: "AIO33")</option>
+  </select>
+
+  <label style="margin-top:12px;">Formato final:</label>
+  <select id="formato">
+    <option value="padrao">VERSAO-CÓDIGO.NUM</option>
+    <option value="prefixo">vVERSAO / CÓDIGO / NUM</option>
+    <option value="barras">VERSAO/CÓDIGO/NUM</option>
+    <option value="compacto">VERSAOCÓDIGONUM (tudo junto)</option>
+    <option value="bracket">[VERSAO] CÓDIGO #NUM</option>
   </select>
 
   <div>
-    <button onclick="codificar()">⚙️ Codificar</button>
+    <button onclick="gerar()">⚙️ Gerar Código</button>
     <button onclick="copiar()">📋 Copiar</button>
+    <button onclick="limpar()">🧹 Limpar</button>
   </div>
 </div>
 
 <div class="box">
-  <h2>Resultado</h2>
+  <h2>Código Final</h2>
   <div id="saida" class="result">—</div>
 </div>
 
 <div class="box">
-  <h2>Passo a passo</h2>
+  <h2>Detalhes</h2>
   <div id="passos" class="step">—</div>
 </div>
 
 <script>
-/* Tabela: A=1, B=2 ... Z=26 */
+/* ---------- utilidades ---------- */
 function letraParaNumero(ch) {
-  const c = ch.toLowerCase();
-  const n = c.charCodeAt(0) - 96; // 'a'=97 -> 1
-  if (n >= 1 && n <= 26) return n;
-  return null;
+  const n = ch.toLowerCase().charCodeAt(0) - 96;
+  return (n >= 1 && n <= 26) ? n : null;
 }
 
-function codificar() {
-  const txt = document.getElementById('entrada').value;
-  const modo = document.getElementById('modo').value;
-
-  const numeros = [];      // cada número individual
-  const letrasValidas = []; // letras correspondentes
-  let linhaPassos = '';
-
+function somarLetras(txt) {
+  let soma = 0, letras = [];
   for (const ch of txt) {
     const n = letraParaNumero(ch);
-    if (n !== null) {
-      numeros.push(n);
-      letrasValidas.push(ch.toLowerCase());
-      linhaPassos += `${ch.toUpperCase()}(${n}) `;
-    } else if (ch === ' ') {
-      linhaPassos += `␣ `;
+    if (n !== null) { soma += n; letras.push(ch.toUpperCase()); }
+  }
+  return { soma, letras };
+}
+
+function hashCurto(txt) {
+  let h = 5381;
+  for (let i = 0; i < txt.length; i++) {
+    h = ((h << 5) + h + txt.charCodeAt(i)) & 0xFFFFFFF;
+  }
+  return h.toString(36).toUpperCase().padStart(3,'0').slice(-3);
+}
+
+function codigoCurto(frase, metodo) {
+  const { soma, letras } = somarLetras(frase);
+  const palavras = frase.trim().split(/\s+/).filter(Boolean);
+
+  switch (metodo) {
+    case 'somaBase36': return soma.toString(36).toUpperCase();
+    case 'somaLetra':  return (letras[0] || 'X') + soma;
+    case 'iniciais':   return palavras.map(p => p[0]?.toUpperCase() || '').join('') || 'X';
+    case 'hash3':      return hashCurto(frase);
+    case 'vogais': {
+      const vog = [...frase.toUpperCase()].filter(c => 'AEIOU'.includes(c)).join('');
+      return (vog || 'X') + soma;
     }
   }
+  return '???';
+}
 
-  const soma = numeros.reduce((a, b) => a + b, 0);
+/* ---------- geração ---------- */
+function gerar() {
+  const versao = document.getElementById('versao').value || '0';
+  const frase  = document.getElementById('frase').value;
+  const numero = document.getElementById('numero').value || '0';
+  const metodo = document.getElementById('metodo').value;
+  const formato= document.getElementById('formato').value;
 
+  const cod = codigoCurto(frase, metodo);
   let saida = '';
-  if (modo === 'simples') {
-    saida = `#${soma}`;
-  } else if (modo === 'detalhado') {
-    saida = `${numeros.join(' + ')} = ${soma}`;
-  } else if (modo === 'mapa') {
-    // Guarda os números para permitir decodificar
-    saida = `${numeros.join('-')} = ${soma}`;
+
+  switch (formato) {
+    case 'padrao':   saida = `${versao}-${cod}.${numero}`; break;
+    case 'prefixo':  saida = `v${versao} / ${cod} / ${numero}`; break;
+    case 'barras':   saida = `${versao}/${cod}/${numero}`; break;
+    case 'compacto': saida = `${versao.replace(/\./g,'')}${cod}${numero}`; break;
+    case 'bracket':  saida = `[${versao}] ${cod} #${numero}`; break;
   }
 
   document.getElementById('saida').textContent = saida;
 
-  document.getElementById('passos').innerHTML =
-    `<div style="margin-bottom:8px;color:#ff9;">${linhaPassos.trim()}</div>` +
-    `<div style="color:#7cf;font-size:22px;">Soma total: <b>${soma}</b></div>`;
+  const { soma } = somarLetras(frase);
+  const det = [];
+  det.push(`<div><span class="tag">VERSÃO</span> ${versao}</div>`);
+  det.push(`<div><span class="tag">FRASE</span> "${frase}"</div>`);
+  det.push(`<div>&nbsp;&nbsp;→ soma das letras = <b style="color:#7cf">${soma}</b></div>`);
+  det.push(`<div>&nbsp;&nbsp;→ método "<b>${metodo}</b>" → código curto = <b style="color:#7cf">${cod}</b></div>`);
+  det.push(`<div><span class="tag">NÚMERO</span> ${numero}</div>`);
+  det.push(`<div style="margin-top:10px;color:#9f9;">Resultado: <b>${saida}</b></div>`);
+
+  document.getElementById('passos').innerHTML = det.join('');
 }
 
 function copiar() {
   navigator.clipboard.writeText(document.getElementById('saida').textContent);
+  alert('Copiado!');
+}
+
+function limpar() {
+  document.getElementById('versao').value = '';
+  document.getElementById('frase').value = '';
+  document.getElementById('numero').value = '';
+  document.getElementById('saida').textContent = '—';
+  document.getElementById('passos').textContent = '—';
 }
 </script>
 
